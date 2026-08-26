@@ -36,3 +36,21 @@ export type {
   BackendUpdate,
   LoadBalanceMethod,
 } from "@/lib/api/resources/upstreams";
+
+export {
+  certificates,
+  ACME_CHALLENGES,
+  CERT_PROVIDER_LABELS,
+} from "@/lib/api/resources/certificates";
+export type {
+  Certificate,
+  CustomCertificateCreate,
+  LetsEncryptCertificateCreate,
+  CertificateIssued,
+  CertificateProvider,
+  CertificateStatus,
+  AcmeChallenge,
+} from "@/lib/api/resources/certificates";
+
+export { tasks, pollTask } from "@/lib/api/resources/tasks";
+export type { TaskStatus, PollTaskOptions } from "@/lib/api/resources/tasks";

@@ -1,16 +1,9 @@
 import type { Metadata } from "next";
-import { ShieldCheck } from "lucide-react";
 
-import { PagePlaceholder } from "@/components/page-placeholder";
+import { CertificatesView } from "@/components/certificates/certificates-view";
 
 export const metadata: Metadata = { title: "Certificates" };
 
 export default function CertificatesPage() {
-  return (
-    <PagePlaceholder
-      title="Certificates"
-      description="TLS certificates and Let's Encrypt automation."
-      icon={ShieldCheck}
-    />
-  );
+  return <CertificatesView />;
 }
