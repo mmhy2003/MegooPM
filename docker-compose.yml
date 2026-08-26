@@ -149,6 +149,16 @@ services:
     environment:
       <<: *backend-env
       RUN_MIGRATIONS: "0"
+    # Disable the healthcheck inherited from the shared backend image
+    # (curl :8000/health). This container runs only the Celery *scheduler* — it
+    # has no HTTP server on :8000, so the inherited probe is permanently
+    # unhealthy (MEG-41). There is no honest lightweight beat liveness probe
+    # here: `celery inspect ping` broadcasts over the broker and is answered by
+    # *workers*, not the scheduler, so it would report the worker's health and
+    # mask a real beat outage — worse than no check. Liveness is observed via
+    # beat's own scheduler logs ("Sending due task heartbeat-every-5-minutes").
+    healthcheck:
+      disable: true
     depends_on:
       redis:
         condition: service_healthy
@@ -164,11 +174,15 @@ services:
     depends_on:
       backend:
         condition: service_started
+    # Next dev compiles routes on first request; `GET /` takes ~7s the first time
+    # (MEG-41). The old 5s timeout expired mid-compile and flapped the container
+    # to unhealthy even though it serves 200 fine. timeout > worst-case compile,
+    # plus a wider start_period, absorbs the cold-start compile without flapping.
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:3000/"]
       interval: 15s
-      timeout: 5s
-      start_period: 40s
+      timeout: 15s
+      start_period: 60s
       retries: 10
 
   # The managed nginx reverse proxy MegooPM controls. Its base config includes
