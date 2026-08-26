@@ -52,5 +52,12 @@ jobs:
       - name: Alembic upgrade head
         run: alembic upgrade head
 
+      - name: Alembic check (migrations match models)
+        # Fails if ORM models have changes not captured in a migration.
+        run: alembic check
+
       - name: Pytest
+        # Includes the OpenAPI contract test, which fails if backend/openapi.json
+        # has drifted from the app's live schema (regenerate via
+        # `python -m scripts.export_openapi`).
         run: pytest
