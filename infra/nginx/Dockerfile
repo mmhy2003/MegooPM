@@ -40,6 +40,14 @@ RUN apk add --no-cache --virtual .build-deps git \
 RUN mkdir -p /etc/nginx \
     && ln -sf /usr/local/openresty/nginx/conf/mime.types /etc/nginx/mime.types
 
+# Drop the stock OpenResty default.conf (MEG-36 Defect B). The base nginx.conf
+# already ships the `_` default_server with /healthz; leaving the stock vhost
+# (server_name localhost) in conf.d shadows it for `Host: localhost`, so the
+# compose healthcheck `wget /healthz` 404s and nginx never turns healthy. On a
+# fresh nginx_confd volume Docker also seeds this file into the volume, so it
+# must be gone from the image itself.
+RUN rm -f /etc/nginx/conf.d/default.conf
+
 # CrowdSec bouncer config template + the MegooPM lua handlers.
 COPY crowdsec-bouncer.conf /etc/nginx/crowdsec-bouncer.conf.template
 COPY lua/ /etc/nginx/lua/
