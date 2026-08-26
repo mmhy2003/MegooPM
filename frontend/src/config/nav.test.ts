@@ -10,6 +10,8 @@ describe("primaryNav", () => {
       "Certificates",
       "Access Lists",
       "Streams",
+      "Redirection Hosts",
+      "404 Hosts",
       "Security",
     ]);
   });

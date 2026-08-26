@@ -70,5 +70,24 @@ export type {
   AccessListDirective,
 } from "@/lib/api/resources/access-lists";
 
+export { streams } from "@/lib/api/resources/streams";
+export type { Stream, StreamCreate, StreamUpdate } from "@/lib/api/resources/streams";
+
+export {
+  redirectionHosts,
+  REDIRECT_SCHEMES,
+  REDIRECT_HTTP_CODES,
+  REDIRECT_CODE_LABELS,
+} from "@/lib/api/resources/redirection-hosts";
+export type {
+  RedirectionHost,
+  RedirectionHostCreate,
+  RedirectionHostUpdate,
+  RedirectScheme,
+} from "@/lib/api/resources/redirection-hosts";
+
+export { deadHosts } from "@/lib/api/resources/dead-hosts";
+export type { DeadHost, DeadHostCreate, DeadHostUpdate } from "@/lib/api/resources/dead-hosts";
+
 export { tasks, pollTask } from "@/lib/api/resources/tasks";
 export type { TaskStatus, PollTaskOptions } from "@/lib/api/resources/tasks";

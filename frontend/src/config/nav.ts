@@ -3,6 +3,8 @@ import {
   ShieldCheck,
   ListChecks,
   Network,
+  ArrowRightLeft,
+  Ban,
   ShieldAlert,
   type LucideIcon,
 } from "lucide-react";
@@ -43,6 +45,18 @@ export const primaryNav: NavItem[] = [
     href: "/streams",
     icon: Network,
     description: "Raw TCP/UDP stream forwarding.",
+  },
+  {
+    title: "Redirection Hosts",
+    href: "/redirection-hosts",
+    icon: ArrowRightLeft,
+    description: "Redirect domains to another domain with a chosen status code.",
+  },
+  {
+    title: "404 Hosts",
+    href: "/dead-hosts",
+    icon: Ban,
+    description: "Park domains and return a 404 for every request.",
   },
   {
     title: "Security",

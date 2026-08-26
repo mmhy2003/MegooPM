@@ -1,0 +1,215 @@
+"use client";
+
+import { useCallback, useEffect, useState } from "react";
+import { Ban, Pencil, Plus, ShieldCheck, Trash2 } from "lucide-react";
+
+import { certificates, deadHosts, type Certificate, type DeadHost } from "@/lib/api";
+import { describeError } from "@/components/proxy-hosts/lib";
+import { ConfirmDeleteDialog } from "@/components/proxy-hosts/confirm-delete-dialog";
+import { DeadHostDialog } from "@/components/dead-hosts/dead-host-dialog";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+
+function StatusBadge({ enabled }: { enabled: boolean }) {
+  return (
+    <Badge variant={enabled ? "success" : "muted"}>
+      <span
+        className={`size-1.5 rounded-full ${enabled ? "bg-success" : "bg-muted-foreground"}`}
+        aria-hidden
+      />
+      {enabled ? "Active" : "Disabled"}
+    </Badge>
+  );
+}
+
+function LoadingRows({ cols }: { cols: number }) {
+  return (
+    <>
+      {[0, 1, 2].map((i) => (
+        <TableRow key={i}>
+          {Array.from({ length: cols }).map((_, c) => (
+            <TableCell key={c}>
+              <Skeleton className="h-4 w-full" />
+            </TableCell>
+          ))}
+        </TableRow>
+      ))}
+    </>
+  );
+}
+
+export function DeadHostsView() {
+  const [rows, setRows] = useState<DeadHost[]>([]);
+  const [certs, setCerts] = useState<Certificate[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  const [dialog, setDialog] = useState<{ open: boolean; host: DeadHost | null }>({
+    open: false,
+    host: null,
+  });
+  const [toDelete, setToDelete] = useState<DeadHost | null>(null);
+
+  const load = useCallback(async () => {
+    try {
+      const [h, c] = await Promise.all([deadHosts.list(), certificates.list()]);
+      setRows(h);
+      setCerts(c);
+      setLoadError(null);
+    } catch (err) {
+      setLoadError(describeError(err).message);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const refresh = useCallback(() => {
+    setLoading(true);
+    void load();
+  }, [load]);
+
+  useEffect(() => {
+    let active = true;
+    void (async () => {
+      if (active) await load();
+    })();
+    return () => {
+      active = false;
+    };
+  }, [load]);
+
+  return (
+    <div className="mx-auto flex max-w-6xl flex-col gap-6">
+      <div className="flex items-center gap-3">
+        <div className="flex size-10 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+          <Ban className="size-5" />
+        </div>
+        <div>
+          <h2 className="text-xl font-semibold tracking-tight">404 Hosts</h2>
+          <p className="text-sm text-muted-foreground">
+            Park domains and return a 404 for every request.
+          </p>
+        </div>
+      </div>
+
+      {loadError ? (
+        <div className="flex flex-col items-start gap-3 rounded-xl border border-destructive/30 bg-destructive/5 p-4">
+          <p className="text-sm text-destructive" role="alert">
+            Couldn’t load 404 hosts: {loadError}
+          </p>
+          <Button variant="outline" size="sm" onClick={refresh}>
+            Retry
+          </Button>
+        </div>
+      ) : null}
+
+      <div className="space-y-3">
+        <div className="flex justify-end">
+          <Button size="sm" onClick={() => setDialog({ open: true, host: null })}>
+            <Plus /> New 404 host
+          </Button>
+        </div>
+        <div className="rounded-xl border">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Domains</TableHead>
+                <TableHead>TLS</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead className="w-24 text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {loading ? (
+                <LoadingRows cols={4} />
+              ) : rows.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={4} className="py-10 text-center text-muted-foreground">
+                    No 404 hosts yet. Create one to park a domain.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                rows.map((host) => (
+                  <TableRow key={host.id}>
+                    <TableCell className="font-medium">
+                      <div className="flex flex-wrap gap-1">
+                        {host.domain_names.map((d) => (
+                          <span key={d}>{d}</span>
+                        ))}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      {host.certificate_id != null ? (
+                        <span className="inline-flex items-center gap-1.5">
+                          <ShieldCheck className="size-3.5 text-muted-foreground" />
+                          TLS
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <StatusBadge enabled={host.enabled} />
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex justify-end gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
+                          aria-label={`Edit ${host.domain_names[0]}`}
+                          onClick={() => setDialog({ open: true, host })}
+                        >
+                          <Pencil />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
+                          aria-label={`Delete ${host.domain_names[0]}`}
+                          onClick={() => setToDelete(host)}
+                        >
+                          <Trash2 />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
+      </div>
+
+      {dialog.open ? (
+        <DeadHostDialog
+          key={dialog.host?.id ?? "new-dead"}
+          open
+          onOpenChange={(open) => !open && setDialog({ open: false, host: null })}
+          host={dialog.host}
+          certificates={certs}
+          onSaved={refresh}
+        />
+      ) : null}
+      {toDelete ? (
+        <ConfirmDeleteDialog
+          open
+          onOpenChange={(open) => !open && setToDelete(null)}
+          title="Delete 404 host?"
+          description={`This removes ${toDelete.domain_names.join(", ")} and regenerates the nginx config.`}
+          onConfirm={async () => {
+            await deadHosts.remove(toDelete.id);
+          }}
+          onDeleted={refresh}
+        />
+      ) : null}
+    </div>
+  );
+}
