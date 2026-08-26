@@ -52,5 +52,23 @@ export type {
   AcmeChallenge,
 } from "@/lib/api/resources/certificates";
 
+export {
+  accessLists,
+  ACCESS_LIST_DIRECTIVES,
+  DIRECTIVE_LABELS,
+} from "@/lib/api/resources/access-lists";
+export type {
+  AccessList,
+  AccessListCreate,
+  AccessListUpdate,
+  AccessListAuthUser,
+  AccessListAuthCreate,
+  AccessListAuthUpdate,
+  AccessListClientRule,
+  AccessListClientCreate,
+  AccessListClientUpdate,
+  AccessListDirective,
+} from "@/lib/api/resources/access-lists";
+
 export { tasks, pollTask } from "@/lib/api/resources/tasks";
 export type { TaskStatus, PollTaskOptions } from "@/lib/api/resources/tasks";

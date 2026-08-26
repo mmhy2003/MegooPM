@@ -1,12 +1,14 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Globe, Pencil, Plus, Server, Trash2 } from "lucide-react";
+import { Globe, ListChecks, Pencil, Plus, Server, Trash2 } from "lucide-react";
 
 import {
   LB_METHOD_LABELS,
+  accessLists,
   proxyHosts,
   upstreams,
+  type AccessList,
   type ProxyHost,
   type Upstream,
 } from "@/lib/api";
@@ -58,6 +60,7 @@ function LoadingRows({ cols }: { cols: number }) {
 export function ProxyHostsView() {
   const [hosts, setHosts] = useState<ProxyHost[]>([]);
   const [pools, setPools] = useState<Upstream[]>([]);
+  const [lists, setLists] = useState<AccessList[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -76,9 +79,14 @@ export function ProxyHostsView() {
   // effect body; `refresh` (event handlers) shows the skeleton while reloading.
   const load = useCallback(async () => {
     try {
-      const [h, p] = await Promise.all([proxyHosts.list(), upstreams.list()]);
+      const [h, p, a] = await Promise.all([
+        proxyHosts.list(),
+        upstreams.list(),
+        accessLists.list(),
+      ]);
       setHosts(h);
       setPools(p);
+      setLists(a);
       setLoadError(null);
     } catch (err) {
       setLoadError(describeError(err).message);
@@ -107,6 +115,12 @@ export function ProxyHostsView() {
     for (const pool of pools) map.set(pool.id, pool);
     return map;
   }, [pools]);
+
+  const listsById = useMemo(() => {
+    const map = new Map<number, AccessList>();
+    for (const list of lists) map.set(list.id, list);
+    return map;
+  }, [lists]);
 
   return (
     <div className="mx-auto flex max-w-6xl flex-col gap-6">
@@ -156,6 +170,7 @@ export function ProxyHostsView() {
                 <TableRow>
                   <TableHead>Domains</TableHead>
                   <TableHead>Upstream</TableHead>
+                  <TableHead>Access list</TableHead>
                   <TableHead>Scheme</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="w-24 text-right">Actions</TableHead>
@@ -163,16 +178,20 @@ export function ProxyHostsView() {
               </TableHeader>
               <TableBody>
                 {loading ? (
-                  <LoadingRows cols={5} />
+                  <LoadingRows cols={6} />
                 ) : hosts.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={5} className="py-10 text-center text-muted-foreground">
+                    <TableCell colSpan={6} className="py-10 text-center text-muted-foreground">
                       No proxy hosts yet. Create a pool, then add a host that forwards to it.
                     </TableCell>
                   </TableRow>
                 ) : (
                   hosts.map((host) => {
                     const pool = poolsById.get(host.upstream_id);
+                    const list =
+                      host.access_list_id != null
+                        ? listsById.get(host.access_list_id)
+                        : null;
                     return (
                       <TableRow key={host.id}>
                         <TableCell className="font-medium">
@@ -190,6 +209,16 @@ export function ProxyHostsView() {
                             </span>
                           ) : (
                             <span className="text-muted-foreground">#{host.upstream_id}</span>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {host.access_list_id != null ? (
+                            <span className="inline-flex items-center gap-1.5">
+                              <ListChecks className="size-3.5 text-muted-foreground" />
+                              {list ? list.name : `#${host.access_list_id}`}
+                            </span>
+                          ) : (
+                            <span className="text-muted-foreground">—</span>
                           )}
                         </TableCell>
                         <TableCell>
@@ -316,6 +345,7 @@ export function ProxyHostsView() {
           onOpenChange={(open) => !open && setHostDialog({ open: false, host: null })}
           host={hostDialog.host}
           pools={pools}
+          lists={lists}
           onSaved={refresh}
         />
       ) : null}

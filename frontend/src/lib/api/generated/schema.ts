@@ -4,6 +4,146 @@
  */
 
 export interface paths {
+    "/api/v1/access-lists": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Access Lists
+         * @description List all access lists with their users and rules. Admin-only.
+         */
+        get: operations["list_access_lists_api_v1_access_lists_get"];
+        put?: never;
+        /**
+         * Create Access List
+         * @description Create an access list, optionally seeding users and rules inline. Admin-only.
+         */
+        post: operations["create_access_list_api_v1_access_lists_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/access-lists/{access_list_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Access List
+         * @description Fetch a single access list. Admin-only.
+         */
+        get: operations["get_access_list_api_v1_access_lists__access_list_id__get"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete Access List
+         * @description Delete an access list. Attached hosts are detached (FK SET NULL).
+         */
+        delete: operations["delete_access_list_api_v1_access_lists__access_list_id__delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Update Access List
+         * @description Update an access list's own attributes (name/satisfy_any/pass_auth).
+         */
+        patch: operations["update_access_list_api_v1_access_lists__access_list_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/access-lists/{access_list_id}/auth-users": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add Auth User
+         * @description Add a basic-auth user to an access list. Admin-only.
+         */
+        post: operations["add_auth_user_api_v1_access_lists__access_list_id__auth_users_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/access-lists/{access_list_id}/auth-users/{user_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove Auth User
+         * @description Remove a basic-auth user from an access list. Admin-only.
+         */
+        delete: operations["remove_auth_user_api_v1_access_lists__access_list_id__auth_users__user_id__delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Set Auth Password
+         * @description Reset a basic-auth user's password. Admin-only.
+         */
+        patch: operations["set_auth_password_api_v1_access_lists__access_list_id__auth_users__user_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/access-lists/{access_list_id}/clients": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add Client Rule
+         * @description Add an allow/deny client rule to an access list. Admin-only.
+         */
+        post: operations["add_client_rule_api_v1_access_lists__access_list_id__clients_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/access-lists/{access_list_id}/clients/{rule_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove Client Rule
+         * @description Remove a client rule from an access list. Admin-only.
+         */
+        delete: operations["remove_client_rule_api_v1_access_lists__access_list_id__clients__rule_id__delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Update Client Rule
+         * @description Update a client rule within an access list. Admin-only.
+         */
+        patch: operations["update_client_rule_api_v1_access_lists__access_list_id__clients__rule_id__patch"];
+        trace?: never;
+    };
     "/api/v1/audit-log": {
         parameters: {
             query?: never;
@@ -275,6 +415,58 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/dead-hosts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Dead Hosts
+         * @description List all dead hosts. Admin-only.
+         */
+        get: operations["list_dead_hosts_api_v1_dead_hosts_get"];
+        put?: never;
+        /**
+         * Create Dead Host
+         * @description Create a dead host. Admin-only.
+         */
+        post: operations["create_dead_host_api_v1_dead_hosts_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/dead-hosts/{host_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Dead Host
+         * @description Fetch a single dead host. Admin-only.
+         */
+        get: operations["get_dead_host_api_v1_dead_hosts__host_id__get"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete Dead Host
+         * @description Delete a dead host. Admin-only.
+         */
+        delete: operations["delete_dead_host_api_v1_dead_hosts__host_id__delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Update Dead Host
+         * @description Update a dead host. Admin-only.
+         */
+        patch: operations["update_dead_host_api_v1_dead_hosts__host_id__patch"];
+        trace?: never;
+    };
     "/api/v1/nginx/preview": {
         parameters: {
             query?: never;
@@ -365,6 +557,110 @@ export interface paths {
          * @description Update a proxy host. Admin-only.
          */
         patch: operations["update_proxy_host_api_v1_proxy_hosts__host_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/redirection-hosts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Redirection Hosts
+         * @description List all redirection hosts. Admin-only.
+         */
+        get: operations["list_redirection_hosts_api_v1_redirection_hosts_get"];
+        put?: never;
+        /**
+         * Create Redirection Host
+         * @description Create a redirection host. Admin-only.
+         */
+        post: operations["create_redirection_host_api_v1_redirection_hosts_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/redirection-hosts/{host_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Redirection Host
+         * @description Fetch a single redirection host. Admin-only.
+         */
+        get: operations["get_redirection_host_api_v1_redirection_hosts__host_id__get"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete Redirection Host
+         * @description Delete a redirection host. Admin-only.
+         */
+        delete: operations["delete_redirection_host_api_v1_redirection_hosts__host_id__delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Update Redirection Host
+         * @description Update a redirection host. Admin-only.
+         */
+        patch: operations["update_redirection_host_api_v1_redirection_hosts__host_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/streams": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Streams
+         * @description List all streams. Admin-only.
+         */
+        get: operations["list_streams_api_v1_streams_get"];
+        put?: never;
+        /**
+         * Create Stream
+         * @description Create a TCP/UDP stream forward. Admin-only.
+         */
+        post: operations["create_stream_api_v1_streams_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/streams/{stream_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Stream
+         * @description Fetch a single stream. Admin-only.
+         */
+        get: operations["get_stream_api_v1_streams__stream_id__get"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete Stream
+         * @description Delete a stream. Admin-only.
+         */
+        delete: operations["delete_stream_api_v1_streams__stream_id__delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Update Stream
+         * @description Update a stream. Admin-only.
+         */
+        patch: operations["update_stream_api_v1_streams__stream_id__patch"];
         trace?: never;
     };
     "/api/v1/tasks/sample": {
@@ -571,6 +867,174 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /**
+         * AccessListAuthCreate
+         * @description A basic-auth credential to add to an access list (password write-only).
+         */
+        AccessListAuthCreate: {
+            /**
+             * Password
+             * @description Plaintext; stored hashed, never returned
+             */
+            password: string;
+            /** Username */
+            username: string;
+        };
+        /**
+         * AccessListAuthRead
+         * @description Public representation of a basic-auth user (no credential material).
+         */
+        AccessListAuthRead: {
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Id */
+            id: number;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /** Username */
+            username: string;
+        };
+        /**
+         * AccessListAuthUpdate
+         * @description Reset a basic-auth user's password.
+         */
+        AccessListAuthUpdate: {
+            /** Password */
+            password: string;
+        };
+        /**
+         * AccessListClientCreate
+         * @description An allow/deny rule for an IP address, CIDR range, or ``all``.
+         */
+        AccessListClientCreate: {
+            /**
+             * Address
+             * @description IP, CIDR, or 'all'
+             */
+            address: string;
+            /** @description allow or deny */
+            directive: components["schemas"]["AccessListDirective"];
+        };
+        /**
+         * AccessListClientRead
+         * @description Public representation of an IP client rule.
+         */
+        AccessListClientRead: {
+            /** Address */
+            address: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            directive: components["schemas"]["AccessListDirective"];
+            /** Id */
+            id: number;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /**
+         * AccessListClientUpdate
+         * @description Partial update of a client rule.
+         */
+        AccessListClientUpdate: {
+            /** Address */
+            address?: string | null;
+            directive?: components["schemas"]["AccessListDirective"] | null;
+        };
+        /**
+         * AccessListCreate
+         * @description Payload to create an access list, optionally seeding users and rules inline.
+         */
+        AccessListCreate: {
+            /** Auth Users */
+            auth_users?: components["schemas"]["AccessListAuthCreate"][];
+            /** Clients */
+            clients?: components["schemas"]["AccessListClientCreate"][];
+            /**
+             * Name
+             * @description Human-readable name
+             */
+            name: string;
+            /**
+             * Pass Auth
+             * @description Forward the Authorization header to the upstream
+             * @default false
+             */
+            pass_auth: boolean;
+            /**
+             * Satisfy Any
+             * @description Pass if EITHER gate (auth OR ip) is satisfied; false requires both
+             * @default false
+             */
+            satisfy_any: boolean;
+        };
+        /**
+         * AccessListDirective
+         * @description Client-rule directive for an access list entry.
+         * @enum {string}
+         */
+        AccessListDirective: "allow" | "deny";
+        /**
+         * AccessListRead
+         * @description Public representation of an access list, including users and rules.
+         */
+        AccessListRead: {
+            /** Auth Users */
+            auth_users?: components["schemas"]["AccessListAuthRead"][];
+            /** Client Rules */
+            client_rules?: components["schemas"]["AccessListClientRead"][];
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Id */
+            id: number;
+            /**
+             * Name
+             * @description Human-readable name
+             */
+            name: string;
+            /**
+             * Pass Auth
+             * @description Forward the Authorization header to the upstream
+             * @default false
+             */
+            pass_auth: boolean;
+            /**
+             * Satisfy Any
+             * @description Pass if EITHER gate (auth OR ip) is satisfied; false requires both
+             * @default false
+             */
+            satisfy_any: boolean;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /**
+         * AccessListUpdate
+         * @description Partial update of an access list's own attributes (not its users/rules).
+         */
+        AccessListUpdate: {
+            /** Name */
+            name?: string | null;
+            /** Pass Auth */
+            pass_auth?: boolean | null;
+            /** Satisfy Any */
+            satisfy_any?: boolean | null;
+        };
         /**
          * Alert
          * @description A detection event CrowdSec raised, with any decisions it triggered.
@@ -900,6 +1364,144 @@ export interface components {
              * @description Matching private key in PEM format
              */
             private_key_pem: string;
+        };
+        /**
+         * DeadHostCreate
+         * @description Payload to create a dead host.
+         */
+        DeadHostCreate: {
+            /**
+             * Advanced Config
+             * @description Raw nginx directives injected into the server block
+             * @default
+             */
+            advanced_config: string;
+            /**
+             * Certificate Id
+             * @description Certificate for TLS termination; null serves plain :80
+             */
+            certificate_id?: number | null;
+            /**
+             * Domain Names
+             * @description Domains this host answers for (server_name)
+             */
+            domain_names: string[];
+            /**
+             * Enabled
+             * @description Disabled hosts are excluded from config
+             * @default true
+             */
+            enabled: boolean;
+            /**
+             * Hsts Enabled
+             * @description Emit a Strict-Transport-Security header
+             * @default false
+             */
+            hsts_enabled: boolean;
+            /**
+             * Hsts Subdomains
+             * @description Include subdomains in HSTS
+             * @default false
+             */
+            hsts_subdomains: boolean;
+            /**
+             * Http2 Support
+             * @description Enable HTTP/2 on the TLS listener
+             * @default false
+             */
+            http2_support: boolean;
+            /**
+             * Ssl Forced
+             * @description Redirect :80 to HTTPS
+             * @default false
+             */
+            ssl_forced: boolean;
+        };
+        /**
+         * DeadHostRead
+         * @description Public representation of a dead host.
+         */
+        DeadHostRead: {
+            /**
+             * Advanced Config
+             * @description Raw nginx directives injected into the server block
+             * @default
+             */
+            advanced_config: string;
+            /**
+             * Certificate Id
+             * @description Certificate for TLS termination; null serves plain :80
+             */
+            certificate_id?: number | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Domain Names
+             * @description Domains this host answers for (server_name)
+             */
+            domain_names: string[];
+            /**
+             * Enabled
+             * @description Disabled hosts are excluded from config
+             * @default true
+             */
+            enabled: boolean;
+            /**
+             * Hsts Enabled
+             * @description Emit a Strict-Transport-Security header
+             * @default false
+             */
+            hsts_enabled: boolean;
+            /**
+             * Hsts Subdomains
+             * @description Include subdomains in HSTS
+             * @default false
+             */
+            hsts_subdomains: boolean;
+            /**
+             * Http2 Support
+             * @description Enable HTTP/2 on the TLS listener
+             * @default false
+             */
+            http2_support: boolean;
+            /** Id */
+            id: number;
+            /**
+             * Ssl Forced
+             * @description Redirect :80 to HTTPS
+             * @default false
+             */
+            ssl_forced: boolean;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /**
+         * DeadHostUpdate
+         * @description Partial update of a dead host; every field is optional.
+         */
+        DeadHostUpdate: {
+            /** Advanced Config */
+            advanced_config?: string | null;
+            /** Certificate Id */
+            certificate_id?: number | null;
+            /** Domain Names */
+            domain_names?: string[] | null;
+            /** Enabled */
+            enabled?: boolean | null;
+            /** Hsts Enabled */
+            hsts_enabled?: boolean | null;
+            /** Hsts Subdomains */
+            hsts_subdomains?: boolean | null;
+            /** Http2 Support */
+            http2_support?: boolean | null;
+            /** Ssl Forced */
+            ssl_forced?: boolean | null;
         };
         /**
          * Decision
@@ -1298,6 +1900,215 @@ export interface components {
             upstream_id?: number | null;
         };
         /**
+         * RedirectScheme
+         * @description Scheme applied to a redirection target (``auto`` keeps the request's).
+         * @enum {string}
+         */
+        RedirectScheme: "auto" | "http" | "https";
+        /**
+         * RedirectionHostCreate
+         * @description Payload to create a redirection host.
+         */
+        RedirectionHostCreate: {
+            /**
+             * Advanced Config
+             * @description Raw nginx directives injected into the server block
+             * @default
+             */
+            advanced_config: string;
+            /**
+             * Block Exploits
+             * @description Block common exploit probes
+             * @default false
+             */
+            block_exploits: boolean;
+            /**
+             * Certificate Id
+             * @description Certificate for TLS termination; null serves plain :80
+             */
+            certificate_id?: number | null;
+            /**
+             * Domain Names
+             * @description Domains this host answers for (server_name)
+             */
+            domain_names: string[];
+            /**
+             * Enabled
+             * @description Disabled hosts are excluded from config
+             * @default true
+             */
+            enabled: boolean;
+            /**
+             * Forward Domain Name
+             * @description Domain requests are redirected to
+             */
+            forward_domain_name: string;
+            /**
+             * Forward Http Code
+             * @description HTTP redirect status code (300–308)
+             * @default 302
+             */
+            forward_http_code: number;
+            /**
+             * @description Target scheme; 'auto' keeps the incoming request's scheme
+             * @default auto
+             */
+            forward_scheme: components["schemas"]["RedirectScheme"];
+            /**
+             * Hsts Enabled
+             * @description Emit a Strict-Transport-Security header
+             * @default false
+             */
+            hsts_enabled: boolean;
+            /**
+             * Hsts Subdomains
+             * @description Include subdomains in HSTS
+             * @default false
+             */
+            hsts_subdomains: boolean;
+            /**
+             * Http2 Support
+             * @description Enable HTTP/2 on the TLS listener
+             * @default false
+             */
+            http2_support: boolean;
+            /**
+             * Preserve Path
+             * @description Append the original request URI to the target
+             * @default true
+             */
+            preserve_path: boolean;
+            /**
+             * Ssl Forced
+             * @description Redirect :80 to HTTPS
+             * @default false
+             */
+            ssl_forced: boolean;
+        };
+        /**
+         * RedirectionHostRead
+         * @description Public representation of a redirection host.
+         */
+        RedirectionHostRead: {
+            /**
+             * Advanced Config
+             * @description Raw nginx directives injected into the server block
+             * @default
+             */
+            advanced_config: string;
+            /**
+             * Block Exploits
+             * @description Block common exploit probes
+             * @default false
+             */
+            block_exploits: boolean;
+            /**
+             * Certificate Id
+             * @description Certificate for TLS termination; null serves plain :80
+             */
+            certificate_id?: number | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Domain Names
+             * @description Domains this host answers for (server_name)
+             */
+            domain_names: string[];
+            /**
+             * Enabled
+             * @description Disabled hosts are excluded from config
+             * @default true
+             */
+            enabled: boolean;
+            /**
+             * Forward Domain Name
+             * @description Domain requests are redirected to
+             */
+            forward_domain_name: string;
+            /**
+             * Forward Http Code
+             * @description HTTP redirect status code (300–308)
+             * @default 302
+             */
+            forward_http_code: number;
+            /**
+             * @description Target scheme; 'auto' keeps the incoming request's scheme
+             * @default auto
+             */
+            forward_scheme: components["schemas"]["RedirectScheme"];
+            /**
+             * Hsts Enabled
+             * @description Emit a Strict-Transport-Security header
+             * @default false
+             */
+            hsts_enabled: boolean;
+            /**
+             * Hsts Subdomains
+             * @description Include subdomains in HSTS
+             * @default false
+             */
+            hsts_subdomains: boolean;
+            /**
+             * Http2 Support
+             * @description Enable HTTP/2 on the TLS listener
+             * @default false
+             */
+            http2_support: boolean;
+            /** Id */
+            id: number;
+            /**
+             * Preserve Path
+             * @description Append the original request URI to the target
+             * @default true
+             */
+            preserve_path: boolean;
+            /**
+             * Ssl Forced
+             * @description Redirect :80 to HTTPS
+             * @default false
+             */
+            ssl_forced: boolean;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /**
+         * RedirectionHostUpdate
+         * @description Partial update of a redirection host; every field is optional.
+         */
+        RedirectionHostUpdate: {
+            /** Advanced Config */
+            advanced_config?: string | null;
+            /** Block Exploits */
+            block_exploits?: boolean | null;
+            /** Certificate Id */
+            certificate_id?: number | null;
+            /** Domain Names */
+            domain_names?: string[] | null;
+            /** Enabled */
+            enabled?: boolean | null;
+            /** Forward Domain Name */
+            forward_domain_name?: string | null;
+            /** Forward Http Code */
+            forward_http_code?: number | null;
+            forward_scheme?: components["schemas"]["RedirectScheme"] | null;
+            /** Hsts Enabled */
+            hsts_enabled?: boolean | null;
+            /** Hsts Subdomains */
+            hsts_subdomains?: boolean | null;
+            /** Http2 Support */
+            http2_support?: boolean | null;
+            /** Preserve Path */
+            preserve_path?: boolean | null;
+            /** Ssl Forced */
+            ssl_forced?: boolean | null;
+        };
+        /**
          * RefreshRequest
          * @description Body submitted to ``POST /auth/refresh``.
          */
@@ -1320,6 +2131,130 @@ export interface components {
              * @default 0
              */
             y: number;
+        };
+        /**
+         * StreamCreate
+         * @description Payload to create a stream.
+         */
+        StreamCreate: {
+            /**
+             * Certificate Id
+             * @description Certificate to terminate TLS on the TCP listener; null = plain
+             */
+            certificate_id?: number | null;
+            /**
+             * Enabled
+             * @description Disabled streams are excluded from config
+             * @default true
+             */
+            enabled: boolean;
+            /**
+             * Forward Host
+             * @description Backend host traffic is forwarded to
+             */
+            forward_host: string;
+            /**
+             * Forward Port
+             * @description Backend port traffic is forwarded to
+             */
+            forward_port: number;
+            /**
+             * Incoming Port
+             * @description Port nginx listens on for this stream
+             */
+            incoming_port: number;
+            /**
+             * Tcp Forwarding
+             * @description Forward TCP on the incoming port
+             * @default true
+             */
+            tcp_forwarding: boolean;
+            /**
+             * Udp Forwarding
+             * @description Forward UDP on the incoming port
+             * @default false
+             */
+            udp_forwarding: boolean;
+        };
+        /**
+         * StreamRead
+         * @description Public representation of a stream.
+         */
+        StreamRead: {
+            /**
+             * Certificate Id
+             * @description Certificate to terminate TLS on the TCP listener; null = plain
+             */
+            certificate_id?: number | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Enabled
+             * @description Disabled streams are excluded from config
+             * @default true
+             */
+            enabled: boolean;
+            /**
+             * Forward Host
+             * @description Backend host traffic is forwarded to
+             */
+            forward_host: string;
+            /**
+             * Forward Port
+             * @description Backend port traffic is forwarded to
+             */
+            forward_port: number;
+            /** Id */
+            id: number;
+            /**
+             * Incoming Port
+             * @description Port nginx listens on for this stream
+             */
+            incoming_port: number;
+            /**
+             * Tcp Forwarding
+             * @description Forward TCP on the incoming port
+             * @default true
+             */
+            tcp_forwarding: boolean;
+            /**
+             * Udp Forwarding
+             * @description Forward UDP on the incoming port
+             * @default false
+             */
+            udp_forwarding: boolean;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /**
+         * StreamUpdate
+         * @description Partial update of a stream; every field is optional.
+         *
+         *     The "at least one protocol" rule can only be enforced against the merged
+         *     result, so it is checked in the service/DB layer rather than here (a PATCH
+         *     that flips only one flag has no view of the other).
+         */
+        StreamUpdate: {
+            /** Certificate Id */
+            certificate_id?: number | null;
+            /** Enabled */
+            enabled?: boolean | null;
+            /** Forward Host */
+            forward_host?: string | null;
+            /** Forward Port */
+            forward_port?: number | null;
+            /** Incoming Port */
+            incoming_port?: number | null;
+            /** Tcp Forwarding */
+            tcp_forwarding?: boolean | null;
+            /** Udp Forwarding */
+            udp_forwarding?: boolean | null;
         };
         /**
          * TaskEnqueued
@@ -1538,6 +2473,356 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    list_access_lists_api_v1_access_lists_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AccessListRead"][];
+                };
+            };
+        };
+    };
+    create_access_list_api_v1_access_lists_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AccessListCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AccessListRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_access_list_api_v1_access_lists__access_list_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                access_list_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AccessListRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_access_list_api_v1_access_lists__access_list_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                access_list_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_access_list_api_v1_access_lists__access_list_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                access_list_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AccessListUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AccessListRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    add_auth_user_api_v1_access_lists__access_list_id__auth_users_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                access_list_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AccessListAuthCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AccessListAuthRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remove_auth_user_api_v1_access_lists__access_list_id__auth_users__user_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                access_list_id: number;
+                user_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_auth_password_api_v1_access_lists__access_list_id__auth_users__user_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                access_list_id: number;
+                user_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AccessListAuthUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AccessListAuthRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    add_client_rule_api_v1_access_lists__access_list_id__clients_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                access_list_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AccessListClientCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AccessListClientRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remove_client_rule_api_v1_access_lists__access_list_id__clients__rule_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                access_list_id: number;
+                rule_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_client_rule_api_v1_access_lists__access_list_id__clients__rule_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                access_list_id: number;
+                rule_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AccessListClientUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AccessListClientRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_audit_log_api_v1_audit_log_get: {
         parameters: {
             query?: {
@@ -1981,6 +3266,154 @@ export interface operations {
             };
         };
     };
+    list_dead_hosts_api_v1_dead_hosts_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeadHostRead"][];
+                };
+            };
+        };
+    };
+    create_dead_host_api_v1_dead_hosts_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DeadHostCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeadHostRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_dead_host_api_v1_dead_hosts__host_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                host_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeadHostRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_dead_host_api_v1_dead_hosts__host_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                host_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_dead_host_api_v1_dead_hosts__host_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                host_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DeadHostUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeadHostRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     preview_nginx_config_api_v1_nginx_preview_get: {
         parameters: {
             query?: never;
@@ -2156,6 +3589,302 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ProxyHostRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_redirection_hosts_api_v1_redirection_hosts_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RedirectionHostRead"][];
+                };
+            };
+        };
+    };
+    create_redirection_host_api_v1_redirection_hosts_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RedirectionHostCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RedirectionHostRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_redirection_host_api_v1_redirection_hosts__host_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                host_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RedirectionHostRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_redirection_host_api_v1_redirection_hosts__host_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                host_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_redirection_host_api_v1_redirection_hosts__host_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                host_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RedirectionHostUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RedirectionHostRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_streams_api_v1_streams_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StreamRead"][];
+                };
+            };
+        };
+    };
+    create_stream_api_v1_streams_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StreamCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StreamRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_stream_api_v1_streams__stream_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                stream_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StreamRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_stream_api_v1_streams__stream_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                stream_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_stream_api_v1_streams__stream_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                stream_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StreamUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StreamRead"];
                 };
             };
             /** @description Validation Error */

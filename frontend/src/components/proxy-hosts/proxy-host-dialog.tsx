@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import {
   HTTP_SCHEMES,
   proxyHosts,
+  type AccessList,
   type HttpScheme,
   type ProxyHost,
   type Upstream,
@@ -51,9 +52,13 @@ const TOGGLES = [
 
 type ToggleKey = (typeof TOGGLES)[number][0];
 
+/** Sentinel Select value for "no access list attached" (`null` on the wire). */
+const NO_ACCESS_LIST = "none";
+
 interface FormState {
   domains: string;
   upstreamId: string;
+  accessListId: string;
   forwardScheme: HttpScheme;
   enabled: boolean;
   toggles: Record<ToggleKey, boolean>;
@@ -77,6 +82,7 @@ function stateFromHost(host: ProxyHost | null | undefined): FormState {
     return {
       domains: "",
       upstreamId: "",
+      accessListId: NO_ACCESS_LIST,
       forwardScheme: "http",
       enabled: true,
       toggles: emptyToggles(),
@@ -86,6 +92,7 @@ function stateFromHost(host: ProxyHost | null | undefined): FormState {
   return {
     domains: formatDomains(host.domain_names),
     upstreamId: String(host.upstream_id),
+    accessListId: host.access_list_id ? String(host.access_list_id) : NO_ACCESS_LIST,
     forwardScheme: host.forward_scheme,
     enabled: host.enabled ?? true,
     toggles: {
@@ -106,12 +113,14 @@ export function ProxyHostDialog({
   onOpenChange,
   host,
   pools,
+  lists,
   onSaved,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   host?: ProxyHost | null;
   pools: Upstream[];
+  lists: AccessList[];
   onSaved: () => void;
 }) {
   const isEdit = Boolean(host);
@@ -140,6 +149,10 @@ export function ProxyHostDialog({
     const payload = {
       domain_names: domains,
       upstream_id: Number.parseInt(form.upstreamId, 10),
+      access_list_id:
+        form.accessListId === NO_ACCESS_LIST
+          ? null
+          : Number.parseInt(form.accessListId, 10),
       forward_scheme: form.forwardScheme,
       enabled: form.enabled,
       advanced_config: form.advancedConfig,
@@ -235,6 +248,31 @@ export function ProxyHostDialog({
                 ))}
               </SelectContent>
             </Select>
+          </div>
+
+          <div className="space-y-1.5 sm:col-span-2">
+            <Label htmlFor="host-access-list">Access list</Label>
+            <Select
+              value={form.accessListId}
+              onValueChange={(value) =>
+                setForm((p) => ({ ...p, accessListId: value as string }))
+              }
+            >
+              <SelectTrigger id="host-access-list" disabled={saving}>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={NO_ACCESS_LIST}>None (public)</SelectItem>
+                {lists.map((list) => (
+                  <SelectItem key={list.id} value={String(list.id)}>
+                    {list.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              Gate this host behind basic-auth users and/or IP allow/deny rules.
+            </p>
           </div>
         </div>
 
