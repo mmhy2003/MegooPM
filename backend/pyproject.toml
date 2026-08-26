@@ -11,6 +11,8 @@ dependencies = [
     "alembic>=1.13",
     "pydantic>=2.7",
     "pydantic-settings>=2.3",
+    "celery[redis]>=5.4",
+    "redis>=5.0",
 ]
 
 [project.optional-dependencies]

@@ -24,7 +24,8 @@ COPY app ./app
 COPY alembic ./alembic
 COPY alembic.ini ./alembic.ini
 COPY entrypoint.sh ./entrypoint.sh
-RUN chmod +x ./entrypoint.sh
+COPY worker-entrypoint.sh ./worker-entrypoint.sh
+RUN chmod +x ./entrypoint.sh ./worker-entrypoint.sh
 
 # Run as a non-root user.
 RUN useradd --create-home --uid 1000 appuser \

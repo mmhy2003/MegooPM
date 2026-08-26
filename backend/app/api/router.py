@@ -9,8 +9,12 @@ from __future__ import annotations
 
 from fastapi import APIRouter
 
+from app.api.routes import tasks
+
 api_router = APIRouter()
 
-# Feature routers are included here as they are added, for example:
+api_router.include_router(tasks.router)
+
+# Additional feature routers are included here as they are added, for example:
 # from app.api.routes import projects
 # api_router.include_router(projects.router, prefix="/projects")

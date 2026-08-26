@@ -17,12 +17,15 @@ backend/
 │   │   └── session.py     # async engine + get_session dependency
 │   ├── models/            # ORM models (registered in __init__.py)
 │   ├── schemas/           # Pydantic request/response models
-│   └── services/          # business logic
+│   ├── services/          # business logic
+│   ├── tasks/             # Celery task modules (sample.py, ...)
+│   └── core/celery_app.py # Celery app + config + beat schedule
 ├── alembic/               # migrations (async env.py)
 ├── tests/                 # pytest (asyncio_mode=auto)
 ├── Dockerfile
-├── entrypoint.sh          # runs `alembic upgrade head` then the CMD
-└── docker-compose.yml     # local Postgres + API
+├── entrypoint.sh          # API: runs `alembic upgrade head` then the CMD
+├── worker-entrypoint.sh   # worker/beat: no migrations, just exec the CMD
+└── docker-compose.yml     # local Postgres + Redis + API + worker + beat
 ```
 
 ## Local development
@@ -45,8 +48,41 @@ Interactive docs: http://localhost:8000/docs
 
 ```bash
 cd backend
-docker compose up --build   # Postgres + API; migrations run on startup
+docker compose up --build   # Postgres + Redis + API + Celery worker + beat
 ```
+
+## Background tasks (Celery + Redis)
+
+Async and scheduled jobs (certificate issuance/renewal and nginx config reloads,
+added by later tickets) run on Celery with Redis as broker and result backend.
+The Celery app (`app/core/celery_app.py`) reads its config from the same
+`Settings`, so `REDIS_URL` is the single source of truth.
+
+Run alongside a local Redis (`docker run -p 6379:6379 redis:7-alpine`):
+
+```bash
+# worker — consumes the queue and runs tasks
+celery -A app.core.celery_app.celery_app worker --loglevel=info
+# beat — schedules periodic jobs (heartbeat every 5 min by default)
+celery -A app.core.celery_app.celery_app beat --loglevel=info
+```
+
+Task modules live in `app/tasks/` and are registered via `TASK_MODULES` in
+`app/core/celery_app.py`; periodic jobs go in `celery_app.conf.beat_schedule`.
+The worker/beat containers do **not** run migrations — the API owns schema.
+
+Enqueue and poll the sample task through the API:
+
+```bash
+curl -sX POST localhost:8000/api/v1/tasks/sample -H 'content-type: application/json' -d '{"x":20,"y":22}'
+# -> {"task_id":"...","status":"PENDING"}
+curl -s localhost:8000/api/v1/tasks/<task_id>
+# -> {"task_id":"...","status":"SUCCESS","ready":true,"result":42,"error":null}
+```
+
+Tests run Celery in **eager** mode (`CELERY_TASK_ALWAYS_EAGER=true`, configured
+in `tests/conftest.py`), so the enqueue → execute → status-lookup path is covered
+without a running broker or worker.
 
 ## Configuration
 
@@ -59,6 +95,7 @@ See `.env.example` for the full list. Key vars:
 | `SECRET_KEY`   | signing secret (set in every environment)  |
 | `CORS_ORIGINS` | comma-separated allowed origins, or `*`    |
 | `ENVIRONMENT`  | `development` / `staging` / `production`   |
+| `REDIS_URL`    | Celery broker + result backend (`redis://…`) |
 
 ## Migrations
 

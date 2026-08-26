@@ -43,13 +43,22 @@ class Settings(BaseSettings):
     secret_key: str = Field(default="change-me-in-production")
     access_token_expire_minutes: int = 60 * 24
 
+    # --- Redis / Celery ---
+    # Redis is the default broker and result backend for Celery. The dedicated
+    # ``celery_*`` overrides let broker and backend diverge from ``redis_url``
+    # (e.g. separate Redis databases) without touching the shared default.
+    redis_url: str = Field(default="redis://localhost:6379/0")
+    celery_broker_url: str | None = None
+    celery_result_backend: str | None = None
+    # Run tasks synchronously in-process (no worker/broker needed). Enabled in
+    # tests; must stay False in real deployments.
+    celery_task_always_eager: bool = False
+
     # --- CORS ---
     # Comma-separated origins, or "*" for all. NoDecode disables
     # pydantic-settings' JSON pre-parsing so the validator below handles the
     # raw comma-separated string form.
-    cors_origins: Annotated[list[str], NoDecode] = Field(
-        default_factory=lambda: ["*"]
-    )
+    cors_origins: Annotated[list[str], NoDecode] = Field(default_factory=lambda: ["*"])
 
     @field_validator("cors_origins", mode="before")
     @classmethod
@@ -61,6 +70,16 @@ class Settings(BaseSettings):
                 return []
             return [origin.strip() for origin in stripped.split(",") if origin.strip()]
         return value
+
+    @property
+    def effective_celery_broker_url(self) -> str:
+        """Celery broker URL, falling back to ``redis_url``."""
+        return self.celery_broker_url or self.redis_url
+
+    @property
+    def effective_celery_result_backend(self) -> str:
+        """Celery result backend URL, falling back to ``redis_url``."""
+        return self.celery_result_backend or self.redis_url
 
     @property
     def sync_database_url(self) -> str:
