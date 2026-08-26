@@ -31,7 +31,7 @@ export function AppTopbar() {
   const accountLabel = user?.full_name || user?.email || "Account";
 
   return (
-    <header className="bg-background sticky top-0 z-10 flex h-14 shrink-0 items-center gap-2 border-b px-4">
+    <header className="bg-background/80 supports-[backdrop-filter]:bg-background/60 sticky top-0 z-10 flex h-14 shrink-0 items-center gap-2 border-b px-4 backdrop-blur">
       <SidebarTrigger className="-ml-1" />
       <Separator orientation="vertical" className="mr-1 data-[orientation=vertical]:h-4" />
       <h1 className="text-sm font-medium">{currentTitle(pathname)}</h1>

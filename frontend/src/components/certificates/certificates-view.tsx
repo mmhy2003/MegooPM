@@ -48,7 +48,7 @@ function StatusBadge({ status }: { status: CertificateStatus }) {
 const EXPIRY_CLASS: Record<ExpiryLevel, string> = {
   none: "text-muted-foreground",
   ok: "text-muted-foreground",
-  warning: "text-amber-700 dark:text-amber-400",
+  warning: "text-warning",
   expired: "text-destructive",
 };
 
@@ -190,7 +190,7 @@ export function CertificatesView() {
       </div>
 
       {warningCount > 0 ? (
-        <div className="flex items-center gap-2 rounded-xl border border-amber-500/30 bg-amber-500/5 p-3 text-sm text-amber-700 dark:text-amber-400">
+        <div className="flex items-center gap-2 rounded-xl border border-warning/30 bg-warning/5 p-3 text-sm text-warning">
           <TriangleAlert className="size-4 shrink-0" aria-hidden />
           <span>
             {warningCount} certificate{warningCount === 1 ? "" : "s"} near expiry or expired —

@@ -31,7 +31,7 @@ function StatusBadge({ enabled }: { enabled: boolean }) {
   return (
     <Badge variant={enabled ? "success" : "muted"}>
       <span
-        className={`size-1.5 rounded-full ${enabled ? "bg-emerald-500" : "bg-muted-foreground"}`}
+        className={`size-1.5 rounded-full ${enabled ? "bg-success" : "bg-muted-foreground"}`}
         aria-hidden
       />
       {enabled ? "Active" : "Disabled"}

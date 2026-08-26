@@ -20,6 +20,15 @@ You can start editing the page by modifying `app/page.tsx`. The page auto-update
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
+## Design system & theming
+
+The UI uses a token-driven light/dark theme (indigo brand, admin-dashboard
+shell) built on Tailwind v4 + shadcn/ui. Before adding UI, read
+[`docs/theming.md`](docs/theming.md) — it covers the color tokens, the
+System/Light/Dark toggle, no-FOUC setup, and how to add a themed page. Rule of
+thumb: **never hardcode a color; use token utilities** (`bg-primary`,
+`text-muted-foreground`, `bg-success/10`, …).
+
 ## Learn More
 
 To learn more about Next.js, take a look at the following resources:
