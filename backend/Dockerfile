@@ -14,6 +14,14 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends curl \
     && rm -rf /var/lib/apt/lists/*
 
+# Docker CLI only (no daemon) — the Celery worker shells out to
+# `docker exec <nginx> openresty -t/-s reload` to validate+reload the managed
+# proxy across containers in the dev compose stack (defect 5c770e72 D4). The
+# static client binary is copied from the official image so we don't pull the
+# whole docker.io package. Inert for the API service, which never reloads nginx;
+# production replaces this channel with the MEG-28 worker↔nginx transport.
+COPY --from=docker:27-cli /usr/local/bin/docker /usr/local/bin/docker
+
 # Install Python dependencies first for better layer caching.
 COPY pyproject.toml ./
 RUN pip install --upgrade pip \

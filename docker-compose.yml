@@ -98,15 +98,44 @@ services:
   worker:
     build: ./backend
     command: ["celery", "-A", "app.core.celery_app.celery_app", "worker", "--loglevel=info"]
+    # The worker executes reload_nginx_config: it writes managed vhosts onto the
+    # shared conf.d volume and then validates+reloads nginx. Without the volumes
+    # it hit PermissionError/FileNotFoundError on /etc/nginx and never applied
+    # config (defect 5c770e72 D4). It reaches the separate nginx container's
+    # binary via `docker exec` over the mounted socket; run as root in dev so it
+    # can access that socket (C_FORCE_ROOT lets Celery run as root). This is a
+    # dev-compose channel — production uses the MEG-28 worker↔nginx transport.
+    user: root
     environment:
       <<: *backend-env
       # The backend service owns migrations; the worker must not race it.
       RUN_MIGRATIONS: "0"
+      C_FORCE_ROOT: "true"
+      # Cross-container validate+reload of the managed proxy. Matches the nginx
+      # container's own CMD (openresty prefix + config) so `-t` checks exactly
+      # the config that is running before a reload is signalled.
+      NGINX_TEST_COMMAND: "docker exec megoopm-nginx openresty -p /usr/local/openresty/nginx -c /etc/nginx/nginx.conf -t"
+      NGINX_RELOAD_COMMAND: "docker exec megoopm-nginx openresty -p /usr/local/openresty/nginx -c /etc/nginx/nginx.conf -s reload"
+    volumes:
+      # Same shared proxy volumes the backend mounts: the worker writes vhosts
+      # and TLS material the nginx container reads. Certs are rw here because
+      # ACME issuance/renewal tasks run on the worker.
+      - nginx_confd:/etc/nginx/conf.d
+      - nginx_certs:/etc/nginx/certs
+      # Lets the worker run `docker exec` against the nginx container to
+      # validate+reload. The Docker API is a read/write socket even for exec,
+      # so it is mounted rw (dev-only; scoped away in the MEG-28 transport).
+      - /var/run/docker.sock:/var/run/docker.sock
     depends_on:
       redis:
         condition: service_healthy
       backend:
         condition: service_healthy
+      # nginx must exist for `docker exec` to reach it on reload.
+      nginx:
+        condition: service_started
+      proxy-init:
+        condition: service_completed_successfully
     healthcheck:
       test: ["CMD", "celery", "-A", "app.core.celery_app.celery_app", "inspect", "ping"]
       interval: 20s
@@ -149,6 +178,10 @@ services:
   # (MEG-22). Still a drop-in for the plain nginx image otherwise.
   nginx:
     build: ./infra/nginx
+    # Pinned name so the Celery worker can target it deterministically with
+    # `docker exec` for the cross-container config validate+reload (defect
+    # 5c770e72 D4); without a fixed name the container is megoopm-nginx-1.
+    container_name: megoopm-nginx
     environment:
       # Consumed by the container entrypoint to render the bouncer config; the
       # key must match the one CrowdSec registered for this bouncer below.
