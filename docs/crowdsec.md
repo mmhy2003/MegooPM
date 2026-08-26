@@ -11,7 +11,7 @@ to the CrowdSec Local API (LAPI).
 | --- | --- | --- |
 | CrowdSec engine | `crowdsec` service (compose) | LAPI on `:8080`, AppSec on `:7422`, detects & decides |
 | nginx bouncer + AppSec | `infra/nginx/` (OpenResty image) | Enforces decisions / forwards to AppSec in nginx's access phase |
-| Per-host toggles | `proxy_hosts.crowdsec_enabled` / `crowdsec_appsec_enabled` | Which hosts are protected |
+| Per-host toggles | `proxy_hosts.crowdsec_enabled` (bouncer, per host) / `crowdsec_appsec_enabled` (reserved — AppSec is global, see below) | Which hosts are protected |
 | Rendered directives | `backend/app/templates/nginx/server.conf.j2` | Emits the bouncer handler into a host's server block |
 | Backend LAPI client | `app/services/crowdsec/` + `app/api/routes/crowdsec.py` | Read decisions/alerts, push manual decisions |
 
@@ -22,14 +22,35 @@ to the CrowdSec Local API (LAPI).
    host with `crowdsec_enabled=true`.
 2. `megoopm_crowdsec_init.lua` initialises the CrowdSec bouncer module once at
    nginx startup from `crowdsec-bouncer.conf` (rendered from the environment).
-3. On each request to a protected host, `megoopm_crowdsec.lua`:
+3. On each request to a protected host, `megoopm_crowdsec.lua` calls the stock
+   bouncer's `Allow()`, which:
    - applies any active IP decision (ban/captcha/throttle) → the request is
      terminated at the edge; and
-   - if the host has AppSec on, forwards the request to the AppSec component,
-     which blocks malicious payloads before they reach the upstream.
+   - if the AppSec engine is configured, forwards the request to the AppSec
+     component, which blocks malicious payloads before they reach the upstream.
 
-Enforcement is **per host**: hosts with the toggle off never reference the Lua
-handler, so they are untouched.
+Bouncer enforcement is **per host**: hosts with `crowdsec_enabled` off never
+reference the Lua handler, so they are untouched.
+
+### AppSec scope: global, not per host (yet)
+
+AppSec/WAF is currently a **global on/off**, not per host. lua-cs-bouncer
+v1.0.8 runs AppSec *inside* `Allow()` whenever `APPSEC_URL` is set in
+`crowdsec-bouncer.conf`, with no per-request switch. So once the AppSec engine
+is wired, **every** `crowdsec_enabled` host is inspected, regardless of its
+per-host `crowdsec_appsec_enabled` value.
+
+- The per-host `crowdsec_appsec_enabled` flag (and the `$megoopm_crowdsec_appsec`
+  variable rendered into each server block) is **retained but not yet enforced**
+  — a reserved marker so genuine per-host AppSec can be reintroduced later
+  without an API/schema change.
+- To turn AppSec **off** entirely, leave `CROWDSEC_APPSEC_URL` blank so
+  `APPSEC_URL` renders empty; the bouncer then does IP remediation only.
+
+This was a deliberate scope call on MEG-32/D3: making AppSec genuinely per-host
+requires reimplementing `Allow()`'s remediation handling against the module's
+non-public internals, which was judged not worth blocking the CrowdSec chain on.
+Reintroduce per-host AppSec when a user asks for it.
 
 ## Backend API (`/api/v1/crowdsec`, admin-only)
 

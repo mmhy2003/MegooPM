@@ -2,15 +2,26 @@
 --
 -- Attached only to server blocks the backend renders with the CrowdSec toggle
 -- on (see backend app/templates/nginx/server.conf.j2 -> `access_by_lua_file`).
--- Two enforcement layers, each independently controllable per host:
+-- So bouncer enforcement itself IS per host: a host with `crowdsec_enabled` off
+-- never references this file and is untouched.
 --
---   1. IP remediation — always, when this file runs: if the client IP carries
---      an active decision (a ban/captcha/throttle pulled from LAPI), the
---      bouncer applies it and terminates the request here.
---   2. Inline AppSec / WAF — only when the server set `$megoopm_crowdsec_appsec`
---      to "on" (the backend renders this from the per-host AppSec toggle): the
---      request is forwarded to the AppSec component for payload inspection and
---      blocked if it matches a WAF rule.
+-- What runs here, via the stock bouncer's `Allow()`:
+--   1. IP remediation — if the client IP carries an active decision (ban /
+--      captcha / throttle pulled from LAPI in stream mode), it is applied and
+--      the request is terminated here.
+--   2. Inline AppSec / WAF — `Allow()` ALSO forwards the request to the AppSec
+--      component whenever AppSec is configured globally (APPSEC_URL set in
+--      crowdsec-bouncer.conf). See the AppSec scope note below.
+--
+-- AppSec scope (MEG-32 / defect 5c770e72 D3): AppSec is currently a GLOBAL
+-- on/off, not per host. lua-cs-bouncer v1.0.8 runs AppSec *inside* `Allow()`
+-- whenever APPSEC_URL is set, with no per-call switch, so once the AppSec engine
+-- is wired every `crowdsec_enabled` host is inspected. The per-host
+-- `crowdsec_appsec_enabled` flag (rendered as `$megoopm_crowdsec_appsec`) is
+-- therefore NOT honoured yet — it is retained as a reserved marker so genuine
+-- per-host AppSec can be reintroduced without an API/schema change. Calling
+-- `AppSecCheck()` here again would only double-inspect the same request, so it
+-- is intentionally omitted. See docs/crowdsec.md.
 --
 -- The handler fails safe: if the bouncer module never initialised (see
 -- megoopm_crowdsec_init.lua), it logs and allows the request rather than 500ing
@@ -24,25 +35,15 @@ end
 
 local ip = ngx.var.remote_addr
 
--- 1) IP-level remediation (bans, captchas, throttles). `Allow` performs the
---    lookup and, on a hit, applies the remediation and exits the request.
+-- `Allow` performs the IP-decision lookup and (when AppSec is configured) the
+-- AppSec inspection, applying any remediation and exiting the request on a hit.
 local ok, err = pcall(function()
     csmod.Allow(ip)
 end)
 if not ok then
-    ngx.log(ngx.ERR, "[megoopm] CrowdSec IP check error for ", ip, ": ", tostring(err))
-    -- Fall through: IP check failing open is preferable to blocking all traffic.
-end
-
--- 2) Inline AppSec / WAF, per-host. Only invoked when this server opted in.
-if ngx.var.megoopm_crowdsec_appsec == "on" and csmod.AppSecCheck then
-    local appsec_ok, appsec_err = pcall(function()
-        csmod.AppSecCheck(ip)
-    end)
-    if not appsec_ok then
-        ngx.log(ngx.ERR, "[megoopm] CrowdSec AppSec error for ", ip, ": ", tostring(appsec_err))
-        -- APPSEC_FAILURE_ACTION in crowdsec-bouncer.conf governs fail-open vs
-        -- fail-closed inside the module; on a Lua-level error we log and let the
-        -- request proceed so a WAF glitch cannot black-hole an entire host.
-    end
+    ngx.log(ngx.ERR, "[megoopm] CrowdSec check error for ", ip, ": ", tostring(err))
+    -- Fall through: failing open on a Lua-level error is preferable to blocking
+    -- all traffic to the host. AppSec's own fail-open/closed posture on an
+    -- AppSec-backend error is governed by APPSEC_FAILURE_ACTION in
+    -- crowdsec-bouncer.conf, inside the module.
 end

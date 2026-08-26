@@ -142,8 +142,12 @@ def test_crowdsec_appsec_toggle_renders() -> None:
     server = render_config(
         DesiredState(proxy_hosts=(host,), upstreams=(_pool(),))
     )["megoopm-proxy-1.conf"]
+    # The per-host flag still renders the `$megoopm_crowdsec_appsec` marker, but
+    # AppSec enforcement is global (see docs/crowdsec.md, MEG-32/D3): the marker
+    # is reserved for a future per-host reintroduction, not gated on today. The
+    # bouncer handler is wired regardless.
     assert "set $megoopm_crowdsec_appsec on;" in server
-    assert "inline AppSec/WAF" in server
+    assert "access_by_lua_file /etc/nginx/lua/megoopm_crowdsec.lua;" in server
 
 
 def test_crowdsec_appsec_requires_bouncer() -> None:
