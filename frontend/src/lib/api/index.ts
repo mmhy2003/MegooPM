@@ -5,6 +5,11 @@
  * re-export them here so callers import from a single, stable path:
  * `import { api, apiFetch } from "@/lib/api"`.
  */
-export { api, apiFetch, setAuthTokenProvider } from "@/lib/api/client";
+export {
+  api,
+  apiFetch,
+  setAuthTokenProvider,
+  setTokenRefresher,
+} from "@/lib/api/client";
 export type { ApiRequestOptions, QueryValue } from "@/lib/api/client";
 export { ApiError } from "@/lib/api/errors";

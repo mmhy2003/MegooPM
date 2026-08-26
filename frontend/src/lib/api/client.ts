@@ -42,6 +42,20 @@ function getAuthToken(): string | null {
   return authTokenProvider();
 }
 
+/**
+ * Refreshes an expired access token. Registered by the auth layer; when set,
+ * requests that use the provider token retry once after a 401 with the token
+ * this returns. Returns `null` when refresh is impossible (no/expired refresh
+ * token), in which case the original 401 propagates.
+ */
+let tokenRefresher: (() => Promise<string | null>) | null = null;
+
+export function setTokenRefresher(
+  refresher: (() => Promise<string | null>) | null,
+): void {
+  tokenRefresher = refresher;
+}
+
 function buildUrl(path: string, query?: Record<string, QueryValue>): string {
   const base = API_BASE_URL.replace(/\/$/, "");
   const url = new URL(
@@ -69,25 +83,36 @@ export async function apiFetch<T>(
 ): Promise<T> {
   const { query, body, token, headers, ...init } = options;
 
-  const finalHeaders = new Headers(headers);
-  finalHeaders.set("Accept", "application/json");
-
-  const resolvedToken = token === undefined ? getAuthToken() : token;
-  if (resolvedToken) {
-    finalHeaders.set("Authorization", `Bearer ${resolvedToken}`);
-  }
-
   let serializedBody: BodyInit | undefined;
-  if (body !== undefined) {
-    finalHeaders.set("Content-Type", "application/json");
+  const withJsonBody = body !== undefined;
+  if (withJsonBody) {
     serializedBody = JSON.stringify(body);
   }
 
-  const response = await fetch(buildUrl(path, query), {
-    ...init,
-    headers: finalHeaders,
-    body: serializedBody,
-  });
+  const url = buildUrl(path, query);
+  const send = (bearer: string | null) => {
+    const finalHeaders = new Headers(headers);
+    finalHeaders.set("Accept", "application/json");
+    if (withJsonBody) {
+      finalHeaders.set("Content-Type", "application/json");
+    }
+    if (bearer) {
+      finalHeaders.set("Authorization", `Bearer ${bearer}`);
+    }
+    return fetch(url, { ...init, headers: finalHeaders, body: serializedBody });
+  };
+
+  // Requests with an explicit `token` (including `null`) opt out of the refresh
+  // dance — this is how the auth endpoints themselves avoid recursion.
+  const usesProviderToken = token === undefined;
+  let response = await send(usesProviderToken ? getAuthToken() : token);
+
+  if (response.status === 401 && usesProviderToken && tokenRefresher) {
+    const refreshed = await tokenRefresher();
+    if (refreshed) {
+      response = await send(refreshed);
+    }
+  }
 
   const payload = await parseBody(response);
 

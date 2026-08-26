@@ -1,6 +1,11 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { api, apiFetch, setAuthTokenProvider } from "@/lib/api/client";
+import {
+  api,
+  apiFetch,
+  setAuthTokenProvider,
+  setTokenRefresher,
+} from "@/lib/api/client";
 import { ApiError } from "@/lib/api/errors";
 
 function mockResponse(
@@ -18,6 +23,7 @@ describe("apiFetch", () => {
   afterEach(() => {
     vi.restoreAllMocks();
     setAuthTokenProvider(() => null);
+    setTokenRefresher(null);
   });
 
   it("builds an absolute URL from the base and appends query params", async () => {
@@ -78,5 +84,53 @@ describe("apiFetch", () => {
     );
 
     await expect(api.delete("/api/proxy-hosts/1")).resolves.toBeUndefined();
+  });
+
+  it("refreshes the token and retries once on a 401", async () => {
+    setAuthTokenProvider(() => "stale-token");
+    setTokenRefresher(async () => "fresh-token");
+
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(mockResponse({ detail: "expired" }, { status: 401 }))
+      .mockResolvedValueOnce(mockResponse({ ok: true }));
+
+    await expect(api.get("/api/me")).resolves.toEqual({ ok: true });
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    const retryHeaders = (fetchMock.mock.calls[1][1] as RequestInit)
+      .headers as Headers;
+    expect(retryHeaders.get("Authorization")).toBe("Bearer fresh-token");
+  });
+
+  it("propagates the 401 when refresh yields no token", async () => {
+    setAuthTokenProvider(() => "stale-token");
+    setTokenRefresher(async () => null);
+
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(mockResponse({ detail: "expired" }, { status: 401 }));
+
+    const error = await api.get("/api/me").catch((e) => e);
+    expect(error).toBeInstanceOf(ApiError);
+    expect((error as ApiError).status).toBe(401);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not refresh when an explicit token is supplied (auth endpoints)", async () => {
+    setTokenRefresher(async () => "should-not-be-used");
+
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(mockResponse({ detail: "bad creds" }, { status: 401 }));
+
+    const error = await apiFetch("/api/v1/auth/login", {
+      method: "POST",
+      body: { email: "a@b.c", password: "x" },
+      token: null,
+    }).catch((e) => e);
+
+    expect(error).toBeInstanceOf(ApiError);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 });

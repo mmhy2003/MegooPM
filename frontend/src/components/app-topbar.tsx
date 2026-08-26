@@ -4,6 +4,7 @@ import { usePathname } from "next/navigation";
 import { CircleUser, LogOut } from "lucide-react";
 
 import { primaryNav } from "@/config/nav";
+import { useAuth } from "@/lib/auth/context";
 import { ModeToggle } from "@/components/mode-toggle";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -26,6 +27,8 @@ function currentTitle(pathname: string): string {
 
 export function AppTopbar() {
   const pathname = usePathname();
+  const { user, logout } = useAuth();
+  const accountLabel = user?.full_name || user?.email || "Account";
 
   return (
     <header className="bg-background sticky top-0 z-10 flex h-14 shrink-0 items-center gap-2 border-b px-4">
@@ -41,10 +44,10 @@ export function AppTopbar() {
           >
             <CircleUser className="size-5" />
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-48">
-            <DropdownMenuLabel>Account</DropdownMenuLabel>
+          <DropdownMenuContent align="end" className="w-56">
+            <DropdownMenuLabel className="truncate">{accountLabel}</DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuItem disabled>
+            <DropdownMenuItem onClick={logout}>
               <LogOut className="size-4" />
               Sign out
             </DropdownMenuItem>
