@@ -1,16 +1,9 @@
 import type { Metadata } from "next";
-import { Globe } from "lucide-react";
 
-import { PagePlaceholder } from "@/components/page-placeholder";
+import { ProxyHostsView } from "@/components/proxy-hosts/proxy-hosts-view";
 
 export const metadata: Metadata = { title: "Proxy Hosts" };
 
 export default function ProxyHostsPage() {
-  return (
-    <PagePlaceholder
-      title="Proxy Hosts"
-      description="Reverse-proxy hosts forwarding traffic to upstream services."
-      icon={Globe}
-    />
-  );
+  return <ProxyHostsView />;
 }

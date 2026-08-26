@@ -13,3 +13,26 @@ export {
 } from "@/lib/api/client";
 export type { ApiRequestOptions, QueryValue } from "@/lib/api/client";
 export { ApiError } from "@/lib/api/errors";
+
+export { proxyHosts, HTTP_SCHEMES } from "@/lib/api/resources/proxy-hosts";
+export type {
+  ProxyHost,
+  ProxyHostCreate,
+  ProxyHostUpdate,
+  HttpScheme,
+} from "@/lib/api/resources/proxy-hosts";
+
+export {
+  upstreams,
+  LB_METHODS,
+  LB_METHOD_LABELS,
+} from "@/lib/api/resources/upstreams";
+export type {
+  Upstream,
+  UpstreamCreate,
+  UpstreamUpdate,
+  Backend,
+  BackendCreate,
+  BackendUpdate,
+  LoadBalanceMethod,
+} from "@/lib/api/resources/upstreams";

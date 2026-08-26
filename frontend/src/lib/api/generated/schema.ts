@@ -87,6 +87,286 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/certificates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Certificates
+         * @description List all certificates. Admin-only.
+         */
+        get: operations["list_certificates_api_v1_certificates_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/certificates/custom": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Upload Custom Certificate
+         * @description Validate and store an uploaded custom certificate. Admin-only.
+         */
+        post: operations["upload_custom_certificate_api_v1_certificates_custom_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/certificates/letsencrypt": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Request Letsencrypt Certificate
+         * @description Create a pending Let's Encrypt cert and enqueue ACME issuance. Admin-only.
+         */
+        post: operations["request_letsencrypt_certificate_api_v1_certificates_letsencrypt_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/certificates/{cert_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Certificate
+         * @description Return one certificate. Admin-only.
+         */
+        get: operations["get_certificate_api_v1_certificates__cert_id__get"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete Certificate
+         * @description Delete a certificate and its on-disk material. Admin-only.
+         */
+        delete: operations["delete_certificate_api_v1_certificates__cert_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/certificates/{cert_id}/renew": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Renew Certificate
+         * @description Enqueue renewal/re-issuance for a certificate. Admin-only.
+         */
+        post: operations["renew_certificate_api_v1_certificates__cert_id__renew_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/crowdsec/alerts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Alerts
+         * @description List recent alerts CrowdSec raised, newest first.
+         */
+        get: operations["list_alerts_api_v1_crowdsec_alerts_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/crowdsec/decisions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Decisions
+         * @description List active decisions the bouncer enforces.
+         */
+        get: operations["list_decisions_api_v1_crowdsec_decisions_get"];
+        put?: never;
+        /**
+         * Add Decision
+         * @description Push a manual decision (operator ban) and record it in the audit log.
+         */
+        post: operations["add_decision_api_v1_crowdsec_decisions_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/crowdsec/decisions/{decision_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete Decision
+         * @description Lift a decision by id; records the removal in the audit log.
+         */
+        delete: operations["delete_decision_api_v1_crowdsec_decisions__decision_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/crowdsec/health": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Crowdsec Health
+         * @description Report whether LAPI is configured and reachable (never errors).
+         */
+        get: operations["crowdsec_health_api_v1_crowdsec_health_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/nginx/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Preview Nginx Config
+         * @description Render the config for current DB state without writing or reloading.
+         */
+        get: operations["preview_nginx_config_api_v1_nginx_preview_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/nginx/reload": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reload Nginx
+         * @description Enqueue a config regeneration + nginx reload; returns a task id to poll.
+         */
+        post: operations["reload_nginx_api_v1_nginx_reload_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/proxy-hosts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Proxy Hosts
+         * @description List all proxy hosts. Admin-only.
+         */
+        get: operations["list_proxy_hosts_api_v1_proxy_hosts_get"];
+        put?: never;
+        /**
+         * Create Proxy Host
+         * @description Create a proxy host forwarding to an upstream pool. Admin-only.
+         */
+        post: operations["create_proxy_host_api_v1_proxy_hosts_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/proxy-hosts/{host_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Proxy Host
+         * @description Fetch a single proxy host. Admin-only.
+         */
+        get: operations["get_proxy_host_api_v1_proxy_hosts__host_id__get"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete Proxy Host
+         * @description Delete a proxy host. Admin-only.
+         */
+        delete: operations["delete_proxy_host_api_v1_proxy_hosts__host_id__delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Update Proxy Host
+         * @description Update a proxy host. Admin-only.
+         */
+        patch: operations["update_proxy_host_api_v1_proxy_hosts__host_id__patch"];
+        trace?: never;
+    };
     "/api/v1/tasks/sample": {
         parameters: {
             query?: never;
@@ -125,6 +405,102 @@ export interface paths {
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/api/v1/upstreams": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Upstreams
+         * @description List all upstream pools with their backends. Admin-only.
+         */
+        get: operations["list_upstreams_api_v1_upstreams_get"];
+        put?: never;
+        /**
+         * Create Upstream
+         * @description Create an upstream pool, optionally seeding backends inline. Admin-only.
+         */
+        post: operations["create_upstream_api_v1_upstreams_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/upstreams/{upstream_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Upstream
+         * @description Fetch a single upstream pool. Admin-only.
+         */
+        get: operations["get_upstream_api_v1_upstreams__upstream_id__get"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete Upstream
+         * @description Delete a pool (and its backends). 409 if still referenced by a host.
+         */
+        delete: operations["delete_upstream_api_v1_upstreams__upstream_id__delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Update Upstream
+         * @description Update a pool's own attributes (name/description/lb_method/enabled).
+         */
+        patch: operations["update_upstream_api_v1_upstreams__upstream_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/upstreams/{upstream_id}/backends": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add Backend
+         * @description Add a backend server to a pool. Admin-only.
+         */
+        post: operations["add_backend_api_v1_upstreams__upstream_id__backends_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/upstreams/{upstream_id}/backends/{backend_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove Backend
+         * @description Remove a backend from a pool. Admin-only.
+         */
+        delete: operations["remove_backend_api_v1_upstreams__upstream_id__backends__backend_id__delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Update Backend
+         * @description Update a backend within a pool. Admin-only.
+         */
+        patch: operations["update_backend_api_v1_upstreams__upstream_id__backends__backend_id__patch"];
         trace?: never;
     };
     "/api/v1/users": {
@@ -196,6 +572,58 @@ export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
         /**
+         * Alert
+         * @description A detection event CrowdSec raised, with any decisions it triggered.
+         */
+        Alert: {
+            /** Created At */
+            created_at?: string | null;
+            /** Decisions */
+            decisions?: components["schemas"]["Decision"][];
+            /** Events Count */
+            events_count?: number | null;
+            /** Id */
+            id?: number | null;
+            /** Message */
+            message?: string | null;
+            /** Scenario */
+            scenario?: string | null;
+            source?: components["schemas"]["AlertSource"] | null;
+            /** Start At */
+            start_at?: string | null;
+            /** Stop At */
+            stop_at?: string | null;
+        };
+        /**
+         * AlertList
+         * @description A page of recent alerts.
+         */
+        AlertList: {
+            /** Items */
+            items?: components["schemas"]["Alert"][];
+            /**
+             * Total
+             * @default 0
+             */
+            total: number;
+        };
+        /**
+         * AlertSource
+         * @description Where an alert originated (the offending IP and its geo/AS metadata).
+         */
+        AlertSource: {
+            /** As Name */
+            as_name?: string | null;
+            /** Cn */
+            cn?: string | null;
+            /** Ip */
+            ip?: string | null;
+            /** Scope */
+            scope?: string | null;
+            /** Value */
+            value?: string | null;
+        };
+        /**
          * AuditAction
          * @description The mutation an audit-log row records.
          * @enum {string}
@@ -242,6 +670,303 @@ export interface components {
             /** Object Type */
             object_type: string;
         };
+        /**
+         * BackendCreate
+         * @description Payload to add a backend to a pool.
+         */
+        BackendCreate: {
+            /**
+             * Backup
+             * @description Only used when primaries are down
+             * @default false
+             */
+            backup: boolean;
+            /**
+             * Down
+             * @description Administratively removed from rotation
+             * @default false
+             */
+            down: boolean;
+            /**
+             * Enabled
+             * @description Excluded from the rendered pool when false
+             * @default true
+             */
+            enabled: boolean;
+            /**
+             * Fail Timeout Seconds
+             * @description Window/penalty for max_fails, in seconds
+             * @default 10
+             */
+            fail_timeout_seconds: number;
+            /**
+             * Host
+             * @description Backend host or IP
+             */
+            host: string;
+            /**
+             * Max Fails
+             * @description Failed attempts before the backend is marked down
+             * @default 1
+             */
+            max_fails: number;
+            /**
+             * Port
+             * @description Backend TCP port
+             */
+            port: number;
+            /**
+             * Weight
+             * @description Relative load-balancing weight
+             * @default 1
+             */
+            weight: number;
+        };
+        /**
+         * BackendRead
+         * @description Public representation of a backend.
+         */
+        BackendRead: {
+            /**
+             * Backup
+             * @description Only used when primaries are down
+             * @default false
+             */
+            backup: boolean;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Down
+             * @description Administratively removed from rotation
+             * @default false
+             */
+            down: boolean;
+            /**
+             * Enabled
+             * @description Excluded from the rendered pool when false
+             * @default true
+             */
+            enabled: boolean;
+            /**
+             * Fail Timeout Seconds
+             * @description Window/penalty for max_fails, in seconds
+             * @default 10
+             */
+            fail_timeout_seconds: number;
+            /**
+             * Host
+             * @description Backend host or IP
+             */
+            host: string;
+            /** Id */
+            id: number;
+            /**
+             * Max Fails
+             * @description Failed attempts before the backend is marked down
+             * @default 1
+             */
+            max_fails: number;
+            /**
+             * Port
+             * @description Backend TCP port
+             */
+            port: number;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /** Upstream Id */
+            upstream_id: number;
+            /**
+             * Weight
+             * @description Relative load-balancing weight
+             * @default 1
+             */
+            weight: number;
+        };
+        /**
+         * BackendUpdate
+         * @description Partial update of a backend; every field is optional.
+         */
+        BackendUpdate: {
+            /** Backup */
+            backup?: boolean | null;
+            /** Down */
+            down?: boolean | null;
+            /** Enabled */
+            enabled?: boolean | null;
+            /** Fail Timeout Seconds */
+            fail_timeout_seconds?: number | null;
+            /** Host */
+            host?: string | null;
+            /** Max Fails */
+            max_fails?: number | null;
+            /** Port */
+            port?: number | null;
+            /** Weight */
+            weight?: number | null;
+        };
+        /**
+         * CertificateIssued
+         * @description Response for an issuance request: the pending cert plus its tracking task.
+         */
+        CertificateIssued: {
+            certificate: components["schemas"]["CertificateRead"];
+            /** Task Id */
+            task_id: string;
+            /** Task Status */
+            task_status: string;
+        };
+        /**
+         * CertificateProvider
+         * @description How a certificate is obtained/managed.
+         * @enum {string}
+         */
+        CertificateProvider: "letsencrypt" | "custom" | "self_signed";
+        /**
+         * CertificateRead
+         * @description A certificate as returned by the API (never includes key material).
+         */
+        CertificateRead: {
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Domain Names */
+            domain_names: string[];
+            /** Expires On */
+            expires_on?: string | null;
+            /** Id */
+            id: number;
+            /** Name */
+            name: string;
+            provider: components["schemas"]["CertificateProvider"];
+            status: components["schemas"]["CertificateStatus"];
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /**
+         * CertificateStatus
+         * @description Lifecycle state of a managed certificate.
+         *
+         *     ``pending`` — a row exists but material has not been issued yet (an ACME
+         *     order is queued/running). ``active`` — valid material is on disk and usable
+         *     by a host. ``failed`` — the last issuance/renewal attempt errored (see
+         *     ``meta['last_error']``). ``expired`` — past ``expires_on`` and not renewed.
+         * @enum {string}
+         */
+        CertificateStatus: "pending" | "active" | "failed" | "expired";
+        /**
+         * CrowdSecHealth
+         * @description Whether the LAPI integration is configured and reachable.
+         */
+        CrowdSecHealth: {
+            /** Configured */
+            configured: boolean;
+            /** Detail */
+            detail?: string | null;
+            /** Lapi Url */
+            lapi_url: string;
+            /** Reachable */
+            reachable: boolean;
+        };
+        /**
+         * CustomCertificateCreate
+         * @description Upload of a custom certificate: PEM cert + private key (+ optional chain).
+         */
+        CustomCertificateCreate: {
+            /**
+             * Certificate Pem
+             * @description Leaf certificate in PEM format
+             */
+            certificate_pem: string;
+            /**
+             * Chain Pem
+             * @description Intermediate chain in PEM format (optional)
+             */
+            chain_pem?: string | null;
+            /** Name */
+            name: string;
+            /**
+             * Private Key Pem
+             * @description Matching private key in PEM format
+             */
+            private_key_pem: string;
+        };
+        /**
+         * Decision
+         * @description One active remediation the bouncer enforces (a ban, captcha, …).
+         */
+        Decision: {
+            /** Duration */
+            duration: string;
+            /** Id */
+            id?: number | null;
+            /** Origin */
+            origin?: string | null;
+            /** Scenario */
+            scenario?: string | null;
+            /** Scope */
+            scope: string;
+            /** Type */
+            type: string;
+            /** Value */
+            value: string;
+        };
+        /**
+         * DecisionCreate
+         * @description Input for pushing a manual decision (operator-initiated ban).
+         */
+        DecisionCreate: {
+            /**
+             * Duration
+             * @default 4h
+             */
+            duration: string;
+            /**
+             * Reason
+             * @description Free-text note stored on the alert
+             */
+            reason?: string | null;
+            /**
+             * Scope
+             * @default Ip
+             * @enum {string}
+             */
+            scope: "Ip" | "Range";
+            /**
+             * Type
+             * @default ban
+             * @enum {string}
+             */
+            type: "ban" | "captcha" | "throttle";
+            /**
+             * Value
+             * @description IP or CIDR range to act on
+             */
+            value: string;
+        };
+        /**
+         * DecisionList
+         * @description A page of active decisions.
+         */
+        DecisionList: {
+            /** Items */
+            items?: components["schemas"]["Decision"][];
+            /**
+             * Total
+             * @default 0
+             */
+            total: number;
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
@@ -263,6 +988,39 @@ export interface components {
             status: string;
         };
         /**
+         * HttpScheme
+         * @description Scheme a proxy host uses to reach its upstream.
+         * @enum {string}
+         */
+        HttpScheme: "http" | "https";
+        /**
+         * LetsEncryptCertificateCreate
+         * @description Request to issue a Let's Encrypt certificate for a set of domains.
+         */
+        LetsEncryptCertificateCreate: {
+            /**
+             * Account Email
+             * @description Contact email for the ACME account (optional)
+             */
+            account_email?: string | null;
+            /**
+             * Challenge
+             * @description ACME challenge type: 'http-01' (default) or 'dns-01'
+             * @default http-01
+             */
+            challenge: string;
+            /** Domain Names */
+            domain_names: string[];
+            /** Name */
+            name: string;
+        };
+        /**
+         * LoadBalanceMethod
+         * @description nginx ``upstream`` load-balancing strategies for a backend pool.
+         * @enum {string}
+         */
+        LoadBalanceMethod: "round_robin" | "least_conn" | "ip_hash" | "hash" | "random";
+        /**
          * LoginRequest
          * @description Credentials submitted to ``POST /auth/login``.
          */
@@ -274,6 +1032,270 @@ export interface components {
             email: string;
             /** Password */
             password: string;
+        };
+        /**
+         * NginxConfigFile
+         * @description One rendered managed ``.conf`` file.
+         */
+        NginxConfigFile: {
+            /** Content */
+            content: string;
+            /** Name */
+            name: string;
+        };
+        /**
+         * NginxConfigPreview
+         * @description The full config the engine *would* write for the current DB state.
+         *
+         *     A read-only render — it does not touch disk or reload nginx, so the
+         *     frontend can show operators the generated output before/without applying.
+         */
+        NginxConfigPreview: {
+            /** Files */
+            files?: components["schemas"]["NginxConfigFile"][];
+        };
+        /**
+         * ProxyHostCreate
+         * @description Payload to create a proxy host.
+         */
+        ProxyHostCreate: {
+            /**
+             * Access List Id
+             * @description Optional access list guarding this host
+             */
+            access_list_id?: number | null;
+            /**
+             * Advanced Config
+             * @description Raw nginx directives injected into the server block
+             * @default
+             */
+            advanced_config: string;
+            /**
+             * Allow Websocket Upgrade
+             * @description Pass Upgrade/Connection headers for websockets
+             * @default false
+             */
+            allow_websocket_upgrade: boolean;
+            /**
+             * Block Exploits
+             * @description Block common exploit probes
+             * @default false
+             */
+            block_exploits: boolean;
+            /**
+             * Caching Enabled
+             * @description Cache static assets
+             * @default false
+             */
+            caching_enabled: boolean;
+            /**
+             * Certificate Id
+             * @description Certificate for TLS termination; null serves plain :80
+             */
+            certificate_id?: number | null;
+            /**
+             * Crowdsec Appsec Enabled
+             * @description Route requests through CrowdSec inline AppSec/WAF (needs crowdsec_enabled)
+             * @default false
+             */
+            crowdsec_appsec_enabled: boolean;
+            /**
+             * Crowdsec Enabled
+             * @description Enforce the CrowdSec nginx bouncer on this host
+             * @default false
+             */
+            crowdsec_enabled: boolean;
+            /**
+             * Domain Names
+             * @description Domains this host answers for (server_name)
+             */
+            domain_names: string[];
+            /**
+             * Enabled
+             * @description Disabled hosts are excluded from config
+             * @default true
+             */
+            enabled: boolean;
+            /**
+             * @description Scheme used to reach the upstream (http/https)
+             * @default http
+             */
+            forward_scheme: components["schemas"]["HttpScheme"];
+            /**
+             * Hsts Enabled
+             * @description Emit a Strict-Transport-Security header
+             * @default false
+             */
+            hsts_enabled: boolean;
+            /**
+             * Hsts Subdomains
+             * @description Include subdomains in HSTS
+             * @default false
+             */
+            hsts_subdomains: boolean;
+            /**
+             * Http2 Support
+             * @description Enable HTTP/2 on the TLS listener
+             * @default false
+             */
+            http2_support: boolean;
+            /**
+             * Ssl Forced
+             * @description Redirect :80 to HTTPS
+             * @default false
+             */
+            ssl_forced: boolean;
+            /**
+             * Upstream Id
+             * @description The upstream pool to forward matched traffic to
+             */
+            upstream_id: number;
+        };
+        /**
+         * ProxyHostRead
+         * @description Public representation of a proxy host.
+         */
+        ProxyHostRead: {
+            /**
+             * Access List Id
+             * @description Optional access list guarding this host
+             */
+            access_list_id?: number | null;
+            /**
+             * Advanced Config
+             * @description Raw nginx directives injected into the server block
+             * @default
+             */
+            advanced_config: string;
+            /**
+             * Allow Websocket Upgrade
+             * @description Pass Upgrade/Connection headers for websockets
+             * @default false
+             */
+            allow_websocket_upgrade: boolean;
+            /**
+             * Block Exploits
+             * @description Block common exploit probes
+             * @default false
+             */
+            block_exploits: boolean;
+            /**
+             * Caching Enabled
+             * @description Cache static assets
+             * @default false
+             */
+            caching_enabled: boolean;
+            /**
+             * Certificate Id
+             * @description Certificate for TLS termination; null serves plain :80
+             */
+            certificate_id?: number | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Crowdsec Appsec Enabled
+             * @description Route requests through CrowdSec inline AppSec/WAF (needs crowdsec_enabled)
+             * @default false
+             */
+            crowdsec_appsec_enabled: boolean;
+            /**
+             * Crowdsec Enabled
+             * @description Enforce the CrowdSec nginx bouncer on this host
+             * @default false
+             */
+            crowdsec_enabled: boolean;
+            /**
+             * Domain Names
+             * @description Domains this host answers for (server_name)
+             */
+            domain_names: string[];
+            /**
+             * Enabled
+             * @description Disabled hosts are excluded from config
+             * @default true
+             */
+            enabled: boolean;
+            /**
+             * @description Scheme used to reach the upstream (http/https)
+             * @default http
+             */
+            forward_scheme: components["schemas"]["HttpScheme"];
+            /**
+             * Hsts Enabled
+             * @description Emit a Strict-Transport-Security header
+             * @default false
+             */
+            hsts_enabled: boolean;
+            /**
+             * Hsts Subdomains
+             * @description Include subdomains in HSTS
+             * @default false
+             */
+            hsts_subdomains: boolean;
+            /**
+             * Http2 Support
+             * @description Enable HTTP/2 on the TLS listener
+             * @default false
+             */
+            http2_support: boolean;
+            /** Id */
+            id: number;
+            /**
+             * Ssl Forced
+             * @description Redirect :80 to HTTPS
+             * @default false
+             */
+            ssl_forced: boolean;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /**
+             * Upstream Id
+             * @description The upstream pool to forward matched traffic to
+             */
+            upstream_id: number;
+        };
+        /**
+         * ProxyHostUpdate
+         * @description Partial update of a proxy host; every field is optional.
+         */
+        ProxyHostUpdate: {
+            /** Access List Id */
+            access_list_id?: number | null;
+            /** Advanced Config */
+            advanced_config?: string | null;
+            /** Allow Websocket Upgrade */
+            allow_websocket_upgrade?: boolean | null;
+            /** Block Exploits */
+            block_exploits?: boolean | null;
+            /** Caching Enabled */
+            caching_enabled?: boolean | null;
+            /** Certificate Id */
+            certificate_id?: number | null;
+            /** Crowdsec Appsec Enabled */
+            crowdsec_appsec_enabled?: boolean | null;
+            /** Crowdsec Enabled */
+            crowdsec_enabled?: boolean | null;
+            /** Domain Names */
+            domain_names?: string[] | null;
+            /** Enabled */
+            enabled?: boolean | null;
+            forward_scheme?: components["schemas"]["HttpScheme"] | null;
+            /** Hsts Enabled */
+            hsts_enabled?: boolean | null;
+            /** Hsts Subdomains */
+            hsts_subdomains?: boolean | null;
+            /** Http2 Support */
+            http2_support?: boolean | null;
+            /** Ssl Forced */
+            ssl_forced?: boolean | null;
+            /** Upstream Id */
+            upstream_id?: number | null;
         };
         /**
          * RefreshRequest
@@ -342,6 +1364,91 @@ export interface components {
              * @default bearer
              */
             token_type: string;
+        };
+        /**
+         * UpstreamCreate
+         * @description Payload to create a pool, optionally seeding its backends inline.
+         */
+        UpstreamCreate: {
+            /** Backends */
+            backends?: components["schemas"]["BackendCreate"][];
+            /**
+             * Description
+             * @description Optional free-text description
+             * @default
+             */
+            description: string;
+            /**
+             * Enabled
+             * @description Disabled pools are excluded from config
+             * @default true
+             */
+            enabled: boolean;
+            /**
+             * @description nginx load-balancing strategy
+             * @default round_robin
+             */
+            lb_method: components["schemas"]["LoadBalanceMethod"];
+            /**
+             * Name
+             * @description Human-readable pool name
+             */
+            name: string;
+        };
+        /**
+         * UpstreamRead
+         * @description Public representation of a pool, including its backends.
+         */
+        UpstreamRead: {
+            /** Backends */
+            backends?: components["schemas"]["BackendRead"][];
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Description
+             * @description Optional free-text description
+             * @default
+             */
+            description: string;
+            /**
+             * Enabled
+             * @description Disabled pools are excluded from config
+             * @default true
+             */
+            enabled: boolean;
+            /** Id */
+            id: number;
+            /**
+             * @description nginx load-balancing strategy
+             * @default round_robin
+             */
+            lb_method: components["schemas"]["LoadBalanceMethod"];
+            /**
+             * Name
+             * @description Human-readable pool name
+             */
+            name: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /**
+         * UpstreamUpdate
+         * @description Partial update of a pool's own attributes (not its backends).
+         */
+        UpstreamUpdate: {
+            /** Description */
+            description?: string | null;
+            /** Enabled */
+            enabled?: boolean | null;
+            lb_method?: components["schemas"]["LoadBalanceMethod"] | null;
+            /** Name */
+            name?: string | null;
         };
         /**
          * UserCreate
@@ -559,6 +1666,509 @@ export interface operations {
             };
         };
     };
+    list_certificates_api_v1_certificates_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CertificateRead"][];
+                };
+            };
+        };
+    };
+    upload_custom_certificate_api_v1_certificates_custom_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CustomCertificateCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CertificateRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    request_letsencrypt_certificate_api_v1_certificates_letsencrypt_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LetsEncryptCertificateCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CertificateIssued"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_certificate_api_v1_certificates__cert_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                cert_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CertificateRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_certificate_api_v1_certificates__cert_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                cert_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    renew_certificate_api_v1_certificates__cert_id__renew_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                cert_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CertificateIssued"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_alerts_api_v1_crowdsec_alerts_get: {
+        parameters: {
+            query?: {
+                /** @description Max alerts to return */
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AlertList"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_decisions_api_v1_crowdsec_decisions_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DecisionList"];
+                };
+            };
+        };
+    };
+    add_decision_api_v1_crowdsec_decisions_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DecisionCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Decision"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_decision_api_v1_crowdsec_decisions__decision_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                decision_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: number;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    crowdsec_health_api_v1_crowdsec_health_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CrowdSecHealth"];
+                };
+            };
+        };
+    };
+    preview_nginx_config_api_v1_nginx_preview_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NginxConfigPreview"];
+                };
+            };
+        };
+    };
+    reload_nginx_api_v1_nginx_reload_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskEnqueued"];
+                };
+            };
+        };
+    };
+    list_proxy_hosts_api_v1_proxy_hosts_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProxyHostRead"][];
+                };
+            };
+        };
+    };
+    create_proxy_host_api_v1_proxy_hosts_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProxyHostCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProxyHostRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_proxy_host_api_v1_proxy_hosts__host_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                host_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProxyHostRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_proxy_host_api_v1_proxy_hosts__host_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                host_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_proxy_host_api_v1_proxy_hosts__host_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                host_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProxyHostUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProxyHostRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     enqueue_sample_api_v1_tasks_sample_post: {
         parameters: {
             query?: never;
@@ -610,6 +2220,255 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TaskStatus"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_upstreams_api_v1_upstreams_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UpstreamRead"][];
+                };
+            };
+        };
+    };
+    create_upstream_api_v1_upstreams_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpstreamCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UpstreamRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_upstream_api_v1_upstreams__upstream_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                upstream_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UpstreamRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_upstream_api_v1_upstreams__upstream_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                upstream_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_upstream_api_v1_upstreams__upstream_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                upstream_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpstreamUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UpstreamRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    add_backend_api_v1_upstreams__upstream_id__backends_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                upstream_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BackendCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BackendRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remove_backend_api_v1_upstreams__upstream_id__backends__backend_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                upstream_id: number;
+                backend_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_backend_api_v1_upstreams__upstream_id__backends__backend_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                upstream_id: number;
+                backend_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BackendUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BackendRead"];
                 };
             };
             /** @description Validation Error */
