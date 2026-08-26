@@ -538,6 +538,109 @@
         "title": "BackendUpdate",
         "type": "object"
       },
+      "CertificateIssued": {
+        "description": "Response for an issuance request: the pending cert plus its tracking task.",
+        "properties": {
+          "certificate": {
+            "$ref": "#/components/schemas/CertificateRead"
+          },
+          "task_id": {
+            "title": "Task Id",
+            "type": "string"
+          },
+          "task_status": {
+            "title": "Task Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "certificate",
+          "task_id",
+          "task_status"
+        ],
+        "title": "CertificateIssued",
+        "type": "object"
+      },
+      "CertificateProvider": {
+        "description": "How a certificate is obtained/managed.",
+        "enum": [
+          "letsencrypt",
+          "custom",
+          "self_signed"
+        ],
+        "title": "CertificateProvider",
+        "type": "string"
+      },
+      "CertificateRead": {
+        "description": "A certificate as returned by the API (never includes key material).",
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "domain_names": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Domain Names",
+            "type": "array"
+          },
+          "expires_on": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires On"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "provider": {
+            "$ref": "#/components/schemas/CertificateProvider"
+          },
+          "status": {
+            "$ref": "#/components/schemas/CertificateStatus"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "provider",
+          "status",
+          "domain_names",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "CertificateRead",
+        "type": "object"
+      },
+      "CertificateStatus": {
+        "description": "Lifecycle state of a managed certificate.\n\n``pending`` — a row exists but material has not been issued yet (an ACME\norder is queued/running). ``active`` — valid material is on disk and usable\nby a host. ``failed`` — the last issuance/renewal attempt errored (see\n``meta['last_error']``). ``expired`` — past ``expires_on`` and not renewed.",
+        "enum": [
+          "pending",
+          "active",
+          "failed",
+          "expired"
+        ],
+        "title": "CertificateStatus",
+        "type": "string"
+      },
       "CrowdSecHealth": {
         "description": "Whether the LAPI integration is configured and reachable.",
         "properties": {
@@ -571,6 +674,46 @@
           "lapi_url"
         ],
         "title": "CrowdSecHealth",
+        "type": "object"
+      },
+      "CustomCertificateCreate": {
+        "description": "Upload of a custom certificate: PEM cert + private key (+ optional chain).",
+        "properties": {
+          "certificate_pem": {
+            "description": "Leaf certificate in PEM format",
+            "title": "Certificate Pem",
+            "type": "string"
+          },
+          "chain_pem": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Intermediate chain in PEM format (optional)",
+            "title": "Chain Pem"
+          },
+          "name": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "private_key_pem": {
+            "description": "Matching private key in PEM format",
+            "title": "Private Key Pem",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "certificate_pem",
+          "private_key_pem"
+        ],
+        "title": "CustomCertificateCreate",
         "type": "object"
       },
       "Decision": {
@@ -752,6 +895,49 @@
         ],
         "title": "HttpScheme",
         "type": "string"
+      },
+      "LetsEncryptCertificateCreate": {
+        "description": "Request to issue a Let's Encrypt certificate for a set of domains.",
+        "properties": {
+          "account_email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Contact email for the ACME account (optional)",
+            "title": "Account Email"
+          },
+          "challenge": {
+            "default": "http-01",
+            "description": "ACME challenge type: 'http-01' (default) or 'dns-01'",
+            "title": "Challenge",
+            "type": "string"
+          },
+          "domain_names": {
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1,
+            "title": "Domain Names",
+            "type": "array"
+          },
+          "name": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "domain_names"
+        ],
+        "title": "LetsEncryptCertificateCreate",
+        "type": "object"
       },
       "LoadBalanceMethod": {
         "description": "nginx ``upstream`` load-balancing strategies for a backend pool.",
@@ -1928,6 +2114,266 @@
         "summary": "Refresh",
         "tags": [
           "auth"
+        ]
+      }
+    },
+    "/api/v1/certificates": {
+      "get": {
+        "description": "List all certificates. Admin-only.",
+        "operationId": "list_certificates_api_v1_certificates_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/CertificateRead"
+                  },
+                  "title": "Response List Certificates Api V1 Certificates Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "List Certificates",
+        "tags": [
+          "certificates"
+        ]
+      }
+    },
+    "/api/v1/certificates/custom": {
+      "post": {
+        "description": "Validate and store an uploaded custom certificate. Admin-only.",
+        "operationId": "upload_custom_certificate_api_v1_certificates_custom_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CustomCertificateCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CertificateRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Upload Custom Certificate",
+        "tags": [
+          "certificates"
+        ]
+      }
+    },
+    "/api/v1/certificates/letsencrypt": {
+      "post": {
+        "description": "Create a pending Let's Encrypt cert and enqueue ACME issuance. Admin-only.",
+        "operationId": "request_letsencrypt_certificate_api_v1_certificates_letsencrypt_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LetsEncryptCertificateCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CertificateIssued"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Request Letsencrypt Certificate",
+        "tags": [
+          "certificates"
+        ]
+      }
+    },
+    "/api/v1/certificates/{cert_id}": {
+      "delete": {
+        "description": "Delete a certificate and its on-disk material. Admin-only.",
+        "operationId": "delete_certificate_api_v1_certificates__cert_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "cert_id",
+            "required": true,
+            "schema": {
+              "title": "Cert Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Delete Certificate",
+        "tags": [
+          "certificates"
+        ]
+      },
+      "get": {
+        "description": "Return one certificate. Admin-only.",
+        "operationId": "get_certificate_api_v1_certificates__cert_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "cert_id",
+            "required": true,
+            "schema": {
+              "title": "Cert Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CertificateRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Get Certificate",
+        "tags": [
+          "certificates"
+        ]
+      }
+    },
+    "/api/v1/certificates/{cert_id}/renew": {
+      "post": {
+        "description": "Enqueue renewal/re-issuance for a certificate. Admin-only.",
+        "operationId": "renew_certificate_api_v1_certificates__cert_id__renew_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "cert_id",
+            "required": true,
+            "schema": {
+              "title": "Cert Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CertificateIssued"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Renew Certificate",
+        "tags": [
+          "certificates"
         ]
       }
     },

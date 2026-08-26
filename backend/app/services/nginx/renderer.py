@@ -19,6 +19,7 @@ from pathlib import Path
 from jinja2 import Environment, FileSystemLoader, StrictUndefined
 
 import app as app_pkg
+from app.core.config import settings
 from app.services.nginx.state import DesiredState, ProxyHostSpec, UpstreamSpec
 
 TEMPLATES_DIR = Path(app_pkg.__file__).resolve().parent / "templates" / "nginx"
@@ -65,6 +66,9 @@ def _render_proxy_host(host: ProxyHostSpec) -> str:
         host=host,
         pool_name=pool_name(host.upstream_id),
         server_names=" ".join(host.domain_names),
+        # Deployment-constant webroot the ACME HTTP-01 challenge location serves
+        # from; matches where the issuer drops tokens (settings-driven, stable).
+        acme_challenge_root=settings.acme_http_challenge_dir,
     )
 
 

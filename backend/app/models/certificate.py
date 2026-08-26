@@ -9,7 +9,7 @@ from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
-from app.models.enums import CertificateProvider
+from app.models.enums import CertificateProvider, CertificateStatus
 from app.models.mixins import IdMixin, TimestampMixin
 
 
@@ -31,6 +31,16 @@ class Certificate(IdMixin, TimestampMixin, Base):
             values_callable=lambda e: [m.value for m in e],
         ),
         nullable=False,
+    )
+    status: Mapped[CertificateStatus] = mapped_column(
+        Enum(
+            CertificateStatus,
+            name="certificate_status",
+            values_callable=lambda e: [m.value for m in e],
+        ),
+        nullable=False,
+        default=CertificateStatus.pending,
+        server_default=CertificateStatus.pending.value,
     )
     domain_names: Mapped[list[str]] = mapped_column(
         ARRAY(String(255)), nullable=False, default=list, server_default="{}"

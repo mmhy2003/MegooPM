@@ -23,7 +23,7 @@ from app.core.config import settings
 
 # Task modules Celery imports on worker startup so their ``@task`` decorators
 # register. Add new task modules here.
-TASK_MODULES = ["app.tasks.sample", "app.tasks.nginx"]
+TASK_MODULES = ["app.tasks.sample", "app.tasks.nginx", "app.tasks.certs"]
 
 
 def create_celery() -> Celery:
@@ -56,12 +56,19 @@ def create_celery() -> Celery:
         broker_connection_retry_on_startup=True,
     )
 
-    # Scheduled jobs. Real periodic work (cert renewal sweeps, config reloads)
-    # is added here by later tickets; ``heartbeat`` proves beat is wired.
+    # Scheduled jobs. ``heartbeat`` proves beat is wired; the daily cert sweep
+    # (MEG-19) enqueues renewals for Let's Encrypt certs nearing expiry.
     celery_app.conf.beat_schedule = {
         "heartbeat-every-5-minutes": {
             "task": "app.tasks.sample.heartbeat",
             "schedule": crontab(minute="*/5"),
+        },
+        "renew-due-certificates-daily": {
+            "task": "app.tasks.certs.renew_due_certificates",
+            "schedule": crontab(
+                hour=settings.cert_renew_sweep_hour,
+                minute=settings.cert_renew_sweep_minute,
+            ),
         },
     }
 

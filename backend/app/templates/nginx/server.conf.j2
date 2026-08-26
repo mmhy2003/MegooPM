@@ -50,17 +50,30 @@
     access_by_lua_file /etc/nginx/lua/megoopm_crowdsec.lua;
 {%- endif %}
 {%- endmacro -%}
+{%- macro acme_challenge() %}
+
+    # ACME HTTP-01 challenge webroot (Let's Encrypt issuance/renewal, MEG-19).
+    # Kept ahead of any HTTPS redirect so validation succeeds on ssl-forced
+    # hosts; `alias` maps the token URL straight onto the shared challenge dir.
+    location ^~ /.well-known/acme-challenge/ {
+        default_type "text/plain";
+        alias {{ acme_challenge_root }}/;
+    }
+{%- endmacro -%}
 # Managed by MegooPM — do not edit by hand.
 # proxy host id={{ host.id }}
 {%- if host.certificate %}
 server {
     listen 80;
     server_name {{ server_names }};
+{{- crowdsec() }}
+{{- acme_challenge() }}
 {%- if host.ssl_forced %}
-{{- crowdsec() }}
-    return 301 https://$host$request_uri;
+
+    location / {
+        return 301 https://$host$request_uri;
+    }
 {%- else %}
-{{- crowdsec() }}
 {{- security() }}
 {{- proxy_location() }}
 {%- endif %}
@@ -86,6 +99,7 @@ server {
     listen 80;
     server_name {{ server_names }};
 {{- crowdsec() }}
+{{- acme_challenge() }}
 {{- security() }}
 {{- proxy_location() }}
 {%- if host.advanced_config %}

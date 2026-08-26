@@ -1,0 +1,103 @@
+"""Celery tasks for certificate issuance, renewal, and the auto-renew sweep.
+
+These are the tracked, observable seam the issue asks for: requesting a Let's
+Encrypt certificate (or renewing one) runs here and its progress is retrievable
+via ``GET /tasks/{id}``. On success a certificate's material lands on the shared
+volume and an nginx reload is enqueued so the new cert is served immediately.
+
+Like the nginx reload task, these run outside FastAPI's event loop, so they open
+their own short-lived async session via :func:`asyncio.run`.
+"""
+
+from __future__ import annotations
+
+import asyncio
+from datetime import UTC, datetime
+
+from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+from sqlalchemy.pool import NullPool
+
+from app.core.celery_app import celery_app
+from app.core.config import settings
+from app.models.certificate import Certificate
+from app.services.certs.issuance import build_issuer, issue_for_certificate
+from app.services.certs.renewal import list_due_certificate_ids
+
+
+async def _issue_async(cert_id: int) -> dict:
+    engine = create_async_engine(settings.database_url, poolclass=NullPool)
+    try:
+        factory = async_sessionmaker(engine, expire_on_commit=False)
+        async with factory() as session:
+            cert = await session.get(Certificate, cert_id)
+            if cert is None:
+                return {"cert_id": cert_id, "issued": False, "error": "not found"}
+            issuer = build_issuer(cert)
+            try:
+                issue_for_certificate(cert, issuer=issuer, certs_dir=settings.nginx_certs_dir)
+                await session.commit()
+            except Exception as exc:  # noqa: BLE001 - persist the failure, then surface it
+                await session.commit()  # keep status=failed + last_error
+                return {
+                    "cert_id": cert_id,
+                    "issued": False,
+                    "error": str(exc),
+                    "status": "failed",
+                }
+            return {
+                "cert_id": cert_id,
+                "issued": True,
+                "status": str(cert.status),
+                "expires_on": cert.expires_on.isoformat() if cert.expires_on else None,
+                "domain_names": list(cert.domain_names),
+            }
+    finally:
+        await engine.dispose()
+
+
+@celery_app.task(name="app.tasks.certs.issue_certificate")
+def issue_certificate(cert_id: int) -> dict:
+    """Issue (or re-issue) the certificate row ``cert_id`` and reload nginx.
+
+    Returns a JSON-serialisable summary. A successful issuance enqueues an nginx
+    reload so the freshly issued material is served without a manual trigger.
+    """
+    result = asyncio.run(_issue_async(cert_id))
+    if result.get("issued"):
+        # Import here to avoid a task-module import cycle at load time.
+        from app.tasks.nginx import reload_nginx_config
+
+        reload_nginx_config.delay()
+    return result
+
+
+@celery_app.task(name="app.tasks.certs.renew_certificate")
+def renew_certificate(cert_id: int) -> dict:
+    """Renew a certificate — identical to issuance, re-run against a live row."""
+    return issue_certificate(cert_id)
+
+
+async def _due_ids_async() -> list[int]:
+    engine = create_async_engine(settings.database_url, poolclass=NullPool)
+    try:
+        factory = async_sessionmaker(engine, expire_on_commit=False)
+        async with factory() as session:
+            return await list_due_certificate_ids(
+                session,
+                now=datetime.now(UTC),
+                before_days=settings.cert_renew_before_days,
+            )
+    finally:
+        await engine.dispose()
+
+
+@celery_app.task(name="app.tasks.certs.renew_due_certificates")
+def renew_due_certificates() -> dict:
+    """Beat sweep: enqueue a renewal for every Let's Encrypt cert near expiry."""
+    due = asyncio.run(_due_ids_async())
+    for cert_id in due:
+        renew_certificate.delay(cert_id)
+    return {"due_count": len(due), "cert_ids": due}
+
+
+__all__ = ["issue_certificate", "renew_certificate", "renew_due_certificates"]

@@ -28,6 +28,21 @@ class CertificateProvider(enum.StrEnum):
     self_signed = "self_signed"
 
 
+class CertificateStatus(enum.StrEnum):
+    """Lifecycle state of a managed certificate.
+
+    ``pending`` — a row exists but material has not been issued yet (an ACME
+    order is queued/running). ``active`` — valid material is on disk and usable
+    by a host. ``failed`` — the last issuance/renewal attempt errored (see
+    ``meta['last_error']``). ``expired`` — past ``expires_on`` and not renewed.
+    """
+
+    pending = "pending"
+    active = "active"
+    failed = "failed"
+    expired = "expired"
+
+
 class HttpScheme(enum.StrEnum):
     """Scheme a proxy host uses to reach its upstream."""
 
@@ -63,6 +78,7 @@ class AuditAction(enum.StrEnum):
 __all__ = [
     "LoadBalanceMethod",
     "CertificateProvider",
+    "CertificateStatus",
     "HttpScheme",
     "RedirectScheme",
     "AccessListDirective",

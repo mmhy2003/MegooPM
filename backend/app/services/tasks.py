@@ -10,6 +10,7 @@ from typing import Any
 
 from app.core.celery_app import celery_app
 from app.schemas.tasks import TaskEnqueued, TaskStatus
+from app.tasks.certs import issue_certificate, renew_certificate
 from app.tasks.nginx import reload_nginx_config
 from app.tasks.sample import add
 
@@ -23,6 +24,18 @@ def enqueue_sample_add(x: int, y: int) -> TaskEnqueued:
 def enqueue_nginx_reload() -> TaskEnqueued:
     """Enqueue the nginx regenerate-and-reload task and return its handle."""
     async_result = reload_nginx_config.delay()
+    return TaskEnqueued(task_id=async_result.id, status=async_result.status)
+
+
+def enqueue_cert_issue(cert_id: int) -> TaskEnqueued:
+    """Enqueue ACME issuance for a certificate row and return its handle."""
+    async_result = issue_certificate.delay(cert_id)
+    return TaskEnqueued(task_id=async_result.id, status=async_result.status)
+
+
+def enqueue_cert_renew(cert_id: int) -> TaskEnqueued:
+    """Enqueue renewal for a certificate row and return its handle."""
+    async_result = renew_certificate.delay(cert_id)
     return TaskEnqueued(task_id=async_result.id, status=async_result.status)
 
 

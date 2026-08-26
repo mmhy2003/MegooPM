@@ -80,6 +80,26 @@ class Settings(BaseSettings):
     nginx_test_command: str = "nginx -t"
     nginx_reload_command: str = "nginx -s reload"
 
+    # --- TLS / ACME (Let's Encrypt) ---
+    # ACME directory URL. Defaults to Let's Encrypt *staging* — safe for tests
+    # and unthrottled; point at the production directory only for real certs.
+    acme_directory_url: str = "https://acme-staging-v02.api.letsencrypt.org/directory"
+    # Contact email registered with the ACME account (expiry warnings, ToS).
+    acme_account_email: str | None = None
+    # Webroot the HTTP-01 challenge files are written to. nginx serves this dir
+    # at ``/.well-known/acme-challenge/`` on :80 for every managed host, so the
+    # ACME server can fetch the validation token.
+    acme_http_challenge_dir: str = "/etc/nginx/certs/_acme-challenge"
+    # When true (dev/CI), certificates are self-signed locally instead of being
+    # issued over ACME — no network or public DNS needed. Never in production.
+    acme_self_signed: bool = False
+    # Renew a certificate once it is within this many days of expiry. The beat
+    # sweep enqueues renewals for everything inside the window.
+    cert_renew_before_days: int = 30
+    # How often the auto-renew sweep runs (cron hour; default 03:15 daily).
+    cert_renew_sweep_hour: int = 3
+    cert_renew_sweep_minute: int = 15
+
     # --- CrowdSec (MEG-22) ---
     # Base URL of the CrowdSec Local API (LAPI). The backend reads decisions /
     # alerts and pushes manual decisions here.
