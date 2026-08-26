@@ -163,6 +163,39 @@
         "title": "LoginRequest",
         "type": "object"
       },
+      "NginxConfigFile": {
+        "description": "One rendered managed ``.conf`` file.",
+        "properties": {
+          "content": {
+            "title": "Content",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "content"
+        ],
+        "title": "NginxConfigFile",
+        "type": "object"
+      },
+      "NginxConfigPreview": {
+        "description": "The full config the engine *would* write for the current DB state.\n\nA read-only render — it does not touch disk or reload nginx, so the\nfrontend can show operators the generated output before/without applying.",
+        "properties": {
+          "files": {
+            "items": {
+              "$ref": "#/components/schemas/NginxConfigFile"
+            },
+            "title": "Files",
+            "type": "array"
+          }
+        },
+        "title": "NginxConfigPreview",
+        "type": "object"
+      },
       "RefreshRequest": {
         "description": "Body submitted to ``POST /auth/refresh``.",
         "properties": {
@@ -677,6 +710,60 @@
         "summary": "Refresh",
         "tags": [
           "auth"
+        ]
+      }
+    },
+    "/api/v1/nginx/preview": {
+      "get": {
+        "description": "Render the config for current DB state without writing or reloading.",
+        "operationId": "preview_nginx_config_api_v1_nginx_preview_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NginxConfigPreview"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Preview Nginx Config",
+        "tags": [
+          "nginx"
+        ]
+      }
+    },
+    "/api/v1/nginx/reload": {
+      "post": {
+        "description": "Enqueue a config regeneration + nginx reload; returns a task id to poll.",
+        "operationId": "reload_nginx_api_v1_nginx_reload_post",
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskEnqueued"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Reload Nginx",
+        "tags": [
+          "nginx"
         ]
       }
     },

@@ -1,0 +1,12 @@
+{#- Renders one nginx `upstream {}` block for a MegooPM pool.
+   Whitespace is deliberately controlled so output is byte-stable across runs. -#}
+# Managed by MegooPM — do not edit by hand.
+# upstream pool: {{ upstream.name }} (id={{ upstream.id }})
+upstream {{ pool_name }} {
+{%- if lb_directive %}
+    {{ lb_directive }}
+{%- endif %}
+{%- for b in upstream.backends %}
+    server {{ b.host }}:{{ b.port }} weight={{ b.weight }} max_fails={{ b.max_fails }} fail_timeout={{ b.fail_timeout_seconds }}s{% if b.backup %} backup{% endif %}{% if b.down %} down{% endif %};
+{%- endfor %}
+}

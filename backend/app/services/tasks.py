@@ -10,12 +10,19 @@ from typing import Any
 
 from app.core.celery_app import celery_app
 from app.schemas.tasks import TaskEnqueued, TaskStatus
+from app.tasks.nginx import reload_nginx_config
 from app.tasks.sample import add
 
 
 def enqueue_sample_add(x: int, y: int) -> TaskEnqueued:
     """Enqueue the sample ``add`` task and return its handle."""
     async_result = add.delay(x, y)
+    return TaskEnqueued(task_id=async_result.id, status=async_result.status)
+
+
+def enqueue_nginx_reload() -> TaskEnqueued:
+    """Enqueue the nginx regenerate-and-reload task and return its handle."""
+    async_result = reload_nginx_config.delay()
     return TaskEnqueued(task_id=async_result.id, status=async_result.status)
 
 

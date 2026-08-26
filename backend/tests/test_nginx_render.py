@@ -1,0 +1,134 @@
+"""Rendering tests for the nginx config generator.
+
+The renderer is a pure function of a :class:`DesiredState`, so these exercise
+the full feature matrix — load-balancing methods, TLS, HSTS, websockets,
+exploit blocking, caching, advanced config — with no database or filesystem.
+"""
+
+from __future__ import annotations
+
+from app.services.nginx import render_config
+from app.services.nginx.state import (
+    BackendSpec,
+    CertificateSpec,
+    DesiredState,
+    ProxyHostSpec,
+    UpstreamSpec,
+)
+
+
+def _pool(**kw) -> UpstreamSpec:
+    base = {
+        "id": 1,
+        "name": "web-pool",
+        "lb_method": "round_robin",
+        "backends": (BackendSpec(host="10.0.0.1", port=8080),),
+    }
+    base.update(kw)
+    return UpstreamSpec(**base)
+
+
+def _host(**kw) -> ProxyHostSpec:
+    base = {"id": 1, "domain_names": ("example.com", "www.example.com"), "upstream_id": 1}
+    base.update(kw)
+    return ProxyHostSpec(**base)
+
+
+def test_filenames_are_stable_per_object() -> None:
+    state = DesiredState(proxy_hosts=(_host(),), upstreams=(_pool(),))
+    files = render_config(state)
+    assert set(files) == {"megoopm-upstream-1.conf", "megoopm-proxy-1.conf"}
+
+
+def test_upstream_lists_backends_with_tuning() -> None:
+    pool = _pool(
+        backends=(
+            BackendSpec(host="10.0.0.1", port=8080, weight=5, max_fails=3, fail_timeout_seconds=20),
+            BackendSpec(host="10.0.0.2", port=8080, backup=True),
+            BackendSpec(host="10.0.0.3", port=8080, down=True),
+        )
+    )
+    out = render_config(DesiredState(upstreams=(pool,), proxy_hosts=(_host(),)))
+    up = out["megoopm-upstream-1.conf"]
+    assert "upstream megoopm_upstream_1 {" in up
+    assert "server 10.0.0.1:8080 weight=5 max_fails=3 fail_timeout=20s;" in up
+    assert "server 10.0.0.2:8080 weight=1 max_fails=1 fail_timeout=10s backup;" in up
+    assert "server 10.0.0.3:8080 weight=1 max_fails=1 fail_timeout=10s down;" in up
+
+
+def test_lb_method_directives() -> None:
+    def directive(method: str) -> str:
+        out = render_config(
+            DesiredState(upstreams=(_pool(lb_method=method),), proxy_hosts=(_host(),))
+        )
+        return out["megoopm-upstream-1.conf"]
+
+    assert "least_conn;" in directive("least_conn")
+    assert "ip_hash;" in directive("ip_hash")
+    assert "hash $remote_addr consistent;" in directive("hash")
+    assert "random;" in directive("random")
+    # round_robin is nginx's default and emits no directive line.
+    rr = directive("round_robin")
+    assert "least_conn" not in rr and "ip_hash" not in rr
+
+
+def test_plain_http_host_proxies_to_pool() -> None:
+    out = render_config(DesiredState(proxy_hosts=(_host(),), upstreams=(_pool(),)))
+    server = out["megoopm-proxy-1.conf"]
+    assert "listen 80;" in server
+    assert "server_name example.com www.example.com;" in server
+    assert "proxy_pass http://megoopm_upstream_1;" in server
+    # No certificate → no TLS server block.
+    assert "listen 443" not in server
+
+
+def test_tls_host_emits_https_server_and_redirect() -> None:
+    cert = CertificateSpec(
+        id=7,
+        fullchain_path="/etc/nginx/certs/7/fullchain.pem",
+        privkey_path="/etc/nginx/certs/7/privkey.pem",
+    )
+    host = _host(
+        certificate=cert,
+        ssl_forced=True,
+        http2_support=True,
+        hsts_enabled=True,
+        hsts_subdomains=True,
+    )
+    out = render_config(DesiredState(proxy_hosts=(host,), upstreams=(_pool(),)))
+    server = out["megoopm-proxy-1.conf"]
+    assert "listen 443 ssl http2;" in server
+    assert "ssl_certificate /etc/nginx/certs/7/fullchain.pem;" in server
+    assert "ssl_certificate_key /etc/nginx/certs/7/privkey.pem;" in server
+    # ssl_forced makes the :80 server redirect to https.
+    assert "return 301 https://$host$request_uri;" in server
+    # HSTS with subdomains.
+    assert "includeSubDomains" in server
+
+
+def test_websocket_and_exploit_and_cache_flags() -> None:
+    host = _host(
+        allow_websocket_upgrade=True,
+        block_exploits=True,
+        caching_enabled=True,
+    )
+    server = render_config(
+        DesiredState(proxy_hosts=(host,), upstreams=(_pool(),))
+    )["megoopm-proxy-1.conf"]
+    assert "proxy_set_header Upgrade $http_upgrade;" in server
+    assert "proxy_set_header Connection $connection_upgrade;" in server
+    assert "return 403;" in server  # exploit blocking rules
+    assert "expires 1d;" in server  # asset caching location
+
+
+def test_advanced_config_is_injected() -> None:
+    host = _host(advanced_config="client_max_body_size 50m;")
+    server = render_config(
+        DesiredState(proxy_hosts=(host,), upstreams=(_pool(),))
+    )["megoopm-proxy-1.conf"]
+    assert "client_max_body_size 50m;" in server
+
+
+def test_render_is_deterministic() -> None:
+    state = DesiredState(proxy_hosts=(_host(),), upstreams=(_pool(),))
+    assert render_config(state) == render_config(state)

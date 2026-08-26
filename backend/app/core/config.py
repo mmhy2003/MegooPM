@@ -65,6 +65,21 @@ class Settings(BaseSettings):
     # tests; must stay False in real deployments.
     celery_task_always_eager: bool = False
 
+    # --- nginx config/reload engine ---
+    # Directory (a shared volume with the nginx container) where the backend
+    # writes managed ``*.conf`` files; nginx ``include``s it inside http{}.
+    nginx_confd_dir: str = "/etc/nginx/conf.d"
+    # Where TLS material lives on the shared certs volume; server blocks
+    # reference ``{nginx_certs_dir}/{cert_id}/fullchain.pem`` and privkey.pem.
+    nginx_certs_dir: str = "/etc/nginx/certs"
+    # Only files with this prefix are managed by the engine; anything else in
+    # conf.d (hand-placed by operators) is left untouched.
+    nginx_managed_prefix: str = "megoopm-"
+    # Commands the engine shells out to. Configurable so a split deployment can
+    # point them at whatever reaches its nginx (wrapper, docker exec, ssh).
+    nginx_test_command: str = "nginx -t"
+    nginx_reload_command: str = "nginx -s reload"
+
     # --- CORS ---
     # Comma-separated origins, or "*" for all. NoDecode disables
     # pydantic-settings' JSON pre-parsing so the validator below handles the
