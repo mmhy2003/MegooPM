@@ -274,3 +274,38 @@ async def test_admin_pushes_manual_decision_and_audits(
     assert audit.status_code == 200
     entries = audit.json()["items"]
     assert entries and entries[0]["meta"]["value"] == "8.8.8.8"
+
+
+async def test_admin_lists_alerts_with_null_decisions(
+    db_client: AsyncClient, admin_token: str, override_crowdsec
+) -> None:
+    # Full HTTP read path the Security dashboard (MEG-23) hits. LAPI sends
+    # ``decisions: null`` for every AppSec/WAF detection; the route must return
+    # 200, not 500 (live-stack regression from MEG-29, backend fix MEG-39).
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/v1/watchers/login":
+            return httpx.Response(200, json={"token": "jwt"})
+        return httpx.Response(
+            200,
+            json=[
+                {
+                    "id": 1,
+                    "scenario": "megoopm/manual-ban",
+                    "decisions": [
+                        {"type": "ban", "scope": "Ip", "value": "1.2.3.4", "duration": "4h"}
+                    ],
+                },
+                {"id": 2, "scenario": "crowdsecurity/vpatch-env-access", "decisions": None},
+            ],
+        )
+
+    override_crowdsec(handler)
+    resp = await db_client.get(
+        "/api/v1/crowdsec/alerts", headers={"Authorization": f"Bearer {admin_token}"}
+    )
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["total"] == 2
+    # The null-decision AppSec alert surfaces with an empty decisions list.
+    appsec = next(a for a in body["items"] if a["scenario"] == "crowdsecurity/vpatch-env-access")
+    assert appsec["decisions"] == []
