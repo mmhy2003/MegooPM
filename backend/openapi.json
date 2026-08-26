@@ -1,6 +1,19 @@
 {
   "components": {
     "schemas": {
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "title": "Detail",
+            "type": "array"
+          }
+        },
+        "title": "HTTPValidationError",
+        "type": "object"
+      },
       "HealthResponse": {
         "description": "Liveness response body.",
         "properties": {
@@ -24,6 +37,288 @@
         ],
         "title": "HealthResponse",
         "type": "object"
+      },
+      "LoginRequest": {
+        "description": "Credentials submitted to ``POST /auth/login``.",
+        "properties": {
+          "email": {
+            "format": "email",
+            "title": "Email",
+            "type": "string"
+          },
+          "password": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Password",
+            "type": "string"
+          }
+        },
+        "required": [
+          "email",
+          "password"
+        ],
+        "title": "LoginRequest",
+        "type": "object"
+      },
+      "RefreshRequest": {
+        "description": "Body submitted to ``POST /auth/refresh``.",
+        "properties": {
+          "refresh_token": {
+            "title": "Refresh Token",
+            "type": "string"
+          }
+        },
+        "required": [
+          "refresh_token"
+        ],
+        "title": "RefreshRequest",
+        "type": "object"
+      },
+      "SampleTaskRequest": {
+        "description": "Payload for enqueuing the sample ``add`` task.",
+        "properties": {
+          "x": {
+            "default": 0,
+            "title": "X",
+            "type": "integer"
+          },
+          "y": {
+            "default": 0,
+            "title": "Y",
+            "type": "integer"
+          }
+        },
+        "title": "SampleTaskRequest",
+        "type": "object"
+      },
+      "TaskEnqueued": {
+        "description": "Returned when a task is accepted onto the queue.",
+        "properties": {
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "task_id": {
+            "title": "Task Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "task_id",
+          "status"
+        ],
+        "title": "TaskEnqueued",
+        "type": "object"
+      },
+      "TaskStatus": {
+        "description": "A serializable view of a Celery task's state and result.",
+        "properties": {
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "ready": {
+            "title": "Ready",
+            "type": "boolean"
+          },
+          "result": {
+            "anyOf": [
+              {},
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Result"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "task_id": {
+            "title": "Task Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "task_id",
+          "status",
+          "ready"
+        ],
+        "title": "TaskStatus",
+        "type": "object"
+      },
+      "TokenPair": {
+        "description": "Issued access + refresh tokens.\n\n``token_type`` is the OAuth2 scheme name (``bearer``); clients send the\naccess token as ``Authorization: Bearer <access_token>``.",
+        "properties": {
+          "access_token": {
+            "title": "Access Token",
+            "type": "string"
+          },
+          "refresh_token": {
+            "title": "Refresh Token",
+            "type": "string"
+          },
+          "token_type": {
+            "default": "bearer",
+            "title": "Token Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "access_token",
+          "refresh_token"
+        ],
+        "title": "TokenPair",
+        "type": "object"
+      },
+      "UserCreate": {
+        "description": "Payload to create a user (admin-only endpoint).",
+        "properties": {
+          "email": {
+            "format": "email",
+            "title": "Email",
+            "type": "string"
+          },
+          "full_name": {
+            "default": "",
+            "title": "Full Name",
+            "type": "string"
+          },
+          "is_active": {
+            "default": true,
+            "title": "Is Active",
+            "type": "boolean"
+          },
+          "password": {
+            "maxLength": 128,
+            "minLength": 8,
+            "title": "Password",
+            "type": "string"
+          },
+          "role": {
+            "$ref": "#/components/schemas/UserRole",
+            "default": "member"
+          }
+        },
+        "required": [
+          "email",
+          "password"
+        ],
+        "title": "UserCreate",
+        "type": "object"
+      },
+      "UserRead": {
+        "description": "Public representation of a user.",
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "email": {
+            "format": "email",
+            "title": "Email",
+            "type": "string"
+          },
+          "full_name": {
+            "default": "",
+            "title": "Full Name",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "is_active": {
+            "default": true,
+            "title": "Is Active",
+            "type": "boolean"
+          },
+          "role": {
+            "$ref": "#/components/schemas/UserRole",
+            "default": "member"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "email",
+          "id",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "UserRead",
+        "type": "object"
+      },
+      "UserRole": {
+        "description": "Access-control role for a user.",
+        "enum": [
+          "admin",
+          "member"
+        ],
+        "title": "UserRole",
+        "type": "string"
+      },
+      "ValidationError": {
+        "properties": {
+          "ctx": {
+            "title": "Context",
+            "type": "object"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "title": "Location",
+            "type": "array"
+          },
+          "msg": {
+            "title": "Message",
+            "type": "string"
+          },
+          "type": {
+            "title": "Error Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError",
+        "type": "object"
+      }
+    },
+    "securitySchemes": {
+      "OAuth2PasswordBearer": {
+        "flows": {
+          "password": {
+            "scopes": {},
+            "tokenUrl": "/api/v1/auth/login"
+          }
+        },
+        "type": "oauth2"
       }
     }
   },
@@ -33,6 +328,305 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/v1/auth/login": {
+      "post": {
+        "description": "Authenticate with email + password and return an access/refresh pair.",
+        "operationId": "login_api_v1_auth_login_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TokenPair"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Login",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/v1/auth/me": {
+      "get": {
+        "description": "Return the currently authenticated user.",
+        "operationId": "read_me_api_v1_auth_me_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Read Me",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/v1/auth/refresh": {
+      "post": {
+        "description": "Exchange a valid refresh token for a fresh access/refresh pair.\n\nThe refresh token is rotated. The user's role is re-read from the database\nso privilege changes take effect on the next refresh.",
+        "operationId": "refresh_api_v1_auth_refresh_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RefreshRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TokenPair"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Refresh",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/v1/tasks/sample": {
+      "post": {
+        "description": "Enqueue the sample ``add`` task; returns a task id to poll.",
+        "operationId": "enqueue_sample_api_v1_tasks_sample_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SampleTaskRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskEnqueued"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Enqueue Sample",
+        "tags": [
+          "tasks"
+        ]
+      }
+    },
+    "/api/v1/tasks/{task_id}": {
+      "get": {
+        "description": "Return the status (and result, once ready) of a background task.",
+        "operationId": "task_status_api_v1_tasks__task_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "task_id",
+            "required": true,
+            "schema": {
+              "title": "Task Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskStatus"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Task Status",
+        "tags": [
+          "tasks"
+        ]
+      }
+    },
+    "/api/v1/users": {
+      "get": {
+        "description": "List all users. Admin-only.",
+        "operationId": "list_users_api_v1_users_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/UserRead"
+                  },
+                  "title": "Response List Users Api V1 Users Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "List Users",
+        "tags": [
+          "users"
+        ]
+      },
+      "post": {
+        "description": "Create a user with an explicit role. Admin-only.",
+        "operationId": "create_user_api_v1_users_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UserCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Create User",
+        "tags": [
+          "users"
+        ]
+      }
+    },
+    "/api/v1/users/me": {
+      "get": {
+        "description": "Return the authenticated caller.",
+        "operationId": "read_current_user_api_v1_users_me_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Read Current User",
+        "tags": [
+          "users"
+        ]
+      }
+    },
     "/health": {
       "get": {
         "description": "Return service liveness.",

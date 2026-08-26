@@ -16,8 +16,25 @@ os.environ.setdefault("CELERY_TASK_ALWAYS_EAGER", "true")
 os.environ.setdefault("CELERY_RESULT_BACKEND", "cache+memory://")
 
 import pytest
+from app.db.session import get_session
 from app.main import app
+from app.models.user import User, UserRole
+from app.services import user as user_service
 from httpx import ASGITransport, AsyncClient
+from sqlalchemy import BigInteger
+from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+from sqlalchemy.ext.compiler import compiles
+from sqlalchemy.pool import StaticPool
+
+
+# The shared ``IdMixin`` uses a ``BigInteger`` surrogate PK. SQLite only
+# autoincrements an ``INTEGER PRIMARY KEY`` (rowid alias), so under the SQLite
+# test engine we render BigInteger as INTEGER. Production runs on Postgres,
+# where BIGINT autoincrements normally; this rule only affects the sqlite
+# dialect used in tests.
+@compiles(BigInteger, "sqlite")
+def _sqlite_bigint_as_integer(type_, compiler, **kw):  # noqa: ANN001, ANN202
+    return "INTEGER"
 
 
 @pytest.fixture
@@ -26,3 +43,90 @@ async def client() -> AsyncIterator[AsyncClient]:
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
         yield ac
+
+
+# --- Database-backed fixtures (auth / RBAC) --------------------------------
+#
+# Auth tests need a real (async) database. We use an in-memory SQLite database
+# shared across connections via ``StaticPool`` and create only the ``users``
+# table (the wider domain schema uses Postgres-only types). The app's
+# ``get_session`` dependency is overridden to bind to this engine.
+
+
+@pytest.fixture
+async def session_factory() -> AsyncIterator[async_sessionmaker]:
+    """A sessionmaker bound to a fresh in-memory SQLite database per test."""
+    engine = create_async_engine(
+        "sqlite+aiosqlite://",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+    async with engine.begin() as conn:
+        await conn.run_sync(User.metadata.create_all, tables=[User.__table__])
+
+    factory = async_sessionmaker(bind=engine, expire_on_commit=False)
+    try:
+        yield factory
+    finally:
+        await engine.dispose()
+
+
+@pytest.fixture
+async def db_client(session_factory: async_sessionmaker) -> AsyncIterator[AsyncClient]:
+    """An httpx client whose requests use the in-memory test database."""
+
+    async def _override_get_session() -> AsyncIterator:
+        async with session_factory() as session:
+            yield session
+
+    app.dependency_overrides[get_session] = _override_get_session
+    transport = ASGITransport(app=app)
+    try:
+        async with AsyncClient(transport=transport, base_url="http://test") as ac:
+            yield ac
+    finally:
+        app.dependency_overrides.pop(get_session, None)
+
+
+@pytest.fixture
+async def admin_user(session_factory: async_sessionmaker) -> User:
+    """A seeded active admin (password: ``adminpass123``)."""
+    async with session_factory() as session:
+        return await user_service.create_user(
+            session,
+            email="admin@example.com",
+            password="adminpass123",
+            full_name="Admin User",
+            role=UserRole.admin,
+        )
+
+
+@pytest.fixture
+async def member_user(session_factory: async_sessionmaker) -> User:
+    """A seeded active limited member (password: ``memberpass123``)."""
+    async with session_factory() as session:
+        return await user_service.create_user(
+            session,
+            email="member@example.com",
+            password="memberpass123",
+            full_name="Member User",
+            role=UserRole.member,
+        )
+
+
+async def _login(client: AsyncClient, email: str, password: str) -> str:
+    resp = await client.post("/api/v1/auth/login", json={"email": email, "password": password})
+    assert resp.status_code == 200, resp.text
+    return resp.json()["access_token"]
+
+
+@pytest.fixture
+async def admin_token(db_client: AsyncClient, admin_user: User) -> str:
+    """A valid access token for the seeded admin."""
+    return await _login(db_client, admin_user.email, "adminpass123")
+
+
+@pytest.fixture
+async def member_token(db_client: AsyncClient, member_user: User) -> str:
+    """A valid access token for the seeded member."""
+    return await _login(db_client, member_user.email, "memberpass123")

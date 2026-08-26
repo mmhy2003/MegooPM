@@ -41,7 +41,18 @@ class Settings(BaseSettings):
 
     # --- Security ---
     secret_key: str = Field(default="change-me-in-production")
-    access_token_expire_minutes: int = 60 * 24
+    # Signing algorithm for JWTs. HS256 (HMAC) uses ``secret_key`` directly.
+    jwt_algorithm: str = "HS256"
+    # Short-lived access token; the client refreshes it with a refresh token.
+    access_token_expire_minutes: int = 30
+    # Longer-lived refresh token (default 7 days).
+    refresh_token_expire_minutes: int = 60 * 24 * 7
+
+    # Optional bootstrap admin. When both are set, ``scripts.create_user`` /
+    # ``ensure_first_admin`` can seed an initial admin so the first privileged
+    # user exists without a chicken-and-egg problem. Never commit real values.
+    first_admin_email: str | None = None
+    first_admin_password: str | None = None
 
     # --- Redis / Celery ---
     # Redis is the default broker and result backend for Celery. The dedicated
