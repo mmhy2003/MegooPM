@@ -104,6 +104,258 @@
         "title": "AuditLogRead",
         "type": "object"
       },
+      "BackendCreate": {
+        "description": "Payload to add a backend to a pool.",
+        "properties": {
+          "backup": {
+            "default": false,
+            "description": "Only used when primaries are down",
+            "title": "Backup",
+            "type": "boolean"
+          },
+          "down": {
+            "default": false,
+            "description": "Administratively removed from rotation",
+            "title": "Down",
+            "type": "boolean"
+          },
+          "enabled": {
+            "default": true,
+            "description": "Excluded from the rendered pool when false",
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "fail_timeout_seconds": {
+            "default": 10,
+            "description": "Window/penalty for max_fails, in seconds",
+            "minimum": 0.0,
+            "title": "Fail Timeout Seconds",
+            "type": "integer"
+          },
+          "host": {
+            "description": "Backend host or IP",
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Host",
+            "type": "string"
+          },
+          "max_fails": {
+            "default": 1,
+            "description": "Failed attempts before the backend is marked down",
+            "minimum": 0.0,
+            "title": "Max Fails",
+            "type": "integer"
+          },
+          "port": {
+            "description": "Backend TCP port",
+            "maximum": 65535.0,
+            "minimum": 1.0,
+            "title": "Port",
+            "type": "integer"
+          },
+          "weight": {
+            "default": 1,
+            "description": "Relative load-balancing weight",
+            "minimum": 0.0,
+            "title": "Weight",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "host",
+          "port"
+        ],
+        "title": "BackendCreate",
+        "type": "object"
+      },
+      "BackendRead": {
+        "description": "Public representation of a backend.",
+        "properties": {
+          "backup": {
+            "default": false,
+            "description": "Only used when primaries are down",
+            "title": "Backup",
+            "type": "boolean"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "down": {
+            "default": false,
+            "description": "Administratively removed from rotation",
+            "title": "Down",
+            "type": "boolean"
+          },
+          "enabled": {
+            "default": true,
+            "description": "Excluded from the rendered pool when false",
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "fail_timeout_seconds": {
+            "default": 10,
+            "description": "Window/penalty for max_fails, in seconds",
+            "minimum": 0.0,
+            "title": "Fail Timeout Seconds",
+            "type": "integer"
+          },
+          "host": {
+            "description": "Backend host or IP",
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Host",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "max_fails": {
+            "default": 1,
+            "description": "Failed attempts before the backend is marked down",
+            "minimum": 0.0,
+            "title": "Max Fails",
+            "type": "integer"
+          },
+          "port": {
+            "description": "Backend TCP port",
+            "maximum": 65535.0,
+            "minimum": 1.0,
+            "title": "Port",
+            "type": "integer"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          },
+          "upstream_id": {
+            "title": "Upstream Id",
+            "type": "integer"
+          },
+          "weight": {
+            "default": 1,
+            "description": "Relative load-balancing weight",
+            "minimum": 0.0,
+            "title": "Weight",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "host",
+          "port",
+          "id",
+          "upstream_id",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "BackendRead",
+        "type": "object"
+      },
+      "BackendUpdate": {
+        "description": "Partial update of a backend; every field is optional.",
+        "properties": {
+          "backup": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Backup"
+          },
+          "down": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Down"
+          },
+          "enabled": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Enabled"
+          },
+          "fail_timeout_seconds": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fail Timeout Seconds"
+          },
+          "host": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Host"
+          },
+          "max_fails": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Fails"
+          },
+          "port": {
+            "anyOf": [
+              {
+                "maximum": 65535.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Port"
+          },
+          "weight": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Weight"
+          }
+        },
+        "title": "BackendUpdate",
+        "type": "object"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -140,6 +392,27 @@
         ],
         "title": "HealthResponse",
         "type": "object"
+      },
+      "HttpScheme": {
+        "description": "Scheme a proxy host uses to reach its upstream.",
+        "enum": [
+          "http",
+          "https"
+        ],
+        "title": "HttpScheme",
+        "type": "string"
+      },
+      "LoadBalanceMethod": {
+        "description": "nginx ``upstream`` load-balancing strategies for a backend pool.",
+        "enum": [
+          "round_robin",
+          "least_conn",
+          "ip_hash",
+          "hash",
+          "random"
+        ],
+        "title": "LoadBalanceMethod",
+        "type": "string"
       },
       "LoginRequest": {
         "description": "Credentials submitted to ``POST /auth/login``.",
@@ -194,6 +467,403 @@
           }
         },
         "title": "NginxConfigPreview",
+        "type": "object"
+      },
+      "ProxyHostCreate": {
+        "description": "Payload to create a proxy host.",
+        "properties": {
+          "access_list_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Optional access list guarding this host",
+            "title": "Access List Id"
+          },
+          "advanced_config": {
+            "default": "",
+            "description": "Raw nginx directives injected into the server block",
+            "title": "Advanced Config",
+            "type": "string"
+          },
+          "allow_websocket_upgrade": {
+            "default": false,
+            "description": "Pass Upgrade/Connection headers for websockets",
+            "title": "Allow Websocket Upgrade",
+            "type": "boolean"
+          },
+          "block_exploits": {
+            "default": false,
+            "description": "Block common exploit probes",
+            "title": "Block Exploits",
+            "type": "boolean"
+          },
+          "caching_enabled": {
+            "default": false,
+            "description": "Cache static assets",
+            "title": "Caching Enabled",
+            "type": "boolean"
+          },
+          "certificate_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Certificate for TLS termination; null serves plain :80",
+            "title": "Certificate Id"
+          },
+          "domain_names": {
+            "description": "Domains this host answers for (server_name)",
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1,
+            "title": "Domain Names",
+            "type": "array"
+          },
+          "enabled": {
+            "default": true,
+            "description": "Disabled hosts are excluded from config",
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "forward_scheme": {
+            "$ref": "#/components/schemas/HttpScheme",
+            "default": "http",
+            "description": "Scheme used to reach the upstream (http/https)"
+          },
+          "hsts_enabled": {
+            "default": false,
+            "description": "Emit a Strict-Transport-Security header",
+            "title": "Hsts Enabled",
+            "type": "boolean"
+          },
+          "hsts_subdomains": {
+            "default": false,
+            "description": "Include subdomains in HSTS",
+            "title": "Hsts Subdomains",
+            "type": "boolean"
+          },
+          "http2_support": {
+            "default": false,
+            "description": "Enable HTTP/2 on the TLS listener",
+            "title": "Http2 Support",
+            "type": "boolean"
+          },
+          "ssl_forced": {
+            "default": false,
+            "description": "Redirect :80 to HTTPS",
+            "title": "Ssl Forced",
+            "type": "boolean"
+          },
+          "upstream_id": {
+            "description": "The upstream pool to forward matched traffic to",
+            "title": "Upstream Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "domain_names",
+          "upstream_id"
+        ],
+        "title": "ProxyHostCreate",
+        "type": "object"
+      },
+      "ProxyHostRead": {
+        "description": "Public representation of a proxy host.",
+        "properties": {
+          "access_list_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Optional access list guarding this host",
+            "title": "Access List Id"
+          },
+          "advanced_config": {
+            "default": "",
+            "description": "Raw nginx directives injected into the server block",
+            "title": "Advanced Config",
+            "type": "string"
+          },
+          "allow_websocket_upgrade": {
+            "default": false,
+            "description": "Pass Upgrade/Connection headers for websockets",
+            "title": "Allow Websocket Upgrade",
+            "type": "boolean"
+          },
+          "block_exploits": {
+            "default": false,
+            "description": "Block common exploit probes",
+            "title": "Block Exploits",
+            "type": "boolean"
+          },
+          "caching_enabled": {
+            "default": false,
+            "description": "Cache static assets",
+            "title": "Caching Enabled",
+            "type": "boolean"
+          },
+          "certificate_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Certificate for TLS termination; null serves plain :80",
+            "title": "Certificate Id"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "domain_names": {
+            "description": "Domains this host answers for (server_name)",
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1,
+            "title": "Domain Names",
+            "type": "array"
+          },
+          "enabled": {
+            "default": true,
+            "description": "Disabled hosts are excluded from config",
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "forward_scheme": {
+            "$ref": "#/components/schemas/HttpScheme",
+            "default": "http",
+            "description": "Scheme used to reach the upstream (http/https)"
+          },
+          "hsts_enabled": {
+            "default": false,
+            "description": "Emit a Strict-Transport-Security header",
+            "title": "Hsts Enabled",
+            "type": "boolean"
+          },
+          "hsts_subdomains": {
+            "default": false,
+            "description": "Include subdomains in HSTS",
+            "title": "Hsts Subdomains",
+            "type": "boolean"
+          },
+          "http2_support": {
+            "default": false,
+            "description": "Enable HTTP/2 on the TLS listener",
+            "title": "Http2 Support",
+            "type": "boolean"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "ssl_forced": {
+            "default": false,
+            "description": "Redirect :80 to HTTPS",
+            "title": "Ssl Forced",
+            "type": "boolean"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          },
+          "upstream_id": {
+            "description": "The upstream pool to forward matched traffic to",
+            "title": "Upstream Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "domain_names",
+          "upstream_id",
+          "id",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "ProxyHostRead",
+        "type": "object"
+      },
+      "ProxyHostUpdate": {
+        "description": "Partial update of a proxy host; every field is optional.",
+        "properties": {
+          "access_list_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Access List Id"
+          },
+          "advanced_config": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Advanced Config"
+          },
+          "allow_websocket_upgrade": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Allow Websocket Upgrade"
+          },
+          "block_exploits": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Block Exploits"
+          },
+          "caching_enabled": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Caching Enabled"
+          },
+          "certificate_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Certificate Id"
+          },
+          "domain_names": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "minItems": 1,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Domain Names"
+          },
+          "enabled": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Enabled"
+          },
+          "forward_scheme": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/HttpScheme"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "hsts_enabled": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hsts Enabled"
+          },
+          "hsts_subdomains": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hsts Subdomains"
+          },
+          "http2_support": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Http2 Support"
+          },
+          "ssl_forced": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ssl Forced"
+          },
+          "upstream_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Upstream Id"
+          }
+        },
+        "title": "ProxyHostUpdate",
         "type": "object"
       },
       "RefreshRequest": {
@@ -312,6 +982,157 @@
           "refresh_token"
         ],
         "title": "TokenPair",
+        "type": "object"
+      },
+      "UpstreamCreate": {
+        "description": "Payload to create a pool, optionally seeding its backends inline.",
+        "properties": {
+          "backends": {
+            "items": {
+              "$ref": "#/components/schemas/BackendCreate"
+            },
+            "title": "Backends",
+            "type": "array"
+          },
+          "description": {
+            "default": "",
+            "description": "Optional free-text description",
+            "title": "Description",
+            "type": "string"
+          },
+          "enabled": {
+            "default": true,
+            "description": "Disabled pools are excluded from config",
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "lb_method": {
+            "$ref": "#/components/schemas/LoadBalanceMethod",
+            "default": "round_robin",
+            "description": "nginx load-balancing strategy"
+          },
+          "name": {
+            "description": "Human-readable pool name",
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "UpstreamCreate",
+        "type": "object"
+      },
+      "UpstreamRead": {
+        "description": "Public representation of a pool, including its backends.",
+        "properties": {
+          "backends": {
+            "items": {
+              "$ref": "#/components/schemas/BackendRead"
+            },
+            "title": "Backends",
+            "type": "array"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "description": {
+            "default": "",
+            "description": "Optional free-text description",
+            "title": "Description",
+            "type": "string"
+          },
+          "enabled": {
+            "default": true,
+            "description": "Disabled pools are excluded from config",
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "lb_method": {
+            "$ref": "#/components/schemas/LoadBalanceMethod",
+            "default": "round_robin",
+            "description": "nginx load-balancing strategy"
+          },
+          "name": {
+            "description": "Human-readable pool name",
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "id",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "UpstreamRead",
+        "type": "object"
+      },
+      "UpstreamUpdate": {
+        "description": "Partial update of a pool's own attributes (not its backends).",
+        "properties": {
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "enabled": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Enabled"
+          },
+          "lb_method": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LoadBalanceMethod"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "name": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          }
+        },
+        "title": "UpstreamUpdate",
         "type": "object"
       },
       "UserCreate": {
@@ -767,6 +1588,225 @@
         ]
       }
     },
+    "/api/v1/proxy-hosts": {
+      "get": {
+        "description": "List all proxy hosts. Admin-only.",
+        "operationId": "list_proxy_hosts_api_v1_proxy_hosts_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ProxyHostRead"
+                  },
+                  "title": "Response List Proxy Hosts Api V1 Proxy Hosts Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "List Proxy Hosts",
+        "tags": [
+          "proxy-hosts"
+        ]
+      },
+      "post": {
+        "description": "Create a proxy host forwarding to an upstream pool. Admin-only.",
+        "operationId": "create_proxy_host_api_v1_proxy_hosts_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProxyHostCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyHostRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Create Proxy Host",
+        "tags": [
+          "proxy-hosts"
+        ]
+      }
+    },
+    "/api/v1/proxy-hosts/{host_id}": {
+      "delete": {
+        "description": "Delete a proxy host. Admin-only.",
+        "operationId": "delete_proxy_host_api_v1_proxy_hosts__host_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "host_id",
+            "required": true,
+            "schema": {
+              "title": "Host Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Delete Proxy Host",
+        "tags": [
+          "proxy-hosts"
+        ]
+      },
+      "get": {
+        "description": "Fetch a single proxy host. Admin-only.",
+        "operationId": "get_proxy_host_api_v1_proxy_hosts__host_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "host_id",
+            "required": true,
+            "schema": {
+              "title": "Host Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyHostRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Get Proxy Host",
+        "tags": [
+          "proxy-hosts"
+        ]
+      },
+      "patch": {
+        "description": "Update a proxy host. Admin-only.",
+        "operationId": "update_proxy_host_api_v1_proxy_hosts__host_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "host_id",
+            "required": true,
+            "schema": {
+              "title": "Host Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProxyHostUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyHostRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Update Proxy Host",
+        "tags": [
+          "proxy-hosts"
+        ]
+      }
+    },
     "/api/v1/tasks/sample": {
       "post": {
         "description": "Enqueue the sample ``add`` task; returns a task id to poll.",
@@ -849,6 +1889,398 @@
         "summary": "Task Status",
         "tags": [
           "tasks"
+        ]
+      }
+    },
+    "/api/v1/upstreams": {
+      "get": {
+        "description": "List all upstream pools with their backends. Admin-only.",
+        "operationId": "list_upstreams_api_v1_upstreams_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/UpstreamRead"
+                  },
+                  "title": "Response List Upstreams Api V1 Upstreams Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "List Upstreams",
+        "tags": [
+          "upstreams"
+        ]
+      },
+      "post": {
+        "description": "Create an upstream pool, optionally seeding backends inline. Admin-only.",
+        "operationId": "create_upstream_api_v1_upstreams_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpstreamCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UpstreamRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Create Upstream",
+        "tags": [
+          "upstreams"
+        ]
+      }
+    },
+    "/api/v1/upstreams/{upstream_id}": {
+      "delete": {
+        "description": "Delete a pool (and its backends). 409 if still referenced by a host.",
+        "operationId": "delete_upstream_api_v1_upstreams__upstream_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "upstream_id",
+            "required": true,
+            "schema": {
+              "title": "Upstream Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Delete Upstream",
+        "tags": [
+          "upstreams"
+        ]
+      },
+      "get": {
+        "description": "Fetch a single upstream pool. Admin-only.",
+        "operationId": "get_upstream_api_v1_upstreams__upstream_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "upstream_id",
+            "required": true,
+            "schema": {
+              "title": "Upstream Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UpstreamRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Get Upstream",
+        "tags": [
+          "upstreams"
+        ]
+      },
+      "patch": {
+        "description": "Update a pool's own attributes (name/description/lb_method/enabled).",
+        "operationId": "update_upstream_api_v1_upstreams__upstream_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "upstream_id",
+            "required": true,
+            "schema": {
+              "title": "Upstream Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpstreamUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UpstreamRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Update Upstream",
+        "tags": [
+          "upstreams"
+        ]
+      }
+    },
+    "/api/v1/upstreams/{upstream_id}/backends": {
+      "post": {
+        "description": "Add a backend server to a pool. Admin-only.",
+        "operationId": "add_backend_api_v1_upstreams__upstream_id__backends_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "upstream_id",
+            "required": true,
+            "schema": {
+              "title": "Upstream Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BackendCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BackendRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Add Backend",
+        "tags": [
+          "upstreams"
+        ]
+      }
+    },
+    "/api/v1/upstreams/{upstream_id}/backends/{backend_id}": {
+      "delete": {
+        "description": "Remove a backend from a pool. Admin-only.",
+        "operationId": "remove_backend_api_v1_upstreams__upstream_id__backends__backend_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "upstream_id",
+            "required": true,
+            "schema": {
+              "title": "Upstream Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "backend_id",
+            "required": true,
+            "schema": {
+              "title": "Backend Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Remove Backend",
+        "tags": [
+          "upstreams"
+        ]
+      },
+      "patch": {
+        "description": "Update a backend within a pool. Admin-only.",
+        "operationId": "update_backend_api_v1_upstreams__upstream_id__backends__backend_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "upstream_id",
+            "required": true,
+            "schema": {
+              "title": "Upstream Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "backend_id",
+            "required": true,
+            "schema": {
+              "title": "Backend Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BackendUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BackendRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Update Backend",
+        "tags": [
+          "upstreams"
         ]
       }
     },

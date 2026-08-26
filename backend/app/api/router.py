@@ -9,7 +9,15 @@ from __future__ import annotations
 
 from fastapi import APIRouter
 
-from app.api.routes import audit_log, auth, nginx, tasks, users
+from app.api.routes import (
+    audit_log,
+    auth,
+    nginx,
+    proxy_hosts,
+    tasks,
+    upstreams,
+    users,
+)
 
 api_router = APIRouter()
 
@@ -18,6 +26,8 @@ api_router.include_router(auth.router, prefix="/auth")
 api_router.include_router(users.router, prefix="/users")
 api_router.include_router(audit_log.router, prefix="/audit-log")
 api_router.include_router(nginx.router, prefix="/nginx")
+api_router.include_router(upstreams.router, prefix="/upstreams")
+api_router.include_router(proxy_hosts.router, prefix="/proxy-hosts")
 
 # Additional feature routers are included here as they are added, for example:
 # from app.api.routes import projects
