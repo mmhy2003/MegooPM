@@ -99,6 +99,42 @@ async def test_list_alerts_logs_in_and_uses_bearer_token() -> None:
     assert alerts[0].scenario == "crowdsecurity/http-probing"
 
 
+async def test_list_alerts_coerces_null_decisions() -> None:
+    # LAPI sends ``decisions: null`` (not ``[]``) for every decision-less alert
+    # — notably all AppSec/WAF detections (``crowdsecurity/vpatch-*``). Mixing a
+    # decision-bearing alert with a null-decision one mirrors the live shape
+    # from MEG-29 and must not 500 the read path (regression: MEG-39).
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/v1/watchers/login":
+            return httpx.Response(200, json={"token": "jwt"})
+        return httpx.Response(
+            200,
+            json=[
+                {
+                    "id": 1,
+                    "scenario": "megoopm/manual-ban",
+                    "decisions": [
+                        {"type": "ban", "scope": "Ip", "value": "1.2.3.4", "duration": "4h"}
+                    ],
+                },
+                {
+                    "id": 2,
+                    "scenario": "crowdsecurity/vpatch-env-access",
+                    "decisions": None,
+                },
+            ],
+        )
+
+    async with _client(handler) as client:
+        alerts = await client.list_alerts()
+
+    assert len(alerts) == 2
+    assert alerts[0].decisions[0].value == "1.2.3.4"
+    # The null-decision AppSec alert normalizes to an empty list, not a 500.
+    assert alerts[1].scenario == "crowdsecurity/vpatch-env-access"
+    assert alerts[1].decisions == []
+
+
 # --- client: write path ----------------------------------------------------
 
 

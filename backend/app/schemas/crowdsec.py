@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class Decision(BaseModel):
@@ -50,6 +50,15 @@ class Alert(BaseModel):
     created_at: str | None = None
     start_at: str | None = None
     stop_at: str | None = None
+
+    @field_validator("decisions", mode="before")
+    @classmethod
+    def _coerce_null_decisions(cls, v: object) -> object:
+        # LAPI sends ``decisions: null`` (not ``[]``) for every decision-less
+        # alert — notably all AppSec/WAF detections (``crowdsecurity/vpatch-*``).
+        # ``default_factory`` only fires when the key is absent, so coerce the
+        # explicit null here to keep the alerts read path from 500ing (MEG-39).
+        return [] if v is None else v
 
 
 class DecisionCreate(BaseModel):
