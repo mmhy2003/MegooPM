@@ -41,6 +41,15 @@
     add_header Strict-Transport-Security "max-age=63072000{% if host.hsts_subdomains %}; includeSubDomains{% endif %}" always;
 {%- endif %}
 {%- endmacro -%}
+{%- macro crowdsec() -%}
+{%- if host.crowdsec_enabled %}
+    # CrowdSec bouncer (MEG-22){% if host.crowdsec_appsec_enabled %} + inline AppSec/WAF{% endif %}.
+    # Runs in the access phase: banned IPs (and, with AppSec on, malicious
+    # payloads) are refused before the request reaches the upstream.
+    set $megoopm_crowdsec_appsec {% if host.crowdsec_appsec_enabled %}on{% else %}off{% endif %};
+    access_by_lua_file /etc/nginx/lua/megoopm_crowdsec.lua;
+{%- endif %}
+{%- endmacro -%}
 # Managed by MegooPM — do not edit by hand.
 # proxy host id={{ host.id }}
 {%- if host.certificate %}
@@ -48,8 +57,10 @@ server {
     listen 80;
     server_name {{ server_names }};
 {%- if host.ssl_forced %}
+{{- crowdsec() }}
     return 301 https://$host$request_uri;
 {%- else %}
+{{- crowdsec() }}
 {{- security() }}
 {{- proxy_location() }}
 {%- endif %}
@@ -62,6 +73,7 @@ server {
     ssl_certificate {{ host.certificate.fullchain_path }};
     ssl_certificate_key {{ host.certificate.privkey_path }};
 {{- hsts() }}
+{{- crowdsec() }}
 {{- security() }}
 {{- proxy_location() }}
 {%- if host.advanced_config %}
@@ -73,6 +85,7 @@ server {
 server {
     listen 80;
     server_name {{ server_names }};
+{{- crowdsec() }}
 {{- security() }}
 {{- proxy_location() }}
 {%- if host.advanced_config %}

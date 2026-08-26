@@ -1,6 +1,188 @@
 {
   "components": {
     "schemas": {
+      "Alert": {
+        "description": "A detection event CrowdSec raised, with any decisions it triggered.",
+        "properties": {
+          "created_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
+          "decisions": {
+            "items": {
+              "$ref": "#/components/schemas/Decision"
+            },
+            "title": "Decisions",
+            "type": "array"
+          },
+          "events_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Events Count"
+          },
+          "id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id"
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message"
+          },
+          "scenario": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scenario"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AlertSource"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "start_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start At"
+          },
+          "stop_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stop At"
+          }
+        },
+        "title": "Alert",
+        "type": "object"
+      },
+      "AlertList": {
+        "description": "A page of recent alerts.",
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/Alert"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "total": {
+            "default": 0,
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "title": "AlertList",
+        "type": "object"
+      },
+      "AlertSource": {
+        "description": "Where an alert originated (the offending IP and its geo/AS metadata).",
+        "properties": {
+          "as_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "As Name"
+          },
+          "cn": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cn"
+          },
+          "ip": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ip"
+          },
+          "scope": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scope"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value"
+          }
+        },
+        "title": "AlertSource",
+        "type": "object"
+      },
       "AuditAction": {
         "description": "The mutation an audit-log row records.",
         "enum": [
@@ -356,6 +538,175 @@
         "title": "BackendUpdate",
         "type": "object"
       },
+      "CrowdSecHealth": {
+        "description": "Whether the LAPI integration is configured and reachable.",
+        "properties": {
+          "configured": {
+            "title": "Configured",
+            "type": "boolean"
+          },
+          "detail": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detail"
+          },
+          "lapi_url": {
+            "title": "Lapi Url",
+            "type": "string"
+          },
+          "reachable": {
+            "title": "Reachable",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "configured",
+          "reachable",
+          "lapi_url"
+        ],
+        "title": "CrowdSecHealth",
+        "type": "object"
+      },
+      "Decision": {
+        "description": "One active remediation the bouncer enforces (a ban, captcha, …).",
+        "properties": {
+          "duration": {
+            "title": "Duration",
+            "type": "string"
+          },
+          "id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id"
+          },
+          "origin": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Origin"
+          },
+          "scenario": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scenario"
+          },
+          "scope": {
+            "title": "Scope",
+            "type": "string"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          },
+          "value": {
+            "title": "Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "scope",
+          "value",
+          "duration"
+        ],
+        "title": "Decision",
+        "type": "object"
+      },
+      "DecisionCreate": {
+        "description": "Input for pushing a manual decision (operator-initiated ban).",
+        "properties": {
+          "duration": {
+            "default": "4h",
+            "minLength": 1,
+            "title": "Duration",
+            "type": "string"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Free-text note stored on the alert",
+            "title": "Reason"
+          },
+          "scope": {
+            "default": "Ip",
+            "enum": [
+              "Ip",
+              "Range"
+            ],
+            "title": "Scope",
+            "type": "string"
+          },
+          "type": {
+            "default": "ban",
+            "enum": [
+              "ban",
+              "captcha",
+              "throttle"
+            ],
+            "title": "Type",
+            "type": "string"
+          },
+          "value": {
+            "description": "IP or CIDR range to act on",
+            "minLength": 1,
+            "title": "Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "value"
+        ],
+        "title": "DecisionCreate",
+        "type": "object"
+      },
+      "DecisionList": {
+        "description": "A page of active decisions.",
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/Decision"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "total": {
+            "default": 0,
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "title": "DecisionList",
+        "type": "object"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -520,6 +871,18 @@
             "description": "Certificate for TLS termination; null serves plain :80",
             "title": "Certificate Id"
           },
+          "crowdsec_appsec_enabled": {
+            "default": false,
+            "description": "Route requests through CrowdSec inline AppSec/WAF (needs crowdsec_enabled)",
+            "title": "Crowdsec Appsec Enabled",
+            "type": "boolean"
+          },
+          "crowdsec_enabled": {
+            "default": false,
+            "description": "Enforce the CrowdSec nginx bouncer on this host",
+            "title": "Crowdsec Enabled",
+            "type": "boolean"
+          },
           "domain_names": {
             "description": "Domains this host answers for (server_name)",
             "items": {
@@ -632,6 +995,18 @@
             "format": "date-time",
             "title": "Created At",
             "type": "string"
+          },
+          "crowdsec_appsec_enabled": {
+            "default": false,
+            "description": "Route requests through CrowdSec inline AppSec/WAF (needs crowdsec_enabled)",
+            "title": "Crowdsec Appsec Enabled",
+            "type": "boolean"
+          },
+          "crowdsec_enabled": {
+            "default": false,
+            "description": "Enforce the CrowdSec nginx bouncer on this host",
+            "title": "Crowdsec Enabled",
+            "type": "boolean"
           },
           "domain_names": {
             "description": "Domains this host answers for (server_name)",
@@ -770,6 +1145,28 @@
               }
             ],
             "title": "Certificate Id"
+          },
+          "crowdsec_appsec_enabled": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Crowdsec Appsec Enabled"
+          },
+          "crowdsec_enabled": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Crowdsec Enabled"
           },
           "domain_names": {
             "anyOf": [
@@ -1531,6 +1928,210 @@
         "summary": "Refresh",
         "tags": [
           "auth"
+        ]
+      }
+    },
+    "/api/v1/crowdsec/alerts": {
+      "get": {
+        "description": "List recent alerts CrowdSec raised, newest first.",
+        "operationId": "list_alerts_api_v1_crowdsec_alerts_get",
+        "parameters": [
+          {
+            "description": "Max alerts to return",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "description": "Max alerts to return",
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AlertList"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "List Alerts",
+        "tags": [
+          "crowdsec"
+        ]
+      }
+    },
+    "/api/v1/crowdsec/decisions": {
+      "get": {
+        "description": "List active decisions the bouncer enforces.",
+        "operationId": "list_decisions_api_v1_crowdsec_decisions_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DecisionList"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "List Decisions",
+        "tags": [
+          "crowdsec"
+        ]
+      },
+      "post": {
+        "description": "Push a manual decision (operator ban) and record it in the audit log.",
+        "operationId": "add_decision_api_v1_crowdsec_decisions_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DecisionCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Decision"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Add Decision",
+        "tags": [
+          "crowdsec"
+        ]
+      }
+    },
+    "/api/v1/crowdsec/decisions/{decision_id}": {
+      "delete": {
+        "description": "Lift a decision by id; records the removal in the audit log.",
+        "operationId": "delete_decision_api_v1_crowdsec_decisions__decision_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "decision_id",
+            "required": true,
+            "schema": {
+              "title": "Decision Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "integer"
+                  },
+                  "title": "Response Delete Decision Api V1 Crowdsec Decisions  Decision Id  Delete",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Delete Decision",
+        "tags": [
+          "crowdsec"
+        ]
+      }
+    },
+    "/api/v1/crowdsec/health": {
+      "get": {
+        "description": "Report whether LAPI is configured and reachable (never errors).",
+        "operationId": "crowdsec_health_api_v1_crowdsec_health_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CrowdSecHealth"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Crowdsec Health",
+        "tags": [
+          "crowdsec"
         ]
       }
     },

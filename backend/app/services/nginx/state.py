@@ -68,6 +68,9 @@ class ProxyHostSpec:
     caching_enabled: bool = False
     block_exploits: bool = False
     allow_websocket_upgrade: bool = False
+    # CrowdSec (MEG-22): edge bouncer + optional inline AppSec/WAF for this host.
+    crowdsec_enabled: bool = False
+    crowdsec_appsec_enabled: bool = False
     advanced_config: str = ""
 
 

@@ -69,6 +69,13 @@ class ProxyHostBase(BaseModel):
     allow_websocket_upgrade: bool = Field(
         default=False, description="Pass Upgrade/Connection headers for websockets"
     )
+    crowdsec_enabled: bool = Field(
+        default=False, description="Enforce the CrowdSec nginx bouncer on this host"
+    )
+    crowdsec_appsec_enabled: bool = Field(
+        default=False,
+        description="Route requests through CrowdSec inline AppSec/WAF (needs crowdsec_enabled)",
+    )
     advanced_config: str = Field(
         default="", description="Raw nginx directives injected into the server block"
     )
@@ -99,6 +106,8 @@ class ProxyHostUpdate(BaseModel):
     caching_enabled: bool | None = None
     block_exploits: bool | None = None
     allow_websocket_upgrade: bool | None = None
+    crowdsec_enabled: bool | None = None
+    crowdsec_appsec_enabled: bool | None = None
     advanced_config: str | None = None
     enabled: bool | None = None
 

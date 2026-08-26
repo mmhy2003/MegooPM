@@ -26,6 +26,14 @@ x-backend-env: &backend-env
   CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000}
   NGINX_CONFD_DIR: /etc/nginx/conf.d
   NGINX_CERTS_DIR: /etc/nginx/certs
+  # CrowdSec LAPI (MEG-22). The bouncer key drives the *read* path (decisions);
+  # machine creds (optional; register with `cscli machines add`) enable the
+  # alert read + manual-decision write paths. Left blank they simply disable
+  # those endpoints (503) rather than erroring.
+  CROWDSEC_LAPI_URL: http://crowdsec:8080
+  CROWDSEC_LAPI_KEY: ${CROWDSEC_BOUNCER_KEY:-megoopm-dev-bouncer-key}
+  CROWDSEC_MACHINE_ID: ${CROWDSEC_MACHINE_ID:-}
+  CROWDSEC_MACHINE_PASSWORD: ${CROWDSEC_MACHINE_PASSWORD:-}
 
 services:
   db:
@@ -136,8 +144,17 @@ services:
 
   # The managed nginx reverse proxy MegooPM controls. Its base config includes
   # /etc/nginx/conf.d/*.conf, which the backend writes onto a shared volume.
+  # Built from infra/nginx/Dockerfile: OpenResty + the CrowdSec bouncer, so
+  # per-host bouncer/AppSec directives the backend renders actually enforce
+  # (MEG-22). Still a drop-in for the plain nginx image otherwise.
   nginx:
-    image: nginx:1.27-alpine
+    build: ./infra/nginx
+    environment:
+      # Consumed by the container entrypoint to render the bouncer config; the
+      # key must match the one CrowdSec registered for this bouncer below.
+      CROWDSEC_LAPI_URL: http://crowdsec:8080
+      CROWDSEC_APPSEC_URL: http://crowdsec:7422
+      CROWDSEC_BOUNCER_KEY: ${CROWDSEC_BOUNCER_KEY:-megoopm-dev-bouncer-key}
     ports:
       - "${NGINX_HTTP_PORT:-8080}:80"
       - "${NGINX_HTTPS_PORT:-8443}:443"
@@ -148,6 +165,8 @@ services:
     depends_on:
       proxy-init:
         condition: service_completed_successfully
+      crowdsec:
+        condition: service_started
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://localhost/healthz"]
       interval: 15s
@@ -155,16 +174,26 @@ services:
       start_period: 10s
       retries: 5
 
-  # Placeholder for the CrowdSec security engine. A later ticket wires it into
-  # nginx (bouncer) and the backend; for now it runs standalone (local LAPI)
-  # and nothing depends on it, so it never blocks the stack coming up.
+  # CrowdSec security engine (MEG-22): Local API (LAPI, :8080) + inline AppSec
+  # WAF (:7422). Auto-registers the nginx bouncer with a known dev key and
+  # installs the AppSec rule collections so the WAF has rules to match. The
+  # AppSec datasource is declared in infra/crowdsec/acquis/appsec.yaml.
   crowdsec:
     image: crowdsecurity/crowdsec:v1.6.4
     environment:
       DISABLE_ONLINE_API: "true"
+      # Register the nginx bouncer at startup with a fixed key (dev only —
+      # override CROWDSEC_BOUNCER_KEY with a real secret in deployed stacks).
+      BOUNCER_KEY_megoopm: ${CROWDSEC_BOUNCER_KEY:-megoopm-dev-bouncer-key}
+      # Rules the inline AppSec/WAF enforces.
+      COLLECTIONS: "crowdsecurity/appsec-virtual-patching crowdsecurity/appsec-generic-rules crowdsecurity/nginx"
+    expose:
+      - "8080"  # LAPI
+      - "7422"  # AppSec
     volumes:
       - crowdsec_config:/etc/crowdsec
       - crowdsec_data:/var/lib/crowdsec/data
+      - ./infra/crowdsec/acquis:/etc/crowdsec/acquis.d:ro
 
 volumes:
   pgdata:

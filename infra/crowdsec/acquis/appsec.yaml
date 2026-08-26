@@ -1,0 +1,15 @@
+# CrowdSec AppSec (inline WAF) datasource — MEG-22.
+#
+# Mounted into /etc/crowdsec/acquis.d so CrowdSec opens an AppSec listener on
+# :7422. The nginx bouncer forwards requests here for hosts that enable the
+# per-host AppSec toggle (the backend renders `$megoopm_crowdsec_appsec on;`
+# into those server blocks; see infra/nginx/lua/megoopm_crowdsec.lua).
+#
+# `appsec_config` pulls in the rule set installed via the COLLECTIONS env on the
+# crowdsec service (virtual-patching + generic rules).
+listen_addr: 0.0.0.0:7422
+appsec_config: crowdsecurity/appsec-default
+name: megoopm-appsec
+source: appsec
+labels:
+  type: appsec

@@ -112,6 +112,8 @@ async def load_desired_state(
                 caching_enabled=host.caching_enabled,
                 block_exploits=host.block_exploits,
                 allow_websocket_upgrade=host.allow_websocket_upgrade,
+                crowdsec_enabled=host.crowdsec_enabled,
+                crowdsec_appsec_enabled=host.crowdsec_appsec_enabled,
                 advanced_config=host.advanced_config,
             )
         )

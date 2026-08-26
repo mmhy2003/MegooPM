@@ -80,6 +80,25 @@ class Settings(BaseSettings):
     nginx_test_command: str = "nginx -t"
     nginx_reload_command: str = "nginx -s reload"
 
+    # --- CrowdSec (MEG-22) ---
+    # Base URL of the CrowdSec Local API (LAPI). The backend reads decisions /
+    # alerts and pushes manual decisions here.
+    crowdsec_lapi_url: str = "http://crowdsec:8080"
+    # Bouncer API key (``X-Api-Key``) used to read active decisions from LAPI.
+    # This is the same key handed to the nginx bouncer. None disables the read
+    # path (endpoints report the integration as unconfigured rather than 500).
+    crowdsec_lapi_key: str | None = None
+    # Machine credentials used to authenticate the alert read path and manual
+    # decision writes (bouncer keys cannot write). Registered with
+    # ``cscli machines add``. Both must be set to enable the write/alert paths.
+    crowdsec_machine_id: str | None = None
+    crowdsec_machine_password: str | None = None
+    # Origin tag stamped on decisions/alerts this backend creates, so operator
+    # actions are distinguishable from engine-generated ones in CrowdSec.
+    crowdsec_origin: str = "megoopm"
+    # Per-request timeout (seconds) for LAPI calls.
+    crowdsec_timeout_seconds: float = 5.0
+
     # --- CORS ---
     # Comma-separated origins, or "*" for all. NoDecode disables
     # pydantic-settings' JSON pre-parsing so the validator below handles the

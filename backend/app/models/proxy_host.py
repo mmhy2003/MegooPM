@@ -62,6 +62,16 @@ class ProxyHost(IdMixin, TimestampMixin, Base):
     allow_websocket_upgrade: Mapped[bool] = mapped_column(
         Boolean, nullable=False, server_default="false"
     )
+    # CrowdSec (MEG-22). ``crowdsec_enabled`` wires the nginx bouncer into this
+    # host so banned IPs are refused at the edge; ``crowdsec_appsec_enabled``
+    # additionally routes requests through the inline AppSec/WAF component.
+    # AppSec has no effect unless the bouncer is enabled.
+    crowdsec_enabled: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, server_default="false"
+    )
+    crowdsec_appsec_enabled: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, server_default="false"
+    )
     advanced_config: Mapped[str] = mapped_column(
         Text, nullable=False, default="", server_default=""
     )

@@ -121,6 +121,56 @@ def test_websocket_and_exploit_and_cache_flags() -> None:
     assert "expires 1d;" in server  # asset caching location
 
 
+def test_crowdsec_bouncer_renders_per_host() -> None:
+    off = render_config(
+        DesiredState(proxy_hosts=(_host(),), upstreams=(_pool(),))
+    )["megoopm-proxy-1.conf"]
+    # Disabled by default: no bouncer directives leak into the config.
+    assert "access_by_lua_file" not in off
+    assert "megoopm_crowdsec_appsec" not in off
+
+    on = render_config(
+        DesiredState(proxy_hosts=(_host(crowdsec_enabled=True),), upstreams=(_pool(),))
+    )["megoopm-proxy-1.conf"]
+    assert "access_by_lua_file /etc/nginx/lua/megoopm_crowdsec.lua;" in on
+    # Bouncer on, AppSec off.
+    assert "set $megoopm_crowdsec_appsec off;" in on
+
+
+def test_crowdsec_appsec_toggle_renders() -> None:
+    host = _host(crowdsec_enabled=True, crowdsec_appsec_enabled=True)
+    server = render_config(
+        DesiredState(proxy_hosts=(host,), upstreams=(_pool(),))
+    )["megoopm-proxy-1.conf"]
+    assert "set $megoopm_crowdsec_appsec on;" in server
+    assert "inline AppSec/WAF" in server
+
+
+def test_crowdsec_appsec_requires_bouncer() -> None:
+    # AppSec on but bouncer off → nothing renders (AppSec is meaningless alone).
+    host = _host(crowdsec_enabled=False, crowdsec_appsec_enabled=True)
+    server = render_config(
+        DesiredState(proxy_hosts=(host,), upstreams=(_pool(),))
+    )["megoopm-proxy-1.conf"]
+    assert "megoopm_crowdsec_appsec" not in server
+    assert "access_by_lua_file" not in server
+
+
+def test_crowdsec_applies_to_tls_and_redirect_servers() -> None:
+    cert = CertificateSpec(
+        id=7,
+        fullchain_path="/etc/nginx/certs/7/fullchain.pem",
+        privkey_path="/etc/nginx/certs/7/privkey.pem",
+    )
+    host = _host(certificate=cert, ssl_forced=True, crowdsec_enabled=True)
+    server = render_config(
+        DesiredState(proxy_hosts=(host,), upstreams=(_pool(),))
+    )["megoopm-proxy-1.conf"]
+    # Both the :80 redirect server and the :443 server enforce the bouncer, so
+    # a banned IP is blocked even before the HTTPS redirect.
+    assert server.count("access_by_lua_file /etc/nginx/lua/megoopm_crowdsec.lua;") == 2
+
+
 def test_advanced_config_is_injected() -> None:
     host = _host(advanced_config="client_max_body_size 50m;")
     server = render_config(
