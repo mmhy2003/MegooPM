@@ -9,13 +9,14 @@ from __future__ import annotations
 
 from fastapi import APIRouter
 
-from app.api.routes import auth, tasks, users
+from app.api.routes import audit_log, auth, tasks, users
 
 api_router = APIRouter()
 
 api_router.include_router(tasks.router)
 api_router.include_router(auth.router, prefix="/auth")
 api_router.include_router(users.router, prefix="/users")
+api_router.include_router(audit_log.router, prefix="/audit-log")
 
 # Additional feature routers are included here as they are added, for example:
 # from app.api.routes import projects

@@ -18,10 +18,12 @@ os.environ.setdefault("CELERY_RESULT_BACKEND", "cache+memory://")
 import pytest
 from app.db.session import get_session
 from app.main import app
+from app.models.audit_log import AuditLog
 from app.models.user import User, UserRole
 from app.services import user as user_service
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import BigInteger
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from sqlalchemy.ext.compiler import compiles
 from sqlalchemy.pool import StaticPool
@@ -35,6 +37,14 @@ from sqlalchemy.pool import StaticPool
 @compiles(BigInteger, "sqlite")
 def _sqlite_bigint_as_integer(type_, compiler, **kw):  # noqa: ANN001, ANN202
     return "INTEGER"
+
+
+# ``audit_log.meta`` is a Postgres ``JSONB`` column. SQLite has no JSONB type,
+# so under the test engine we render it as ``JSON`` (which aiosqlite stores as
+# TEXT and round-trips as a dict). Production remains true JSONB on Postgres.
+@compiles(JSONB, "sqlite")
+def _sqlite_jsonb_as_json(type_, compiler, **kw):  # noqa: ANN001, ANN202
+    return "JSON"
 
 
 @pytest.fixture
@@ -62,7 +72,9 @@ async def session_factory() -> AsyncIterator[async_sessionmaker]:
         poolclass=StaticPool,
     )
     async with engine.begin() as conn:
-        await conn.run_sync(User.metadata.create_all, tables=[User.__table__])
+        await conn.run_sync(
+            User.metadata.create_all, tables=[User.__table__, AuditLog.__table__]
+        )
 
     factory = async_sessionmaker(bind=engine, expire_on_commit=False)
     try:

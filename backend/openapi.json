@@ -1,6 +1,109 @@
 {
   "components": {
     "schemas": {
+      "AuditAction": {
+        "description": "The mutation an audit-log row records.",
+        "enum": [
+          "create",
+          "update",
+          "delete",
+          "enable",
+          "disable"
+        ],
+        "title": "AuditAction",
+        "type": "string"
+      },
+      "AuditLogPage": {
+        "description": "A newest-first page of audit entries.\n\n``total`` is the count of rows matching the active filters (ignoring the\npagination window); ``limit``/``offset`` echo the request.",
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/AuditLogRead"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "limit": {
+            "title": "Limit",
+            "type": "integer"
+          },
+          "offset": {
+            "title": "Offset",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "limit",
+          "offset"
+        ],
+        "title": "AuditLogPage",
+        "type": "object"
+      },
+      "AuditLogRead": {
+        "description": "Public representation of one audit-log entry.",
+        "properties": {
+          "action": {
+            "$ref": "#/components/schemas/AuditAction"
+          },
+          "actor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Actor"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "meta": {
+            "additionalProperties": true,
+            "title": "Meta",
+            "type": "object"
+          },
+          "object_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Object Id"
+          },
+          "object_type": {
+            "title": "Object Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "actor",
+          "action",
+          "object_type",
+          "object_id",
+          "meta",
+          "created_at"
+        ],
+        "title": "AuditLogRead",
+        "type": "object"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -328,6 +431,144 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/v1/audit-log": {
+      "get": {
+        "description": "List audit-log entries, newest first. Admin-only.",
+        "operationId": "list_audit_log_api_v1_audit_log_get",
+        "parameters": [
+          {
+            "description": "Filter by object type, e.g. proxy_host",
+            "in": "query",
+            "name": "object_type",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by object type, e.g. proxy_host",
+              "title": "Object Type"
+            }
+          },
+          {
+            "description": "Filter by the mutated object's id",
+            "in": "query",
+            "name": "object_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by the mutated object's id",
+              "title": "Object Id"
+            }
+          },
+          {
+            "description": "Filter by actor (exact match)",
+            "in": "query",
+            "name": "actor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by actor (exact match)",
+              "title": "Actor"
+            }
+          },
+          {
+            "description": "Filter by mutation action",
+            "in": "query",
+            "name": "action",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/AuditAction"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by mutation action",
+              "title": "Action"
+            }
+          },
+          {
+            "description": "Max entries to return",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "description": "Max entries to return",
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Entries to skip (pagination)",
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "description": "Entries to skip (pagination)",
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuditLogPage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "List Audit Log",
+        "tags": [
+          "audit-log"
+        ]
+      }
+    },
     "/api/v1/auth/login": {
       "post": {
         "description": "Authenticate with email + password and return an access/refresh pair.",
