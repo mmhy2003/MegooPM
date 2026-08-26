@@ -12,7 +12,11 @@ changes to the CEO.
 | Icons     | `lucide-react`                                      |
 | Theming   | `next-themes` (light / dark / system)               |
 | Testing   | Vitest + Testing Library (jsdom)                    |
-| Backend   | FastAPI + Alembic + Postgres (added by later tickets) |
+| Backend   | FastAPI + Alembic + Postgres                        |
+| Jobs      | Celery worker + beat, Redis broker/result backend   |
+| Proxy     | nginx (managed by the backend via shared volumes)   |
+| Security  | CrowdSec (placeholder; wired up by a later ticket)  |
+| Local dev | docker compose (full stack, one command)            |
 
 ### Stack note — Next.js 16, not 15
 
@@ -105,6 +109,43 @@ npm run test        # vitest run
 - Vitest transpiles JSX via esbuild's automatic runtime (reads `jsx` from
   tsconfig). We deliberately avoid `@vitejs/plugin-react` because its babel
   dependency conflicts with the `shadcn` CLI's babel pin.
+
+## Local dev orchestration
+
+The whole system runs locally from the repo root with one command:
+
+```bash
+cp .env.example .env    # optional — compose has sane defaults baked in
+docker compose up --build
+```
+
+- **`docker-compose.yml` (root)** is the golden-path full stack: `db` (Postgres),
+  `redis`, `backend` (uvicorn), `worker` + `beat` (Celery), `frontend`
+  (`next dev`), `nginx` (the managed proxy), and a `crowdsec` placeholder.
+  `backend/docker-compose.yml` remains a lighter db+api-only stack for
+  backend-focused work.
+- **One `.env` at the root** configures every service. Compose interpolates it
+  with `${VAR:-default}`, so the stack also boots with no `.env` at all; copy
+  the file only to change ports/credentials. Per-package `.env` files
+  (`backend/.env`, `frontend/.env.local`) are for running a package standalone.
+- **Images:** backend and frontend each own a `Dockerfile`. Worker and beat
+  reuse the backend image with a different `command` and `RUN_MIGRATIONS=0` —
+  the `backend` service is the single migration owner.
+- **Managed proxy contract:** the backend writes vhosts to `/etc/nginx/conf.d`
+  and TLS certs to `/etc/nginx/certs`, both **shared named volumes**
+  (`nginx_confd`, `nginx_certs`). `infra/nginx/nginx.conf` is the read-only base
+  config that `include`s conf.d. A one-shot `proxy-init` service chowns those
+  volumes to the backend user (uid 1000) so the backend can write while nginx
+  reads. Backend paths come from the `nginx_confd_dir` / `nginx_certs_dir`
+  settings.
+- **Browser vs. in-network URLs:** `NEXT_PUBLIC_API_BASE_URL` must be the
+  backend's *published host* URL (`http://localhost:8000`), because the SPA
+  calls it from the user's browser — not the in-network `backend` hostname.
+- **Health & ordering:** every long-running service has a healthcheck;
+  `depends_on` uses `service_healthy` / `service_completed_successfully` so
+  `docker compose up` converges to a healthy stack. `crowdsec` has no dependents
+  and never blocks startup.
+- `make help` lists shortcuts (`up`, `down`, `clean`, `logs`, `migrate`, …).
 
 ## Ticket sizing
 

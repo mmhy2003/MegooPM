@@ -1,0 +1,174 @@
+# MegooPM — full-stack local development orchestration.
+#
+# Brings the entire system up with one command:
+#
+#   cp .env.example .env        # optional — sane defaults are baked in below
+#   docker compose up --build
+#
+# Services: postgres, redis, backend (uvicorn), celery worker + beat,
+# frontend (next dev), the managed nginx proxy MegooPM controls, and a
+# crowdsec placeholder. See README.md / `make help` for the dev workflow.
+#
+# Only need the API + DB? backend/docker-compose.yml is a lighter db+api stack.
+
+name: megoopm
+
+# Shared backend/worker/beat environment. All three run the same image and
+# must agree on the database, broker, and proxy paths.
+x-backend-env: &backend-env
+  ENVIRONMENT: ${ENVIRONMENT:-development}
+  DEBUG: ${DEBUG:-true}
+  SECRET_KEY: ${SECRET_KEY:-change-me-in-production}
+  DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-megoopm}:${POSTGRES_PASSWORD:-megoopm}@db:5432/${POSTGRES_DB:-megoopm}
+  REDIS_URL: redis://redis:6379/0
+  CELERY_BROKER_URL: redis://redis:6379/0
+  CELERY_RESULT_BACKEND: redis://redis:6379/1
+  CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000}
+  NGINX_CONFD_DIR: /etc/nginx/conf.d
+  NGINX_CERTS_DIR: /etc/nginx/certs
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-megoopm}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-megoopm}
+      POSTGRES_DB: ${POSTGRES_DB:-megoopm}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-megoopm} -d ${POSTGRES_DB:-megoopm}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # One-shot: create and hand the shared proxy volumes to the backend user
+  # (uid 1000) so the backend can write vhosts/certs while nginx (root) reads.
+  proxy-init:
+    image: busybox:1.36
+    command: sh -c "mkdir -p /shared/conf.d /shared/certs && chown -R 1000:1000 /shared/conf.d /shared/certs"
+    volumes:
+      - nginx_confd:/shared/conf.d
+      - nginx_certs:/shared/certs
+
+  backend:
+    build: ./backend
+    environment: *backend-env
+    ports:
+      - "${BACKEND_PORT:-8000}:8000"
+    volumes:
+      # Backend owns the managed proxy config: it writes vhosts and TLS certs
+      # onto shared named volumes that the nginx container reads.
+      - nginx_confd:/etc/nginx/conf.d
+      - nginx_certs:/etc/nginx/certs
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      proxy-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 5s
+      start_period: 20s
+      retries: 5
+
+  worker:
+    build: ./backend
+    command: ["celery", "-A", "app.core.celery_app.celery_app", "worker", "--loglevel=info"]
+    environment:
+      <<: *backend-env
+      # The backend service owns migrations; the worker must not race it.
+      RUN_MIGRATIONS: "0"
+    depends_on:
+      redis:
+        condition: service_healthy
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "celery", "-A", "app.core.celery_app.celery_app", "inspect", "ping"]
+      interval: 20s
+      timeout: 10s
+      start_period: 25s
+      retries: 5
+
+  beat:
+    build: ./backend
+    command: ["celery", "-A", "app.core.celery_app.celery_app", "beat", "--loglevel=info"]
+    environment:
+      <<: *backend-env
+      RUN_MIGRATIONS: "0"
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  frontend:
+    build: ./frontend
+    environment:
+      # Browser-facing: the SPA calls the backend on its published host port.
+      NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:8000}
+      NEXT_PUBLIC_AUTH_ENABLED: ${NEXT_PUBLIC_AUTH_ENABLED:-false}
+    ports:
+      - "${FRONTEND_PORT:-3000}:3000"
+    depends_on:
+      backend:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/"]
+      interval: 15s
+      timeout: 5s
+      start_period: 40s
+      retries: 10
+
+  # The managed nginx reverse proxy MegooPM controls. Its base config includes
+  # /etc/nginx/conf.d/*.conf, which the backend writes onto a shared volume.
+  nginx:
+    image: nginx:1.27-alpine
+    ports:
+      - "${NGINX_HTTP_PORT:-8080}:80"
+      - "${NGINX_HTTPS_PORT:-8443}:443"
+    volumes:
+      - ./infra/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - nginx_confd:/etc/nginx/conf.d
+      - nginx_certs:/etc/nginx/certs:ro
+    depends_on:
+      proxy-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost/healthz"]
+      interval: 15s
+      timeout: 5s
+      start_period: 10s
+      retries: 5
+
+  # Placeholder for the CrowdSec security engine. A later ticket wires it into
+  # nginx (bouncer) and the backend; for now it runs standalone (local LAPI)
+  # and nothing depends on it, so it never blocks the stack coming up.
+  crowdsec:
+    image: crowdsecurity/crowdsec:v1.6.4
+    environment:
+      DISABLE_ONLINE_API: "true"
+    volumes:
+      - crowdsec_config:/etc/crowdsec
+      - crowdsec_data:/var/lib/crowdsec/data
+
+volumes:
+  pgdata:
+  nginx_confd:
+  nginx_certs:
+  crowdsec_config:
+  crowdsec_data:

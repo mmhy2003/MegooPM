@@ -7,13 +7,45 @@ lists, TCP/UDP streams, and CrowdSec-based security, in one UI.
 
 ```
 megoopm/
-├── frontend/        Next.js 16 (App Router) + shadcn/ui — the web UI
-├── backend/         FastAPI + Alembic + Postgres — the API (added by later tickets)
-└── docs/            Architecture and repo conventions
+├── frontend/            Next.js 16 (App Router) + shadcn/ui — the web UI
+├── backend/             FastAPI + Alembic + Postgres + Celery — the API
+├── infra/               nginx base config and other infra assets
+├── docs/                Architecture and repo conventions
+├── docker-compose.yml   Full-stack local dev orchestration
+└── Makefile             Developer shortcuts over docker compose
 ```
 
 This is a monorepo: the frontend and backend live side by side and are developed
 and deployed together.
+
+## Quick start (full stack)
+
+Run the entire system — Postgres, Redis, the API, Celery worker + beat, the web
+UI, the managed nginx proxy, and a CrowdSec placeholder — with one command.
+Requires Docker with the Compose plugin.
+
+```bash
+cp .env.example .env    # optional — sane defaults are baked into compose
+docker compose up --build
+# or: make up            (detached)   /   make up-fg (foreground)
+```
+
+Once healthy:
+
+| Service        | URL                                            |
+| -------------- | ---------------------------------------------- |
+| Web UI         | http://localhost:3000                          |
+| Backend API    | http://localhost:8000 (`/health`, `/docs`)     |
+| Managed proxy  | http://localhost:8080                          |
+
+The frontend reaches the backend at `NEXT_PUBLIC_API_BASE_URL`
+(default `http://localhost:8000`). The backend writes managed vhosts and TLS
+certs onto shared named volumes (`nginx_confd`, `nginx_certs`) that the nginx
+container reads. `make help` lists the common tasks (`logs`, `migrate`, `psql`,
+`clean`, …). See [`docs/CONVENTIONS.md`](docs/CONVENTIONS.md#local-dev-orchestration)
+for how the stack fits together.
+
+Working on just one side? Each package still runs standalone below.
 
 ## Frontend
 
