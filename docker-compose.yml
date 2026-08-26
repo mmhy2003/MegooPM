@@ -226,7 +226,13 @@ services:
     volumes:
       - crowdsec_config:/etc/crowdsec
       - crowdsec_data:/var/lib/crowdsec/data
-      - ./infra/crowdsec/acquis:/etc/crowdsec/acquis.d:ro
+      # Bind the acquis *file*, not the directory (MEG-36 Defect A). On a fresh
+      # crowdsec_config volume the v1.6.4 image's startup rsync chowns
+      # /etc/crowdsec/acquis.d; a read-only bind of the directory makes that
+      # chown fail ("Read-only file system"), rsync exits 23, and the crowdsec
+      # container dies before the bouncer/AppSec engine ever comes up. Mounting
+      # the single file leaves the parent dir writable for that chown.
+      - ./infra/crowdsec/acquis/appsec.yaml:/etc/crowdsec/acquis.d/appsec.yaml:ro
 
 volumes:
   pgdata:
