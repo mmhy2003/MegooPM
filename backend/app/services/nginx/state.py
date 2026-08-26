@@ -53,6 +53,38 @@ class CertificateSpec:
 
 
 @dataclass(frozen=True, slots=True)
+class AuthUserSpec:
+    """One ``username:hash`` pair destined for a host's htpasswd file."""
+
+    username: str
+    # An nginx-native ``$apr1$`` (salted MD5) hash — see app.services.htpasswd.
+    password_hash: str
+
+
+@dataclass(frozen=True, slots=True)
+class ClientRuleSpec:
+    """An ``allow``/``deny`` directive for an IP, CIDR, or the literal ``all``."""
+
+    directive: str  # "allow" | "deny"
+    address: str
+
+
+@dataclass(frozen=True, slots=True)
+class AccessListSpec:
+    """An access list rendered as ``auth_basic`` + ``allow``/``deny`` on a host."""
+
+    id: int
+    name: str
+    # Satisfy ANY gate (auth OR ip) vs. ALL gates. Only meaningful when both a
+    # basic-auth gate and at least one client rule are present.
+    satisfy_any: bool = False
+    # Forward the Authorization header to the upstream instead of stripping it.
+    pass_auth: bool = False
+    auth_users: tuple[AuthUserSpec, ...] = ()
+    client_rules: tuple[ClientRuleSpec, ...] = ()
+
+
+@dataclass(frozen=True, slots=True)
 class ProxyHostSpec:
     """A reverse-proxy vhost rendered as a ``server {}`` block."""
 
@@ -61,6 +93,7 @@ class ProxyHostSpec:
     upstream_id: int
     forward_scheme: str = "http"
     certificate: CertificateSpec | None = None
+    access_list: AccessListSpec | None = None
     ssl_forced: bool = False
     http2_support: bool = False
     hsts_enabled: bool = False
@@ -75,21 +108,90 @@ class ProxyHostSpec:
 
 
 @dataclass(frozen=True, slots=True)
+class RedirectionHostSpec:
+    """A redirect-only vhost rendered as an HTTP ``server {}`` block."""
+
+    id: int
+    domain_names: tuple[str, ...]
+    forward_domain_name: str
+    # 300–308; the exact status the ``return`` directive emits.
+    forward_http_code: int = 302
+    # auto | http | https — ``auto`` preserves the incoming request scheme.
+    forward_scheme: str = "auto"
+    # Carry the original request URI/path onto the target when True.
+    preserve_path: bool = True
+    certificate: CertificateSpec | None = None
+    ssl_forced: bool = False
+    http2_support: bool = False
+    hsts_enabled: bool = False
+    hsts_subdomains: bool = False
+    block_exploits: bool = False
+    advanced_config: str = ""
+
+
+@dataclass(frozen=True, slots=True)
+class DeadHostSpec:
+    """A parked ``server {}`` block that always answers 404."""
+
+    id: int
+    domain_names: tuple[str, ...]
+    certificate: CertificateSpec | None = None
+    ssl_forced: bool = False
+    http2_support: bool = False
+    hsts_enabled: bool = False
+    hsts_subdomains: bool = False
+    advanced_config: str = ""
+
+
+@dataclass(frozen=True, slots=True)
+class StreamSpec:
+    """A raw TCP/UDP forward rendered inside the top-level ``stream {}`` context.
+
+    A single stream may forward TCP, UDP, or both from ``incoming_port`` to
+    ``forward_host:forward_port``. At least one protocol is always enabled (a DB
+    check constraint guarantees it). When a certificate is present, the TCP
+    listener terminates TLS (``listen ... ssl``); UDP cannot.
+    """
+
+    id: int
+    incoming_port: int
+    forward_host: str
+    forward_port: int
+    tcp_forwarding: bool = True
+    udp_forwarding: bool = False
+    certificate: CertificateSpec | None = None
+
+
+@dataclass(frozen=True, slots=True)
 class DesiredState:
     """The complete set of managed objects a render pass should emit.
 
     ``upstreams`` should contain exactly the pools referenced by ``proxy_hosts``;
     the loader guarantees this so no orphan ``upstream`` blocks are written.
+
+    ``proxy_hosts``, ``redirection_hosts`` and ``dead_hosts`` render into the
+    HTTP ``conf.d`` directory; ``streams`` render into a separate directory that
+    the base config includes from the top-level ``stream {}`` context (TCP/UDP
+    forwarding cannot live inside ``http {}``).
     """
 
     proxy_hosts: tuple[ProxyHostSpec, ...] = field(default_factory=tuple)
     upstreams: tuple[UpstreamSpec, ...] = field(default_factory=tuple)
+    redirection_hosts: tuple[RedirectionHostSpec, ...] = field(default_factory=tuple)
+    dead_hosts: tuple[DeadHostSpec, ...] = field(default_factory=tuple)
+    streams: tuple[StreamSpec, ...] = field(default_factory=tuple)
 
 
 __all__ = [
     "BackendSpec",
     "UpstreamSpec",
     "CertificateSpec",
+    "AuthUserSpec",
+    "ClientRuleSpec",
+    "AccessListSpec",
     "ProxyHostSpec",
+    "RedirectionHostSpec",
+    "DeadHostSpec",
+    "StreamSpec",
     "DesiredState",
 ]

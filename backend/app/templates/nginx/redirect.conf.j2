@@ -1,0 +1,88 @@
+{# Renders the `server {}` block(s) for one MegooPM redirection host.
+
+   Every request is answered with an HTTP redirect (301/302/… per
+   forward_http_code) to forward_domain_name. The target scheme is:
+     - auto  -> keep the request's scheme ($scheme)
+     - http  -> force http://
+     - https -> force https://
+   When preserve_path is on, the original URI is appended ($request_uri).
+
+   - No certificate      -> a single plain :80 server that redirects.
+   - Certificate present -> a :443 TLS server that redirects, plus a :80 server
+     that either bounces to HTTPS first (ssl_forced) or redirects directly.
+
+   Shared fragments live in macros so the redirect target is defined once. #}
+{%- set target_scheme = "$scheme" if host.forward_scheme == "auto" else host.forward_scheme -%}
+{%- set target_path = "$request_uri" if host.preserve_path else "" -%}
+{%- macro redirect_location() %}
+
+    location / {
+        return {{ host.forward_http_code }} {{ target_scheme }}://{{ host.forward_domain_name }}{{ target_path }};
+    }
+{%- endmacro -%}
+{%- macro security() -%}
+{%- if host.block_exploits %}
+    # Block common exploit probes.
+    if ($request_uri ~* "(<|%3C).*script.*(>|%3E)") { return 403; }
+    if ($request_uri ~* "(\.\./|\.\.%2f)") { return 403; }
+    if ($query_string ~* "union.*select.*\(") { return 403; }
+{%- endif %}
+{%- endmacro -%}
+{%- macro hsts() -%}
+{%- if host.hsts_enabled %}
+    add_header Strict-Transport-Security "max-age=63072000{% if host.hsts_subdomains %}; includeSubDomains{% endif %}" always;
+{%- endif %}
+{%- endmacro -%}
+{%- macro acme_challenge() %}
+
+    # ACME HTTP-01 challenge webroot (Let's Encrypt issuance/renewal, MEG-19).
+    location ^~ /.well-known/acme-challenge/ {
+        default_type "text/plain";
+        alias {{ acme_challenge_root }}/;
+    }
+{%- endmacro -%}
+# Managed by MegooPM — do not edit by hand.
+# redirection host id={{ host.id }}
+{%- if host.certificate %}
+server {
+    listen 80;
+    server_name {{ server_names }};
+{{- acme_challenge() }}
+{%- if host.ssl_forced %}
+
+    location / {
+        return 301 https://$host$request_uri;
+    }
+{%- else %}
+{{- security() }}
+{{- redirect_location() }}
+{%- endif %}
+}
+
+server {
+    listen 443 ssl{% if host.http2_support %} http2{% endif %};
+    server_name {{ server_names }};
+
+    ssl_certificate {{ host.certificate.fullchain_path }};
+    ssl_certificate_key {{ host.certificate.privkey_path }};
+{{- hsts() }}
+{{- security() }}
+{{- redirect_location() }}
+{%- if host.advanced_config %}
+
+    {{ host.advanced_config | indent(4) }}
+{%- endif %}
+}
+{%- else %}
+server {
+    listen 80;
+    server_name {{ server_names }};
+{{- acme_challenge() }}
+{{- security() }}
+{{- redirect_location() }}
+{%- if host.advanced_config %}
+
+    {{ host.advanced_config | indent(4) }}
+{%- endif %}
+}
+{%- endif %}

@@ -17,7 +17,7 @@ from fastapi import APIRouter, status
 from app.api.deps import AdminUser, SessionDep
 from app.schemas.nginx import NginxConfigFile, NginxConfigPreview
 from app.schemas.tasks import TaskEnqueued
-from app.services.nginx import load_desired_state, render_config
+from app.services.nginx import load_desired_state, render_config, render_stream_config
 from app.services.tasks import enqueue_nginx_reload
 
 router = APIRouter(tags=["nginx"])
@@ -37,9 +37,12 @@ async def reload_nginx(_admin: AdminUser) -> TaskEnqueued:
 async def preview_nginx_config(_admin: AdminUser, db: SessionDep) -> NginxConfigPreview:
     """Render the config for current DB state without writing or reloading."""
     state = await load_desired_state(db)
-    rendered = render_config(state)
+    # HTTP-context files plus the top-level stream{} files, in stable name order.
+    rendered = {**render_config(state), **render_stream_config(state)}
     return NginxConfigPreview(
-        files=[NginxConfigFile(name=name, content=content) for name, content in rendered.items()]
+        files=[
+            NginxConfigFile(name=name, content=rendered[name]) for name in sorted(rendered)
+        ]
     )
 
 

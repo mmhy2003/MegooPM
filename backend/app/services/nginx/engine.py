@@ -28,7 +28,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from app.services.nginx.controller import NginxController
-from app.services.nginx.renderer import render_config
+from app.services.nginx.renderer import render_config, render_stream_config
 from app.services.nginx.state import DesiredState
 
 DEFAULT_MANAGED_PREFIX = "megoopm-"
@@ -76,9 +76,15 @@ def _dir_lock(lock_path: Path) -> Iterator[None]:
 
 
 def _read_managed(confd: Path, prefix: str) -> dict[str, str]:
-    """Read every managed ``*.conf`` currently on disk into ``{name: content}``."""
+    """Read every managed file currently on disk into ``{name: content}``.
+
+    Managed = the filename starts with ``prefix``. This covers both ``.conf``
+    files and sidecar data files (e.g. access-list ``.htpasswd`` files) so the
+    idempotency compare and rollback account for them too. The advisory lock file
+    and atomic-write temp files start with ``.`` and are excluded by the glob.
+    """
     current: dict[str, str] = {}
-    for path in confd.glob(f"{prefix}*.conf"):
+    for path in confd.glob(f"{prefix}*"):
         if path.is_file():
             current[path.name] = path.read_text(encoding="utf-8")
     return dict(sorted(current.items()))
@@ -98,8 +104,8 @@ def _sync_to(confd: Path, prefix: str, desired: dict[str, str]) -> None:
     """Make the managed files on disk exactly match ``desired``."""
     for name, content in desired.items():
         _atomic_write(confd / name, content)
-    for path in confd.glob(f"{prefix}*.conf"):
-        if path.name not in desired:
+    for path in confd.glob(f"{prefix}*"):
+        if path.is_file() and path.name not in desired:
             path.unlink()
 
 
@@ -109,43 +115,70 @@ def apply_config(
     confd_dir: str | os.PathLike[str],
     controller: NginxController,
     managed_prefix: str = DEFAULT_MANAGED_PREFIX,
+    stream_dir: str | os.PathLike[str] | None = None,
 ) -> ApplyResult:
-    """Render ``state`` and reconcile nginx's ``conf.d`` to it (see module doc)."""
+    """Render ``state`` and reconcile nginx's config dirs to it (see module doc).
+
+    ``confd_dir`` receives the HTTP-context files (upstreams, proxy, redirection
+    and dead hosts). When ``stream_dir`` is given, TCP/UDP stream files are
+    reconciled there too — both directories are written, validated with a single
+    ``nginx -t``, and rolled back together, so a bad stream can never leave the
+    HTTP config half-applied (or vice versa).
+    """
     confd = Path(confd_dir)
     confd.mkdir(parents=True, exist_ok=True)
 
-    with _dir_lock(confd / LOCK_FILENAME):
-        desired = render_config(state)
-        current = _read_managed(confd, managed_prefix)
+    # (directory, managed-prefix, desired-files). The stream directory is a
+    # second reconciliation target sharing the same lock and validation.
+    targets: list[tuple[Path, str, dict[str, str]]] = [
+        (confd, managed_prefix, render_config(state)),
+    ]
+    if stream_dir is not None:
+        streamd = Path(stream_dir)
+        streamd.mkdir(parents=True, exist_ok=True)
+        targets.append((streamd, managed_prefix, render_stream_config(state)))
 
-        if desired == current:
+    # Lock on the primary conf.d dir; it serialises the whole multi-dir apply.
+    with _dir_lock(confd / LOCK_FILENAME):
+        currents = [_read_managed(d, prefix) for d, prefix, _ in targets]
+        desireds = [files for _, _, files in targets]
+        all_desired = sorted(name for files in desireds for name in files)
+
+        if all(desired == current for desired, current in zip(desireds, currents)):
             return ApplyResult(
                 changed=False,
                 valid=True,
                 reloaded=False,
                 rolled_back=False,
                 message="Configuration already up to date; nginx not reloaded.",
-                managed_files=sorted(desired),
+                managed_files=all_desired,
             )
 
-        _sync_to(confd, managed_prefix, desired)
+        for (d, prefix, _), desired in zip(targets, desireds):
+            _sync_to(d, prefix, desired)
+
+        all_current = sorted(name for current in currents for name in current)
+
+        def _rollback() -> None:
+            for (d, prefix, _), current in zip(targets, currents):
+                _sync_to(d, prefix, current)
 
         test = controller.test()
         if not test.ok:
-            _sync_to(confd, managed_prefix, current)  # roll back to last-known-good
+            _rollback()  # roll back every dir to last-known-good
             return ApplyResult(
                 changed=False,
                 valid=False,
                 reloaded=False,
                 rolled_back=True,
                 message="Generated configuration failed `nginx -t`; rolled back, nginx untouched.",
-                managed_files=sorted(current),
+                managed_files=all_current,
                 test_output=test.output,
             )
 
         reload = controller.reload()
         if not reload.ok:
-            _sync_to(confd, managed_prefix, current)  # restore previous good files
+            _rollback()  # restore previous good files
             controller.reload()  # best-effort: return nginx to the good config
             return ApplyResult(
                 changed=False,
@@ -153,7 +186,7 @@ def apply_config(
                 reloaded=False,
                 rolled_back=True,
                 message="nginx reload failed; rolled back to the previous configuration.",
-                managed_files=sorted(current),
+                managed_files=all_current,
                 test_output=test.output,
                 reload_output=reload.output,
             )
@@ -163,8 +196,8 @@ def apply_config(
             valid=True,
             reloaded=True,
             rolled_back=False,
-            message=f"Applied {len(desired)} managed file(s) and reloaded nginx.",
-            managed_files=sorted(desired),
+            message=f"Applied {len(all_desired)} managed file(s) and reloaded nginx.",
+            managed_files=all_desired,
             test_output=test.output,
             reload_output=reload.output,
         )

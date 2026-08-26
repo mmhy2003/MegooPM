@@ -23,13 +23,23 @@ from sqlalchemy.orm import selectinload
 from sqlalchemy.pool import NullPool
 
 from app.core.config import settings
+from app.models.access_list import AccessList
+from app.models.dead_host import DeadHost
 from app.models.proxy_host import ProxyHost
+from app.models.redirection_host import RedirectionHost
+from app.models.stream import Stream
 from app.models.upstream import Upstream
 from app.services.nginx.state import (
+    AccessListSpec,
+    AuthUserSpec,
     BackendSpec,
     CertificateSpec,
+    ClientRuleSpec,
+    DeadHostSpec,
     DesiredState,
     ProxyHostSpec,
+    RedirectionHostSpec,
+    StreamSpec,
     UpstreamSpec,
 )
 
@@ -39,6 +49,23 @@ def _certificate_spec(certificate, certs_dir: str) -> CertificateSpec:
         id=certificate.id,
         fullchain_path=f"{certs_dir}/{certificate.id}/fullchain.pem",
         privkey_path=f"{certs_dir}/{certificate.id}/privkey.pem",
+    )
+
+
+def _access_list_spec(access_list: AccessList) -> AccessListSpec:
+    return AccessListSpec(
+        id=access_list.id,
+        name=access_list.name,
+        satisfy_any=access_list.satisfy_any,
+        pass_auth=access_list.pass_auth,
+        auth_users=tuple(
+            AuthUserSpec(username=u.username, password_hash=u.password_hash)
+            for u in sorted(access_list.auth_users, key=lambda u: u.username)
+        ),
+        client_rules=tuple(
+            ClientRuleSpec(directive=str(c.directive), address=c.address)
+            for c in sorted(access_list.client_rules, key=lambda c: c.id)
+        ),
     )
 
 
@@ -76,6 +103,8 @@ async def load_desired_state(
         .options(
             selectinload(ProxyHost.upstream).selectinload(Upstream.backends),
             selectinload(ProxyHost.certificate),
+            selectinload(ProxyHost.access_list).selectinload(AccessList.auth_users),
+            selectinload(ProxyHost.access_list).selectinload(AccessList.client_rules),
         )
         .order_by(ProxyHost.id)
     )
@@ -105,6 +134,11 @@ async def load_desired_state(
                 upstream_id=pool.id,
                 forward_scheme=str(host.forward_scheme),
                 certificate=certificate,
+                access_list=(
+                    _access_list_spec(host.access_list)
+                    if host.access_list is not None
+                    else None
+                ),
                 ssl_forced=host.ssl_forced,
                 http2_support=host.http2_support,
                 hsts_enabled=host.hsts_enabled,
@@ -121,7 +155,105 @@ async def load_desired_state(
     # Only emit pools actually referenced by an included host, in id order.
     referenced = {h.upstream_id for h in host_specs}
     upstream_specs = tuple(upstreams[i] for i in sorted(referenced))
-    return DesiredState(proxy_hosts=tuple(host_specs), upstreams=upstream_specs)
+
+    redirection_specs = await _load_redirection_hosts(session, certs_dir)
+    dead_specs = await _load_dead_hosts(session, certs_dir)
+    stream_specs = await _load_streams(session, certs_dir)
+
+    return DesiredState(
+        proxy_hosts=tuple(host_specs),
+        upstreams=upstream_specs,
+        redirection_hosts=redirection_specs,
+        dead_hosts=dead_specs,
+        streams=stream_specs,
+    )
+
+
+async def _load_redirection_hosts(
+    session: AsyncSession, certs_dir: str
+) -> tuple[RedirectionHostSpec, ...]:
+    stmt = (
+        select(RedirectionHost)
+        .where(RedirectionHost.enabled.is_(True))
+        .options(selectinload(RedirectionHost.certificate))
+        .order_by(RedirectionHost.id)
+    )
+    rows = (await session.scalars(stmt)).all()
+    return tuple(
+        RedirectionHostSpec(
+            id=r.id,
+            domain_names=tuple(r.domain_names),
+            forward_domain_name=r.forward_domain_name,
+            forward_http_code=r.forward_http_code,
+            forward_scheme=str(r.forward_scheme),
+            preserve_path=r.preserve_path,
+            certificate=(
+                _certificate_spec(r.certificate, certs_dir)
+                if r.certificate is not None
+                else None
+            ),
+            ssl_forced=r.ssl_forced,
+            http2_support=r.http2_support,
+            hsts_enabled=r.hsts_enabled,
+            hsts_subdomains=r.hsts_subdomains,
+            block_exploits=r.block_exploits,
+            advanced_config=r.advanced_config,
+        )
+        for r in rows
+    )
+
+
+async def _load_dead_hosts(session: AsyncSession, certs_dir: str) -> tuple[DeadHostSpec, ...]:
+    stmt = (
+        select(DeadHost)
+        .where(DeadHost.enabled.is_(True))
+        .options(selectinload(DeadHost.certificate))
+        .order_by(DeadHost.id)
+    )
+    rows = (await session.scalars(stmt)).all()
+    return tuple(
+        DeadHostSpec(
+            id=d.id,
+            domain_names=tuple(d.domain_names),
+            certificate=(
+                _certificate_spec(d.certificate, certs_dir)
+                if d.certificate is not None
+                else None
+            ),
+            ssl_forced=d.ssl_forced,
+            http2_support=d.http2_support,
+            hsts_enabled=d.hsts_enabled,
+            hsts_subdomains=d.hsts_subdomains,
+            advanced_config=d.advanced_config,
+        )
+        for d in rows
+    )
+
+
+async def _load_streams(session: AsyncSession, certs_dir: str) -> tuple[StreamSpec, ...]:
+    stmt = (
+        select(Stream)
+        .where(Stream.enabled.is_(True))
+        .options(selectinload(Stream.certificate))
+        .order_by(Stream.id)
+    )
+    rows = (await session.scalars(stmt)).all()
+    return tuple(
+        StreamSpec(
+            id=s.id,
+            incoming_port=s.incoming_port,
+            forward_host=s.forward_host,
+            forward_port=s.forward_port,
+            tcp_forwarding=s.tcp_forwarding,
+            udp_forwarding=s.udp_forwarding,
+            certificate=(
+                _certificate_spec(s.certificate, certs_dir)
+                if s.certificate is not None
+                else None
+            ),
+        )
+        for s in rows
+    )
 
 
 def load_desired_state_sync(

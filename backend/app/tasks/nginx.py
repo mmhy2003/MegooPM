@@ -35,6 +35,7 @@ def reload_nginx_config() -> dict:
         confd_dir=settings.nginx_confd_dir,
         controller=build_controller(),
         managed_prefix=settings.nginx_managed_prefix,
+        stream_dir=settings.nginx_stream_dir,
     )
     return result.as_dict()
 

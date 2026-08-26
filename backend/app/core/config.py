@@ -69,6 +69,11 @@ class Settings(BaseSettings):
     # Directory (a shared volume with the nginx container) where the backend
     # writes managed ``*.conf`` files; nginx ``include``s it inside http{}.
     nginx_confd_dir: str = "/etc/nginx/conf.d"
+    # Directory for TCP/UDP stream files, included from the top-level stream{}
+    # context. Kept as a subdirectory of conf.d so it rides the same shared
+    # volume; nginx's non-recursive ``conf.d/*.conf`` http include never picks
+    # it up, so stream forwards stay out of http{}.
+    nginx_stream_dir: str = "/etc/nginx/conf.d/stream"
     # Where TLS material lives on the shared certs volume; server blocks
     # reference ``{nginx_certs_dir}/{cert_id}/fullchain.pem`` and privkey.pem.
     nginx_certs_dir: str = "/etc/nginx/certs"

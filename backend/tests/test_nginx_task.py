@@ -42,6 +42,8 @@ def _patch(monkeypatch, tmp_path: Path, *, test_ok: bool = True) -> None:
     monkeypatch.setattr(nginx_task, "load_desired_state_sync", _state)
     monkeypatch.setattr(nginx_task, "build_controller", lambda: _FakeController(test_ok=test_ok))
     monkeypatch.setattr(nginx_task.settings, "nginx_confd_dir", str(tmp_path))
+    # Streams reconcile into a separate dir; keep it under the temp tree too.
+    monkeypatch.setattr(nginx_task.settings, "nginx_stream_dir", str(tmp_path / "stream"))
 
 
 def test_reload_task_applies_and_returns_result(monkeypatch, tmp_path: Path) -> None:

@@ -59,6 +59,7 @@ async def test_reload_enqueues_task_for_admin(
     monkeypatch.setattr(nginx_task, "load_desired_state_sync", _state)
     monkeypatch.setattr(nginx_task, "build_controller", lambda: _FakeController())
     monkeypatch.setattr(nginx_task.settings, "nginx_confd_dir", str(tmp_path))
+    monkeypatch.setattr(nginx_task.settings, "nginx_stream_dir", str(tmp_path / "stream"))
 
     resp = await db_client.post(
         "/api/v1/nginx/reload", headers={"Authorization": f"Bearer {admin_token}"}

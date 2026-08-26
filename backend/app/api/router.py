@@ -10,12 +10,16 @@ from __future__ import annotations
 from fastapi import APIRouter
 
 from app.api.routes import (
+    access_lists,
     audit_log,
     auth,
     certificates,
     crowdsec,
+    dead_hosts,
     nginx,
     proxy_hosts,
+    redirection_hosts,
+    streams,
     tasks,
     upstreams,
     users,
@@ -31,7 +35,11 @@ api_router.include_router(nginx.router, prefix="/nginx")
 api_router.include_router(certificates.router, prefix="/certificates")
 api_router.include_router(crowdsec.router, prefix="/crowdsec")
 api_router.include_router(upstreams.router, prefix="/upstreams")
+api_router.include_router(access_lists.router, prefix="/access-lists")
 api_router.include_router(proxy_hosts.router, prefix="/proxy-hosts")
+api_router.include_router(redirection_hosts.router, prefix="/redirection-hosts")
+api_router.include_router(dead_hosts.router, prefix="/dead-hosts")
+api_router.include_router(streams.router, prefix="/streams")
 
 # Additional feature routers are included here as they are added, for example:
 # from app.api.routes import projects

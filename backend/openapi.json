@@ -1,6 +1,316 @@
 {
   "components": {
     "schemas": {
+      "AccessListAuthCreate": {
+        "description": "A basic-auth credential to add to an access list (password write-only).",
+        "properties": {
+          "password": {
+            "description": "Plaintext; stored hashed, never returned",
+            "minLength": 1,
+            "title": "Password",
+            "type": "string"
+          },
+          "username": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Username",
+            "type": "string"
+          }
+        },
+        "required": [
+          "username",
+          "password"
+        ],
+        "title": "AccessListAuthCreate",
+        "type": "object"
+      },
+      "AccessListAuthRead": {
+        "description": "Public representation of a basic-auth user (no credential material).",
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          },
+          "username": {
+            "title": "Username",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "username",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "AccessListAuthRead",
+        "type": "object"
+      },
+      "AccessListAuthUpdate": {
+        "description": "Reset a basic-auth user's password.",
+        "properties": {
+          "password": {
+            "minLength": 1,
+            "title": "Password",
+            "type": "string"
+          }
+        },
+        "required": [
+          "password"
+        ],
+        "title": "AccessListAuthUpdate",
+        "type": "object"
+      },
+      "AccessListClientCreate": {
+        "description": "An allow/deny rule for an IP address, CIDR range, or ``all``.",
+        "properties": {
+          "address": {
+            "description": "IP, CIDR, or 'all'",
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Address",
+            "type": "string"
+          },
+          "directive": {
+            "$ref": "#/components/schemas/AccessListDirective",
+            "description": "allow or deny"
+          }
+        },
+        "required": [
+          "address",
+          "directive"
+        ],
+        "title": "AccessListClientCreate",
+        "type": "object"
+      },
+      "AccessListClientRead": {
+        "description": "Public representation of an IP client rule.",
+        "properties": {
+          "address": {
+            "title": "Address",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "directive": {
+            "$ref": "#/components/schemas/AccessListDirective"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "address",
+          "directive",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "AccessListClientRead",
+        "type": "object"
+      },
+      "AccessListClientUpdate": {
+        "description": "Partial update of a client rule.",
+        "properties": {
+          "address": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Address"
+          },
+          "directive": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AccessListDirective"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "title": "AccessListClientUpdate",
+        "type": "object"
+      },
+      "AccessListCreate": {
+        "description": "Payload to create an access list, optionally seeding users and rules inline.",
+        "properties": {
+          "auth_users": {
+            "items": {
+              "$ref": "#/components/schemas/AccessListAuthCreate"
+            },
+            "title": "Auth Users",
+            "type": "array"
+          },
+          "clients": {
+            "items": {
+              "$ref": "#/components/schemas/AccessListClientCreate"
+            },
+            "title": "Clients",
+            "type": "array"
+          },
+          "name": {
+            "description": "Human-readable name",
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "pass_auth": {
+            "default": false,
+            "description": "Forward the Authorization header to the upstream",
+            "title": "Pass Auth",
+            "type": "boolean"
+          },
+          "satisfy_any": {
+            "default": false,
+            "description": "Pass if EITHER gate (auth OR ip) is satisfied; false requires both",
+            "title": "Satisfy Any",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "AccessListCreate",
+        "type": "object"
+      },
+      "AccessListDirective": {
+        "description": "Client-rule directive for an access list entry.",
+        "enum": [
+          "allow",
+          "deny"
+        ],
+        "title": "AccessListDirective",
+        "type": "string"
+      },
+      "AccessListRead": {
+        "description": "Public representation of an access list, including users and rules.",
+        "properties": {
+          "auth_users": {
+            "items": {
+              "$ref": "#/components/schemas/AccessListAuthRead"
+            },
+            "title": "Auth Users",
+            "type": "array"
+          },
+          "client_rules": {
+            "items": {
+              "$ref": "#/components/schemas/AccessListClientRead"
+            },
+            "title": "Client Rules",
+            "type": "array"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "name": {
+            "description": "Human-readable name",
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "pass_auth": {
+            "default": false,
+            "description": "Forward the Authorization header to the upstream",
+            "title": "Pass Auth",
+            "type": "boolean"
+          },
+          "satisfy_any": {
+            "default": false,
+            "description": "Pass if EITHER gate (auth OR ip) is satisfied; false requires both",
+            "title": "Satisfy Any",
+            "type": "boolean"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "id",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "AccessListRead",
+        "type": "object"
+      },
+      "AccessListUpdate": {
+        "description": "Partial update of an access list's own attributes (not its users/rules).",
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "pass_auth": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pass Auth"
+          },
+          "satisfy_any": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Satisfy Any"
+          }
+        },
+        "title": "AccessListUpdate",
+        "type": "object"
+      },
       "Alert": {
         "description": "A detection event CrowdSec raised, with any decisions it triggered.",
         "properties": {
@@ -714,6 +1024,256 @@
           "private_key_pem"
         ],
         "title": "CustomCertificateCreate",
+        "type": "object"
+      },
+      "DeadHostCreate": {
+        "description": "Payload to create a dead host.",
+        "properties": {
+          "advanced_config": {
+            "default": "",
+            "description": "Raw nginx directives injected into the server block",
+            "title": "Advanced Config",
+            "type": "string"
+          },
+          "certificate_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Certificate for TLS termination; null serves plain :80",
+            "title": "Certificate Id"
+          },
+          "domain_names": {
+            "description": "Domains this host answers for (server_name)",
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1,
+            "title": "Domain Names",
+            "type": "array"
+          },
+          "enabled": {
+            "default": true,
+            "description": "Disabled hosts are excluded from config",
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "hsts_enabled": {
+            "default": false,
+            "description": "Emit a Strict-Transport-Security header",
+            "title": "Hsts Enabled",
+            "type": "boolean"
+          },
+          "hsts_subdomains": {
+            "default": false,
+            "description": "Include subdomains in HSTS",
+            "title": "Hsts Subdomains",
+            "type": "boolean"
+          },
+          "http2_support": {
+            "default": false,
+            "description": "Enable HTTP/2 on the TLS listener",
+            "title": "Http2 Support",
+            "type": "boolean"
+          },
+          "ssl_forced": {
+            "default": false,
+            "description": "Redirect :80 to HTTPS",
+            "title": "Ssl Forced",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "domain_names"
+        ],
+        "title": "DeadHostCreate",
+        "type": "object"
+      },
+      "DeadHostRead": {
+        "description": "Public representation of a dead host.",
+        "properties": {
+          "advanced_config": {
+            "default": "",
+            "description": "Raw nginx directives injected into the server block",
+            "title": "Advanced Config",
+            "type": "string"
+          },
+          "certificate_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Certificate for TLS termination; null serves plain :80",
+            "title": "Certificate Id"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "domain_names": {
+            "description": "Domains this host answers for (server_name)",
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1,
+            "title": "Domain Names",
+            "type": "array"
+          },
+          "enabled": {
+            "default": true,
+            "description": "Disabled hosts are excluded from config",
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "hsts_enabled": {
+            "default": false,
+            "description": "Emit a Strict-Transport-Security header",
+            "title": "Hsts Enabled",
+            "type": "boolean"
+          },
+          "hsts_subdomains": {
+            "default": false,
+            "description": "Include subdomains in HSTS",
+            "title": "Hsts Subdomains",
+            "type": "boolean"
+          },
+          "http2_support": {
+            "default": false,
+            "description": "Enable HTTP/2 on the TLS listener",
+            "title": "Http2 Support",
+            "type": "boolean"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "ssl_forced": {
+            "default": false,
+            "description": "Redirect :80 to HTTPS",
+            "title": "Ssl Forced",
+            "type": "boolean"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "domain_names",
+          "id",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "DeadHostRead",
+        "type": "object"
+      },
+      "DeadHostUpdate": {
+        "description": "Partial update of a dead host; every field is optional.",
+        "properties": {
+          "advanced_config": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Advanced Config"
+          },
+          "certificate_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Certificate Id"
+          },
+          "domain_names": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "minItems": 1,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Domain Names"
+          },
+          "enabled": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Enabled"
+          },
+          "hsts_enabled": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hsts Enabled"
+          },
+          "hsts_subdomains": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hsts Subdomains"
+          },
+          "http2_support": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Http2 Support"
+          },
+          "ssl_forced": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ssl Forced"
+          }
+        },
+        "title": "DeadHostUpdate",
         "type": "object"
       },
       "Decision": {
@@ -1449,6 +2009,390 @@
         "title": "ProxyHostUpdate",
         "type": "object"
       },
+      "RedirectScheme": {
+        "description": "Scheme applied to a redirection target (``auto`` keeps the request's).",
+        "enum": [
+          "auto",
+          "http",
+          "https"
+        ],
+        "title": "RedirectScheme",
+        "type": "string"
+      },
+      "RedirectionHostCreate": {
+        "description": "Payload to create a redirection host.",
+        "properties": {
+          "advanced_config": {
+            "default": "",
+            "description": "Raw nginx directives injected into the server block",
+            "title": "Advanced Config",
+            "type": "string"
+          },
+          "block_exploits": {
+            "default": false,
+            "description": "Block common exploit probes",
+            "title": "Block Exploits",
+            "type": "boolean"
+          },
+          "certificate_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Certificate for TLS termination; null serves plain :80",
+            "title": "Certificate Id"
+          },
+          "domain_names": {
+            "description": "Domains this host answers for (server_name)",
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1,
+            "title": "Domain Names",
+            "type": "array"
+          },
+          "enabled": {
+            "default": true,
+            "description": "Disabled hosts are excluded from config",
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "forward_domain_name": {
+            "description": "Domain requests are redirected to",
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Forward Domain Name",
+            "type": "string"
+          },
+          "forward_http_code": {
+            "default": 302,
+            "description": "HTTP redirect status code (300–308)",
+            "maximum": 308.0,
+            "minimum": 300.0,
+            "title": "Forward Http Code",
+            "type": "integer"
+          },
+          "forward_scheme": {
+            "$ref": "#/components/schemas/RedirectScheme",
+            "default": "auto",
+            "description": "Target scheme; 'auto' keeps the incoming request's scheme"
+          },
+          "hsts_enabled": {
+            "default": false,
+            "description": "Emit a Strict-Transport-Security header",
+            "title": "Hsts Enabled",
+            "type": "boolean"
+          },
+          "hsts_subdomains": {
+            "default": false,
+            "description": "Include subdomains in HSTS",
+            "title": "Hsts Subdomains",
+            "type": "boolean"
+          },
+          "http2_support": {
+            "default": false,
+            "description": "Enable HTTP/2 on the TLS listener",
+            "title": "Http2 Support",
+            "type": "boolean"
+          },
+          "preserve_path": {
+            "default": true,
+            "description": "Append the original request URI to the target",
+            "title": "Preserve Path",
+            "type": "boolean"
+          },
+          "ssl_forced": {
+            "default": false,
+            "description": "Redirect :80 to HTTPS",
+            "title": "Ssl Forced",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "domain_names",
+          "forward_domain_name"
+        ],
+        "title": "RedirectionHostCreate",
+        "type": "object"
+      },
+      "RedirectionHostRead": {
+        "description": "Public representation of a redirection host.",
+        "properties": {
+          "advanced_config": {
+            "default": "",
+            "description": "Raw nginx directives injected into the server block",
+            "title": "Advanced Config",
+            "type": "string"
+          },
+          "block_exploits": {
+            "default": false,
+            "description": "Block common exploit probes",
+            "title": "Block Exploits",
+            "type": "boolean"
+          },
+          "certificate_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Certificate for TLS termination; null serves plain :80",
+            "title": "Certificate Id"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "domain_names": {
+            "description": "Domains this host answers for (server_name)",
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1,
+            "title": "Domain Names",
+            "type": "array"
+          },
+          "enabled": {
+            "default": true,
+            "description": "Disabled hosts are excluded from config",
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "forward_domain_name": {
+            "description": "Domain requests are redirected to",
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Forward Domain Name",
+            "type": "string"
+          },
+          "forward_http_code": {
+            "default": 302,
+            "description": "HTTP redirect status code (300–308)",
+            "maximum": 308.0,
+            "minimum": 300.0,
+            "title": "Forward Http Code",
+            "type": "integer"
+          },
+          "forward_scheme": {
+            "$ref": "#/components/schemas/RedirectScheme",
+            "default": "auto",
+            "description": "Target scheme; 'auto' keeps the incoming request's scheme"
+          },
+          "hsts_enabled": {
+            "default": false,
+            "description": "Emit a Strict-Transport-Security header",
+            "title": "Hsts Enabled",
+            "type": "boolean"
+          },
+          "hsts_subdomains": {
+            "default": false,
+            "description": "Include subdomains in HSTS",
+            "title": "Hsts Subdomains",
+            "type": "boolean"
+          },
+          "http2_support": {
+            "default": false,
+            "description": "Enable HTTP/2 on the TLS listener",
+            "title": "Http2 Support",
+            "type": "boolean"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "preserve_path": {
+            "default": true,
+            "description": "Append the original request URI to the target",
+            "title": "Preserve Path",
+            "type": "boolean"
+          },
+          "ssl_forced": {
+            "default": false,
+            "description": "Redirect :80 to HTTPS",
+            "title": "Ssl Forced",
+            "type": "boolean"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "domain_names",
+          "forward_domain_name",
+          "id",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "RedirectionHostRead",
+        "type": "object"
+      },
+      "RedirectionHostUpdate": {
+        "description": "Partial update of a redirection host; every field is optional.",
+        "properties": {
+          "advanced_config": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Advanced Config"
+          },
+          "block_exploits": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Block Exploits"
+          },
+          "certificate_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Certificate Id"
+          },
+          "domain_names": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "minItems": 1,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Domain Names"
+          },
+          "enabled": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Enabled"
+          },
+          "forward_domain_name": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Forward Domain Name"
+          },
+          "forward_http_code": {
+            "anyOf": [
+              {
+                "maximum": 308.0,
+                "minimum": 300.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Forward Http Code"
+          },
+          "forward_scheme": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RedirectScheme"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "hsts_enabled": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hsts Enabled"
+          },
+          "hsts_subdomains": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hsts Subdomains"
+          },
+          "http2_support": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Http2 Support"
+          },
+          "preserve_path": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Preserve Path"
+          },
+          "ssl_forced": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ssl Forced"
+          }
+        },
+        "title": "RedirectionHostUpdate",
+        "type": "object"
+      },
       "RefreshRequest": {
         "description": "Body submitted to ``POST /auth/refresh``.",
         "properties": {
@@ -1478,6 +2422,239 @@
           }
         },
         "title": "SampleTaskRequest",
+        "type": "object"
+      },
+      "StreamCreate": {
+        "description": "Payload to create a stream.",
+        "properties": {
+          "certificate_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Certificate to terminate TLS on the TCP listener; null = plain",
+            "title": "Certificate Id"
+          },
+          "enabled": {
+            "default": true,
+            "description": "Disabled streams are excluded from config",
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "forward_host": {
+            "description": "Backend host traffic is forwarded to",
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Forward Host",
+            "type": "string"
+          },
+          "forward_port": {
+            "description": "Backend port traffic is forwarded to",
+            "maximum": 65535.0,
+            "minimum": 1.0,
+            "title": "Forward Port",
+            "type": "integer"
+          },
+          "incoming_port": {
+            "description": "Port nginx listens on for this stream",
+            "maximum": 65535.0,
+            "minimum": 1.0,
+            "title": "Incoming Port",
+            "type": "integer"
+          },
+          "tcp_forwarding": {
+            "default": true,
+            "description": "Forward TCP on the incoming port",
+            "title": "Tcp Forwarding",
+            "type": "boolean"
+          },
+          "udp_forwarding": {
+            "default": false,
+            "description": "Forward UDP on the incoming port",
+            "title": "Udp Forwarding",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "incoming_port",
+          "forward_host",
+          "forward_port"
+        ],
+        "title": "StreamCreate",
+        "type": "object"
+      },
+      "StreamRead": {
+        "description": "Public representation of a stream.",
+        "properties": {
+          "certificate_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Certificate to terminate TLS on the TCP listener; null = plain",
+            "title": "Certificate Id"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "enabled": {
+            "default": true,
+            "description": "Disabled streams are excluded from config",
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "forward_host": {
+            "description": "Backend host traffic is forwarded to",
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Forward Host",
+            "type": "string"
+          },
+          "forward_port": {
+            "description": "Backend port traffic is forwarded to",
+            "maximum": 65535.0,
+            "minimum": 1.0,
+            "title": "Forward Port",
+            "type": "integer"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "incoming_port": {
+            "description": "Port nginx listens on for this stream",
+            "maximum": 65535.0,
+            "minimum": 1.0,
+            "title": "Incoming Port",
+            "type": "integer"
+          },
+          "tcp_forwarding": {
+            "default": true,
+            "description": "Forward TCP on the incoming port",
+            "title": "Tcp Forwarding",
+            "type": "boolean"
+          },
+          "udp_forwarding": {
+            "default": false,
+            "description": "Forward UDP on the incoming port",
+            "title": "Udp Forwarding",
+            "type": "boolean"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "incoming_port",
+          "forward_host",
+          "forward_port",
+          "id",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "StreamRead",
+        "type": "object"
+      },
+      "StreamUpdate": {
+        "description": "Partial update of a stream; every field is optional.\n\nThe \"at least one protocol\" rule can only be enforced against the merged\nresult, so it is checked in the service/DB layer rather than here (a PATCH\nthat flips only one flag has no view of the other).",
+        "properties": {
+          "certificate_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Certificate Id"
+          },
+          "enabled": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Enabled"
+          },
+          "forward_host": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Forward Host"
+          },
+          "forward_port": {
+            "anyOf": [
+              {
+                "maximum": 65535.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Forward Port"
+          },
+          "incoming_port": {
+            "anyOf": [
+              {
+                "maximum": 65535.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Incoming Port"
+          },
+          "tcp_forwarding": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tcp Forwarding"
+          },
+          "udp_forwarding": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Udp Forwarding"
+          }
+        },
+        "title": "StreamUpdate",
         "type": "object"
       },
       "TaskEnqueued": {
@@ -1868,6 +3045,571 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/v1/access-lists": {
+      "get": {
+        "description": "List all access lists with their users and rules. Admin-only.",
+        "operationId": "list_access_lists_api_v1_access_lists_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/AccessListRead"
+                  },
+                  "title": "Response List Access Lists Api V1 Access Lists Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "List Access Lists",
+        "tags": [
+          "access-lists"
+        ]
+      },
+      "post": {
+        "description": "Create an access list, optionally seeding users and rules inline. Admin-only.",
+        "operationId": "create_access_list_api_v1_access_lists_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AccessListCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccessListRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Create Access List",
+        "tags": [
+          "access-lists"
+        ]
+      }
+    },
+    "/api/v1/access-lists/{access_list_id}": {
+      "delete": {
+        "description": "Delete an access list. Attached hosts are detached (FK SET NULL).",
+        "operationId": "delete_access_list_api_v1_access_lists__access_list_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "access_list_id",
+            "required": true,
+            "schema": {
+              "title": "Access List Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Delete Access List",
+        "tags": [
+          "access-lists"
+        ]
+      },
+      "get": {
+        "description": "Fetch a single access list. Admin-only.",
+        "operationId": "get_access_list_api_v1_access_lists__access_list_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "access_list_id",
+            "required": true,
+            "schema": {
+              "title": "Access List Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccessListRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Get Access List",
+        "tags": [
+          "access-lists"
+        ]
+      },
+      "patch": {
+        "description": "Update an access list's own attributes (name/satisfy_any/pass_auth).",
+        "operationId": "update_access_list_api_v1_access_lists__access_list_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "access_list_id",
+            "required": true,
+            "schema": {
+              "title": "Access List Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AccessListUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccessListRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Update Access List",
+        "tags": [
+          "access-lists"
+        ]
+      }
+    },
+    "/api/v1/access-lists/{access_list_id}/auth-users": {
+      "post": {
+        "description": "Add a basic-auth user to an access list. Admin-only.",
+        "operationId": "add_auth_user_api_v1_access_lists__access_list_id__auth_users_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "access_list_id",
+            "required": true,
+            "schema": {
+              "title": "Access List Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AccessListAuthCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccessListAuthRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Add Auth User",
+        "tags": [
+          "access-lists"
+        ]
+      }
+    },
+    "/api/v1/access-lists/{access_list_id}/auth-users/{user_id}": {
+      "delete": {
+        "description": "Remove a basic-auth user from an access list. Admin-only.",
+        "operationId": "remove_auth_user_api_v1_access_lists__access_list_id__auth_users__user_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "access_list_id",
+            "required": true,
+            "schema": {
+              "title": "Access List Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "title": "User Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Remove Auth User",
+        "tags": [
+          "access-lists"
+        ]
+      },
+      "patch": {
+        "description": "Reset a basic-auth user's password. Admin-only.",
+        "operationId": "set_auth_password_api_v1_access_lists__access_list_id__auth_users__user_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "access_list_id",
+            "required": true,
+            "schema": {
+              "title": "Access List Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "title": "User Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AccessListAuthUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccessListAuthRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Set Auth Password",
+        "tags": [
+          "access-lists"
+        ]
+      }
+    },
+    "/api/v1/access-lists/{access_list_id}/clients": {
+      "post": {
+        "description": "Add an allow/deny client rule to an access list. Admin-only.",
+        "operationId": "add_client_rule_api_v1_access_lists__access_list_id__clients_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "access_list_id",
+            "required": true,
+            "schema": {
+              "title": "Access List Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AccessListClientCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccessListClientRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Add Client Rule",
+        "tags": [
+          "access-lists"
+        ]
+      }
+    },
+    "/api/v1/access-lists/{access_list_id}/clients/{rule_id}": {
+      "delete": {
+        "description": "Remove a client rule from an access list. Admin-only.",
+        "operationId": "remove_client_rule_api_v1_access_lists__access_list_id__clients__rule_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "access_list_id",
+            "required": true,
+            "schema": {
+              "title": "Access List Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "rule_id",
+            "required": true,
+            "schema": {
+              "title": "Rule Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Remove Client Rule",
+        "tags": [
+          "access-lists"
+        ]
+      },
+      "patch": {
+        "description": "Update a client rule within an access list. Admin-only.",
+        "operationId": "update_client_rule_api_v1_access_lists__access_list_id__clients__rule_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "access_list_id",
+            "required": true,
+            "schema": {
+              "title": "Access List Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "rule_id",
+            "required": true,
+            "schema": {
+              "title": "Rule Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AccessListClientUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccessListClientRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Update Client Rule",
+        "tags": [
+          "access-lists"
+        ]
+      }
+    },
     "/api/v1/audit-log": {
       "get": {
         "description": "List audit-log entries, newest first. Admin-only.",
@@ -2581,6 +4323,225 @@
         ]
       }
     },
+    "/api/v1/dead-hosts": {
+      "get": {
+        "description": "List all dead hosts. Admin-only.",
+        "operationId": "list_dead_hosts_api_v1_dead_hosts_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/DeadHostRead"
+                  },
+                  "title": "Response List Dead Hosts Api V1 Dead Hosts Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "List Dead Hosts",
+        "tags": [
+          "dead-hosts"
+        ]
+      },
+      "post": {
+        "description": "Create a dead host. Admin-only.",
+        "operationId": "create_dead_host_api_v1_dead_hosts_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeadHostCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeadHostRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Create Dead Host",
+        "tags": [
+          "dead-hosts"
+        ]
+      }
+    },
+    "/api/v1/dead-hosts/{host_id}": {
+      "delete": {
+        "description": "Delete a dead host. Admin-only.",
+        "operationId": "delete_dead_host_api_v1_dead_hosts__host_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "host_id",
+            "required": true,
+            "schema": {
+              "title": "Host Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Delete Dead Host",
+        "tags": [
+          "dead-hosts"
+        ]
+      },
+      "get": {
+        "description": "Fetch a single dead host. Admin-only.",
+        "operationId": "get_dead_host_api_v1_dead_hosts__host_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "host_id",
+            "required": true,
+            "schema": {
+              "title": "Host Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeadHostRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Get Dead Host",
+        "tags": [
+          "dead-hosts"
+        ]
+      },
+      "patch": {
+        "description": "Update a dead host. Admin-only.",
+        "operationId": "update_dead_host_api_v1_dead_hosts__host_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "host_id",
+            "required": true,
+            "schema": {
+              "title": "Host Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeadHostUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeadHostRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Update Dead Host",
+        "tags": [
+          "dead-hosts"
+        ]
+      }
+    },
     "/api/v1/nginx/preview": {
       "get": {
         "description": "Render the config for current DB state without writing or reloading.",
@@ -2851,6 +4812,444 @@
         "summary": "Update Proxy Host",
         "tags": [
           "proxy-hosts"
+        ]
+      }
+    },
+    "/api/v1/redirection-hosts": {
+      "get": {
+        "description": "List all redirection hosts. Admin-only.",
+        "operationId": "list_redirection_hosts_api_v1_redirection_hosts_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/RedirectionHostRead"
+                  },
+                  "title": "Response List Redirection Hosts Api V1 Redirection Hosts Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "List Redirection Hosts",
+        "tags": [
+          "redirection-hosts"
+        ]
+      },
+      "post": {
+        "description": "Create a redirection host. Admin-only.",
+        "operationId": "create_redirection_host_api_v1_redirection_hosts_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RedirectionHostCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RedirectionHostRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Create Redirection Host",
+        "tags": [
+          "redirection-hosts"
+        ]
+      }
+    },
+    "/api/v1/redirection-hosts/{host_id}": {
+      "delete": {
+        "description": "Delete a redirection host. Admin-only.",
+        "operationId": "delete_redirection_host_api_v1_redirection_hosts__host_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "host_id",
+            "required": true,
+            "schema": {
+              "title": "Host Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Delete Redirection Host",
+        "tags": [
+          "redirection-hosts"
+        ]
+      },
+      "get": {
+        "description": "Fetch a single redirection host. Admin-only.",
+        "operationId": "get_redirection_host_api_v1_redirection_hosts__host_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "host_id",
+            "required": true,
+            "schema": {
+              "title": "Host Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RedirectionHostRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Get Redirection Host",
+        "tags": [
+          "redirection-hosts"
+        ]
+      },
+      "patch": {
+        "description": "Update a redirection host. Admin-only.",
+        "operationId": "update_redirection_host_api_v1_redirection_hosts__host_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "host_id",
+            "required": true,
+            "schema": {
+              "title": "Host Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RedirectionHostUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RedirectionHostRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Update Redirection Host",
+        "tags": [
+          "redirection-hosts"
+        ]
+      }
+    },
+    "/api/v1/streams": {
+      "get": {
+        "description": "List all streams. Admin-only.",
+        "operationId": "list_streams_api_v1_streams_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/StreamRead"
+                  },
+                  "title": "Response List Streams Api V1 Streams Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "List Streams",
+        "tags": [
+          "streams"
+        ]
+      },
+      "post": {
+        "description": "Create a TCP/UDP stream forward. Admin-only.",
+        "operationId": "create_stream_api_v1_streams_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StreamCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StreamRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Create Stream",
+        "tags": [
+          "streams"
+        ]
+      }
+    },
+    "/api/v1/streams/{stream_id}": {
+      "delete": {
+        "description": "Delete a stream. Admin-only.",
+        "operationId": "delete_stream_api_v1_streams__stream_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "stream_id",
+            "required": true,
+            "schema": {
+              "title": "Stream Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Delete Stream",
+        "tags": [
+          "streams"
+        ]
+      },
+      "get": {
+        "description": "Fetch a single stream. Admin-only.",
+        "operationId": "get_stream_api_v1_streams__stream_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "stream_id",
+            "required": true,
+            "schema": {
+              "title": "Stream Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StreamRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Get Stream",
+        "tags": [
+          "streams"
+        ]
+      },
+      "patch": {
+        "description": "Update a stream. Admin-only.",
+        "operationId": "update_stream_api_v1_streams__stream_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "stream_id",
+            "required": true,
+            "schema": {
+              "title": "Stream Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StreamUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StreamRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Update Stream",
+        "tags": [
+          "streams"
         ]
       }
     },

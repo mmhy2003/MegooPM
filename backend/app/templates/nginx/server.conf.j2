@@ -17,6 +17,10 @@
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection $connection_upgrade;
 {%- endif %}
+{%- if host.access_list and host.access_list.auth_users and not host.access_list.pass_auth %}
+        # Access list consumes the basic-auth header; do not forward it upstream.
+        proxy_set_header Authorization "";
+{%- endif %}
     }
 {%- if host.caching_enabled %}
 
@@ -50,6 +54,22 @@
     access_by_lua_file /etc/nginx/lua/megoopm_crowdsec.lua;
 {%- endif %}
 {%- endmacro -%}
+{%- macro access_control() -%}
+{%- if host.access_list %}
+    # Access list "{{ host.access_list.name }}" (MEG-21).
+{%- if htpasswd_path %}
+    auth_basic "{{ host.access_list.name }}";
+    auth_basic_user_file {{ htpasswd_path }};
+{%- endif %}
+{%- for rule in host.access_list.client_rules %}
+    {{ rule.directive }} {{ rule.address }};
+{%- endfor %}
+{%- if htpasswd_path and host.access_list.client_rules %}
+    # Pass if EITHER gate is satisfied (any) or require BOTH (all).
+    satisfy {{ 'any' if host.access_list.satisfy_any else 'all' }};
+{%- endif %}
+{%- endif %}
+{%- endmacro -%}
 {%- macro acme_challenge() %}
 
     # ACME HTTP-01 challenge webroot (Let's Encrypt issuance/renewal, MEG-19).
@@ -58,6 +78,11 @@
     location ^~ /.well-known/acme-challenge/ {
         default_type "text/plain";
         alias {{ acme_challenge_root }}/;
+{%- if host.access_list %}
+        # Challenge must stay reachable even when the host is access-controlled.
+        auth_basic off;
+        allow all;
+{%- endif %}
     }
 {%- endmacro -%}
 # Managed by MegooPM — do not edit by hand.
@@ -74,6 +99,7 @@ server {
         return 301 https://$host$request_uri;
     }
 {%- else %}
+{{- access_control() }}
 {{- security() }}
 {{- proxy_location() }}
 {%- endif %}
@@ -87,6 +113,7 @@ server {
     ssl_certificate_key {{ host.certificate.privkey_path }};
 {{- hsts() }}
 {{- crowdsec() }}
+{{- access_control() }}
 {{- security() }}
 {{- proxy_location() }}
 {%- if host.advanced_config %}
@@ -100,6 +127,7 @@ server {
     server_name {{ server_names }};
 {{- crowdsec() }}
 {{- acme_challenge() }}
+{{- access_control() }}
 {{- security() }}
 {{- proxy_location() }}
 {%- if host.advanced_config %}

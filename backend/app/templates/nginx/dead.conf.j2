@@ -1,0 +1,69 @@
+{# Renders the `server {}` block(s) for one MegooPM dead (404) host.
+
+   The host claims a set of domains and returns 404 for every request — a way to
+   explicitly park a domain (optionally under TLS) without forwarding anywhere.
+
+   - No certificate      -> a single plain :80 server returning 404.
+   - Certificate present -> a :443 TLS server returning 404, plus a :80 server
+     that either redirects to HTTPS (ssl_forced) or returns 404 directly. #}
+{%- macro dead_location() %}
+
+    location / {
+        return 404;
+    }
+{%- endmacro -%}
+{%- macro hsts() -%}
+{%- if host.hsts_enabled %}
+    add_header Strict-Transport-Security "max-age=63072000{% if host.hsts_subdomains %}; includeSubDomains{% endif %}" always;
+{%- endif %}
+{%- endmacro -%}
+{%- macro acme_challenge() %}
+
+    # ACME HTTP-01 challenge webroot (Let's Encrypt issuance/renewal, MEG-19).
+    location ^~ /.well-known/acme-challenge/ {
+        default_type "text/plain";
+        alias {{ acme_challenge_root }}/;
+    }
+{%- endmacro -%}
+# Managed by MegooPM — do not edit by hand.
+# dead host id={{ host.id }}
+{%- if host.certificate %}
+server {
+    listen 80;
+    server_name {{ server_names }};
+{{- acme_challenge() }}
+{%- if host.ssl_forced %}
+
+    location / {
+        return 301 https://$host$request_uri;
+    }
+{%- else %}
+{{- dead_location() }}
+{%- endif %}
+}
+
+server {
+    listen 443 ssl{% if host.http2_support %} http2{% endif %};
+    server_name {{ server_names }};
+
+    ssl_certificate {{ host.certificate.fullchain_path }};
+    ssl_certificate_key {{ host.certificate.privkey_path }};
+{{- hsts() }}
+{{- dead_location() }}
+{%- if host.advanced_config %}
+
+    {{ host.advanced_config | indent(4) }}
+{%- endif %}
+}
+{%- else %}
+server {
+    listen 80;
+    server_name {{ server_names }};
+{{- acme_challenge() }}
+{{- dead_location() }}
+{%- if host.advanced_config %}
+
+    {{ host.advanced_config | indent(4) }}
+{%- endif %}
+}
+{%- endif %}
