@@ -1,25 +1,32 @@
-# Python
+# Dependencies
+node_modules/
+
+# Build / cache output
+.next/
+out/
+dist/
+build/
+*.tsbuildinfo
+
+# Test / coverage
+coverage/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Python (backend, added by later tickets)
 __pycache__/
 *.py[cod]
-*.egg-info/
 .venv/
 venv/
 .pytest_cache/
 .ruff_cache/
 .mypy_cache/
 
-# Environment
-.env
-.env.*
-!.env.example
-
-# Node / Next.js (frontend)
-node_modules/
-.next/
-out/
-dist/
-
-# Editors / OS
+# Editor / OS
 .DS_Store
 .idea/
 .vscode/
+*.log
