@@ -91,3 +91,23 @@ export type { DeadHost, DeadHostCreate, DeadHostUpdate } from "@/lib/api/resourc
 
 export { tasks, pollTask } from "@/lib/api/resources/tasks";
 export type { TaskStatus, PollTaskOptions } from "@/lib/api/resources/tasks";
+
+export {
+  crowdsec,
+  DECISION_SCOPES,
+  DECISION_TYPES,
+  DECISION_SCOPE_LABELS,
+  DECISION_TYPE_LABELS,
+  DECISION_DURATIONS,
+} from "@/lib/api/resources/crowdsec";
+export type {
+  CrowdSecHealth,
+  Decision,
+  DecisionCreate,
+  DecisionList,
+  Alert,
+  AlertList,
+  AlertSource,
+  DecisionScope,
+  DecisionType,
+} from "@/lib/api/resources/crowdsec";
