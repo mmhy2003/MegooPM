@@ -8,6 +8,10 @@ dependencies = [
     "uvicorn[standard]>=0.30",
     "sqlalchemy[asyncio]>=2.0",
     "asyncpg>=0.29",
+    # Synchronous Postgres driver for the `sync_database_url` path: Celery
+    # coordination tasks (HA advisory locks / config-version bumps, MEG-35) run
+    # outside the event loop and use a sync engine.
+    "psycopg[binary]>=3.1",
     "alembic>=1.13",
     "pydantic[email]>=2.7",
     "pydantic-settings>=2.3",

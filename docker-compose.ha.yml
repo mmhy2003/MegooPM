@@ -1,0 +1,190 @@
+# MegooPM — reference High-Availability (HA) deployment (MEG-35).
+#
+# Boots a multi-node topology against SHARED storage so any node can serve
+# traffic and no single node is the source of truth:
+#
+#   * db / redis          — shared control-plane state (single here; use managed
+#                           HA Postgres + Redis in production).
+#   * backend  x2         — stateless FastAPI API nodes behind the `lb` LB.
+#   * worker   x2         — stateless Celery workers (each reloads its LOCAL
+#                           nginx via the broadcast reconcile queue).
+#   * beat     x1         — one scheduler; periodic sweeps are leader-locked so
+#                           running >1 beat is still safe.
+#   * proxy1 / proxy2     — the managed nginx data plane, each reading the SAME
+#                           shared /data/nginx/conf.d, behind the `lb` LB.
+#   * lb                  — HAProxy: :80/:443 → proxy1/proxy2, :8000 → backends.
+#
+# Bring up (>=2 app nodes against shared storage):
+#
+#   docker compose -f docker-compose.ha.yml up --build \
+#     --scale backend=2 --scale worker=2
+#
+# The `shared_data` volume below is a LOCAL named volume shared between
+# containers on one host — enough to demonstrate the shared data plane. In a
+# real multi-HOST cluster, replace it with an NFS-backed volume (see the
+# commented block at the bottom and docs/ha.md).
+
+name: megoopm-ha
+
+x-app-env: &app-env
+  ENVIRONMENT: production
+  DEBUG: "false"
+  SECRET_KEY: ${SECRET_KEY:-change-me-in-production}
+  DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-megoopm}:${POSTGRES_PASSWORD:-megoopm}@db:5432/${POSTGRES_DB:-megoopm}
+  REDIS_URL: redis://redis:6379/0
+  CELERY_BROKER_URL: redis://redis:6379/0
+  CELERY_RESULT_BACKEND: redis://redis:6379/1
+  CORS_ORIGINS: ${CORS_ORIGINS:-*}
+  # --- HA (MEG-35) ---
+  HA_ENABLED: "true"
+  # All mutable state under one shared root; every app node mounts it at /data.
+  SHARED_DATA_DIR: /data
+  # Paths derive from SHARED_DATA_DIR when unset — spelled out here for clarity.
+  NGINX_CONFD_DIR: /data/nginx/conf.d
+  NGINX_STREAM_DIR: /data/nginx/conf.d/stream
+  NGINX_CERTS_DIR: /data/certs
+  ACME_HTTP_CHALLENGE_DIR: /data/certs/_acme-challenge
+  # Node-local (NOT shared): each node's run dir + reload marker. Because every
+  # container has its own /var/run, each node tracks its own applied version.
+  HA_LOCK_DIR: /var/run/megoopm
+  NGINX_RELOAD_MARKER_PATH: /var/run/megoopm/nginx-config.version
+  HA_RECONCILE_INTERVAL_SECONDS: "15"
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-megoopm}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-megoopm}
+      POSTGRES_DB: ${POSTGRES_DB:-megoopm}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-megoopm} -d ${POSTGRES_DB:-megoopm}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # One-shot: lay out the shared root and hand it to the backend user (uid 1000)
+  # so app nodes can write renders/certs while nginx (root) reads them.
+  shared-init:
+    image: busybox:1.36
+    command: sh -c "mkdir -p /data/nginx/conf.d/stream /data/certs/_acme-challenge && chown -R 1000:1000 /data"
+    volumes:
+      - shared_data:/data
+
+  # Stateless API nodes. No published port — the LB fronts them. Scale with
+  # `--scale backend=N`. One node runs migrations; use RUN_MIGRATIONS on a
+  # dedicated migrator in production to avoid a startup race.
+  backend:
+    build: ./backend
+    environment: *app-env
+    volumes:
+      - shared_data:/data
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      shared-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 5s
+      start_period: 20s
+      retries: 5
+
+  # Stateless workers. Each consumes the default queue AND the per-node
+  # broadcast reconcile queue, so a config change on any node fans out to every
+  # worker, which reloads its co-located nginx. Scale with `--scale worker=N`.
+  worker:
+    build: ./backend
+    command: ["celery", "-A", "app.core.celery_app.celery_app", "worker", "--loglevel=info"]
+    environment:
+      <<: *app-env
+      RUN_MIGRATIONS: "0"
+    volumes:
+      - shared_data:/data
+    depends_on:
+      redis:
+        condition: service_healthy
+      backend:
+        condition: service_started
+
+  # Exactly one scheduler. Periodic sweeps (cert renewal) are leader-locked, so
+  # even a second beat during a rollout cannot double-enqueue.
+  beat:
+    build: ./backend
+    command: ["celery", "-A", "app.core.celery_app.celery_app", "beat", "--loglevel=info"]
+    environment:
+      <<: *app-env
+      RUN_MIGRATIONS: "0"
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  # Managed nginx data plane — two identical nodes reading the SAME shared
+  # conf.d/certs. The LB balances real traffic across them; each reloads
+  # independently when its node's worker processes a reconcile.
+  proxy1: &proxy
+    build: ./infra/nginx
+    environment:
+      CROWDSEC_LAPI_URL: http://crowdsec:8080
+      CROWDSEC_APPSEC_URL: http://crowdsec:7422
+      CROWDSEC_BOUNCER_KEY: ${CROWDSEC_BOUNCER_KEY:-megoopm-dev-bouncer-key}
+    volumes:
+      - ./infra/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - shared_data:/data
+    depends_on:
+      shared-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost/healthz"]
+      interval: 15s
+      timeout: 5s
+      start_period: 10s
+      retries: 5
+
+  proxy2:
+    <<: *proxy
+
+  # External load balancer in front of the nginx data plane (and the API).
+  # Replace with your cloud L4/L7 LB in production; HAProxy here keeps the
+  # reference self-contained.
+  lb:
+    image: haproxy:2.9-alpine
+    volumes:
+      - ./infra/ha/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
+    ports:
+      - "${NGINX_HTTP_PORT:-8080}:80"
+      - "${NGINX_HTTPS_PORT:-8443}:443"
+      - "${BACKEND_PORT:-8000}:8000"
+    depends_on:
+      - proxy1
+      - proxy2
+      - backend
+
+volumes:
+  pgdata:
+  # Shared data plane. LOCAL driver here (single-host demo). For a real cluster,
+  # make this an NFS volume so every HOST sees the same bytes — e.g.:
+  #
+  #   shared_data:
+  #     driver: local
+  #     driver_opts:
+  #       type: nfs
+  #       o: "addr=10.0.0.10,nfsvers=4.1,rw,hard,nolock=no,noatime"
+  #       device: ":/export/megoopm"
+  #
+  # nfsvers=4.1 (or v4.2) is required so byte-range/advisory locking works;
+  # avoid `nolock`. See docs/ha.md for the full rationale.
+  shared_data:

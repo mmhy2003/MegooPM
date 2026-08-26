@@ -12,6 +12,7 @@ from app.models.access_list import (  # noqa: F401
 )
 from app.models.audit_log import AuditLog  # noqa: F401
 from app.models.certificate import Certificate  # noqa: F401
+from app.models.cluster_state import ClusterState  # noqa: F401
 from app.models.dead_host import DeadHost  # noqa: F401
 from app.models.proxy_host import ProxyHost  # noqa: F401
 from app.models.redirection_host import RedirectionHost  # noqa: F401
@@ -26,6 +27,7 @@ __all__ = [
     "AccessListClient",
     "AuditLog",
     "Certificate",
+    "ClusterState",
     "DeadHost",
     "ProxyHost",
     "RedirectionHost",

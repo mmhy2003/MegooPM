@@ -91,13 +91,41 @@ async def _due_ids_async() -> list[int]:
         await engine.dispose()
 
 
-@celery_app.task(name="app.tasks.certs.renew_due_certificates")
-def renew_due_certificates() -> dict:
-    """Beat sweep: enqueue a renewal for every Let's Encrypt cert near expiry."""
+def _enqueue_due_renewals() -> dict:
     due = asyncio.run(_due_ids_async())
     for cert_id in due:
         renew_certificate.delay(cert_id)
     return {"due_count": len(due), "cert_ids": due}
 
 
-__all__ = ["issue_certificate", "renew_certificate", "renew_due_certificates"]
+@celery_app.task(name="app.tasks.certs.renew_due_certificates")
+def renew_due_certificates() -> dict:
+    """Beat sweep: enqueue a renewal for every Let's Encrypt cert near expiry.
+
+    In HA mode multiple nodes may each run beat, so the sweep body is guarded by
+    a cluster-wide leader lock: whichever node grabs it enqueues the renewals,
+    the rest no-op. This keeps the sweep a singleton without a dedicated beat
+    node. Outside HA mode it runs unguarded (single host).
+    """
+    if not settings.ha_enabled:
+        return _enqueue_due_renewals()
+
+    # Imported lazily so the single-host path has no DB-coordination dependency.
+    from app.services.cluster import leader_lock, sync_engine
+
+    engine = sync_engine()
+    try:
+        lock_file = f"{settings.ha_lock_dir}/leader-cert-renew-sweep.lock"
+        with leader_lock(engine, "cert-renew-sweep", lock_file=lock_file) as is_leader:
+            if not is_leader:
+                return {"skipped": True, "reason": "another node holds the renewal lock"}
+            return _enqueue_due_renewals()
+    finally:
+        engine.dispose()
+
+
+__all__ = [
+    "issue_certificate",
+    "renew_certificate",
+    "renew_due_certificates",
+]

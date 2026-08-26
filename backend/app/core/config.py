@@ -7,10 +7,11 @@ real environment variables in deployed environments.
 
 from __future__ import annotations
 
+import socket
 from functools import lru_cache
 from typing import Annotated
 
-from pydantic import Field, field_validator
+from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 
@@ -65,18 +66,28 @@ class Settings(BaseSettings):
     # tests; must stay False in real deployments.
     celery_task_always_eager: bool = False
 
+    # --- Shared state root (HA / MEG-35) ---
+    # Single shared location (NFS / shared volume) holding *all* mutable state
+    # so any node can serve traffic. In an HA deployment every app node mounts
+    # this at the same path. The nginx/certs/ACME paths below default to
+    # subdirectories of it; set them explicitly to override that derivation.
+    shared_data_dir: str = "/data"
+
     # --- nginx config/reload engine ---
     # Directory (a shared volume with the nginx container) where the backend
     # writes managed ``*.conf`` files; nginx ``include``s it inside http{}.
-    nginx_confd_dir: str = "/etc/nginx/conf.d"
+    # Defaults to ``{shared_data_dir}/nginx/conf.d`` when left unset.
+    nginx_confd_dir: str | None = None
     # Directory for TCP/UDP stream files, included from the top-level stream{}
     # context. Kept as a subdirectory of conf.d so it rides the same shared
     # volume; nginx's non-recursive ``conf.d/*.conf`` http include never picks
-    # it up, so stream forwards stay out of http{}.
-    nginx_stream_dir: str = "/etc/nginx/conf.d/stream"
+    # it up, so stream forwards stay out of http{}. Defaults to
+    # ``{nginx_confd_dir}/stream``.
+    nginx_stream_dir: str | None = None
     # Where TLS material lives on the shared certs volume; server blocks
     # reference ``{nginx_certs_dir}/{cert_id}/fullchain.pem`` and privkey.pem.
-    nginx_certs_dir: str = "/etc/nginx/certs"
+    # Defaults to ``{shared_data_dir}/certs``.
+    nginx_certs_dir: str | None = None
     # Only files with this prefix are managed by the engine; anything else in
     # conf.d (hand-placed by operators) is left untouched.
     nginx_managed_prefix: str = "megoopm-"
@@ -93,8 +104,10 @@ class Settings(BaseSettings):
     acme_account_email: str | None = None
     # Webroot the HTTP-01 challenge files are written to. nginx serves this dir
     # at ``/.well-known/acme-challenge/`` on :80 for every managed host, so the
-    # ACME server can fetch the validation token.
-    acme_http_challenge_dir: str = "/etc/nginx/certs/_acme-challenge"
+    # ACME server can fetch the validation token. Defaults to
+    # ``{nginx_certs_dir}/_acme-challenge`` (on the shared volume so any node
+    # can answer the challenge).
+    acme_http_challenge_dir: str | None = None
     # When true (dev/CI), certificates are self-signed locally instead of being
     # issued over ACME — no network or public DNS needed. Never in production.
     acme_self_signed: bool = False
@@ -124,6 +137,30 @@ class Settings(BaseSettings):
     # Per-request timeout (seconds) for LAPI calls.
     crowdsec_timeout_seconds: float = 5.0
 
+    # --- High Availability (MEG-35) ---
+    # Turn on cross-node coordination for multi-node deployments. When True the
+    # nginx apply path takes a Postgres advisory lock (safe against concurrent
+    # applies from other nodes), bumps a shared ``config_version``, and fans a
+    # reconcile out to every node so each reloads its local nginx; the periodic
+    # sweeps (cert renewal, etc.) run under a cluster-wide leader lock. When
+    # False the engine keeps its single-host behaviour (local file lock only) —
+    # so single-node deployments and tests need no Postgres coordination.
+    ha_enabled: bool = False
+    # Stable identifier for this node, stamped on config-version bumps for
+    # observability. Defaults to the hostname.
+    node_id: str | None = None
+    # Node-LOCAL run directory for coordination lock files. Only used on the
+    # non-Postgres fallback lock path (single host / tests); on a real HA
+    # cluster the locks are Postgres advisory locks and this is unused.
+    ha_lock_dir: str = "/var/run/megoopm"
+    # Node-LOCAL marker (NOT on the shared volume) recording the last config
+    # version this node reloaded nginx for. Each node compares it to the shared
+    # version to decide whether a reload is due.
+    nginx_reload_marker_path: str = "/var/run/megoopm/nginx-config.version"
+    # How often (seconds) each node reconciles its local nginx against the
+    # shared config version — the self-healing backstop for a missed broadcast.
+    ha_reconcile_interval_seconds: float = 30.0
+
     # --- CORS ---
     # Comma-separated origins, or "*" for all. NoDecode disables
     # pydantic-settings' JSON pre-parsing so the validator below handles the
@@ -140,6 +177,31 @@ class Settings(BaseSettings):
                 return []
             return [origin.strip() for origin in stripped.split(",") if origin.strip()]
         return value
+
+    @model_validator(mode="after")
+    def _derive_shared_paths(self) -> Settings:
+        """Fill any unset state paths from ``shared_data_dir``.
+
+        Only paths left at their ``None`` default are derived, so an explicit
+        env var (or the legacy single-host ``/etc/nginx/...`` values) always
+        wins. This keeps existing deployments byte-for-byte compatible while
+        giving fresh/HA deployments a single shared root out of the box.
+        """
+        root = self.shared_data_dir.rstrip("/")
+        if self.nginx_confd_dir is None:
+            self.nginx_confd_dir = f"{root}/nginx/conf.d"
+        if self.nginx_stream_dir is None:
+            self.nginx_stream_dir = f"{self.nginx_confd_dir.rstrip('/')}/stream"
+        if self.nginx_certs_dir is None:
+            self.nginx_certs_dir = f"{root}/certs"
+        if self.acme_http_challenge_dir is None:
+            self.acme_http_challenge_dir = f"{self.nginx_certs_dir.rstrip('/')}/_acme-challenge"
+        return self
+
+    @property
+    def effective_node_id(self) -> str:
+        """This node's identifier, falling back to the hostname."""
+        return self.node_id or socket.gethostname()
 
     @property
     def effective_celery_broker_url(self) -> str:

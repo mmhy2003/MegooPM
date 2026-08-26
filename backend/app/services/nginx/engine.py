@@ -23,7 +23,7 @@ from __future__ import annotations
 import fcntl
 import os
 from collections.abc import Iterator
-from contextlib import contextmanager
+from contextlib import AbstractContextManager, contextmanager
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -116,6 +116,7 @@ def apply_config(
     controller: NginxController,
     managed_prefix: str = DEFAULT_MANAGED_PREFIX,
     stream_dir: str | os.PathLike[str] | None = None,
+    lock: AbstractContextManager[object] | None = None,
 ) -> ApplyResult:
     """Render ``state`` and reconcile nginx's config dirs to it (see module doc).
 
@@ -124,6 +125,12 @@ def apply_config(
     reconciled there too — both directories are written, validated with a single
     ``nginx -t``, and rolled back together, so a bad stream can never leave the
     HTTP config half-applied (or vice versa).
+
+    ``lock`` overrides the serialisation context manager. It defaults to a local
+    ``flock`` on ``conf.d`` (correct within one host). In an HA deployment the
+    caller passes a cross-node lock (a Postgres advisory lock — see
+    :func:`app.services.cluster.locks.apply_lock`) so concurrent applies from
+    *different* nodes can't interleave writes to the shared config dir.
     """
     confd = Path(confd_dir)
     confd.mkdir(parents=True, exist_ok=True)
@@ -138,13 +145,15 @@ def apply_config(
         streamd.mkdir(parents=True, exist_ok=True)
         targets.append((streamd, managed_prefix, render_stream_config(state)))
 
-    # Lock on the primary conf.d dir; it serialises the whole multi-dir apply.
-    with _dir_lock(confd / LOCK_FILENAME):
+    # Serialise the whole multi-dir apply. Default: a local flock on conf.d;
+    # HA callers inject a cross-node lock instead.
+    lock_cm = lock if lock is not None else _dir_lock(confd / LOCK_FILENAME)
+    with lock_cm:
         currents = [_read_managed(d, prefix) for d, prefix, _ in targets]
         desireds = [files for _, _, files in targets]
         all_desired = sorted(name for files in desireds for name in files)
 
-        if all(desired == current for desired, current in zip(desireds, currents)):
+        if all(desired == current for desired, current in zip(desireds, currents, strict=True)):
             return ApplyResult(
                 changed=False,
                 valid=True,
@@ -154,13 +163,13 @@ def apply_config(
                 managed_files=all_desired,
             )
 
-        for (d, prefix, _), desired in zip(targets, desireds):
+        for (d, prefix, _), desired in zip(targets, desireds, strict=True):
             _sync_to(d, prefix, desired)
 
         all_current = sorted(name for current in currents for name in current)
 
         def _rollback() -> None:
-            for (d, prefix, _), current in zip(targets, currents):
+            for (d, prefix, _), current in zip(targets, currents, strict=True):
                 _sync_to(d, prefix, current)
 
         test = controller.test()

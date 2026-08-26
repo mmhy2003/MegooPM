@@ -72,7 +72,42 @@ def create_celery() -> Celery:
         },
     }
 
+    if settings.ha_enabled:
+        _configure_ha(celery_app)
+
     return celery_app
+
+
+# Name of the Celery *broadcast* (fanout) queue used to reload every node's
+# local nginx. A Broadcast queue delivers each message to a per-worker queue, so
+# every node receives the reconcile — unlike a normal queue (one consumer).
+RECONCILE_BROADCAST_QUEUE = "megoopm_reconcile"
+
+
+def _configure_ha(celery_app: Celery) -> None:
+    """Wire HA config propagation: a broadcast reconcile queue + periodic sweep.
+
+    Routing ``reconcile_local_nginx`` to a :class:`~kombu.common.Broadcast`
+    queue makes ``.delay()`` fan out to *every* node so each reloads its local
+    nginx. The default queue is retained so ordinary tasks keep one-consumer
+    semantics. A short periodic reconcile is the self-healing backstop for a
+    node that missed a broadcast (was down / partitioned).
+    """
+    from kombu import Queue
+    from kombu.common import Broadcast
+
+    default_queue = celery_app.conf.task_default_queue or "celery"
+    celery_app.conf.task_queues = (
+        Queue(default_queue),
+        Broadcast(RECONCILE_BROADCAST_QUEUE),
+    )
+    celery_app.conf.task_routes = {
+        "app.tasks.nginx.reconcile_local_nginx": {"queue": RECONCILE_BROADCAST_QUEUE},
+    }
+    celery_app.conf.beat_schedule["reconcile-nginx-across-nodes"] = {
+        "task": "app.tasks.nginx.reconcile_local_nginx",
+        "schedule": settings.ha_reconcile_interval_seconds,
+    }
 
 
 celery_app = create_celery()
