@@ -54,6 +54,59 @@ def test_returns_once_every_nameserver_serves_the_value() -> None:
     assert calls == {"ns1": 2, "ns2": 1}
 
 
+def test_settle_delay_runs_once_after_every_nameserver_serves_the_value() -> None:
+    """Regression: the authoritative IPs are anycast, so one vantage point serving
+    the record does not mean every PoP does. Let's Encrypt's remote validators
+    saw the previous record set ("During secondary validation: Incorrect TXT
+    record ... (and 1 more)"). A settle delay after the last nameserver catches
+    up gives the provider's edge time to converge before the challenge is answered."""
+    query, calls = _scripted({"ns1": [set(), {"v"}], "ns2": [{"v"}]})
+    clock = _Clock()
+    slept: list[int] = []
+
+    def sleep(seconds: float) -> None:
+        slept.append(int(seconds))
+        clock.now += seconds
+
+    wait_for_txt(
+        "_acme-challenge.example.com",
+        "v",
+        timeout_seconds=60,
+        interval_seconds=5,
+        settle_seconds=10,
+        nameservers=["ns1", "ns2"],
+        query=query,
+        sleep=sleep,
+        clock=clock,
+    )
+    assert slept == [5, 10]  # poll wait for ns1, then one settle delay
+    assert calls == {"ns1": 2, "ns2": 1}  # no re-polling after the settle
+
+
+def test_settle_delay_is_not_applied_on_timeout() -> None:
+    query, _ = _scripted({"ns1": [{"other"}]})
+    clock = _Clock()
+    slept: list[int] = []
+
+    def sleep(seconds: float) -> None:
+        slept.append(int(seconds))
+        clock.now += seconds
+
+    with pytest.raises(PropagationTimeoutError):
+        wait_for_txt(
+            "_acme-challenge.example.com",
+            "v",
+            timeout_seconds=4,
+            interval_seconds=5,
+            settle_seconds=10,
+            nameservers=["ns1"],
+            query=query,
+            sleep=sleep,
+            clock=clock,
+        )
+    assert 10 not in slept
+
+
 def test_times_out_when_a_nameserver_never_serves_it() -> None:
     query, _ = _scripted({"ns1": [{"v"}], "ns2": [{"other"}]})
     clock = _Clock()

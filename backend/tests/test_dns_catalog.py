@@ -69,3 +69,4 @@ def test_settings_defaults() -> None:
 
     assert settings.acme_dns_propagation_timeout_seconds == 120
     assert settings.acme_dns_propagation_interval_seconds == 5
+    assert settings.acme_dns_propagation_settle_seconds == 10

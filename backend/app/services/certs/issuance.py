@@ -55,6 +55,7 @@ def build_issuer(
             wait_for_txt,
             timeout_seconds=settings.acme_dns_propagation_timeout_seconds,
             interval_seconds=settings.acme_dns_propagation_interval_seconds,
+            settle_seconds=settings.acme_dns_propagation_settle_seconds,
         )
     return AcmeIssuer(
         directory_url=meta.get("directory_url") or settings.acme_directory_url,

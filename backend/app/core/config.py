@@ -117,6 +117,13 @@ class Settings(BaseSettings):
     # "record not propagated yet" failure and the rate-limit hits it causes.
     acme_dns_propagation_timeout_seconds: int = 120
     acme_dns_propagation_interval_seconds: int = 5
+    # Extra grace period after every nameserver serves the record, before the
+    # challenge is answered. Anycast providers (Cloudflare, Route 53, ...) answer
+    # from the nearest PoP, so the poll above proves one vantage point while the
+    # ACME server validates from several; answering at once fails with "During
+    # secondary validation: Incorrect TXT record ...". certbot's DNS plugins
+    # default to the same 10 s.
+    acme_dns_propagation_settle_seconds: int = 10
     # Renew a certificate once it is within this many days of expiry. The beat
     # sweep enqueues renewals for everything inside the window.
     cert_renew_before_days: int = 30

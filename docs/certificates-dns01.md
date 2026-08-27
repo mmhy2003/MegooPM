@@ -16,8 +16,14 @@ hosts that are not reachable on port 80.
    registered domain, e.g. `example.co.uk`).
 4. **Propagation check**: the zone's authoritative nameservers are polled until
    all of them serve the record (`ACME_DNS_PROPAGATION_TIMEOUT_SECONDS`, default
-   120 s, every `ACME_DNS_PROPAGATION_INTERVAL_SECONDS`, default 5 s). Only then
-   is the ACME challenge answered.
+   120 s, every `ACME_DNS_PROPAGATION_INTERVAL_SECONDS`, default 5 s), then the
+   task waits `ACME_DNS_PROPAGATION_SETTLE_SECONDS` more (default 10 s) before
+   the ACME challenge is answered. The settle delay matters for anycast DNS
+   (Cloudflare, Route 53, …): the nameserver IPs all route to the *nearest*
+   PoP, so "every nameserver serves it" only proves one vantage point, while
+   Let's Encrypt validates from several. Without it the remote validators can
+   still see the previous record set — the failure reads `During secondary
+   validation: Incorrect TXT record "…" (and 1 more) found at _acme-challenge.…`.
 5. The TXT record is removed afterwards — also when validation fails.
 
 Renewals repeat the same steps, re-reading the credential every time, so

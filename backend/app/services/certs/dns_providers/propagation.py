@@ -52,6 +52,7 @@ def wait_for_txt(
     *,
     timeout_seconds: int,
     interval_seconds: int,
+    settle_seconds: int = 0,
     nameservers: list[str] | None = None,
     query: Callable[[str, str], set[str]] = query_txt,
     sleep: Callable[[float], None] = time.sleep,
@@ -61,6 +62,13 @@ def wait_for_txt(
 
     Raises :class:`PropagationTimeoutError` after ``timeout_seconds``. A query
     error (SERVFAIL, timeout, NXDOMAIN) simply counts as "not yet".
+
+    ``settle_seconds`` is an extra grace period once every nameserver answers.
+    The NS addresses of anycast providers (Cloudflare, Route 53, ...) all route
+    to the *nearest* PoP, so a positive answer here proves one vantage point,
+    while the ACME server validates from several. Answering immediately let
+    Let's Encrypt's remote validators see the previous record set ("During
+    secondary validation: Incorrect TXT record ... (and 1 more)").
     """
     servers = nameservers if nameservers is not None else authoritative_nameservers(zone_for(name))
     if not servers:
@@ -81,6 +89,8 @@ def wait_for_txt(
                 still_pending.append(server)
         pending = still_pending
         if not pending:
+            if settle_seconds > 0:
+                sleep(settle_seconds)
             return
         if clock() >= deadline:
             raise PropagationTimeoutError(
