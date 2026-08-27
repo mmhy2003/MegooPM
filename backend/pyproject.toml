@@ -27,6 +27,11 @@ dependencies = [
     # issuance (cryptography) and ACME/Let's Encrypt issuance (acme).
     "cryptography>=42",
     "acme>=2.9",
+    # DNS-01 challenge providers: dns-lexicon drives ~86 DNS provider APIs behind
+    # one interface (route53 extra pulls boto3); dnspython verifies propagation
+    # on the zone's authoritative nameservers before the challenge is answered.
+    "dns-lexicon[route53]>=3.25",
+    "dnspython>=2.6",
 ]
 
 [project.optional-dependencies]

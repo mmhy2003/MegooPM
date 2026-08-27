@@ -111,6 +111,12 @@ class Settings(BaseSettings):
     # When true (dev/CI), certificates are self-signed locally instead of being
     # issued over ACME — no network or public DNS needed. Never in production.
     acme_self_signed: bool = False
+    # DNS-01: after the provider publishes the ``_acme-challenge`` TXT record,
+    # poll the zone's authoritative nameservers until they all serve it (or give
+    # up) before asking the ACME server to validate. Prevents the common
+    # "record not propagated yet" failure and the rate-limit hits it causes.
+    acme_dns_propagation_timeout_seconds: int = 120
+    acme_dns_propagation_interval_seconds: int = 5
     # Renew a certificate once it is within this many days of expiry. The beat
     # sweep enqueues renewals for everything inside the window.
     cert_renew_before_days: int = 30
