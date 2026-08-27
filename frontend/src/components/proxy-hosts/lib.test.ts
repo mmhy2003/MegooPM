@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { ApiError } from "@/lib/api";
-import { describeError, formatDomains, parseDomains } from "@/components/proxy-hosts/lib";
+import { describeError, parseDomains } from "@/components/proxy-hosts/lib";
 
 describe("parseDomains", () => {
   it("splits on commas and whitespace, lower-casing and de-duplicating", () => {
@@ -18,11 +18,6 @@ describe("parseDomains", () => {
 
   it("returns an empty list for blank input", () => {
     expect(parseDomains("   \n  ")).toEqual([]);
-  });
-
-  it("round-trips through formatDomains", () => {
-    const list = parseDomains("one.com two.com");
-    expect(parseDomains(formatDomains(list))).toEqual(list);
   });
 });
 

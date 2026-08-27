@@ -89,7 +89,7 @@ describe("challengeLabel", () => {
 describe("letsEncryptPayload", () => {
   const base = {
     name: "wild",
-    domainsText: "*.example.com, example.com",
+    domains: ["*.example.com", "example.com"],
     accountEmail: "",
     dnsCredentialId: "",
   };
@@ -122,7 +122,7 @@ describe("letsEncryptPayload", () => {
       ok: false,
       error: "Give the certificate a name.",
     });
-    expect(letsEncryptPayload({ ...base, domainsText: "", challenge: "http-01" })).toEqual({
+    expect(letsEncryptPayload({ ...base, domains: [], challenge: "http-01" })).toEqual({
       ok: false,
       error: "Enter at least one domain name.",
     });

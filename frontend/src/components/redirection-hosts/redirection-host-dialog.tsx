@@ -14,14 +14,13 @@ import {
 } from "@/lib/api";
 import {
   describeError,
-  formatDomains,
-  parseDomains,
 } from "@/components/proxy-hosts/lib";
 import {
   CertificateSelect,
   certificateIdFromValue,
   valueFromCertificateId,
 } from "@/components/hosts/certificate-select";
+import { DomainTagsInput } from "@/components/domains/domain-tags-input";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -60,7 +59,7 @@ const TOGGLES = [
 type ToggleKey = (typeof TOGGLES)[number][0];
 
 interface FormState {
-  domains: string;
+  domains: string[];
   forwardDomainName: string;
   forwardScheme: RedirectScheme;
   forwardHttpCode: number;
@@ -83,7 +82,7 @@ function emptyToggles(): Record<ToggleKey, boolean> {
 function stateFromHost(host: RedirectionHost | null | undefined): FormState {
   if (!host) {
     return {
-      domains: "",
+      domains: [],
       forwardDomainName: "",
       forwardScheme: "auto",
       forwardHttpCode: 302,
@@ -94,7 +93,7 @@ function stateFromHost(host: RedirectionHost | null | undefined): FormState {
     };
   }
   return {
-    domains: formatDomains(host.domain_names),
+    domains: [...host.domain_names],
     forwardDomainName: host.forward_domain_name,
     forwardScheme: host.forward_scheme,
     forwardHttpCode: host.forward_http_code,
@@ -128,6 +127,7 @@ export function RedirectionHostDialog({
   const [form, setForm] = useState<FormState>(() => stateFromHost(host));
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [domainsInvalid, setDomainsInvalid] = useState(false);
 
   function setToggle(key: ToggleKey, value: boolean) {
     setForm((prev) => ({ ...prev, toggles: { ...prev.toggles, [key]: value } }));
@@ -135,7 +135,11 @@ export function RedirectionHostDialog({
 
   async function handleSubmit() {
     setError(null);
-    const domains = parseDomains(form.domains);
+    if (domainsInvalid) {
+      setError("Fix the highlighted domain first.");
+      return;
+    }
+    const domains = form.domains;
     if (domains.length === 0) {
       setError("Enter at least one domain name.");
       return;
@@ -192,15 +196,17 @@ export function RedirectionHostDialog({
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-1.5 sm:col-span-2">
             <Label htmlFor="redir-domains">Domain names</Label>
-            <Input
+            <DomainTagsInput
               id="redir-domains"
               value={form.domains}
-              onChange={(e) => setForm((p) => ({ ...p, domains: e.target.value }))}
-              placeholder="old.example.com, www.old.example.com"
+              onChange={(domains) => setForm((p) => ({ ...p, domains }))}
+              onPendingInvalidChange={setDomainsInvalid}
+              placeholder="old.example.com"
               disabled={saving}
             />
             <p className="text-xs text-muted-foreground">
-              Comma- or space-separated. Wildcards like <code>*.example.com</code> are allowed.
+              Press Enter or comma after each domain. Wildcards like <code>*.example.com</code>{" "}
+              are allowed.
             </p>
           </div>
 

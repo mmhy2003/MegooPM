@@ -6,14 +6,13 @@ import { toast } from "sonner";
 import { deadHosts, type Certificate, type DeadHost } from "@/lib/api";
 import {
   describeError,
-  formatDomains,
-  parseDomains,
 } from "@/components/proxy-hosts/lib";
 import {
   CertificateSelect,
   certificateIdFromValue,
   valueFromCertificateId,
 } from "@/components/hosts/certificate-select";
+import { DomainTagsInput } from "@/components/domains/domain-tags-input";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -23,7 +22,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 
@@ -38,7 +36,7 @@ const TOGGLES = [
 type ToggleKey = (typeof TOGGLES)[number][0];
 
 interface FormState {
-  domains: string;
+  domains: string[];
   certificateId: string;
   enabled: boolean;
   toggles: Record<ToggleKey, boolean>;
@@ -56,14 +54,14 @@ function emptyToggles(): Record<ToggleKey, boolean> {
 function stateFromHost(host: DeadHost | null | undefined): FormState {
   if (!host) {
     return {
-      domains: "",
+      domains: [],
       certificateId: valueFromCertificateId(null),
       enabled: true,
       toggles: emptyToggles(),
     };
   }
   return {
-    domains: formatDomains(host.domain_names),
+    domains: [...host.domain_names],
     certificateId: valueFromCertificateId(host.certificate_id),
     enabled: host.enabled,
     toggles: {
@@ -92,6 +90,7 @@ export function DeadHostDialog({
   const [form, setForm] = useState<FormState>(() => stateFromHost(host));
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [domainsInvalid, setDomainsInvalid] = useState(false);
 
   function setToggle(key: ToggleKey, value: boolean) {
     setForm((prev) => ({ ...prev, toggles: { ...prev.toggles, [key]: value } }));
@@ -99,7 +98,11 @@ export function DeadHostDialog({
 
   async function handleSubmit() {
     setError(null);
-    const domains = parseDomains(form.domains);
+    if (domainsInvalid) {
+      setError("Fix the highlighted domain first.");
+      return;
+    }
+    const domains = form.domains;
     if (domains.length === 0) {
       setError("Enter at least one domain name.");
       return;
@@ -146,15 +149,17 @@ export function DeadHostDialog({
         <div className="grid gap-4">
           <div className="space-y-1.5">
             <Label htmlFor="dead-domains">Domain names</Label>
-            <Input
+            <DomainTagsInput
               id="dead-domains"
               value={form.domains}
-              onChange={(e) => setForm((p) => ({ ...p, domains: e.target.value }))}
-              placeholder="parked.example.com, unused.example.com"
+              onChange={(domains) => setForm((p) => ({ ...p, domains }))}
+              onPendingInvalidChange={setDomainsInvalid}
+              placeholder="parked.example.com"
               disabled={saving}
             />
             <p className="text-xs text-muted-foreground">
-              Comma- or space-separated. Wildcards like <code>*.example.com</code> are allowed.
+              Press Enter or comma after each domain. Wildcards like <code>*.example.com</code>{" "}
+              are allowed.
             </p>
           </div>
 

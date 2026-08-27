@@ -60,27 +60,6 @@ export function describeError(err: unknown): DescribedError {
   return { message: "Something went wrong. Please try again.", fieldErrors: {} };
 }
 
-/**
- * Parse a free-text domain field into a normalized list.
- *
- * Accepts comma-, whitespace- or newline-separated entries; trims, lower-cases
- * and de-duplicates them — mirroring the backend's normalization so the value
- * the user sees round-trips predictably.
- */
-export function parseDomains(input: string): string[] {
-  const seen = new Set<string>();
-  const result: string[] = [];
-  for (const raw of input.split(/[\s,]+/)) {
-    const name = raw.trim().toLowerCase();
-    if (name && !seen.has(name)) {
-      seen.add(name);
-      result.push(name);
-    }
-  }
-  return result;
-}
-
-/** Render a domain list back into the comma-separated editor value. */
-export function formatDomains(domains: string[]): string {
-  return domains.join(", ");
-}
+// Domain parsing now lives with the shared tag input; re-exported so existing
+// imports from this module keep working.
+export { parseDomains } from "@/components/domains/lib";

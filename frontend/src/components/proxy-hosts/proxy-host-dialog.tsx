@@ -13,9 +13,8 @@ import {
 } from "@/lib/api";
 import {
   describeError,
-  formatDomains,
-  parseDomains,
 } from "@/components/proxy-hosts/lib";
+import { DomainTagsInput } from "@/components/domains/domain-tags-input";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -25,7 +24,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -56,7 +54,7 @@ type ToggleKey = (typeof TOGGLES)[number][0];
 const NO_ACCESS_LIST = "none";
 
 interface FormState {
-  domains: string;
+  domains: string[];
   upstreamId: string;
   accessListId: string;
   forwardScheme: HttpScheme;
@@ -80,7 +78,7 @@ function emptyToggles(): Record<ToggleKey, boolean> {
 function stateFromHost(host: ProxyHost | null | undefined): FormState {
   if (!host) {
     return {
-      domains: "",
+      domains: [],
       upstreamId: "",
       accessListId: NO_ACCESS_LIST,
       forwardScheme: "http",
@@ -90,7 +88,7 @@ function stateFromHost(host: ProxyHost | null | undefined): FormState {
     };
   }
   return {
-    domains: formatDomains(host.domain_names),
+    domains: [...host.domain_names],
     upstreamId: String(host.upstream_id),
     accessListId: host.access_list_id ? String(host.access_list_id) : NO_ACCESS_LIST,
     forwardScheme: host.forward_scheme,
@@ -129,6 +127,7 @@ export function ProxyHostDialog({
   const [form, setForm] = useState<FormState>(() => stateFromHost(host));
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [domainsInvalid, setDomainsInvalid] = useState(false);
 
   function setToggle(key: ToggleKey, value: boolean) {
     setForm((prev) => ({ ...prev, toggles: { ...prev.toggles, [key]: value } }));
@@ -136,7 +135,11 @@ export function ProxyHostDialog({
 
   async function handleSubmit() {
     setError(null);
-    const domains = parseDomains(form.domains);
+    if (domainsInvalid) {
+      setError("Fix the highlighted domain first.");
+      return;
+    }
+    const domains = form.domains;
     if (domains.length === 0) {
       setError("Enter at least one domain name.");
       return;
@@ -197,15 +200,17 @@ export function ProxyHostDialog({
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-1.5 sm:col-span-2">
             <Label htmlFor="host-domains">Domain names</Label>
-            <Input
+            <DomainTagsInput
               id="host-domains"
               value={form.domains}
-              onChange={(e) => setForm((p) => ({ ...p, domains: e.target.value }))}
-              placeholder="example.com, www.example.com"
+              onChange={(domains) => setForm((p) => ({ ...p, domains }))}
+              onPendingInvalidChange={setDomainsInvalid}
+              placeholder="example.com"
               disabled={saving}
             />
             <p className="text-xs text-muted-foreground">
-              Comma- or space-separated. Wildcards like <code>*.example.com</code> are allowed.
+              Press Enter or comma after each domain. Wildcards like <code>*.example.com</code>{" "}
+              are allowed.
             </p>
           </div>
 

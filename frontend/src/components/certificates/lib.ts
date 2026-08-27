@@ -7,7 +7,6 @@
  */
 
 import type { AcmeChallenge, Certificate, LetsEncryptCertificateCreate } from "@/lib/api";
-import { parseDomains } from "@/components/proxy-hosts/lib";
 
 /** How close a certificate is to (or past) its expiry, for visual flagging. */
 export type ExpiryLevel = "none" | "ok" | "warning" | "expired";
@@ -80,7 +79,8 @@ export function challengeLabel(
 
 export interface LetsEncryptFormInput {
   name: string;
-  domainsText: string;
+  /** Committed domain tags (already normalised and validated by the input). */
+  domains: string[];
   challenge: AcmeChallenge;
   accountEmail: string;
   /** Selected saved-credential id as a string (Select value); "" = none. */
@@ -94,7 +94,7 @@ export type LetsEncryptFormResult =
 /** Validate the Let's Encrypt form and build the request body. */
 export function letsEncryptPayload(input: LetsEncryptFormInput): LetsEncryptFormResult {
   const name = input.name.trim();
-  const domains = parseDomains(input.domainsText);
+  const domains = input.domains;
   if (!name) return { ok: false, error: "Give the certificate a name." };
   if (domains.length === 0) return { ok: false, error: "Enter at least one domain name." };
   const isDns = input.challenge === "dns-01";

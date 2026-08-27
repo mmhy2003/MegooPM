@@ -13,6 +13,7 @@ import {
 import { describeError } from "@/components/proxy-hosts/lib";
 import { letsEncryptPayload } from "@/components/certificates/lib";
 import { credentialLabel } from "@/components/dns-providers/lib";
+import { DomainTagsInput } from "@/components/domains/domain-tags-input";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -57,7 +58,8 @@ export function CertificateDialog({
 }) {
   // Let's Encrypt fields
   const [leName, setLeName] = useState("");
-  const [leDomains, setLeDomains] = useState("");
+  const [leDomains, setLeDomains] = useState<string[]>([]);
+  const [leDomainsInvalid, setLeDomainsInvalid] = useState(false);
   const [challenge, setChallenge] = useState<AcmeChallenge>("http-01");
   const [accountEmail, setAccountEmail] = useState("");
   const [dnsCredentialId, setDnsCredentialId] = useState("");
@@ -92,9 +94,10 @@ export function CertificateDialog({
 
   async function submitLetsEncrypt() {
     setError(null);
+    if (leDomainsInvalid) return setError("Fix the highlighted domain first.");
     const result = letsEncryptPayload({
       name: leName,
-      domainsText: leDomains,
+      domains: leDomains,
       challenge,
       accountEmail,
       dnsCredentialId,
@@ -172,15 +175,16 @@ export function CertificateDialog({
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="le-domains">Domain names</Label>
-              <Input
+              <DomainTagsInput
                 id="le-domains"
                 value={leDomains}
-                onChange={(e) => setLeDomains(e.target.value)}
-                placeholder="example.com, www.example.com"
+                onChange={setLeDomains}
+                onPendingInvalidChange={setLeDomainsInvalid}
+                placeholder="example.com"
                 disabled={saving}
               />
               <p className="text-xs text-muted-foreground">
-                Comma- or space-separated. DNS-01 is required for wildcards like{" "}
+                Press Enter or comma after each domain. DNS-01 is required for wildcards like{" "}
                 <code>*.example.com</code>.
               </p>
             </div>
