@@ -114,3 +114,14 @@ export type {
   DecisionType,
   ListParams,
 } from "@/lib/api/resources/crowdsec";
+
+export { users, USER_ROLES, USER_ROLE_LABELS } from "@/lib/api/resources/users";
+export type {
+  User,
+  UserCreate,
+  UserUpdate,
+  PasswordReset,
+  PasswordChange,
+  ProfileUpdate,
+  UserRole,
+} from "@/lib/api/resources/users";
