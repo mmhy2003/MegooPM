@@ -183,8 +183,14 @@ services:
     # (MEG-41). The old 5s timeout expired mid-compile and flapped the container
     # to unhealthy even though it serves 200 fine. timeout > worst-case compile,
     # plus a wider start_period, absorbs the cold-start compile without flapping.
+    #
+    # Probe 127.0.0.1, not `localhost`: inside the alpine image `localhost`
+    # resolves to ::1 first, busybox wget tries only that address (no IPv4
+    # fallback), and `next dev --hostname 0.0.0.0` listens on IPv4 only — so the
+    # `localhost` probe fails with "Connection refused" forever while the server
+    # is actually serving fine on 127.0.0.1.
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:3000/"]
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/"]
       interval: 15s
       timeout: 15s
       start_period: 60s

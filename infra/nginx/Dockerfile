@@ -52,7 +52,15 @@ RUN rm -f /etc/nginx/conf.d/default.conf
 COPY crowdsec-bouncer.conf /etc/nginx/crowdsec-bouncer.conf.template
 COPY lua/ /etc/nginx/lua/
 COPY docker-entrypoint.sh /docker-entrypoint.sh
-RUN chmod +x /docker-entrypoint.sh
+# Strip any CR from the entrypoint before making it executable. If the build
+# context was checked out with CRLF line endings (Windows / core.autocrlf=true)
+# the `#!/bin/sh` shebang carries a trailing \r, the kernel looks for an
+# interpreter literally named `sh\r`, and the container dies at startup with:
+#   exec /docker-entrypoint.sh: no such file or directory
+# The repo .gitattributes pins *.sh to eol=lf; this mirrors backend/Dockerfile
+# as defence-in-depth so an already-CRLF checkout still builds a working image.
+RUN sed -i 's/\r$//' /docker-entrypoint.sh \
+    && chmod +x /docker-entrypoint.sh
 
 EXPOSE 80 443
 ENTRYPOINT ["/docker-entrypoint.sh"]
