@@ -72,7 +72,8 @@ Unique constraint `(proxy_host_id, path)`. Model `ProxyHostLocation` in
 ### Service and routes
 
 - Create/update validate that every `locations[].upstream_id` exists, using
-  the same lookup and 404 message the root `upstream_id` uses today.
+  the same lookup and **422** `InvalidReferenceError` path the root
+  `upstream_id` uses today.
 - Update replaces the location rows in full (delete-orphan handles removals).
 - Deleting an upstream referenced by a location hits the RESTRICT FK and
   surfaces through the existing 409 in `app/api/routes/upstreams.py`
@@ -163,7 +164,7 @@ Loads `certificates.list()` alongside pools and access lists and passes
 ## Error handling
 
 - Client-side validation runs first (as today) so the common mistakes never
-  hit the API; server 422s from the path validator and 404s for unknown pools
+  hit the API; server 422s from the path validator and for unknown pools
   surface through the existing `describeError` path.
 - A location pointing at a pool that is later emptied simply stops rendering
   (loader rule); nginx config stays valid.
@@ -174,7 +175,7 @@ Loads `certificates.list()` alongside pools and access lists and passes
 
 - Schema: each path rule rejects with a field error; valid rows pass.
 - API: create with locations returns them; update with a list replaces in
-  full; `[]` clears; omitted leaves alone; unknown location pool → 404;
+  full; `[]` clears; omitted leaves alone; unknown location pool → 422;
   deleting a pool referenced only by a location → 409; deleting the host
   cascades its locations.
 - Renderer: extra location block uses `^~`, the row's scheme and pool name;
