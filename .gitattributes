@@ -1,0 +1,27 @@
+# Normalize line endings so builds are reproducible regardless of the
+# contributor's platform or git core.autocrlf setting.
+#
+# Shell scripts MUST be LF: a CRLF shebang (e.g. `#!/usr/bin/env bash\r`) makes
+# the kernel look for an interpreter literally named `bash\r`, and containers
+# die at startup with `env: 'bash\r': No such file or directory`.
+* text=auto eol=lf
+
+*.sh            text eol=lf
+entrypoint.sh   text eol=lf
+worker-entrypoint.sh text eol=lf
+Dockerfile      text eol=lf
+*.dockerfile    text eol=lf
+
+# Windows-native tooling stays CRLF.
+*.bat           text eol=crlf
+*.cmd           text eol=crlf
+
+# Binary assets: never touch.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+*.pdf binary

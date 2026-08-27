@@ -33,7 +33,15 @@ COPY alembic ./alembic
 COPY alembic.ini ./alembic.ini
 COPY entrypoint.sh ./entrypoint.sh
 COPY worker-entrypoint.sh ./worker-entrypoint.sh
-RUN chmod +x ./entrypoint.sh ./worker-entrypoint.sh
+# Strip any CR from the entrypoints before making them executable. If the build
+# context was checked out on Windows (or with git core.autocrlf=true) the `bash`
+# shebang carries a trailing \r, so the kernel looks for the interpreter `bash\r`
+# and the container dies at startup with:
+#   env: 'bash\r': No such file or directory
+# The repo .gitattributes pins *.sh to eol=lf; this is defence-in-depth so an
+# already-CRLF checkout still builds a working image.
+RUN sed -i 's/\r$//' ./entrypoint.sh ./worker-entrypoint.sh \
+    && chmod +x ./entrypoint.sh ./worker-entrypoint.sh
 
 # Run as a non-root user.
 RUN useradd --create-home --uid 1000 appuser \
