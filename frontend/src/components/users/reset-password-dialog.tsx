@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
 
 import { users, type User } from "@/lib/api";
@@ -29,17 +29,12 @@ export function ResetPasswordDialog({
   user: User | null;
   onSaved: () => void;
 }) {
+  // The parent remounts this dialog with a `key` per target user, so the
+  // fields start empty for each reset without an effect.
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    if (!open) return;
-    setPassword("");
-    setConfirm("");
-    setError(null);
-  }, [open, user]);
 
   async function submit() {
     if (!user) return;

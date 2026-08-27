@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
 
 import { USER_ROLES, USER_ROLE_LABELS, users, type User, type UserRole } from "@/lib/api";
@@ -44,24 +44,16 @@ export function UserDialog({
   const isEdit = user !== null;
   const editingSelf = user !== null && isSelf(user, currentUser);
 
-  const [email, setEmail] = useState("");
-  const [fullName, setFullName] = useState("");
-  const [role, setRole] = useState<UserRole>("member");
-  const [isActive, setIsActive] = useState(true);
+  // Initial values come from props; the parent remounts the dialog with a
+  // `key` per target user (same pattern as ProxyHostDialog), so no effect is
+  // needed to reset the form.
+  const [email, setEmail] = useState(user?.email ?? "");
+  const [fullName, setFullName] = useState(user?.full_name ?? "");
+  const [role, setRole] = useState<UserRole>(user?.role ?? "member");
+  const [isActive, setIsActive] = useState(user?.is_active ?? true);
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-
-  // Reset the form whenever the dialog (re)opens for a different user.
-  useEffect(() => {
-    if (!open) return;
-    setEmail(user?.email ?? "");
-    setFullName(user?.full_name ?? "");
-    setRole(user?.role ?? "member");
-    setIsActive(user?.is_active ?? true);
-    setPassword("");
-    setError(null);
-  }, [open, user]);
 
   async function submit() {
     setError(null);
