@@ -119,6 +119,31 @@ class CrowdSecClient:
             raise CrowdSecError("CrowdSec LAPI login returned no token.")
         return token
 
+    # --- registration ------------------------------------------------------
+
+    async def register_machine(self, machine_id: str, password: str) -> None:
+        """Self-register a watcher/machine against LAPI (``POST /v1/watchers``).
+
+        Idempotent: a machine that already exists (LAPI answers 403) is treated
+        as success so re-runs don't fail. Whether the freshly registered machine
+        is auto-validated depends on the LAPI's ``auto_registration`` config; see
+        ``docs/crowdsec.md``.
+        """
+        try:
+            resp = await self._http.post(
+                "/v1/watchers",
+                json={"machine_id": machine_id, "password": password},
+            )
+        except httpx.HTTPError as exc:  # pragma: no cover - network error path
+            raise CrowdSecError(f"CrowdSec machine registration failed: {exc}") from exc
+        # 201 Created (new) or 200 OK; 403 = already registered (idempotent).
+        if resp.status_code in (httpx.codes.CREATED, httpx.codes.OK, httpx.codes.FORBIDDEN):
+            return
+        raise CrowdSecError(
+            f"CrowdSec machine registration rejected (HTTP {resp.status_code}).",
+            status_code=resp.status_code,
+        )
+
     # --- request helper ----------------------------------------------------
 
     async def _request(self, method: str, url: str, *, headers: dict[str, str], **kw: Any) -> Any:
@@ -137,9 +162,21 @@ class CrowdSecClient:
 
     # --- read paths --------------------------------------------------------
 
+    async def _decisions_read_headers(self) -> dict[str, str]:
+        """Auth for reading decisions: bouncer key if set, else machine token.
+
+        A self-registered deployment may hold only machine credentials (CrowdSec
+        exposes no LAPI HTTP path to mint a bouncer key), so fall back to the
+        machine JWT when no bouncer key is configured.
+        """
+        if self._s.crowdsec_lapi_key:
+            return self._bouncer_headers()
+        return await self._machine_token_header()
+
     async def list_decisions(self) -> list[Decision]:
         """Return all active decisions the bouncer would enforce."""
-        data = await self._request("GET", "/v1/decisions", headers=self._bouncer_headers())
+        headers = await self._decisions_read_headers()
+        data = await self._request("GET", "/v1/decisions", headers=headers)
         # LAPI returns ``null`` (not ``[]``) when there are no decisions.
         return [Decision.model_validate(d) for d in (data or [])]
 

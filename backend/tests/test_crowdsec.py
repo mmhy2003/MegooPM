@@ -74,10 +74,36 @@ async def test_list_decisions_handles_null_body() -> None:
         assert await client.list_decisions() == []
 
 
-async def test_list_decisions_requires_bouncer_key() -> None:
-    async with _client(lambda r: httpx.Response(200), crowdsec_lapi_key=None) as client:
+async def test_list_decisions_requires_some_credential() -> None:
+    # With neither a bouncer key nor machine creds, the read path is unconfigured.
+    async with _client(
+        lambda r: httpx.Response(200),
+        crowdsec_lapi_key=None,
+        crowdsec_machine_id=None,
+        crowdsec_machine_password=None,
+    ) as client:
         with pytest.raises(CrowdSecNotConfigured):
             await client.list_decisions()
+
+
+async def test_list_decisions_falls_back_to_machine_token() -> None:
+    # No bouncer key, but machine creds present: read decisions via the JWT.
+    calls: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls.append(f"{request.method} {request.url.path}")
+        if request.url.path == "/v1/watchers/login":
+            return httpx.Response(200, json={"token": "jwt-xyz"})
+        assert request.headers.get("Authorization") == "Bearer jwt-xyz"
+        return httpx.Response(
+            200, json=[{"type": "ban", "scope": "Ip", "value": "1.1.1.1", "duration": "1h"}]
+        )
+
+    async with _client(handler, crowdsec_lapi_key=None) as client:
+        decisions = await client.list_decisions()
+
+    assert calls == ["POST /v1/watchers/login", "GET /v1/decisions"]
+    assert decisions[0].value == "1.1.1.1"
 
 
 async def test_list_alerts_logs_in_and_uses_bearer_token() -> None:
@@ -189,16 +215,20 @@ async def test_http_error_is_translated() -> None:
 
 @pytest.fixture
 def override_crowdsec():
-    """Install a mock-transport LAPI client as the route dependency."""
+    """Install a mock-transport LAPI client as the route dependency.
+
+    The same client instance is reused across requests within a test (so tests
+    that paginate over several requests don't hit a closed client); all clients
+    are closed once at fixture teardown.
+    """
+    opened: list[CrowdSecClient] = []
 
     def _install(handler, **over: object):
         client = _client(handler, **over)
+        opened.append(client)
 
         async def _dep():
-            try:
-                yield client
-            finally:
-                await client.aclose()
+            yield client
 
         app.dependency_overrides[get_crowdsec_client] = _dep
         return client
@@ -225,7 +255,12 @@ async def test_decisions_forbidden_for_non_admin(
 async def test_decisions_503_when_unconfigured(
     db_client: AsyncClient, admin_token: str, override_crowdsec
 ) -> None:
-    override_crowdsec(lambda r: httpx.Response(200), crowdsec_lapi_key=None)
+    override_crowdsec(
+        lambda r: httpx.Response(200),
+        crowdsec_lapi_key=None,
+        crowdsec_machine_id=None,
+        crowdsec_machine_password=None,
+    )
     resp = await db_client.get(
         "/api/v1/crowdsec/decisions", headers={"Authorization": f"Bearer {admin_token}"}
     )
@@ -274,6 +309,89 @@ async def test_admin_pushes_manual_decision_and_audits(
     assert audit.status_code == 200
     entries = audit.json()["items"]
     assert entries and entries[0]["meta"]["value"] == "8.8.8.8"
+
+
+async def test_decisions_paginated_and_hide_community_by_default(
+    db_client: AsyncClient, admin_token: str, override_crowdsec
+) -> None:
+    # Two local + one community (origin=lists) decision. Default view hides the
+    # community one; page_size=1 returns a single item with the filtered total.
+    decisions = [
+        {"origin": "megoopm", "type": "ban", "scope": "Ip", "value": "1.1.1.1", "duration": "1h"},
+        {"origin": "crowdsec", "type": "ban", "scope": "Ip", "value": "2.2.2.2", "duration": "1h"},
+        {"origin": "lists", "type": "ban", "scope": "Ip", "value": "3.3.3.3", "duration": "1h"},
+    ]
+    override_crowdsec(lambda r: httpx.Response(200, json=decisions))
+
+    hdr = {"Authorization": f"Bearer {admin_token}"}
+    resp = await db_client.get("/api/v1/crowdsec/decisions?page=1&page_size=1", headers=hdr)
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["total"] == 2  # community record excluded from the count
+    assert body["page"] == 1 and body["page_size"] == 1
+    assert len(body["items"]) == 1
+    assert body["items"][0]["value"] == "1.1.1.1"
+
+    # Page 2 returns the second local decision; the community one never appears.
+    page2 = await db_client.get("/api/v1/crowdsec/decisions?page=2&page_size=1", headers=hdr)
+    assert page2.json()["items"][0]["value"] == "2.2.2.2"
+
+    # include_community=true surfaces the blocklist record and bumps the total.
+    full = await db_client.get(
+        "/api/v1/crowdsec/decisions?include_community=true", headers=hdr
+    )
+    fbody = full.json()
+    assert fbody["total"] == 3
+    assert {d["value"] for d in fbody["items"]} == {"1.1.1.1", "2.2.2.2", "3.3.3.3"}
+
+
+async def test_alerts_hide_community_by_default(
+    db_client: AsyncClient, admin_token: str, override_crowdsec
+) -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/v1/watchers/login":
+            return httpx.Response(200, json={"token": "jwt"})
+        return httpx.Response(
+            200,
+            json=[
+                # AppSec detection (no decisions) — always local.
+                {"id": 1, "scenario": "crowdsecurity/vpatch-env-access", "decisions": None},
+                # Community-sourced alert (CAPI origin) — hidden by default.
+                {
+                    "id": 2,
+                    "scenario": "crowdsecurity/http-probing",
+                    "decisions": [
+                        {
+                            "origin": "CAPI", "type": "ban", "scope": "Ip",
+                            "value": "9.9.9.9", "duration": "4h",
+                        }
+                    ],
+                },
+            ],
+        )
+
+    override_crowdsec(handler)
+    hdr = {"Authorization": f"Bearer {admin_token}"}
+
+    default = await db_client.get("/api/v1/crowdsec/alerts", headers=hdr)
+    assert default.status_code == 200, default.text
+    dbody = default.json()
+    assert dbody["total"] == 1
+    assert dbody["items"][0]["scenario"] == "crowdsecurity/vpatch-env-access"
+
+    full = await db_client.get("/api/v1/crowdsec/alerts?include_community=true", headers=hdr)
+    assert full.json()["total"] == 2
+
+
+async def test_page_size_over_cap_is_rejected(
+    db_client: AsyncClient, admin_token: str, override_crowdsec
+) -> None:
+    override_crowdsec(lambda r: httpx.Response(200, json=[]))
+    resp = await db_client.get(
+        "/api/v1/crowdsec/decisions?page_size=1000",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert resp.status_code == 422  # exceeds the 200 max_page_size cap
 
 
 async def test_admin_lists_alerts_with_null_decisions(

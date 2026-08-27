@@ -37,10 +37,27 @@ from app.services.crowdsec import (
     CrowdSecNotConfigured,
     get_crowdsec_client,
 )
+from app.services.crowdsec.filtering import (
+    ALERT_FETCH_CAP,
+    is_community_alert,
+    is_community_decision,
+    paginate,
+)
 
 router = APIRouter(tags=["crowdsec"])
 
 ClientDep = Annotated[CrowdSecClient, Depends(get_crowdsec_client)]
+
+# Pagination bounds shared by the two list endpoints.
+_MAX_PAGE_SIZE = 200
+PageArg = Annotated[int, Query(ge=1, description="1-based page number")]
+PageSizeArg = Annotated[
+    int, Query(ge=1, le=_MAX_PAGE_SIZE, description="Records per page (max 200)")
+]
+CommunityArg = Annotated[
+    bool,
+    Query(description="Include community/CAPI/blocklist-origin records (default: local only)"),
+]
 
 
 def _handle(exc: CrowdSecError) -> HTTPException:
@@ -74,27 +91,45 @@ async def crowdsec_health(_admin: AdminUser, client: ClientDep) -> CrowdSecHealt
 
 
 @router.get("/decisions", response_model=DecisionList)
-async def list_decisions(_admin: AdminUser, client: ClientDep) -> DecisionList:
-    """List active decisions the bouncer enforces."""
+async def list_decisions(
+    _admin: AdminUser,
+    client: ClientDep,
+    page: PageArg = 1,
+    page_size: PageSizeArg = 50,
+    include_community: CommunityArg = False,
+) -> DecisionList:
+    """List active decisions, paginated. Hides community origins by default."""
     try:
         items = await client.list_decisions()
     except CrowdSecError as exc:
         raise _handle(exc) from exc
-    return DecisionList(items=items, total=len(items))
+    if not include_community:
+        items = [d for d in items if not is_community_decision(d)]
+    page_items, total = paginate(items, page=page, page_size=page_size)
+    return DecisionList(items=page_items, total=total, page=page, page_size=page_size)
 
 
 @router.get("/alerts", response_model=AlertList)
 async def list_alerts(
     _admin: AdminUser,
     client: ClientDep,
-    limit: Annotated[int, Query(ge=1, le=200, description="Max alerts to return")] = 50,
+    page: PageArg = 1,
+    page_size: PageSizeArg = 50,
+    include_community: CommunityArg = False,
 ) -> AlertList:
-    """List recent alerts CrowdSec raised, newest first."""
+    """List recent alerts (newest first), paginated. Hides community by default.
+
+    Up to ``ALERT_FETCH_CAP`` alerts are fetched from LAPI before server-side
+    filtering/pagination, so ``total`` is relative to that bounded window.
+    """
     try:
-        items = await client.list_alerts(limit=limit)
+        items = await client.list_alerts(limit=ALERT_FETCH_CAP)
     except CrowdSecError as exc:
         raise _handle(exc) from exc
-    return AlertList(items=items, total=len(items))
+    if not include_community:
+        items = [a for a in items if not is_community_alert(a)]
+    page_items, total = paginate(items, page=page, page_size=page_size)
+    return AlertList(items=page_items, total=total, page=page, page_size=page_size)
 
 
 @router.post("/decisions", response_model=Decision, status_code=status.HTTP_201_CREATED)

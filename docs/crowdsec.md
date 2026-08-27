@@ -66,19 +66,94 @@ Missing credentials return **503** (integration optional per deployment);
 upstream LAPI failures return **502**. Manual decisions/removals are written to
 the audit log (`object_type=crowdsec_decision`).
 
+### Pagination & the community filter (MEG-43)
+
+`GET /crowdsec/decisions` and `GET /crowdsec/alerts` are paginated and hide
+community/blocklist records by default:
+
+- `page` (1-based, default `1`) and `page_size` (default `50`, **max `200`** —
+  a larger value is rejected `422`). Responses carry `total` / `page` /
+  `page_size` alongside `items`.
+- `include_community` (`bool`, default `false`). By default the list returns
+  only **local** records — manual/operator bans (`origin=megoopm`), engine
+  scenario hits (`origin=crowdsec`), AppSec/WAF detections (decision-less
+  alerts). Set `include_community=true` to also include community-sourced
+  records: `origin ∈ {CAPI, lists, cscli-import, community-blocklist}` (matched
+  case-insensitively; confirm the exact live strings against your LAPI). An
+  alert is "community" iff **any** of its decisions has a community origin, so
+  decision-less AppSec alerts always stay in the local view.
+
+Filtering and pagination are applied **server-side** after fetching from LAPI
+(which has no reliable total/offset contract for these endpoints), so `total`
+reflects the filtered set. Alerts are fetched from LAPI up to a bounded window
+(`ALERT_FETCH_CAP`, 1000) before pagination, so on very large histories `total`
+is relative to that window rather than the entire alert table — this keeps a
+single response bounded in memory/latency.
+
+## DB-backed credentials & auto-registration (MEG-43)
+
+Credentials no longer have to come from the environment. They live in the
+singleton `crowdsec_credentials` table (`app/models/crowdsec.py`), and the
+backend **self-registers** on a fresh stack so no manual `cscli`/env step is
+required.
+
+**Encryption at rest.** `machine_password` and `bouncer_key` are stored as
+Fernet ciphertext (`app/core/crypto.py`), keyed off the app `secret_key` (the
+same root secret that signs JWTs — no extra key to manage). `lapi_url` /
+`machine_id` are stored in the clear. Rotating `secret_key` invalidates existing
+ciphertext by design; re-register or re-seed to repopulate it.
+
+**Resolution order** (`app/services/crowdsec/credentials.py`, cached in-process,
+cache invalidated on any write):
+
+1. If the DB row exists → decrypt and use it.
+2. Else if `CROWDSEC_*` env vars are set → **seed** them into the DB once
+   (env→DB bootstrap) and use them.
+3. Else → unconfigured (health reports it; routes 503, never 500).
+
+**Registration mechanism** (`app/services/crowdsec/registration.py`,
+`ensure_registered()` — run best-effort at app startup and idempotent):
+
+- **Machine:** self-registered over LAPI HTTP via `POST /v1/watchers` with a
+  generated `machine_id` (`{origin}-{random}`) and a strong random password,
+  then persisted encrypted. Registration is idempotent (an already-existing
+  machine → LAPI `403` → treated as success).
+  - ⚠️ **Live-stack caveat:** whether a freshly registered machine is
+    *auto-validated* depends on the LAPI's `auto_registration` config. If the
+    LAPI does not auto-validate, an operator/QA must run
+    `docker compose exec crowdsec cscli machines validate <machine_id>` once.
+    This is the one live dependency to confirm on the CrowdSec QA gate.
+- **Bouncer key:** CrowdSec exposes **no** LAPI HTTP endpoint to mint a bouncer
+  key (`cscli bouncers add` writes the engine DB directly). So the bouncer key
+  is **optional** for the backend: it is used for the decision-read path when
+  present (sourced from `CROWDSEC_BOUNCER_KEY` env and seeded to the DB), and
+  when absent the backend reads decisions with the **machine token** instead.
+  The edge nginx bouncer keeps its own key, provisioned by the stack
+  (`BOUNCER_KEY_megoopm`) as before — that is unchanged by this work.
+
+**Concurrency safety.** `ensure_registered()` takes a Postgres transaction
+advisory lock (`pg_advisory_xact_lock`, no-op on SQLite/single-host) around the
+register-then-persist critical section, and the singleton primary key is the
+ultimate backstop: if two workers still race, the PK collision is caught and the
+loser reads back the winner's row instead of double-registering.
+
 ## Configuration
 
-Environment (see `.env.example`):
+Since MEG-43 the backend **auto-registers** its machine on first startup, so a
+fresh stack needs **no** manual `cscli machines add` and no `CROWDSEC_MACHINE_*`
+env vars. The env vars below remain supported as a **bootstrap seed** — when set
+on a stack whose DB is still empty, they are migrated into the encrypted
+`crowdsec_credentials` table once; thereafter the DB is the source of truth.
+
+Environment (see `.env.example`, all optional):
 
 - `CROWDSEC_LAPI_URL` — LAPI base URL (default `http://crowdsec:8080`).
-- `CROWDSEC_BOUNCER_KEY` — bouncer API key; drives the nginx bouncer **and** the
-  backend decision-read path. CrowdSec auto-registers it via `BOUNCER_KEY_megoopm`.
-- `CROWDSEC_MACHINE_ID` / `CROWDSEC_MACHINE_PASSWORD` — enable the alert-read and
-  manual-decision-write paths. Register once:
-  ```
-  docker compose exec crowdsec cscli machines add megoopm --password <pw>
-  ```
-  then set both env vars and restart the backend.
+- `CROWDSEC_BOUNCER_KEY` — bouncer API key; drives the nginx bouncer **and**
+  (when set) the backend decision-read path. CrowdSec auto-registers the nginx
+  bouncer via `BOUNCER_KEY_megoopm`. Optional for the backend — it falls back to
+  the machine token to read decisions.
+- `CROWDSEC_MACHINE_ID` / `CROWDSEC_MACHINE_PASSWORD` — **optional** override; if
+  set they seed the DB, otherwise the backend self-registers its own machine.
 
 ## Verifying (QA / live stack)
 
@@ -97,3 +172,28 @@ against a mock transport). To verify the acceptance criteria end-to-end:
    with machine creds set, `GET /crowdsec/alerts` lists detections.
 5. **Manual decision:** `POST /api/v1/crowdsec/decisions {"value":"1.2.3.4"}`
    → the ban appears in `cscli decisions list` and the audit log.
+
+### MEG-43 acceptance (DB creds + auto-registration + pagination/filter)
+
+On a **fresh stack with no `CROWDSEC_MACHINE_*` env** and no manual `cscli`:
+
+6. **Auto-registration:** `docker compose up` the backend, then
+   `docker compose exec crowdsec cscli machines list` → a `megoopm-<random>`
+   machine appears. Confirm the DB row: `SELECT machine_id, registered_at,
+   machine_password_enc FROM crowdsec_credentials;` — one row, and
+   `machine_password_enc` is **ciphertext, not plaintext**. Restart the backend
+   → still one row (idempotent, no duplicate machine).
+   - If the machine shows as **not validated**, run
+     `cscli machines validate megoopm-<random>` once (see the auto-validation
+     caveat above) and re-check that alerts/decisions read succeeds.
+7. **Pagination:** with many decisions/alerts present,
+   `GET /crowdsec/decisions?page=1&page_size=10` returns `total` +
+   `page`/`page_size` and a bounded `items`; a large list does not 500/time out.
+   `page_size=1000` → `422`.
+8. **Community filter:** default `GET /crowdsec/decisions` hides CAPI/blocklist
+   records; `?include_community=true` includes them and raises `total`. Confirm
+   the live origin strings match `{CAPI, lists, cscli-import,
+   community-blocklist}` (adjust the set in `filtering.py` if the live LAPI
+   differs).
+9. **Ban/unban still work** end-to-end reading the DB creds (no env), and are
+   audited as before.

@@ -422,6 +422,16 @@
             "title": "Items",
             "type": "array"
           },
+          "page": {
+            "default": 1,
+            "title": "Page",
+            "type": "integer"
+          },
+          "page_size": {
+            "default": 50,
+            "title": "Page Size",
+            "type": "integer"
+          },
           "total": {
             "default": 0,
             "title": "Total",
@@ -1400,6 +1410,16 @@
             },
             "title": "Items",
             "type": "array"
+          },
+          "page": {
+            "default": 1,
+            "title": "Page",
+            "type": "integer"
+          },
+          "page_size": {
+            "default": 50,
+            "title": "Page Size",
+            "type": "integer"
           },
           "total": {
             "default": 0,
@@ -4121,21 +4141,46 @@
     },
     "/api/v1/crowdsec/alerts": {
       "get": {
-        "description": "List recent alerts CrowdSec raised, newest first.",
+        "description": "List recent alerts (newest first), paginated. Hides community by default.\n\nUp to ``ALERT_FETCH_CAP`` alerts are fetched from LAPI before server-side\nfiltering/pagination, so ``total`` is relative to that bounded window.",
         "operationId": "list_alerts_api_v1_crowdsec_alerts_get",
         "parameters": [
           {
-            "description": "Max alerts to return",
+            "description": "1-based page number",
             "in": "query",
-            "name": "limit",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "description": "1-based page number",
+              "minimum": 1,
+              "title": "Page",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Records per page (max 200)",
+            "in": "query",
+            "name": "page_size",
             "required": false,
             "schema": {
               "default": 50,
-              "description": "Max alerts to return",
+              "description": "Records per page (max 200)",
               "maximum": 200,
               "minimum": 1,
-              "title": "Limit",
+              "title": "Page Size",
               "type": "integer"
+            }
+          },
+          {
+            "description": "Include community/CAPI/blocklist-origin records (default: local only)",
+            "in": "query",
+            "name": "include_community",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Include community/CAPI/blocklist-origin records (default: local only)",
+              "title": "Include Community",
+              "type": "boolean"
             }
           }
         ],
@@ -4174,8 +4219,49 @@
     },
     "/api/v1/crowdsec/decisions": {
       "get": {
-        "description": "List active decisions the bouncer enforces.",
+        "description": "List active decisions, paginated. Hides community origins by default.",
         "operationId": "list_decisions_api_v1_crowdsec_decisions_get",
+        "parameters": [
+          {
+            "description": "1-based page number",
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "description": "1-based page number",
+              "minimum": 1,
+              "title": "Page",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Records per page (max 200)",
+            "in": "query",
+            "name": "page_size",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "description": "Records per page (max 200)",
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Page Size",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Include community/CAPI/blocklist-origin records (default: local only)",
+            "in": "query",
+            "name": "include_community",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Include community/CAPI/blocklist-origin records (default: local only)",
+              "title": "Include Community",
+              "type": "boolean"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
@@ -4186,6 +4272,16 @@
               }
             },
             "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
           }
         },
         "security": [

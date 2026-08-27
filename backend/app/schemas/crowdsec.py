@@ -74,18 +74,28 @@ class DecisionCreate(BaseModel):
     reason: Annotated[str | None, Field(description="Free-text note stored on the alert")] = None
 
 
-class DecisionList(BaseModel):
+class Page(BaseModel):
+    """Pagination metadata shared by the list responses (MEG-43).
+
+    ``total`` is the count of records matching the current filter (community
+    on/off), across all pages; ``items`` holds only the requested slice.
+    """
+
+    total: int = 0
+    page: int = 1
+    page_size: int = 50
+
+
+class DecisionList(Page):
     """A page of active decisions."""
 
     items: list[Decision] = Field(default_factory=list)
-    total: int = 0
 
 
-class AlertList(BaseModel):
+class AlertList(Page):
     """A page of recent alerts."""
 
     items: list[Alert] = Field(default_factory=list)
-    total: int = 0
 
 
 class CrowdSecHealth(BaseModel):
@@ -105,4 +115,5 @@ __all__ = [
     "Decision",
     "DecisionCreate",
     "DecisionList",
+    "Page",
 ]

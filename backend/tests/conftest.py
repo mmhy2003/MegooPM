@@ -19,6 +19,7 @@ import pytest
 from app.db.session import get_session
 from app.main import app
 from app.models.audit_log import AuditLog
+from app.models.crowdsec import CrowdSecCredential
 from app.models.user import User, UserRole
 from app.services import user as user_service
 from httpx import ASGITransport, AsyncClient
@@ -47,6 +48,16 @@ def _sqlite_jsonb_as_json(type_, compiler, **kw):  # noqa: ANN001, ANN202
     return "JSON"
 
 
+@pytest.fixture(autouse=True)
+def _reset_crowdsec_credential_cache() -> None:
+    """Clear the process-global CrowdSec credential cache between tests."""
+    from app.services.crowdsec import credentials
+
+    credentials.invalidate_cache()
+    yield
+    credentials.invalidate_cache()
+
+
 @pytest.fixture
 async def client() -> AsyncIterator[AsyncClient]:
     """An httpx client bound to the ASGI app (no network, no DB)."""
@@ -73,7 +84,8 @@ async def session_factory() -> AsyncIterator[async_sessionmaker]:
     )
     async with engine.begin() as conn:
         await conn.run_sync(
-            User.metadata.create_all, tables=[User.__table__, AuditLog.__table__]
+            User.metadata.create_all,
+            tables=[User.__table__, AuditLog.__table__, CrowdSecCredential.__table__],
         )
 
     factory = async_sessionmaker(bind=engine, expire_on_commit=False)
