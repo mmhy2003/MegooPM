@@ -244,3 +244,61 @@ async def test_delete_denied_to_member_and_404_for_unknown(
     assert denied.status_code == 403
     missing = await db_client.delete(f"{USERS}/999999", headers=_auth(admin_token))
     assert missing.status_code == 404
+
+
+# --- self-service -------------------------------------------------------------
+
+
+async def test_member_updates_own_display_name_only(
+    db_client: AsyncClient, member_token: str, session_factory: async_sessionmaker
+) -> None:
+    resp = await db_client.patch(ME, headers=_auth(member_token), json={"full_name": "Renamed"})
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["full_name"] == "Renamed"
+    assert resp.json()["role"] == "member"
+
+    # Role/active are not part of the profile schema — rejected outright.
+    resp = await db_client.patch(
+        ME, headers=_auth(member_token), json={"full_name": "x", "role": "admin"}
+    )
+    assert resp.status_code == 422
+
+    rows = await _audit_rows(session_factory)
+    assert rows[-1].actor == "member@example.com"
+    assert rows[-1].meta == {"changes": {"full_name": ["Member User", "Renamed"]}}
+
+
+async def test_profile_update_requires_authentication(db_client: AsyncClient) -> None:
+    assert (await db_client.patch(ME, json={"full_name": "x"})).status_code == 401
+
+
+async def test_member_changes_own_password(
+    db_client: AsyncClient, member_token: str, session_factory: async_sessionmaker
+) -> None:
+    wrong = await db_client.put(
+        f"{ME}/password",
+        headers=_auth(member_token),
+        json={"current_password": "nope", "new_password": "brandnew123"},
+    )
+    assert wrong.status_code == 400
+    assert wrong.json()["detail"] == "Current password is incorrect"
+
+    ok = await db_client.put(
+        f"{ME}/password",
+        headers=_auth(member_token),
+        json={"current_password": "memberpass123", "new_password": "brandnew123"},
+    )
+    assert ok.status_code == 204, ok.text
+    assert await _login(db_client, "member@example.com", "brandnew123")
+
+    rows = await _audit_rows(session_factory)
+    assert rows[-1].actor == "member@example.com"
+    assert rows[-1].meta == {"password_changed": True}
+    assert "brandnew123" not in str(rows[-1].meta)
+
+
+async def test_password_change_requires_authentication(db_client: AsyncClient) -> None:
+    resp = await db_client.put(
+        f"{ME}/password", json={"current_password": "a", "new_password": "brandnew123"}
+    )
+    assert resp.status_code == 401

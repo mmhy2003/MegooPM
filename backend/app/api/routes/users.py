@@ -19,7 +19,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import AdminUser, CurrentUser, SessionDep
 from app.models.enums import AuditAction
 from app.models.user import User
-from app.schemas.user import PasswordReset, UserCreate, UserRead, UserUpdate
+from app.schemas.user import (
+    PasswordChange,
+    PasswordReset,
+    ProfileUpdate,
+    UserCreate,
+    UserRead,
+    UserUpdate,
+)
 from app.services import user as user_service
 from app.services.audit import record_audit
 
@@ -75,6 +82,54 @@ def _conflict(exc: user_service.UserProtectionError) -> HTTPException:
 async def read_current_user(current_user: CurrentUser) -> UserRead:
     """Return the authenticated caller."""
     return UserRead.model_validate(current_user)
+
+
+@router.patch("/me", response_model=UserRead)
+async def update_current_user(
+    body: ProfileUpdate,
+    current_user: CurrentUser,
+    db: SessionDep,
+) -> UserRead:
+    """Edit the caller's own display name."""
+    user, changes = await user_service.update_user(
+        db, current_user, actor=current_user, full_name=body.full_name
+    )
+    if changes:
+        await _audit(
+            db,
+            actor=current_user,
+            action=AuditAction.update,
+            object_id=user.id,
+            meta={"changes": changes},
+        )
+    return UserRead.model_validate(user)
+
+
+@router.put("/me/password", status_code=status.HTTP_204_NO_CONTENT)
+async def change_current_user_password(
+    body: PasswordChange,
+    current_user: CurrentUser,
+    db: SessionDep,
+) -> None:
+    """Change the caller's own password after re-verifying the current one."""
+    try:
+        await user_service.change_own_password(
+            db,
+            current_user,
+            current_password=body.current_password,
+            new_password=body.new_password,
+        )
+    except user_service.InvalidCurrentPasswordError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Current password is incorrect"
+        ) from None
+    await _audit(
+        db,
+        actor=current_user,
+        action=AuditAction.update,
+        object_id=current_user.id,
+        meta={"password_changed": True},
+    )
 
 
 # --- admin: collection --------------------------------------------------------
