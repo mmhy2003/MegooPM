@@ -20,6 +20,7 @@ from app.db.session import get_session
 from app.main import app
 from app.models.audit_log import AuditLog
 from app.models.crowdsec import CrowdSecCredential
+from app.models.dns_credential import DnsProviderCredential
 from app.models.user import User, UserRole
 from app.services import user as user_service
 from httpx import ASGITransport, AsyncClient
@@ -85,7 +86,12 @@ async def session_factory() -> AsyncIterator[async_sessionmaker]:
     async with engine.begin() as conn:
         await conn.run_sync(
             User.metadata.create_all,
-            tables=[User.__table__, AuditLog.__table__, CrowdSecCredential.__table__],
+            tables=[
+                User.__table__,
+                AuditLog.__table__,
+                CrowdSecCredential.__table__,
+                DnsProviderCredential.__table__,
+            ],
         )
 
     factory = async_sessionmaker(bind=engine, expire_on_commit=False)
