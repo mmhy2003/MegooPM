@@ -99,6 +99,8 @@ export {
   DECISION_SCOPE_LABELS,
   DECISION_TYPE_LABELS,
   DECISION_DURATIONS,
+  DEFAULT_PAGE_SIZE,
+  PAGE_SIZE_OPTIONS,
 } from "@/lib/api/resources/crowdsec";
 export type {
   CrowdSecHealth,
@@ -110,4 +112,5 @@ export type {
   AlertSource,
   DecisionScope,
   DecisionType,
+  ListParams,
 } from "@/lib/api/resources/crowdsec";

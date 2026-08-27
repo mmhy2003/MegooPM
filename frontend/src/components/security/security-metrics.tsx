@@ -144,25 +144,37 @@ function TopOffenders({ alerts }: { alerts: Alert[] }) {
 export function SecurityMetrics({
   decisions,
   alerts,
+  decisionsTotal,
+  alertsTotal,
   nowMs,
 }: {
+  /** The current page of decisions (drives the visualizations). */
   decisions: Decision[];
+  /** The current page of alerts (drives the timeline/offenders). */
   alerts: Alert[];
+  /** Total decisions matching the active filter, across all pages. */
+  decisionsTotal?: number;
+  /** Total alerts matching the active filter, across all pages. */
+  alertsTotal?: number;
   nowMs: number;
 }) {
+  // Count tiles reflect the server-side totals for the active filter; the
+  // charts below stay on the current page (we never fetch every record).
+  const decisionCount = decisionsTotal ?? decisions.length;
+  const alertCount = alertsTotal ?? alerts.length;
   const bans = decisions.filter((d) => d.type === "ban").length;
 
   return (
     <div className="space-y-4">
       <div className="grid gap-3 sm:grid-cols-3">
-        <StatTile icon={ShieldBan} label="Active decisions" value={decisions.length} />
+        <StatTile icon={ShieldBan} label="Active decisions" value={decisionCount} />
         <StatTile
           icon={Activity}
-          label="Active bans"
+          label="Bans on this page"
           value={bans}
           tone={bans > 0 ? "destructive" : "default"}
         />
-        <StatTile icon={TriangleAlert} label="Recent alerts" value={alerts.length} />
+        <StatTile icon={TriangleAlert} label="Recent alerts" value={alertCount} />
       </div>
       <div className="grid gap-3 lg:grid-cols-2">
         <AlertsTimeline alerts={alerts} nowMs={nowMs} />

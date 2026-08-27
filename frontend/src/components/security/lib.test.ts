@@ -3,9 +3,12 @@ import { describe, expect, it } from "vitest";
 import type { Alert } from "@/lib/api";
 import {
   buildTimeline,
+  clampPage,
   decisionRowKey,
   formatRelativeTime,
+  pageCount,
   parseTimestamp,
+  rangeLabel,
   topOffenders,
 } from "@/components/security/lib";
 
@@ -117,5 +120,46 @@ describe("decisionRowKey", () => {
     expect(
       decisionRowKey({ id: null, scope: "Range", value: "10.0.0.0/24", type: "ban", duration: "4h" }, 2),
     ).toBe("Range:10.0.0.0/24:2");
+  });
+});
+
+describe("pageCount", () => {
+  it("rounds up partial pages and never drops below 1", () => {
+    expect(pageCount(0, 50)).toBe(1);
+    expect(pageCount(50, 50)).toBe(1);
+    expect(pageCount(51, 50)).toBe(2);
+    expect(pageCount(213, 50)).toBe(5);
+  });
+
+  it("degrades gracefully for a non-positive page size", () => {
+    expect(pageCount(100, 0)).toBe(1);
+  });
+});
+
+describe("clampPage", () => {
+  it("keeps an in-range page and pulls an over-range page back to the last", () => {
+    expect(clampPage(3, 213, 50)).toBe(3);
+    expect(clampPage(99, 213, 50)).toBe(5); // past the end → last page
+  });
+
+  it("floors invalid pages to 1", () => {
+    expect(clampPage(0, 213, 50)).toBe(1);
+    expect(clampPage(-2, 213, 50)).toBe(1);
+    expect(clampPage(Number.NaN, 213, 50)).toBe(1);
+  });
+
+  it("clamps to 1 when there are no records", () => {
+    expect(clampPage(4, 0, 50)).toBe(1);
+  });
+});
+
+describe("rangeLabel", () => {
+  it("describes the visible slice and clamps the last partial page", () => {
+    expect(rangeLabel(1, 50, 213)).toBe("1–50 of 213");
+    expect(rangeLabel(5, 50, 213)).toBe("201–213 of 213");
+  });
+
+  it("reads as empty when there are no records", () => {
+    expect(rangeLabel(1, 50, 0)).toBe("0 of 0");
   });
 });

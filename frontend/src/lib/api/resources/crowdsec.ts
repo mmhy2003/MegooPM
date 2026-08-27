@@ -54,17 +54,46 @@ export const DECISION_DURATIONS: readonly { value: string; label: string }[] = [
 
 const BASE = "/api/v1/crowdsec";
 
+/**
+ * Shared query for the two paginated list endpoints (MEG-43 contract).
+ *
+ * `page` is 1-based; `pageSize` is capped at 200 server-side.
+ * `includeCommunity` widens the result to community/CAPI/blocklist origins —
+ * it defaults to `false` server-side, so the default view is local/manual/AppSec
+ * records only. camelCase here is mapped to the API's snake_case params.
+ */
+export interface ListParams {
+  page?: number;
+  pageSize?: number;
+  includeCommunity?: boolean;
+}
+
+/** Default records per page; matches the backend default. */
+export const DEFAULT_PAGE_SIZE = 50;
+
+/** Page sizes offered in the pagination controls. */
+export const PAGE_SIZE_OPTIONS: readonly number[] = [10, 25, 50, 100] as const;
+
+function listQuery(params?: ListParams): Record<string, number | boolean> {
+  const query: Record<string, number | boolean> = {};
+  if (params?.page != null) query.page = params.page;
+  if (params?.pageSize != null) query.page_size = params.pageSize;
+  if (params?.includeCommunity != null) query.include_community = params.includeCommunity;
+  return query;
+}
+
 export const crowdsec = {
   /** Whether the LAPI is configured and reachable (never errors server-side). */
   health: () => api.get<CrowdSecHealth>(`${BASE}/health`),
-  /** Active decisions the bouncer currently enforces. */
-  listDecisions: () => api.get<DecisionList>(`${BASE}/decisions`),
+  /** A page of active decisions the bouncer currently enforces. */
+  listDecisions: (params?: ListParams) =>
+    api.get<DecisionList>(`${BASE}/decisions`, { query: listQuery(params) }),
   /** Push a manual operator decision (ban/captcha/throttle). */
   addDecision: (body: DecisionCreate) => api.post<Decision>(`${BASE}/decisions`, body),
   /** Lift a decision by its LAPI id. */
   deleteDecision: (id: number) =>
     api.delete<Record<string, number>>(`${BASE}/decisions/${id}`),
-  /** Recent alerts, newest first. `limit` caps how many are returned. */
-  listAlerts: (limit?: number) =>
-    api.get<AlertList>(`${BASE}/alerts`, limit != null ? { query: { limit } } : undefined),
+  /** A page of recent alerts, newest first. */
+  listAlerts: (params?: ListParams) =>
+    api.get<AlertList>(`${BASE}/alerts`, { query: listQuery(params) }),
 } as const;

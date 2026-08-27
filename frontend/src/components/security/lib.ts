@@ -107,3 +107,32 @@ export function decisionRowKey(decision: Decision, index: number): string {
     ? `id-${decision.id}`
     : `${decision.scope}:${decision.value}:${index}`;
 }
+
+// ---- Server-side pagination helpers -----------------------------------------
+// The list endpoints are paginated (MEG-43): each response carries `total` for
+// the active filter plus the requested `page`/`page_size`. These pure helpers
+// derive the control state so the math is unit-testable in isolation.
+
+/** Total number of pages for `total` records at `pageSize` (never below 1). */
+export function pageCount(total: number, pageSize: number): number {
+  if (pageSize <= 0) return 1;
+  return Math.max(1, Math.ceil(total / pageSize));
+}
+
+/** Clamp a 1-based page into `[1, pageCount]` — guards stale/out-of-range pages. */
+export function clampPage(page: number, total: number, pageSize: number): number {
+  const last = pageCount(total, pageSize);
+  if (!Number.isFinite(page) || page < 1) return 1;
+  return Math.min(Math.floor(page), last);
+}
+
+/**
+ * Human "showing 1–50 of 213" label for a page. Returns "0 of 0" when empty and
+ * clamps the upper bound to `total` on the last (partial) page.
+ */
+export function rangeLabel(page: number, pageSize: number, total: number): string {
+  if (total <= 0) return "0 of 0";
+  const start = (page - 1) * pageSize + 1;
+  const end = Math.min(page * pageSize, total);
+  return `${start}–${end} of ${total}`;
+}

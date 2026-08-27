@@ -340,7 +340,10 @@ export interface paths {
         };
         /**
          * List Alerts
-         * @description List recent alerts CrowdSec raised, newest first.
+         * @description List recent alerts (newest first), paginated. Hides community by default.
+         *
+         *     Up to ``ALERT_FETCH_CAP`` alerts are fetched from LAPI before server-side
+         *     filtering/pagination, so ``total`` is relative to that bounded window.
          */
         get: operations["list_alerts_api_v1_crowdsec_alerts_get"];
         put?: never;
@@ -360,7 +363,7 @@ export interface paths {
         };
         /**
          * List Decisions
-         * @description List active decisions the bouncer enforces.
+         * @description List active decisions, paginated. Hides community origins by default.
          */
         get: operations["list_decisions_api_v1_crowdsec_decisions_get"];
         put?: never;
@@ -1066,6 +1069,16 @@ export interface components {
             /** Items */
             items?: components["schemas"]["Alert"][];
             /**
+             * Page
+             * @default 1
+             */
+            page: number;
+            /**
+             * Page Size
+             * @default 50
+             */
+            page_size: number;
+            /**
              * Total
              * @default 0
              */
@@ -1563,6 +1576,16 @@ export interface components {
         DecisionList: {
             /** Items */
             items?: components["schemas"]["Decision"][];
+            /**
+             * Page
+             * @default 1
+             */
+            page: number;
+            /**
+             * Page Size
+             * @default 50
+             */
+            page_size: number;
             /**
              * Total
              * @default 0
@@ -3131,8 +3154,12 @@ export interface operations {
     list_alerts_api_v1_crowdsec_alerts_get: {
         parameters: {
             query?: {
-                /** @description Max alerts to return */
-                limit?: number;
+                /** @description 1-based page number */
+                page?: number;
+                /** @description Records per page (max 200) */
+                page_size?: number;
+                /** @description Include community/CAPI/blocklist-origin records (default: local only) */
+                include_community?: boolean;
             };
             header?: never;
             path?: never;
@@ -3162,7 +3189,14 @@ export interface operations {
     };
     list_decisions_api_v1_crowdsec_decisions_get: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description 1-based page number */
+                page?: number;
+                /** @description Records per page (max 200) */
+                page_size?: number;
+                /** @description Include community/CAPI/blocklist-origin records (default: local only) */
+                include_community?: boolean;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -3176,6 +3210,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DecisionList"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
