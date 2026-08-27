@@ -14,21 +14,20 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Docker CLI only (no daemon) — the Celery worker shells out to
-# `docker exec <nginx> openresty -t/-s reload` to validate+reload the managed
-# proxy across containers in the dev compose stack (defect 5c770e72 D4). The
-# static client binary is copied from the official image so we don't pull the
-# whole docker.io package. Inert for the API service, which never reloads nginx;
-# production replaces this channel with the MEG-28 worker↔nginx transport.
-COPY --from=docker:27-cli /usr/local/bin/docker /usr/local/bin/docker
+# No Docker CLI here: the worker validates/reloads the managed nginx through
+# the token-gated reload agent in the nginx container (scripts/nginx_remote.py,
+# docs/nginx-engine.md), never through the Docker socket.
 
 # Install Python dependencies first for better layer caching.
 COPY pyproject.toml ./
 RUN pip install --upgrade pip \
     && pip install .
 
-# Copy application source.
+# Copy application source. `scripts/` ships too: the worker's nginx reload
+# transport (`python -m scripts.nginx_remote`) and the operator CLIs
+# (`scripts.create_user`, `scripts.export_openapi`) run from the image.
 COPY app ./app
+COPY scripts ./scripts
 COPY alembic ./alembic
 COPY alembic.ini ./alembic.ini
 COPY entrypoint.sh ./entrypoint.sh

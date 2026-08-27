@@ -1,60 +1,57 @@
-# MegooPM — full-stack local development orchestration.
+# MegooPM — PRODUCTION, single node.
 #
-# Brings the entire system up with one command:
+#   cp .env.example .env     # fill in the "required" section
+#   docker compose up -d --build         # or: make prod-up
 #
-#   cp .env.example .env        # optional — sane defaults are baked in below
-#   docker compose up --build
+# Everything runs on this host: Postgres, Redis, CrowdSec, the API, the Celery
+# worker + beat, the web UI (Next.js standalone build) and the managed nginx.
+# No Docker socket is mounted anywhere: the worker validates/reloads nginx via
+# the token-gated agent inside the nginx container (docs/nginx-engine.md).
 #
-# Services: postgres, redis, backend (uvicorn), celery worker + beat,
-# frontend (next dev), the managed nginx proxy MegooPM controls, and a
-# crowdsec placeholder. See README.md / `make help` for the dev workflow.
-#
-# Only need the API + DB? backend/docker-compose.yml is a lighter db+api stack.
+# Development with hot reload: docker-compose.dev.yml. Multi-node: docker-compose.ha.yml.
 
-name: megoopm
+name: megoopm-prod
 
-# Shared backend/worker/beat environment. All three run the same image and
-# must agree on the database, broker, and proxy paths.
 x-backend-env: &backend-env
-  ENVIRONMENT: ${ENVIRONMENT:-development}
-  DEBUG: ${DEBUG:-true}
-  SECRET_KEY: ${SECRET_KEY:-change-me-in-production}
-  DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-megoopm}:${POSTGRES_PASSWORD:-megoopm}@db:5432/${POSTGRES_DB:-megoopm}
+  ENVIRONMENT: production
+  DEBUG: "false"
+  SECRET_KEY: ${SECRET_KEY:?SECRET_KEY is required (openssl rand -hex 32)}
+  DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-megoopm}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@db:5432/${POSTGRES_DB:-megoopm}
   REDIS_URL: redis://redis:6379/0
   CELERY_BROKER_URL: redis://redis:6379/0
   CELERY_RESULT_BACKEND: redis://redis:6379/1
+  # Must be the origin the browser loads the UI from.
   CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000}
-  NGINX_CONFD_DIR: /etc/nginx/conf.d
-  NGINX_CERTS_DIR: /etc/nginx/certs
-  # CrowdSec LAPI (MEG-22, MEG-43). Credentials are now DB-backed: on first use
-  # the backend self-registers its own LAPI machine (POST /v1/watchers) and
-  # stores the creds encrypted in Postgres (Fernet, keyed off SECRET_KEY above),
-  # so no manual `cscli machines add` is needed. The two vars below are an
-  # OPTIONAL bootstrap seed — when set on a fresh DB they are migrated in once
-  # (a zero-touch upgrade path for stacks already configured via env); leave
-  # them blank to let auto-registration provision the machine. The bouncer key
-  # still drives the nginx enforcement path and seeds the backend decision-read
-  # path (the backend falls back to its machine token when no bouncer key).
+  SHARED_DATA_DIR: /data
+  HA_ENABLED: "false"
+  HA_LOCK_DIR: /var/run/megoopm
+  NGINX_TEST_COMMAND: "python -m scripts.nginx_remote test"
+  NGINX_RELOAD_COMMAND: "python -m scripts.nginx_remote reload"
+  NGINX_AGENT_ADDR: nginx:9099
+  NGINX_RELOAD_TOKEN: ${NGINX_RELOAD_TOKEN:?NGINX_RELOAD_TOKEN is required (openssl rand -hex 32)}
+  # Real certificates by default; point at the staging directory to test.
+  ACME_DIRECTORY_URL: ${ACME_DIRECTORY_URL:-https://acme-v02.api.letsencrypt.org/directory}
+  ACME_ACCOUNT_EMAIL: ${ACME_ACCOUNT_EMAIL:-}
+  ACME_DNS_PROPAGATION_TIMEOUT_SECONDS: ${ACME_DNS_PROPAGATION_TIMEOUT_SECONDS:-120}
+  ACME_DNS_PROPAGATION_INTERVAL_SECONDS: ${ACME_DNS_PROPAGATION_INTERVAL_SECONDS:-5}
+  ACME_DNS_PROPAGATION_SETTLE_SECONDS: ${ACME_DNS_PROPAGATION_SETTLE_SECONDS:-10}
   CROWDSEC_LAPI_URL: http://crowdsec:8080
-  CROWDSEC_LAPI_KEY: ${CROWDSEC_BOUNCER_KEY:-megoopm-dev-bouncer-key}
+  CROWDSEC_LAPI_KEY: ${CROWDSEC_BOUNCER_KEY:?CROWDSEC_BOUNCER_KEY is required (openssl rand -hex 32)}
   CROWDSEC_MACHINE_ID: ${CROWDSEC_MACHINE_ID:-}
   CROWDSEC_MACHINE_PASSWORD: ${CROWDSEC_MACHINE_PASSWORD:-}
-  # Initial-setup admin. On startup the backend seeds this account ONLY when the
-  # users table is empty (so deleting it later never brings it back). Dev-only
-  # well-known defaults — change the password after first login, or override
-  # both here. The HA compose deliberately ships no default.
-  FIRST_ADMIN_EMAIL: ${FIRST_ADMIN_EMAIL:-admin@example.com}
-  FIRST_ADMIN_PASSWORD: ${FIRST_ADMIN_PASSWORD:-changeme}
+  # No default admin in production. Either set both here before the first
+  # start, or seed later with: docker compose exec backend python -m scripts.create_user …
+  FIRST_ADMIN_EMAIL: ${FIRST_ADMIN_EMAIL:-}
+  FIRST_ADMIN_PASSWORD: ${FIRST_ADMIN_PASSWORD:-}
 
 services:
   db:
     image: postgres:16-alpine
+    restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-megoopm}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-megoopm}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
       POSTGRES_DB: ${POSTGRES_DB:-megoopm}
-    ports:
-      - "${POSTGRES_PORT:-5432}:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -65,39 +62,41 @@ services:
 
   redis:
     image: redis:7-alpine
-    ports:
-      - "${REDIS_PORT:-6379}:6379"
+    restart: unless-stopped
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
       timeout: 3s
       retries: 10
 
-  # One-shot: create and hand the shared proxy volumes to the backend user
-  # (uid 1000) so the backend can write vhosts/certs while nginx (root) reads.
-  proxy-init:
+  # One-shot: lay out /data and hand it to the backend user (uid 1000) so the
+  # backend/worker can write renders and certs while nginx (root) reads them.
+  data-init:
     image: busybox:1.36
-    command: sh -c "mkdir -p /shared/conf.d /shared/certs && chown -R 1000:1000 /shared/conf.d /shared/certs"
+    command:
+      - sh
+      - -c
+      - "mkdir -p /data/nginx/conf.d/stream /data/certs/_acme-challenge && chown -R 1000:1000 /data || { echo 'data-init: cannot prepare /data for uid 1000' >&2; exit 1; }"
     volumes:
-      - nginx_confd:/shared/conf.d
-      - nginx_certs:/shared/certs
+      - app_data:/data
 
   backend:
     build: ./backend
-    environment: *backend-env
+    restart: unless-stopped
+    environment:
+      <<: *backend-env
+      RUN_MIGRATIONS: "1"
     ports:
       - "${BACKEND_PORT:-8000}:8000"
     volumes:
-      # Backend owns the managed proxy config: it writes vhosts and TLS certs
-      # onto shared named volumes that the nginx container reads.
-      - nginx_confd:/etc/nginx/conf.d
-      - nginx_certs:/etc/nginx/certs
+      - app_data:/data
+      - /var/run/megoopm
     depends_on:
       db:
         condition: service_healthy
       redis:
         condition: service_healthy
-      proxy-init:
+      data-init:
         condition: service_completed_successfully
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://localhost:8000/health"]
@@ -108,45 +107,21 @@ services:
 
   worker:
     build: ./backend
+    restart: unless-stopped
     command: ["celery", "-A", "app.core.celery_app.celery_app", "worker", "--loglevel=info"]
-    # The worker executes reload_nginx_config: it writes managed vhosts onto the
-    # shared conf.d volume and then validates+reloads nginx. Without the volumes
-    # it hit PermissionError/FileNotFoundError on /etc/nginx and never applied
-    # config (defect 5c770e72 D4). It reaches the separate nginx container's
-    # binary via `docker exec` over the mounted socket; run as root in dev so it
-    # can access that socket (C_FORCE_ROOT lets Celery run as root). This is a
-    # dev-compose channel — production uses the MEG-28 worker↔nginx transport.
-    user: root
     environment:
       <<: *backend-env
-      # The backend service owns migrations; the worker must not race it.
       RUN_MIGRATIONS: "0"
-      C_FORCE_ROOT: "true"
-      # Cross-container validate+reload of the managed proxy. Matches the nginx
-      # container's own CMD (openresty prefix + config) so `-t` checks exactly
-      # the config that is running before a reload is signalled.
-      NGINX_TEST_COMMAND: "docker exec megoopm-nginx openresty -p /usr/local/openresty/nginx -c /etc/nginx/nginx.conf -t"
-      NGINX_RELOAD_COMMAND: "docker exec megoopm-nginx openresty -p /usr/local/openresty/nginx -c /etc/nginx/nginx.conf -s reload"
     volumes:
-      # Same shared proxy volumes the backend mounts: the worker writes vhosts
-      # and TLS material the nginx container reads. Certs are rw here because
-      # ACME issuance/renewal tasks run on the worker.
-      - nginx_confd:/etc/nginx/conf.d
-      - nginx_certs:/etc/nginx/certs
-      # Lets the worker run `docker exec` against the nginx container to
-      # validate+reload. The Docker API is a read/write socket even for exec,
-      # so it is mounted rw (dev-only; scoped away in the MEG-28 transport).
-      - /var/run/docker.sock:/var/run/docker.sock
+      - app_data:/data
+      - /var/run/megoopm
     depends_on:
       redis:
         condition: service_healthy
       backend:
         condition: service_healthy
-      # nginx must exist for `docker exec` to reach it on reload.
       nginx:
         condition: service_started
-      proxy-init:
-        condition: service_completed_successfully
     healthcheck:
       test: ["CMD", "celery", "-A", "app.core.celery_app.celery_app", "inspect", "ping"]
       interval: 20s
@@ -156,18 +131,11 @@ services:
 
   beat:
     build: ./backend
+    restart: unless-stopped
     command: ["celery", "-A", "app.core.celery_app.celery_app", "beat", "--loglevel=info"]
     environment:
       <<: *backend-env
       RUN_MIGRATIONS: "0"
-    # Disable the healthcheck inherited from the shared backend image
-    # (curl :8000/health). This container runs only the Celery *scheduler* — it
-    # has no HTTP server on :8000, so the inherited probe is permanently
-    # unhealthy (MEG-41). There is no honest lightweight beat liveness probe
-    # here: `celery inspect ping` broadcasts over the broker and is answered by
-    # *workers*, not the scheduler, so it would report the worker's health and
-    # mask a real beat outage — worse than no check. Liveness is observed via
-    # beat's own scheduler logs ("Sending due task heartbeat-every-5-minutes").
     healthcheck:
       disable: true
     depends_on:
@@ -175,99 +143,57 @@ services:
         condition: service_healthy
 
   frontend:
-    build: ./frontend
-    environment:
-      # Browser-facing: the SPA calls the backend on its published host port.
-      NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:8000}
-      NEXT_PUBLIC_AUTH_ENABLED: ${NEXT_PUBLIC_AUTH_ENABLED:-false}
+    build:
+      context: ./frontend
+      target: runner
+      args:
+        # Inlined at build time by Next: rebuild the image after changing them.
+        NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:?NEXT_PUBLIC_API_BASE_URL is required (the public URL of the API, e.g. https://megoopm-api.example.com)}
+        NEXT_PUBLIC_AUTH_ENABLED: ${NEXT_PUBLIC_AUTH_ENABLED:-true}
+    restart: unless-stopped
     ports:
       - "${FRONTEND_PORT:-3000}:3000"
     depends_on:
       backend:
         condition: service_started
-    # Next dev compiles routes on first request; `GET /` takes ~7s the first time
-    # (MEG-41). The old 5s timeout expired mid-compile and flapped the container
-    # to unhealthy even though it serves 200 fine. timeout > worst-case compile,
-    # plus a wider start_period, absorbs the cold-start compile without flapping.
-    #
-    # Probe 127.0.0.1, not `localhost`: inside the alpine image `localhost`
-    # resolves to ::1 first, busybox wget tries only that address (no IPv4
-    # fallback), and `next dev --hostname 0.0.0.0` listens on IPv4 only — so the
-    # `localhost` probe fails with "Connection refused" forever while the server
-    # is actually serving fine on 127.0.0.1.
-    healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/"]
-      interval: 15s
-      timeout: 15s
-      start_period: 60s
-      retries: 10
 
-  # The managed nginx reverse proxy MegooPM controls. Its base config includes
-  # /etc/nginx/conf.d/*.conf, which the backend writes onto a shared volume.
-  # Built from infra/nginx/Dockerfile: OpenResty + the CrowdSec bouncer, so
-  # per-host bouncer/AppSec directives the backend renders actually enforce
-  # (MEG-22). Still a drop-in for the plain nginx image otherwise.
   nginx:
     build: ./infra/nginx
-    # Pinned name so the Celery worker can target it deterministically with
-    # `docker exec` for the cross-container config validate+reload (defect
-    # 5c770e72 D4); without a fixed name the container is megoopm-nginx-1.
-    container_name: megoopm-nginx
+    restart: unless-stopped
     environment:
-      # Consumed by the container entrypoint to render the bouncer config; the
-      # key must match the one CrowdSec registered for this bouncer below.
       CROWDSEC_LAPI_URL: http://crowdsec:8080
       CROWDSEC_APPSEC_URL: http://crowdsec:7422
-      CROWDSEC_BOUNCER_KEY: ${CROWDSEC_BOUNCER_KEY:-megoopm-dev-bouncer-key}
+      CROWDSEC_BOUNCER_KEY: ${CROWDSEC_BOUNCER_KEY:?CROWDSEC_BOUNCER_KEY is required}
+      NGINX_RELOAD_TOKEN: ${NGINX_RELOAD_TOKEN:?NGINX_RELOAD_TOKEN is required}
     ports:
-      - "${NGINX_HTTP_PORT:-8080}:80"
-      - "${NGINX_HTTPS_PORT:-8443}:443"
+      - "${NGINX_HTTP_PORT:-80}:80"
+      - "${NGINX_HTTPS_PORT:-443}:443"
     volumes:
       - ./infra/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-      - nginx_confd:/etc/nginx/conf.d
-      - nginx_certs:/etc/nginx/certs:ro
+      - app_data:/data
     depends_on:
-      proxy-init:
+      data-init:
         condition: service_completed_successfully
       crowdsec:
         condition: service_started
-    healthcheck:
-      test: ["CMD", "wget", "-q", "--spider", "http://localhost/healthz"]
-      interval: 15s
-      timeout: 5s
-      start_period: 10s
-      retries: 5
 
-  # CrowdSec security engine (MEG-22): Local API (LAPI, :8080) + inline AppSec
-  # WAF (:7422). Auto-registers the nginx bouncer with a known dev key and
-  # installs the AppSec rule collections so the WAF has rules to match. The
-  # AppSec datasource is declared in infra/crowdsec/acquis/appsec.yaml.
   crowdsec:
     image: crowdsecurity/crowdsec:v1.6.4
+    restart: unless-stopped
     environment:
       DISABLE_ONLINE_API: "true"
-      # Register the nginx bouncer at startup with a fixed key (dev only —
-      # override CROWDSEC_BOUNCER_KEY with a real secret in deployed stacks).
-      BOUNCER_KEY_megoopm: ${CROWDSEC_BOUNCER_KEY:-megoopm-dev-bouncer-key}
-      # Rules the inline AppSec/WAF enforces.
+      BOUNCER_KEY_megoopm: ${CROWDSEC_BOUNCER_KEY:?CROWDSEC_BOUNCER_KEY is required}
       COLLECTIONS: "crowdsecurity/appsec-virtual-patching crowdsecurity/appsec-generic-rules crowdsecurity/nginx"
     expose:
-      - "8080"  # LAPI
-      - "7422"  # AppSec
+      - "8080"
+      - "7422"
     volumes:
       - crowdsec_config:/etc/crowdsec
       - crowdsec_data:/var/lib/crowdsec/data
-      # Bind the acquis *file*, not the directory (MEG-36 Defect A). On a fresh
-      # crowdsec_config volume the v1.6.4 image's startup rsync chowns
-      # /etc/crowdsec/acquis.d; a read-only bind of the directory makes that
-      # chown fail ("Read-only file system"), rsync exits 23, and the crowdsec
-      # container dies before the bouncer/AppSec engine ever comes up. Mounting
-      # the single file leaves the parent dir writable for that chown.
       - ./infra/crowdsec/acquis/appsec.yaml:/etc/crowdsec/acquis.d/appsec.yaml:ro
 
 volumes:
   pgdata:
-  nginx_confd:
-  nginx_certs:
+  app_data:
   crowdsec_config:
   crowdsec_data:
