@@ -104,3 +104,25 @@ def test_provider_errors_are_wrapped_and_scrubbed() -> None:
 
 def test_scrub_ignores_very_short_values() -> None:
     assert scrub("id 42 token abcdef", ["42", "abcdef"]) == "id 42 token ***"
+
+
+def test_real_lexicon_client_receives_provider_options(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Regression: ``Client(dict)`` is lexicon's *legacy* flat-config path, which
+    silently ignores the nested ``{provider: {...}}`` block and sent
+    ``Authorization: Bearer None`` to Cloudflare (400 / code 6111)."""
+    import requests
+
+    seen: list[dict] = []
+
+    def fake_request(action, url, params=None, data=None, headers=None, **_):
+        seen.append({"action": action, "url": url, "headers": headers})
+        raise RuntimeError("stop before any network call")
+
+    monkeypatch.setattr(requests, "request", fake_request)
+    provider = LexiconDnsProvider("cloudflare", {"auth_token": "cf-secret-token"})
+
+    with pytest.raises(DnsProviderError):
+        provider.set_txt_record("_acme-challenge.example.com", "v")
+
+    assert seen, "lexicon never issued a request"
+    assert seen[0]["headers"]["Authorization"] == "Bearer cf-secret-token"

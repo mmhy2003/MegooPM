@@ -14,6 +14,7 @@ from typing import Any
 
 import tldextract
 from lexicon.client import Client
+from lexicon.config import ConfigResolver
 
 # Offline extractor: never fetch the public suffix list at runtime.
 _EXTRACT = tldextract.TLDExtract(suffix_list_urls=(), fallback_to_snapshot=True)
@@ -39,6 +40,18 @@ def scrub(message: str, secrets: Iterable[str]) -> str:
     return message
 
 
+def lexicon_client(config: dict[str, Any]) -> Client:
+    """Build a lexicon ``Client`` from a nested ``{provider_name, domain, <provider>: {...}}`` dict.
+
+    ``Client(dict)`` is lexicon's *legacy* flat-config path: it never looks
+    inside the nested ``<provider>`` block (every option resolves to ``None``,
+    so Cloudflare got ``Authorization: Bearer None``) and it also pulls in
+    ``LEXICON_*`` env vars and ``lexicon*.yml`` files from the working
+    directory. ``ConfigResolver().with_dict`` reads exactly what we pass.
+    """
+    return Client(ConfigResolver().with_dict(config))
+
+
 class LexiconDnsProvider:
     """Sets/removes ``_acme-challenge`` TXT records through a lexicon provider."""
 
@@ -47,7 +60,7 @@ class LexiconDnsProvider:
         provider_id: str,
         options: dict[str, str],
         *,
-        client_factory: Callable[[dict[str, Any]], Any] = Client,
+        client_factory: Callable[[dict[str, Any]], Any] = lexicon_client,
     ) -> None:
         self.provider_id = provider_id
         self._options = dict(options)
@@ -79,4 +92,4 @@ class LexiconDnsProvider:
         self._run(name, lambda ops, fqdn: ops.delete_record(rtype="TXT", name=fqdn, content=value))
 
 
-__all__ = ["DnsProviderError", "LexiconDnsProvider", "scrub", "zone_for"]
+__all__ = ["DnsProviderError", "LexiconDnsProvider", "lexicon_client", "scrub", "zone_for"]
