@@ -1,0 +1,119 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+
+import { proxyHosts, type Upstream } from "@/lib/api";
+import { ProxyHostDialog } from "@/components/proxy-hosts/proxy-host-dialog";
+import { makeHost } from "@/components/proxy-hosts/test-utils";
+
+const pools: Upstream[] = [
+  {
+    id: 1,
+    name: "app-pool",
+    description: "",
+    lb_method: "round_robin",
+    enabled: true,
+    backends: [],
+    created_at: "2026-08-27T00:00:00Z",
+    updated_at: "2026-08-27T00:00:00Z",
+  },
+  {
+    id: 2,
+    name: "api-pool",
+    description: "",
+    lb_method: "round_robin",
+    enabled: true,
+    backends: [],
+    created_at: "2026-08-27T00:00:00Z",
+    updated_at: "2026-08-27T00:00:00Z",
+  },
+];
+
+function renderDialog(host = makeHost()) {
+  return render(
+    <ProxyHostDialog
+      open
+      onOpenChange={() => {}}
+      host={host}
+      pools={pools}
+      lists={[]}
+      certs={[]}
+      onSaved={() => {}}
+    />,
+  );
+}
+
+describe("ProxyHostDialog", () => {
+  beforeEach(() => {
+    vi.spyOn(proxyHosts, "update").mockResolvedValue(makeHost());
+  });
+  afterEach(() => {
+    cleanup();
+    vi.restoreAllMocks();
+  });
+
+  it("keeps domains/access list/enabled outside three tabs", () => {
+    renderDialog();
+    expect(screen.getByLabelText("Domain names")).toBeInTheDocument();
+    expect(screen.getByLabelText("Access list")).toBeInTheDocument();
+    expect(screen.getByLabelText("Enabled")).toBeInTheDocument();
+    expect(screen.getAllByRole("tab").map((t) => t.textContent)).toEqual([
+      "Forwarding",
+      "Certificate",
+      "Advanced",
+    ]);
+    expect(screen.getByRole("button", { name: "Add location" })).toBeInTheDocument();
+  });
+
+  it("disables the TLS toggles while no certificate is selected", async () => {
+    const user = userEvent.setup();
+    renderDialog();
+    await user.click(screen.getByRole("tab", { name: "Certificate" }));
+    expect(await screen.findByRole("combobox", { name: "Certificate" })).toBeInTheDocument();
+    // base-ui renders <span role="switch" aria-disabled>, not a disabled attribute.
+    for (const name of ["Force SSL", "HTTP/2", "HSTS", "HSTS subdomains"]) {
+      expect(screen.getByLabelText(name)).toHaveAttribute("aria-disabled", "true");
+    }
+  });
+
+  it("enables the TLS toggles when the host has a certificate", async () => {
+    const user = userEvent.setup();
+    renderDialog(makeHost({ certificate_id: 7 }));
+    await user.click(screen.getByRole("tab", { name: "Certificate" }));
+    expect(await screen.findByLabelText("Force SSL")).not.toHaveAttribute("aria-disabled", "true");
+  });
+
+  it("jumps to the Forwarding tab and reports a bad location on save", async () => {
+    const user = userEvent.setup();
+    renderDialog();
+    await user.click(screen.getByRole("button", { name: "Add location" }));
+    await user.type(screen.getByLabelText("Location path"), "api");
+    await user.click(screen.getByRole("tab", { name: "Advanced" }));
+    await user.click(screen.getByRole("button", { name: "Save changes" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      'Location path "api" must start with /.',
+    );
+    expect(screen.getByRole("tab", { name: "Forwarding" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    expect(proxyHosts.update).not.toHaveBeenCalled();
+  });
+
+  it("saves locations and the certificate in the payload", async () => {
+    const user = userEvent.setup();
+    renderDialog(
+      makeHost({
+        certificate_id: 7,
+        locations: [{ id: 5, path: "/api/", upstream_id: 2, forward_scheme: "https" }],
+      }),
+    );
+    await user.click(screen.getByRole("button", { name: "Save changes" }));
+    await waitFor(() => expect(proxyHosts.update).toHaveBeenCalledTimes(1));
+    expect(vi.mocked(proxyHosts.update).mock.calls[0][1]).toMatchObject({
+      upstream_id: 1,
+      certificate_id: 7,
+      locations: [{ path: "/api/", upstream_id: 2, forward_scheme: "https" }],
+    });
+  });
+});

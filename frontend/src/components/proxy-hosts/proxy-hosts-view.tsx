@@ -4,6 +4,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Globe, ListChecks, Pencil, Plus, Server, Trash2 } from "lucide-react";
 
 import {
+  certificates,
+  type Certificate,
   LB_METHOD_LABELS,
   accessLists,
   proxyHosts,
@@ -61,6 +63,7 @@ export function ProxyHostsView() {
   const [hosts, setHosts] = useState<ProxyHost[]>([]);
   const [pools, setPools] = useState<Upstream[]>([]);
   const [lists, setLists] = useState<AccessList[]>([]);
+  const [certs, setCerts] = useState<Certificate[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -79,14 +82,16 @@ export function ProxyHostsView() {
   // effect body; `refresh` (event handlers) shows the skeleton while reloading.
   const load = useCallback(async () => {
     try {
-      const [h, p, a] = await Promise.all([
+      const [h, p, a, c] = await Promise.all([
         proxyHosts.list(),
         upstreams.list(),
         accessLists.list(),
+        certificates.list(),
       ]);
       setHosts(h);
       setPools(p);
       setLists(a);
+      setCerts(c);
       setLoadError(null);
     } catch (err) {
       setLoadError(describeError(err).message);
@@ -346,6 +351,7 @@ export function ProxyHostsView() {
           host={hostDialog.host}
           pools={pools}
           lists={lists}
+          certs={certs}
           onSaved={refresh}
         />
       ) : null}

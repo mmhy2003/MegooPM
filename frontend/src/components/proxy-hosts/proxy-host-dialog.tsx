@@ -4,16 +4,24 @@ import { useState } from "react";
 import { toast } from "sonner";
 
 import {
-  HTTP_SCHEMES,
   proxyHosts,
   type AccessList,
-  type HttpScheme,
+  type Certificate,
   type ProxyHost,
   type Upstream,
 } from "@/lib/api";
 import {
+  NO_ACCESS_LIST,
+  NO_CERTIFICATE,
+  buildPayload,
   describeError,
+  stateFromHost,
+  validateForm,
+  type DialogTab,
+  type ProxyHostFormState,
+  type ToggleKey,
 } from "@/components/proxy-hosts/lib";
+import { LocationsEditor } from "@/components/proxy-hosts/locations-editor";
 import { DomainTagsInput } from "@/components/domains/domain-tags-input";
 import { Button } from "@/components/ui/button";
 import {
@@ -33,77 +41,53 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import { Tabs, TabsList, TabsPanel, TabsTab } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 
-const SCHEME_LABELS: Record<HttpScheme, string> = { http: "http", https: "https" };
+type ToggleDef = readonly [ToggleKey, string, string];
 
-/** Boolean feature toggles rendered as a switch grid. */
-const TOGGLES = [
+const FORWARDING_TOGGLES: readonly ToggleDef[] = [
+  ["caching_enabled", "Cache assets", "Cache static assets"],
+  ["block_exploits", "Block exploits", "Block common exploit probes"],
+  ["allow_websocket_upgrade", "Websockets", "Pass Upgrade/Connection headers"],
+];
+
+const TLS_TOGGLES: readonly ToggleDef[] = [
   ["ssl_forced", "Force SSL", "Redirect :80 to HTTPS"],
   ["http2_support", "HTTP/2", "Enable HTTP/2 on the TLS listener"],
   ["hsts_enabled", "HSTS", "Emit a Strict-Transport-Security header"],
   ["hsts_subdomains", "HSTS subdomains", "Include subdomains in HSTS"],
-  ["caching_enabled", "Cache assets", "Cache static assets"],
-  ["block_exploits", "Block exploits", "Block common exploit probes"],
-  ["allow_websocket_upgrade", "Websockets", "Pass Upgrade/Connection headers"],
-] as const;
+];
 
-type ToggleKey = (typeof TOGGLES)[number][0];
-
-/** Sentinel Select value for "no access list attached" (`null` on the wire). */
-const NO_ACCESS_LIST = "none";
-
-interface FormState {
-  domains: string[];
-  upstreamId: string;
-  accessListId: string;
-  forwardScheme: HttpScheme;
-  enabled: boolean;
-  toggles: Record<ToggleKey, boolean>;
-  advancedConfig: string;
-}
-
-function emptyToggles(): Record<ToggleKey, boolean> {
-  return {
-    ssl_forced: false,
-    http2_support: false,
-    hsts_enabled: false,
-    hsts_subdomains: false,
-    caching_enabled: false,
-    block_exploits: false,
-    allow_websocket_upgrade: false,
-  };
-}
-
-function stateFromHost(host: ProxyHost | null | undefined): FormState {
-  if (!host) {
-    return {
-      domains: [],
-      upstreamId: "",
-      accessListId: NO_ACCESS_LIST,
-      forwardScheme: "http",
-      enabled: true,
-      toggles: emptyToggles(),
-      advancedConfig: "",
-    };
-  }
-  return {
-    domains: [...host.domain_names],
-    upstreamId: String(host.upstream_id),
-    accessListId: host.access_list_id ? String(host.access_list_id) : NO_ACCESS_LIST,
-    forwardScheme: host.forward_scheme,
-    enabled: host.enabled ?? true,
-    toggles: {
-      ssl_forced: host.ssl_forced ?? false,
-      http2_support: host.http2_support ?? false,
-      hsts_enabled: host.hsts_enabled ?? false,
-      hsts_subdomains: host.hsts_subdomains ?? false,
-      caching_enabled: host.caching_enabled ?? false,
-      block_exploits: host.block_exploits ?? false,
-      allow_websocket_upgrade: host.allow_websocket_upgrade ?? false,
-    },
-    advancedConfig: host.advanced_config ?? "",
-  };
+function ToggleGrid({
+  defs,
+  values,
+  disabled,
+  onChange,
+}: {
+  defs: readonly ToggleDef[];
+  values: Record<ToggleKey, boolean>;
+  disabled: boolean;
+  onChange: (key: ToggleKey, value: boolean) => void;
+}) {
+  return (
+    <div className="grid gap-3 sm:grid-cols-2">
+      {defs.map(([key, label, hint]) => (
+        <label key={key} className="flex items-start gap-2">
+          <Switch
+            aria-label={label}
+            checked={values[key]}
+            onCheckedChange={(v) => onChange(key, v)}
+            disabled={disabled}
+          />
+          <span className="space-y-0.5">
+            <span className="block text-sm font-medium leading-none">{label}</span>
+            <span className="block text-xs text-muted-foreground">{hint}</span>
+          </span>
+        </label>
+      ))}
+    </div>
+  );
 }
 
 export function ProxyHostDialog({
@@ -112,6 +96,7 @@ export function ProxyHostDialog({
   host,
   pools,
   lists,
+  certs,
   onSaved,
 }: {
   open: boolean;
@@ -119,15 +104,21 @@ export function ProxyHostDialog({
   host?: ProxyHost | null;
   pools: Upstream[];
   lists: AccessList[];
+  certs: Certificate[];
   onSaved: () => void;
 }) {
   const isEdit = Boolean(host);
   // Seeded from props on mount; the parent remounts this dialog (keyed) per
   // target, so no reset-on-open effect is needed.
-  const [form, setForm] = useState<FormState>(() => stateFromHost(host));
+  const [form, setForm] = useState<ProxyHostFormState>(() => stateFromHost(host));
+  const [tab, setTab] = useState<DialogTab>("forwarding");
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [domainsInvalid, setDomainsInvalid] = useState(false);
+
+  function patch(changes: Partial<ProxyHostFormState>) {
+    setForm((prev) => ({ ...prev, ...changes }));
+  }
 
   function setToggle(key: ToggleKey, value: boolean) {
     setForm((prev) => ({ ...prev, toggles: { ...prev.toggles, [key]: value } }));
@@ -139,32 +130,13 @@ export function ProxyHostDialog({
       setError("Fix the highlighted domain first.");
       return;
     }
-    const domains = form.domains;
-    if (domains.length === 0) {
-      setError("Enter at least one domain name.");
+    const problem = validateForm(form);
+    if (problem) {
+      if (problem.tab) setTab(problem.tab);
+      setError(problem.message);
       return;
     }
-    if (!form.upstreamId) {
-      setError("Select an upstream pool to forward to.");
-      return;
-    }
-
-    const payload = {
-      domain_names: domains,
-      upstream_id: Number.parseInt(form.upstreamId, 10),
-      access_list_id:
-        form.accessListId === NO_ACCESS_LIST
-          ? null
-          : Number.parseInt(form.accessListId, 10),
-      forward_scheme: form.forwardScheme,
-      enabled: form.enabled,
-      advanced_config: form.advancedConfig,
-      ...form.toggles,
-      // CrowdSec enforcement is owned by the Security UI (MEG-22); pass the
-      // existing values through untouched so this form never clobbers them.
-      crowdsec_enabled: host?.crowdsec_enabled ?? false,
-      crowdsec_appsec_enabled: host?.crowdsec_appsec_enabled ?? false,
-    };
+    const payload = buildPayload(form, host);
 
     setSaving(true);
     try {
@@ -186,6 +158,7 @@ export function ProxyHostDialog({
   }
 
   const noPools = pools.length === 0;
+  const noCertificate = form.certificateId === NO_CERTIFICATE;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -193,7 +166,7 @@ export function ProxyHostDialog({
         <DialogHeader>
           <DialogTitle>{isEdit ? "Edit proxy host" : "New proxy host"}</DialogTitle>
           <DialogDescription>
-            Terminate domain names and forward matching traffic to an upstream pool.
+            Terminate domain names and forward matching traffic to upstream pools.
           </DialogDescription>
         </DialogHeader>
 
@@ -203,7 +176,7 @@ export function ProxyHostDialog({
             <DomainTagsInput
               id="host-domains"
               value={form.domains}
-              onChange={(domains) => setForm((p) => ({ ...p, domains }))}
+              onChange={(domains) => patch({ domains })}
               onPendingInvalidChange={setDomainsInvalid}
               placeholder="example.com"
               disabled={saving}
@@ -215,53 +188,10 @@ export function ProxyHostDialog({
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="host-upstream">Upstream pool</Label>
-            <Select
-              value={form.upstreamId}
-              onValueChange={(value) => setForm((p) => ({ ...p, upstreamId: value as string }))}
-            >
-              <SelectTrigger id="host-upstream" disabled={saving || noPools}>
-                <SelectValue placeholder={noPools ? "No pools — create one first" : "Select a pool"} />
-              </SelectTrigger>
-              <SelectContent>
-                {pools.map((pool) => (
-                  <SelectItem key={pool.id} value={String(pool.id)}>
-                    {pool.name} ({pool.backends?.length ?? 0} backends)
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-1.5">
-            <Label htmlFor="host-scheme">Forward scheme</Label>
-            <Select
-              value={form.forwardScheme}
-              onValueChange={(value) =>
-                setForm((p) => ({ ...p, forwardScheme: value as HttpScheme }))
-              }
-              items={SCHEME_LABELS}
-            >
-              <SelectTrigger id="host-scheme" disabled={saving}>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {HTTP_SCHEMES.map((scheme) => (
-                  <SelectItem key={scheme} value={scheme}>
-                    {SCHEME_LABELS[scheme]}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-1.5 sm:col-span-2">
             <Label htmlFor="host-access-list">Access list</Label>
             <Select
               value={form.accessListId}
-              onValueChange={(value) =>
-                setForm((p) => ({ ...p, accessListId: value as string }))
-              }
+              onValueChange={(value) => patch({ accessListId: value as string })}
             >
               <SelectTrigger id="host-access-list" disabled={saving}>
                 <SelectValue />
@@ -275,30 +205,13 @@ export function ProxyHostDialog({
                 ))}
               </SelectContent>
             </Select>
-            <p className="text-xs text-muted-foreground">
-              Gate this host behind basic-auth users and/or IP allow/deny rules.
-            </p>
           </div>
-        </div>
 
-        <div className="grid gap-3 sm:grid-cols-2">
-          {TOGGLES.map(([key, label, hint]) => (
-            <label key={key} className="flex items-start gap-2">
-              <Switch
-                checked={form.toggles[key]}
-                onCheckedChange={(v) => setToggle(key, v)}
-                disabled={saving}
-              />
-              <span className="space-y-0.5">
-                <span className="block text-sm font-medium leading-none">{label}</span>
-                <span className="block text-xs text-muted-foreground">{hint}</span>
-              </span>
-            </label>
-          ))}
-          <label className="flex items-start gap-2">
+          <label className="flex items-start gap-2 self-end pb-2">
             <Switch
+              aria-label="Enabled"
               checked={form.enabled}
-              onCheckedChange={(v) => setForm((p) => ({ ...p, enabled: v }))}
+              onCheckedChange={(v) => patch({ enabled: v })}
               disabled={saving}
             />
             <span className="space-y-0.5">
@@ -310,17 +223,80 @@ export function ProxyHostDialog({
           </label>
         </div>
 
-        <div className="space-y-1.5">
-          <Label htmlFor="host-advanced">Advanced nginx config</Label>
-          <Textarea
-            id="host-advanced"
-            value={form.advancedConfig}
-            onChange={(e) => setForm((p) => ({ ...p, advancedConfig: e.target.value }))}
-            placeholder="# Raw directives injected into the server block"
-            className="font-mono text-xs"
-            disabled={saving}
-          />
-        </div>
+        <Tabs value={tab} onValueChange={(value) => setTab(value as DialogTab)}>
+          <TabsList>
+            <TabsTab value="forwarding">Forwarding</TabsTab>
+            <TabsTab value="certificate">Certificate</TabsTab>
+            <TabsTab value="advanced">Advanced</TabsTab>
+          </TabsList>
+
+          <TabsPanel value="forwarding" className="space-y-4 pt-2">
+            <ToggleGrid
+              defs={FORWARDING_TOGGLES}
+              values={form.toggles}
+              disabled={saving}
+              onChange={setToggle}
+            />
+            <LocationsEditor
+              rootUpstreamId={form.rootUpstreamId}
+              rootScheme={form.rootScheme}
+              onRootChange={patch}
+              rows={form.locations}
+              onRowsChange={(locations) => patch({ locations })}
+              pools={pools}
+              disabled={saving}
+            />
+          </TabsPanel>
+
+          <TabsPanel value="certificate" className="space-y-4 pt-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="host-certificate">Certificate</Label>
+              <Select
+                value={form.certificateId}
+                onValueChange={(value) => patch({ certificateId: value as string })}
+              >
+                <SelectTrigger id="host-certificate" disabled={saving}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={NO_CERTIFICATE}>None (HTTP only)</SelectItem>
+                  {certs.map((cert) => (
+                    <SelectItem
+                      key={cert.id}
+                      value={String(cert.id)}
+                      disabled={cert.status !== "active"}
+                    >
+                      {cert.name}
+                      {cert.status !== "active" ? ` — ${cert.status}` : ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                Without a certificate the host serves plain HTTP on :80 and the options below
+                have no effect.
+              </p>
+            </div>
+            <ToggleGrid
+              defs={TLS_TOGGLES}
+              values={form.toggles}
+              disabled={saving || noCertificate}
+              onChange={setToggle}
+            />
+          </TabsPanel>
+
+          <TabsPanel value="advanced" className="space-y-1.5 pt-2">
+            <Label htmlFor="host-advanced">Advanced nginx config</Label>
+            <Textarea
+              id="host-advanced"
+              value={form.advancedConfig}
+              onChange={(e) => patch({ advancedConfig: e.target.value })}
+              placeholder="# Raw directives injected into the server block"
+              className="font-mono text-xs"
+              disabled={saving}
+            />
+          </TabsPanel>
+        </Tabs>
 
         {error ? (
           <p role="alert" className="text-sm text-destructive">
