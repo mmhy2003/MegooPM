@@ -279,6 +279,9 @@ export interface paths {
         /**
          * Request Letsencrypt Certificate
          * @description Create a pending Let's Encrypt cert and enqueue ACME issuance. Admin-only.
+         *
+         *     DNS-01 requires saved DNS provider credentials (``dns_credential_id``);
+         *     HTTP-01 must not carry one. Both are validated before the row is created.
          */
         post: operations["request_letsencrypt_certificate_api_v1_certificates_letsencrypt_post"];
         delete?: never;
@@ -468,6 +471,94 @@ export interface paths {
          * @description Update a dead host. Admin-only.
          */
         patch: operations["update_dead_host_api_v1_dead_hosts__host_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/dns-credentials": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Dns Credentials
+         * @description Saved credentials with their usage. Admin-only.
+         */
+        get: operations["list_dns_credentials_api_v1_dns_credentials_get"];
+        put?: never;
+        /**
+         * Create Dns Credential
+         * @description Save a credential set. 422 on unknown provider/field or no secret; 409 on duplicate name.
+         */
+        post: operations["create_dns_credential_api_v1_dns_credentials_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/dns-credentials/{credential_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete Dns Credential
+         * @description Delete a credential set; 409 while certificates still reference it.
+         */
+        delete: operations["delete_dns_credential_api_v1_dns_credentials__credential_id__delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Update Dns Credential
+         * @description Rename and/or replace options (blank secrets keep their value). Admin-only.
+         */
+        patch: operations["update_dns_credential_api_v1_dns_credentials__credential_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/dns-credentials/{credential_id}/verify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Verify Dns Credential
+         * @description Write and remove a probe TXT record with the real provider (30 s cap).
+         */
+        post: operations["verify_dns_credential_api_v1_dns_credentials__credential_id__verify_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/dns-providers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Dns Providers
+         * @description The generated dns-lexicon provider catalog. Admin-only.
+         */
+        get: operations["list_dns_providers_api_v1_dns_providers_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/v1/nginx/preview": {
@@ -1379,11 +1470,17 @@ export interface components {
          * @description A certificate as returned by the API (never includes key material).
          */
         CertificateRead: {
+            /** Challenge */
+            challenge?: string | null;
             /**
              * Created At
              * Format: date-time
              */
             created_at: string;
+            /** Dns Provider */
+            dns_provider?: string | null;
+            /** Dns Provider Label */
+            readonly dns_provider_label: string | null;
             /** Domain Names */
             domain_names: string[];
             /** Expires On */
@@ -1399,6 +1496,13 @@ export interface components {
              * Format: date-time
              */
             updated_at: string;
+        };
+        /** CertificateRef */
+        CertificateRef: {
+            /** Id */
+            id: number;
+            /** Name */
+            name: string;
         };
         /**
          * CertificateStatus
@@ -1662,6 +1766,105 @@ export interface components {
              */
             total: number;
         };
+        /** DnsCredentialCreate */
+        DnsCredentialCreate: {
+            /** Name */
+            name: string;
+            /**
+             * Options
+             * @description Provider fields (see /dns-providers); secrets included
+             */
+            options?: {
+                [key: string]: string;
+            };
+            /**
+             * Provider
+             * @description dns-lexicon provider id
+             */
+            provider: string;
+        };
+        /**
+         * DnsCredentialRead
+         * @description A saved credential set. Secret values are never returned — only their names.
+         */
+        DnsCredentialRead: {
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Id */
+            id: number;
+            /** In Use By */
+            in_use_by: components["schemas"]["CertificateRef"][];
+            /** Name */
+            name: string;
+            /** Options */
+            options: {
+                [key: string]: string;
+            };
+            /** Provider */
+            provider: string;
+            /** Provider Label */
+            provider_label: string;
+            /** Secret Fields */
+            secret_fields: string[];
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /**
+         * DnsCredentialUpdate
+         * @description Rename and/or replace options. A blank or omitted secret keeps its stored value.
+         */
+        DnsCredentialUpdate: {
+            /** Name */
+            name?: string | null;
+            /** Options */
+            options?: {
+                [key: string]: string;
+            } | null;
+        };
+        /** DnsCredentialVerified */
+        DnsCredentialVerified: {
+            /**
+             * Ok
+             * @default true
+             */
+            ok: boolean;
+        };
+        /** DnsCredentialVerify */
+        DnsCredentialVerify: {
+            /**
+             * Domain
+             * @description A domain inside the zone
+             */
+            domain: string;
+        };
+        /** DnsProviderFieldRead */
+        DnsProviderFieldRead: {
+            /** Help */
+            help: string;
+            /** Label */
+            label: string;
+            /** Name */
+            name: string;
+            /** Secret */
+            secret: boolean;
+        };
+        /** DnsProviderInfoRead */
+        DnsProviderInfoRead: {
+            /** Description */
+            description: string;
+            /** Fields */
+            fields: components["schemas"]["DnsProviderFieldRead"][];
+            /** Id */
+            id: string;
+            /** Label */
+            label: string;
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
@@ -1704,6 +1907,11 @@ export interface components {
              * @default http-01
              */
             challenge: string;
+            /**
+             * Dns Credential Id
+             * @description Saved DNS provider credentials (id from /dns-credentials). Required for 'dns-01'; must be omitted for 'http-01'.
+             */
+            dns_credential_id?: number | null;
             /** Domain Names */
             domain_names: string[];
             /** Name */
@@ -3563,6 +3771,178 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_dns_credentials_api_v1_dns_credentials_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DnsCredentialRead"][];
+                };
+            };
+        };
+    };
+    create_dns_credential_api_v1_dns_credentials_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DnsCredentialCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DnsCredentialRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_dns_credential_api_v1_dns_credentials__credential_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                credential_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_dns_credential_api_v1_dns_credentials__credential_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                credential_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DnsCredentialUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DnsCredentialRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    verify_dns_credential_api_v1_dns_credentials__credential_id__verify_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                credential_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DnsCredentialVerify"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DnsCredentialVerified"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_dns_providers_api_v1_dns_providers_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DnsProviderInfoRead"][];
                 };
             };
         };

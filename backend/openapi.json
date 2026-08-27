@@ -894,10 +894,44 @@
       "CertificateRead": {
         "description": "A certificate as returned by the API (never includes key material).",
         "properties": {
+          "challenge": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Challenge"
+          },
           "created_at": {
             "format": "date-time",
             "title": "Created At",
             "type": "string"
+          },
+          "dns_provider": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dns Provider"
+          },
+          "dns_provider_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "readOnly": true,
+            "title": "Dns Provider Label"
           },
           "domain_names": {
             "items": {
@@ -945,9 +979,28 @@
           "status",
           "domain_names",
           "created_at",
-          "updated_at"
+          "updated_at",
+          "dns_provider_label"
         ],
         "title": "CertificateRead",
+        "type": "object"
+      },
+      "CertificateRef": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ],
+        "title": "CertificateRef",
         "type": "object"
       },
       "CertificateStatus": {
@@ -1430,6 +1483,223 @@
         "title": "DecisionList",
         "type": "object"
       },
+      "DnsCredentialCreate": {
+        "properties": {
+          "name": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "options": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "Provider fields (see /dns-providers); secrets included",
+            "title": "Options",
+            "type": "object"
+          },
+          "provider": {
+            "description": "dns-lexicon provider id",
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Provider",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "provider"
+        ],
+        "title": "DnsCredentialCreate",
+        "type": "object"
+      },
+      "DnsCredentialRead": {
+        "description": "A saved credential set. Secret values are never returned — only their names.",
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "in_use_by": {
+            "items": {
+              "$ref": "#/components/schemas/CertificateRef"
+            },
+            "title": "In Use By",
+            "type": "array"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "options": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Options",
+            "type": "object"
+          },
+          "provider": {
+            "title": "Provider",
+            "type": "string"
+          },
+          "provider_label": {
+            "title": "Provider Label",
+            "type": "string"
+          },
+          "secret_fields": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Secret Fields",
+            "type": "array"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "provider",
+          "provider_label",
+          "options",
+          "secret_fields",
+          "in_use_by",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "DnsCredentialRead",
+        "type": "object"
+      },
+      "DnsCredentialUpdate": {
+        "additionalProperties": false,
+        "description": "Rename and/or replace options. A blank or omitted secret keeps its stored value.",
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "options": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Options"
+          }
+        },
+        "title": "DnsCredentialUpdate",
+        "type": "object"
+      },
+      "DnsCredentialVerified": {
+        "properties": {
+          "ok": {
+            "default": true,
+            "title": "Ok",
+            "type": "boolean"
+          }
+        },
+        "title": "DnsCredentialVerified",
+        "type": "object"
+      },
+      "DnsCredentialVerify": {
+        "properties": {
+          "domain": {
+            "description": "A domain inside the zone",
+            "maxLength": 253,
+            "minLength": 1,
+            "title": "Domain",
+            "type": "string"
+          }
+        },
+        "required": [
+          "domain"
+        ],
+        "title": "DnsCredentialVerify",
+        "type": "object"
+      },
+      "DnsProviderFieldRead": {
+        "properties": {
+          "help": {
+            "title": "Help",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "secret": {
+            "title": "Secret",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "name",
+          "label",
+          "help",
+          "secret"
+        ],
+        "title": "DnsProviderFieldRead",
+        "type": "object"
+      },
+      "DnsProviderInfoRead": {
+        "properties": {
+          "description": {
+            "title": "Description",
+            "type": "string"
+          },
+          "fields": {
+            "items": {
+              "$ref": "#/components/schemas/DnsProviderFieldRead"
+            },
+            "title": "Fields",
+            "type": "array"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "label",
+          "description",
+          "fields"
+        ],
+        "title": "DnsProviderInfoRead",
+        "type": "object"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -1496,6 +1766,18 @@
             "description": "ACME challenge type: 'http-01' (default) or 'dns-01'",
             "title": "Challenge",
             "type": "string"
+          },
+          "dns_credential_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Saved DNS provider credentials (id from /dns-credentials). Required for 'dns-01'; must be omitted for 'http-01'.",
+            "title": "Dns Credential Id"
           },
           "domain_names": {
             "items": {
@@ -4055,7 +4337,7 @@
     },
     "/api/v1/certificates/letsencrypt": {
       "post": {
-        "description": "Create a pending Let's Encrypt cert and enqueue ACME issuance. Admin-only.",
+        "description": "Create a pending Let's Encrypt cert and enqueue ACME issuance. Admin-only.\n\nDNS-01 requires saved DNS provider credentials (``dns_credential_id``);\nHTTP-01 must not carry one. Both are validated before the row is created.",
         "operationId": "request_letsencrypt_certificate_api_v1_certificates_letsencrypt_post",
         "requestBody": {
           "content": {
@@ -4731,6 +5013,268 @@
         "summary": "Update Dead Host",
         "tags": [
           "dead-hosts"
+        ]
+      }
+    },
+    "/api/v1/dns-credentials": {
+      "get": {
+        "description": "Saved credentials with their usage. Admin-only.",
+        "operationId": "list_dns_credentials_api_v1_dns_credentials_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/DnsCredentialRead"
+                  },
+                  "title": "Response List Dns Credentials Api V1 Dns Credentials Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "List Dns Credentials",
+        "tags": [
+          "dns-providers"
+        ]
+      },
+      "post": {
+        "description": "Save a credential set. 422 on unknown provider/field or no secret; 409 on duplicate name.",
+        "operationId": "create_dns_credential_api_v1_dns_credentials_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DnsCredentialCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DnsCredentialRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Create Dns Credential",
+        "tags": [
+          "dns-providers"
+        ]
+      }
+    },
+    "/api/v1/dns-credentials/{credential_id}": {
+      "delete": {
+        "description": "Delete a credential set; 409 while certificates still reference it.",
+        "operationId": "delete_dns_credential_api_v1_dns_credentials__credential_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "credential_id",
+            "required": true,
+            "schema": {
+              "title": "Credential Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Delete Dns Credential",
+        "tags": [
+          "dns-providers"
+        ]
+      },
+      "patch": {
+        "description": "Rename and/or replace options (blank secrets keep their value). Admin-only.",
+        "operationId": "update_dns_credential_api_v1_dns_credentials__credential_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "credential_id",
+            "required": true,
+            "schema": {
+              "title": "Credential Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DnsCredentialUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DnsCredentialRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Update Dns Credential",
+        "tags": [
+          "dns-providers"
+        ]
+      }
+    },
+    "/api/v1/dns-credentials/{credential_id}/verify": {
+      "post": {
+        "description": "Write and remove a probe TXT record with the real provider (30 s cap).",
+        "operationId": "verify_dns_credential_api_v1_dns_credentials__credential_id__verify_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "credential_id",
+            "required": true,
+            "schema": {
+              "title": "Credential Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DnsCredentialVerify"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DnsCredentialVerified"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Verify Dns Credential",
+        "tags": [
+          "dns-providers"
+        ]
+      }
+    },
+    "/api/v1/dns-providers": {
+      "get": {
+        "description": "The generated dns-lexicon provider catalog. Admin-only.",
+        "operationId": "list_dns_providers_api_v1_dns_providers_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/DnsProviderInfoRead"
+                  },
+                  "title": "Response List Dns Providers Api V1 Dns Providers Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "List Dns Providers",
+        "tags": [
+          "dns-providers"
         ]
       }
     },
