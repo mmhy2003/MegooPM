@@ -115,15 +115,16 @@ npm run test        # vitest run
 The whole system runs locally from the repo root with one command:
 
 ```bash
-cp .env.example .env    # optional — compose has sane defaults baked in
-docker compose up --build
+cp .env.example .env    # optional — the dev file has sane defaults baked in
+docker compose -f docker-compose.dev.yml up --build
 ```
 
-- **`docker-compose.yml` (root)** is the golden-path full stack: `db` (Postgres),
-  `redis`, `backend` (uvicorn), `worker` + `beat` (Celery), `frontend`
-  (`next dev`), `nginx` (the managed proxy), and a `crowdsec` placeholder.
-  `backend/docker-compose.yml` remains a lighter db+api-only stack for
-  backend-focused work.
+- **`docker-compose.dev.yml` (root)** is the development full stack: `db`
+  (Postgres), `redis`, `backend` (uvicorn `--reload`), `worker` (Celery under
+  `watchfiles`) + `beat`, `frontend` (`next dev`), `nginx` (the managed proxy)
+  and `crowdsec`. `backend/` and `frontend/` are bind-mounted, so edits
+  hot-reload. `docker-compose.yml` is the production single-node stack and
+  `docker-compose.ha.yml` the per-node cluster stack — see `docs/ha.md`.
 - **One `.env` at the root** configures every service. Compose interpolates it
   with `${VAR:-default}`, so the stack also boots with no `.env` at all; copy
   the file only to change ports/credentials. Per-package `.env` files
@@ -131,13 +132,13 @@ docker compose up --build
 - **Images:** backend and frontend each own a `Dockerfile`. Worker and beat
   reuse the backend image with a different `command` and `RUN_MIGRATIONS=0` —
   the `backend` service is the single migration owner.
-- **Managed proxy contract:** the backend writes vhosts to `/etc/nginx/conf.d`
-  and TLS certs to `/etc/nginx/certs`, both **shared named volumes**
-  (`nginx_confd`, `nginx_certs`). `infra/nginx/nginx.conf` is the read-only base
-  config that `include`s conf.d. A one-shot `proxy-init` service chowns those
-  volumes to the backend user (uid 1000) so the backend can write while nginx
-  reads. Backend paths come from the `nginx_confd_dir` / `nginx_certs_dir`
-  settings.
+- **Managed proxy contract:** the backend writes vhosts to `/data/nginx/conf.d`
+  (streams to `/data/nginx/conf.d/stream`) and TLS certs to `/data/certs`; the
+  nginx container mounts the same paths and `infra/nginx/nginx.conf` `include`s
+  them. A one-shot `data-init` service chowns `/data` to the backend user
+  (uid 1000). The worker validates/reloads nginx through the reload agent in the
+  nginx container (`python -m scripts.nginx_remote`, `docs/nginx-engine.md`),
+  never through the Docker socket.
 - **Browser vs. in-network URLs:** `NEXT_PUBLIC_API_BASE_URL` must be the
   backend's *published host* URL (`http://localhost:8000`), because the SPA
   calls it from the user's browser — not the in-network `backend` hostname.

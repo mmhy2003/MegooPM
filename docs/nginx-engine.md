@@ -97,68 +97,36 @@ control of the host's Docker daemon — a container-escape-grade privilege for w
 should be a single `nginx -s reload`. It is acceptable **only** on a trusted
 single-host dev box.
 
-### Resolved per topology
+### Resolved: the in-container reload agent (all topologies)
 
 | Topology | Compose | Transport | Socket? |
 | --- | --- | --- | --- |
-| **Dev, single host** | `docker-compose.yml` | `docker exec megoopm-nginx openresty … -t / -s reload` over the mounted daemon socket — landed with MEG-32 D4. | yes — **dev-only** |
-| **Production / HA** | `docker-compose.ha.yml` | **Co-located reload agent** (Option 1, below): each nginx node is paired with a tiny agent that runs `openresty -t` / `-s reload` *inside the nginx container*, invoked by that node's worker over the internal network. | **no** |
+| Development | `docker-compose.dev.yml` | reload agent | **no** |
+| Production, single node | `docker-compose.yml` | reload agent | **no** |
+| Production, multi-node | `docker-compose.ha.yml` (per node → its local nginx) | reload agent | **no** |
 
-Both channels satisfy the engine's requirement that `nginx -t` runs the **real**
-binary + modules that will serve traffic (OpenResty + the CrowdSec bouncer), so a
-validation pass can never diverge from what actually reloads.
+The nginx image (`infra/nginx`) starts a tiny agent beside OpenResty:
+`socat TCP-LISTEN:9099,fork EXEC:/reload-agent.sh`, internal network only,
+never published. A request is one line, `<token> <ping|test|reload>`; the agent
+checks the token against `NGINX_RELOAD_TOKEN`, runs the **fixed** command
+(`openresty -p … -c /etc/nginx/nginx.conf -t` or `-s reload` — no client
+arguments ever reach a shell), streams the output and ends with
+`__MEGOOPM_STATUS__ <exit code>`. The command's output is captured to a file
+first because the image's log files are symlinks to `/dev/stdout`/`/dev/stderr`,
+which cannot be reopened through the socket socat hands the script. The worker
+side is `python -m scripts.nginx_remote test|reload` (env `NGINX_AGENT_ADDR`,
+`NGINX_RELOAD_TOKEN`), which mirrors the output to stderr and exits with the
+remote status — so `NGINX_TEST_COMMAND`/`NGINX_RELOAD_COMMAND` point at it and
+the engine's validate → reload → rollback logic is unchanged. Same binary, same
+modules, same container: `-t` can never diverge from what reloads. The
+container healthcheck also `ping`s the agent.
 
-### Production transport (recommended, socket-free)
-
-**Option 1 — co-located reload agent.** Run the reload *where the nginx binary
-lives*, and invoke it *over the network*, never over the Docker socket:
-
-- Each nginx node exposes an **internal-only** reload endpoint. Because the
-  reload commands are **fixed** (`openresty … -t`, `openresty … -s reload`) with
-  **no** user-controlled arguments, there is no command-injection surface; the
-  endpoint is bound to the internal compose/overlay network and gated by a shared
-  token (`NGINX_RELOAD_TOKEN`). Simplest form is a `socat` sidecar built from
-  `./infra/nginx` sharing the proxy's PID namespace:
-
-  ```yaml
-  # per nginx node, in docker-compose.ha.yml
-  proxy1:
-    build: ./infra/nginx
-    # …
-  proxy1-reload:                    # co-located agent, same image → same binary+modules
-    build: ./infra/nginx
-    pid: "service:proxy1"          # shares proxy1's PID ns → -s reload signals its master
-    volumes: [ shared_data:/data ] # sees the same rendered conf.d + pidfile
-    command: >
-      socat TCP-LISTEN:9099,fork,reuseaddr
-        EXEC:'/usr/local/openresty/bin/openresty -p /usr/local/openresty/nginx -c /etc/nginx/nginx.conf -t && /usr/local/openresty/bin/openresty -p /usr/local/openresty/nginx -c /etc/nginx/nginx.conf -s reload'
-  ```
-
-  The node's worker then wires:
-
-  ```yaml
-  worker:                          # co-scheduled with proxy1 on the same node
-    environment:
-      NGINX_TEST_COMMAND:   "nc -w5 proxy1-reload 9099"   # blocks on exit code + output
-      NGINX_RELOAD_COMMAND: "nc -w5 proxy1-reload 9099"
-  ```
-
-  Config fans out to every node via the MEG-35 reconcile broadcast (see
-  `docs/ha.md`); each node reloads its *own* nginx, so a bad render rolls back
-  node-locally while the others keep serving.
-
-**Option 2 — SSH shim.** A locked-down `sshd` in the nginx image with a
-`command="…"`-restricted key that only ever runs the two reload commands. Same
-guarantees; heavier to operate (key rotation, host keys). Kept as the fallback if
-a policy forbids the raw-TCP agent.
-
-Rejected: shipping the openresty binary *into the worker image* (Option "co-locate
-single-container") — it drifts from the nginx image's modules over time, so
-`nginx -t` on the worker can pass while the real nginx would reject the config.
-
-Until the production channel is wired, the reload half is exercised via the
-injectable controller in tests; generation, validation, idempotency and rollback
-are fully covered independently of transport.
+Rejected alternatives: `docker exec` over the daemon socket (container-escape
+grade privilege; removed even from dev); a PID-namespace sidecar running the
+commands (`-s reload` reads `nginx.pid` from the sidecar's own filesystem, where
+it does not exist); shipping the openresty binary into the worker image (module
+drift makes `-t` on the worker untrustworthy); an SSH shim (same guarantees,
+heavier to operate).
 
 ## Tests
 

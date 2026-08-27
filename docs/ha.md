@@ -60,6 +60,7 @@ overridable:
 
 | Path (env)                 | Default under `/data`             | Holds                                   |
 | -------------------------- | --------------------------------- | --------------------------------------- |
+| `SHARED_DATA_PATH` (host, compose only) | e.g. `/mnt/megoopm`  | the host directory bind-mounted to `/data` in every container |
 | `NGINX_CONFD_DIR`          | `/data/nginx/conf.d`              | rendered `megoopm-*.conf`, `.htpasswd`  |
 | `NGINX_STREAM_DIR`         | `/data/nginx/conf.d/stream`       | TCP/UDP `stream{}` forwards             |
 | `NGINX_CERTS_DIR`          | `/data/certs`                     | `‹id›/fullchain.pem`, `privkey.pem`     |
@@ -127,6 +128,18 @@ Why the DB version is the source of truth and not raw Redis pub/sub: pub/sub has
 no delivery guarantee and no catch-up for a node that was offline. The version row
 + shared files + idempotent apply mean a lagging node always converges.
 
+> **Known issue (2026-08-28):** with the Redis broker the `megoopm_reconcile`
+> Broadcast queue is not delivering. Verified on a single `docker-compose.ha.yml`
+> node: `beat` logs `Sending due task reconcile-nginx-across-nodes` every 15 s and
+> the apply path calls `reconcile_local_nginx.delay()`, but the worker — which
+> declares `bcast.<uuid>` bound to the `megoopm_reconcile` fanout exchange — never
+> logs a `received` for it (and `redis-cli PUBSUB CHANNELS` shows no subscriber).
+> The applying node still reloads itself inside `apply_config`, so a one-node
+> cluster is correct; **other nodes do not reload until this is fixed.** The
+> likely fix is to stop relying on Redis fanout: give each worker a direct queue
+> named after `NODE_ID` and have the apply path enqueue one reconcile per
+> registered node (or have beat's periodic reconcile target every node queue).
+
 ```
  node A: write ──▶ [apply-lock] render+reload+bump(v→N) ──▶ broadcast reconcile
                                                               │
@@ -147,34 +160,45 @@ license to run many.
 
 ---
 
-## 6. Reference deployment
+## 6. Reference deployment (per-node compose)
 
-`docker-compose.ha.yml` boots the full topology on one host (shared **local**
-volume standing in for the shared mount):
+`docker-compose.ha.yml` is run **on every node** with that node's `.env`
+(template: `.env.ha.example`):
 
 ```bash
-docker compose -f docker-compose.ha.yml up --build --scale backend=2 --scale worker=2
+cp .env.ha.example .env      # set NODE_ID, SHARED_DATA_PATH, secrets, shared URLs
+docker compose -f docker-compose.ha.yml up -d --build      # or: make ha-up
 ```
 
-This starts 2 API nodes + 2 workers + 1 beat + 2 managed nginx nodes, all
-`HA_ENABLED=true` against the shared `/data` volume, fronted by an HAProxy LB
-(`infra/ha/haproxy.cfg`): `:80/:443` L4-passthrough to the nginx nodes, `:8000`
-L7 across the API nodes.
+Every node runs the API, a worker, the managed nginx (with its reload agent)
+and the web UI against `SHARED_DATA_PATH` (mounted at `/data`) and the shared
+Postgres/Redis/CrowdSec. Profiles, chosen with `COMPOSE_PROFILES` in the
+node's `.env`:
 
-### NFS-backed volume (production, multi-host)
+| Profile | Runs | Where |
+| --- | --- | --- |
+| `control-plane` | Postgres, Redis, CrowdSec LAPI/AppSec, published on `CONTROL_PLANE_BIND` | one node (small clusters) — otherwise point the `*_URL` variables at managed/external services |
+| `scheduler` | the single Celery `beat` | exactly one node |
 
-Replace the `shared_data` volume with an NFS volume so every **host** sees the
-same bytes:
+Set `RUN_MIGRATIONS=1` on the node you upgrade first and `0` elsewhere. There
+is no load balancer in the stack: put yours in front of `:80`/`:443` (TCP
+passthrough, so each nginx terminates TLS with the shared certs) and, if the
+admin surface should be balanced, `:3000`/`:8000` — `infra/ha/haproxy.cfg` is
+a complete example.
 
-```yaml
-volumes:
-  shared_data:
-    driver: local
-    driver_opts:
-      type: nfs
-      o: "addr=10.0.0.10,nfsvers=4.1,rw,hard,noatime"
-      device: ":/export/megoopm"
-```
+### Shared mount and uid 1000
+
+The backend/worker run as uid 1000 and nginx reads as root; `data-init`
+creates the layout and `chown`s `/data` to `1000:1000` on every start and
+fails fast if it cannot. On NFS that means either `no_root_squash` on the
+export or `root_squash` with `anonuid=1000,anongid=1000` (so squashed root
+becomes the app user); with plain `root_squash` the chown fails and the node
+will not start.
+
+### NFS mount (production, multi-host)
+
+Mount the export on every **host** (e.g. at `/mnt/megoopm` via `fstab`) and set
+`SHARED_DATA_PATH=/mnt/megoopm`; compose bind-mounts it into the containers.
 
 **Required NFS mount options:**
 
@@ -196,11 +220,13 @@ or terminate at the LB and re-encrypt if you prefer.
 
 ## 7. Adding / removing a node
 
-**Add a node:** mount the shared `/data` and point it at the shared Postgres +
-Redis, set `HA_ENABLED=true` (and a distinct `NODE_ID` if not using hostnames),
-start FastAPI + a worker + a co-located nginx, and register it with the LB. On
-first `reconcile` the new node's marker is absent (reads as `-1`), so it reloads
-once and immediately serves the current config. No data migration, no seeding.
+**Add a node:** mount the shared export at the same host path, copy
+`.env.ha.example` to `.env` with a new `NODE_ID`, the shared `*_URL`s and the
+identical secrets, no profiles, `RUN_MIGRATIONS=0`; run
+`docker compose -f docker-compose.ha.yml up -d --build`; register it with the
+LB. On first `reconcile` the new node's marker is absent (reads as `-1`), so it
+reloads once and immediately serves the current config. No data migration, no
+seeding.
 
 **Remove a node:** drain it at the LB, then stop it. Because it holds no
 authoritative state, nothing is lost. If it held the beat leader lock, the lock is
@@ -235,6 +261,10 @@ Sentinel/Cluster); MegooPM only requires that they are reachable from all nodes.
 | `NODE_ID`                        | hostname                              | Node identifier stamped on version bumps.            |
 | `HA_LOCK_DIR`                    | `/var/run/megoopm`                    | **Node-local** run dir for fallback locks.           |
 | `NGINX_RELOAD_MARKER_PATH`       | `/var/run/megoopm/nginx-config.version` | **Node-local** last-applied-version marker.        |
-| `HA_RECONCILE_INTERVAL_SECONDS`  | `30`                                  | Backstop reconcile cadence per node.                 |
+| `HA_RECONCILE_INTERVAL_SECONDS`  | `30` (`15` in `docker-compose.ha.yml`) | Backstop reconcile cadence per node.                |
+| `SHARED_DATA_PATH`               | —                                     | Compose only: host directory bind-mounted to `/data`. |
+| `NGINX_RELOAD_TOKEN`             | —                                     | Shared secret between the worker and the nginx reload agent. |
+| `NGINX_AGENT_ADDR`               | `nginx:9099`                          | Where the worker's `scripts.nginx_remote` finds its local nginx agent. |
+| `COMPOSE_PROFILES`               | —                                     | Per-node roles: `control-plane`, `scheduler`.        |
 
 See `backend/.env.example` for the annotated list.

@@ -11,8 +11,10 @@ megoopm/
 ├── backend/             FastAPI + Alembic + Postgres + Celery — the API
 ├── infra/               nginx base config and other infra assets
 ├── docs/                Architecture and repo conventions
-├── docker-compose.yml   Full-stack local dev orchestration
-└── Makefile             Developer shortcuts over docker compose
+├── docker-compose.yml       Production, single node
+├── docker-compose.dev.yml   Development with hot reload
+├── docker-compose.ha.yml    Production, one file per node of a cluster
+└── Makefile                 Shortcuts over docker compose (dev, prod-*, ha-*)
 ```
 
 This is a monorepo: the frontend and backend live side by side and are developed
@@ -25,8 +27,8 @@ UI, the managed nginx proxy, and a CrowdSec placeholder — with one command.
 Requires Docker with the Compose plugin.
 
 ```bash
-cp .env.example .env    # optional — sane defaults are baked into compose
-docker compose up --build
+cp .env.example .env    # optional — the dev file has sane defaults baked in
+docker compose -f docker-compose.dev.yml up --build
 # or: make up            (detached)   /   make up-fg (foreground)
 ```
 
@@ -51,12 +53,26 @@ Wildcard / DNS-01 certificates: save your DNS provider's API credentials under
 Certificates → DNS providers, then pick them in the new-certificate dialog —
 see [`docs/certificates-dns01.md`](docs/certificates-dns01.md).
 
-The frontend reaches the backend at `NEXT_PUBLIC_API_BASE_URL`
-(default `http://localhost:8000`). The backend writes managed vhosts and TLS
-certs onto shared named volumes (`nginx_confd`, `nginx_certs`) that the nginx
-container reads. `make help` lists the common tasks (`logs`, `migrate`, `psql`,
-`clean`, …). See [`docs/CONVENTIONS.md`](docs/CONVENTIONS.md#local-dev-orchestration)
+The frontend reaches the backend at `NEXT_PUBLIC_API_BASE_URL` (default
+`http://localhost:8000`). The backend writes managed vhosts and TLS certs under
+`/data` (shared with the nginx container), and the worker validates/reloads
+nginx through a token-gated agent inside the nginx container — no Docker
+socket anywhere. Edits under `backend/` and `frontend/` hot-reload. `make help`
+lists the common tasks. See [`docs/CONVENTIONS.md`](docs/CONVENTIONS.md#local-dev-orchestration)
 for how the stack fits together.
+
+## Deploying
+
+| Topology | File | Env template | Start |
+| --- | --- | --- | --- |
+| Single node | `docker-compose.yml` | `.env.example` → `.env` | `docker compose up -d --build` (`make prod-up`) |
+| Multi-node (run on every node) | `docker-compose.ha.yml` | `.env.ha.example` → `.env` | `docker compose -f docker-compose.ha.yml up -d --build` (`make ha-up`) |
+
+Production refuses to start until the required secrets in the template are
+set. `NEXT_PUBLIC_*` values are baked into the UI image at build time — rebuild
+the frontend after changing them. Multi-node specifics (shared storage path,
+node ids, the `control-plane` / `scheduler` profiles, the external load
+balancer) are in [`docs/ha.md`](docs/ha.md).
 
 Working on just one side? Each package still runs standalone below.
 
