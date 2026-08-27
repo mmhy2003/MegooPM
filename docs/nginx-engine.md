@@ -35,6 +35,11 @@ One file per object, named by id so updates rewrite in place (never duplicate):
   TLS server (+ `:80` redirect when `ssl_forced`) when a certificate is set.
   Honours HSTS, HTTP/2, websocket upgrade, exploit blocking, asset caching and
   free-form `advanced_config`.
+  Extra per-path routes (`proxy_host_locations`) render as `location ^~ <path>`
+  blocks pointing at their own pool; `^~` makes the longest matching prefix win
+  over the asset-caching regex location, so `/api/app.js` reaches the API pool.
+  Host-wide options (websockets, forwarded headers, auth stripping) apply to
+  every location; a location whose pool has no backends is omitted.
 
 Only files beginning with `NGINX_MANAGED_PREFIX` (default `megoopm-`) are managed;
 hand-placed configs in `conf.d` are never touched. The websocket

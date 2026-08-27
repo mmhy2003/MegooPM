@@ -12,6 +12,7 @@ from app.services.nginx.state import (
     BackendSpec,
     CertificateSpec,
     DesiredState,
+    LocationSpec,
     ProxyHostSpec,
     UpstreamSpec,
 )
@@ -186,3 +187,48 @@ def test_advanced_config_is_injected() -> None:
 def test_render_is_deterministic() -> None:
     state = DesiredState(proxy_hosts=(_host(),), upstreams=(_pool(),))
     assert render_config(state) == render_config(state)
+
+
+def test_extra_locations_render_prefix_blocks_per_pool() -> None:
+    api_pool = _pool(id=2, name="api-pool")
+    host = _host(
+        allow_websocket_upgrade=True,
+        locations=(LocationSpec(path="/api/", upstream_id=2, forward_scheme="https"),),
+    )
+    out = render_config(DesiredState(proxy_hosts=(host,), upstreams=(_pool(), api_pool)))
+    server = out["megoopm-proxy-1.conf"]
+    # Root keeps its plain prefix location; the extra one uses ^~ so it beats the
+    # cache-assets regex location for paths under it.
+    assert "location / {" in server
+    assert "location ^~ /api/ {" in server
+    assert "proxy_pass http://megoopm_upstream_1;" in server
+    assert "proxy_pass https://megoopm_upstream_2;" in server
+    # Host-wide extras apply to every location.
+    assert server.count("proxy_set_header Upgrade $http_upgrade;") == 2
+    assert server.count("proxy_http_version 1.1;") == 2
+    assert "megoopm-upstream-2.conf" in out
+
+
+def test_extra_locations_appear_in_both_servers_of_a_tls_host() -> None:
+    cert = CertificateSpec(
+        id=3,
+        fullchain_path="/etc/nginx/certs/3/fullchain.pem",
+        privkey_path="/etc/nginx/certs/3/privkey.pem",
+    )
+    host = _host(
+        certificate=cert,
+        ssl_forced=False,
+        locations=(LocationSpec(path="/ws", upstream_id=2),),
+    )
+    out = render_config(DesiredState(proxy_hosts=(host,), upstreams=(_pool(), _pool(id=2))))
+    server = out["megoopm-proxy-1.conf"]
+    assert server.count("location ^~ /ws {") == 2  # :80 and :443 servers
+    assert server.count("proxy_pass http://megoopm_upstream_2;") == 2
+
+
+def test_cache_location_is_unchanged_with_extra_locations() -> None:
+    host = _host(caching_enabled=True, locations=(LocationSpec(path="/api/", upstream_id=2),))
+    out = render_config(DesiredState(proxy_hosts=(host,), upstreams=(_pool(), _pool(id=2))))
+    server = out["megoopm-proxy-1.conf"]
+    assert server.count("expires 1d;") == 1
+    assert "location ^~ /api/ {" in server

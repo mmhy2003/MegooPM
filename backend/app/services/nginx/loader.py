@@ -25,7 +25,7 @@ from sqlalchemy.pool import NullPool
 from app.core.config import settings
 from app.models.access_list import AccessList
 from app.models.dead_host import DeadHost
-from app.models.proxy_host import ProxyHost
+from app.models.proxy_host import ProxyHost, ProxyHostLocation
 from app.models.redirection_host import RedirectionHost
 from app.models.stream import Stream
 from app.models.upstream import Upstream
@@ -37,6 +37,7 @@ from app.services.nginx.state import (
     ClientRuleSpec,
     DeadHostSpec,
     DesiredState,
+    LocationSpec,
     ProxyHostSpec,
     RedirectionHostSpec,
     StreamSpec,
@@ -102,6 +103,9 @@ async def load_desired_state(
         .where(ProxyHost.enabled.is_(True))
         .options(
             selectinload(ProxyHost.upstream).selectinload(Upstream.backends),
+            selectinload(ProxyHost.locations)
+            .selectinload(ProxyHostLocation.upstream)
+            .selectinload(Upstream.backends),
             selectinload(ProxyHost.certificate),
             selectinload(ProxyHost.access_list).selectinload(AccessList.auth_users),
             selectinload(ProxyHost.access_list).selectinload(AccessList.client_rules),
@@ -127,6 +131,22 @@ async def load_desired_state(
             if host.certificate is not None
             else None
         )
+        location_specs: list[LocationSpec] = []
+        for location in sorted(host.locations, key=lambda loc: loc.path):
+            loc_pool = location.upstream
+            if loc_pool is None or not loc_pool.enabled:
+                continue
+            if loc_pool.id not in upstreams:
+                upstreams[loc_pool.id] = _upstream_spec(loc_pool)
+            if not upstreams[loc_pool.id].backends:
+                continue  # empty pool → drop this location, keep the host
+            location_specs.append(
+                LocationSpec(
+                    path=location.path,
+                    upstream_id=loc_pool.id,
+                    forward_scheme=str(location.forward_scheme),
+                )
+            )
         host_specs.append(
             ProxyHostSpec(
                 id=host.id,
@@ -149,11 +169,13 @@ async def load_desired_state(
                 crowdsec_enabled=host.crowdsec_enabled,
                 crowdsec_appsec_enabled=host.crowdsec_appsec_enabled,
                 advanced_config=host.advanced_config,
+                locations=tuple(location_specs),
             )
         )
 
     # Only emit pools actually referenced by an included host, in id order.
     referenced = {h.upstream_id for h in host_specs}
+    referenced |= {loc.upstream_id for h in host_specs for loc in h.locations}
     upstream_specs = tuple(upstreams[i] for i in sorted(referenced))
 
     redirection_specs = await _load_redirection_hosts(session, certs_dir)

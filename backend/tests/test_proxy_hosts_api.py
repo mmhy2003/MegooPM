@@ -428,6 +428,34 @@ async def test_deleting_host_cascades_locations(client: AsyncClient, auth) -> No
     assert (await client.delete(f"/api/v1/upstreams/{api}", headers=auth)).status_code == 204
 
 
+async def test_locations_render_in_preview_and_skip_empty_pools(client: AsyncClient, auth) -> None:
+    root = await _make_pool(client, auth)
+    api = await _make_named_pool(client, auth, "preview-api")
+    empty = await _make_named_pool(client, auth, "preview-empty", backends=False)
+    await client.post(
+        "/api/v1/proxy-hosts",
+        headers=auth,
+        json={
+            "domain_names": ["preview.example.com"],
+            "upstream_id": root,
+            "locations": [
+                {"path": "/api/", "upstream_id": api, "forward_scheme": "https"},
+                {"path": "/void/", "upstream_id": empty},
+            ],
+        },
+    )
+    preview = await client.get("/api/v1/nginx/preview", headers=auth)
+    assert preview.status_code == 200, preview.text
+    files = {f["name"]: f["content"] for f in preview.json()["files"]}
+    config = "\n".join(files.values())
+    assert f"upstream megoopm_upstream_{api} {{" in config
+    assert f"proxy_pass https://megoopm_upstream_{api};" in config
+    assert "location ^~ /api/ {" in config
+    # A location whose pool has no backends is dropped; its pool is not emitted.
+    assert "/void/" not in config
+    assert f"megoopm-upstream-{empty}.conf" not in files
+
+
 # --- RBAC ------------------------------------------------------------------
 
 

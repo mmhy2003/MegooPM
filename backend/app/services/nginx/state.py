@@ -85,6 +85,15 @@ class AccessListSpec:
 
 
 @dataclass(frozen=True, slots=True)
+class LocationSpec:
+    """An extra ``location ^~ <path>`` route of a proxy host to another pool."""
+
+    path: str
+    upstream_id: int
+    forward_scheme: str = "http"
+
+
+@dataclass(frozen=True, slots=True)
 class ProxyHostSpec:
     """A reverse-proxy vhost rendered as a ``server {}`` block."""
 
@@ -105,6 +114,8 @@ class ProxyHostSpec:
     crowdsec_enabled: bool = False
     crowdsec_appsec_enabled: bool = False
     advanced_config: str = ""
+    # Extra path-prefixed routes; the root ``/`` is ``upstream_id``/``forward_scheme``.
+    locations: tuple[LocationSpec, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -194,4 +205,5 @@ __all__ = [
     "DeadHostSpec",
     "StreamSpec",
     "DesiredState",
+    "LocationSpec",
 ]

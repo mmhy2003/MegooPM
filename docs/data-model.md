@@ -12,6 +12,7 @@ shipped by Alembic migration `0003_core_domain`.
 | `upstreams` | A named pool of backends with a load-balancing method. |
 | `upstream_backends` | N `server` entries per pool (the differentiator). |
 | `proxy_hosts` | Reverse-proxy entry points; forward to one upstream pool. |
+| `proxy_host_locations` | Extra `location ^~ <path>` routes of a proxy host to other pools. |
 | `redirection_hosts` | Issue HTTP redirects for a set of domains. |
 | `dead_hosts` | Park domains and always return 404. |
 | `streams` | Raw TCP/UDP port forwarding. |
@@ -51,6 +52,8 @@ implicitly-created enum types), so a downgrade/re-upgrade cycle is clean.
 | `proxy_hosts.upstream_id` → `upstreams.id` | **RESTRICT** | A pool in use by a proxy host cannot be deleted. |
 | `proxy_hosts.certificate_id` → `certificates.id` | **SET NULL** | Removing a cert must not delete the host. |
 | `proxy_hosts.access_list_id` → `access_lists.id` | **SET NULL** | Removing a policy must not delete the host. |
+| `proxy_host_locations.proxy_host_id` → `proxy_hosts.id` | **CASCADE** | Locations belong to their host. |
+| `proxy_host_locations.upstream_id` → `upstreams.id` | **RESTRICT** | A pool used by a location cannot be deleted. |
 | `redirection_hosts.certificate_id` → `certificates.id` | **SET NULL** | As above. |
 | `dead_hosts.certificate_id` → `certificates.id` | **SET NULL** | As above. |
 | `streams.certificate_id` → `certificates.id` | **SET NULL** | As above. |
