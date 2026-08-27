@@ -38,6 +38,14 @@ Once healthy:
 | Backend API    | http://localhost:8000 (`/health`, `/docs`)     |
 | Managed proxy  | http://localhost:8080                          |
 
+**Default login:** `admin@example.com` / `changeme`. On the very first start
+(users table empty) the backend seeds this admin from `FIRST_ADMIN_EMAIL` /
+`FIRST_ADMIN_PASSWORD`; set those in `.env` before the first `docker compose up`
+to pick your own, and change the password after signing in. The account is only
+ever created on an empty database, so deleting it later is safe. Sign in at
+http://localhost:3000/login (route guarding is off by default — set
+`NEXT_PUBLIC_AUTH_ENABLED=true` to require it).
+
 The frontend reaches the backend at `NEXT_PUBLIC_API_BASE_URL`
 (default `http://localhost:8000`). The backend writes managed vhosts and TLS
 certs onto shared named volumes (`nginx_confd`, `nginx_certs`) that the nginx

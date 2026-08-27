@@ -60,7 +60,19 @@ Body: `UserCreate` = `{ email, password (min 8), full_name?, role?, is_active? }
 
 ## Bootstrapping the first admin
 
-Creating users is admin-only, so seed the first admin out-of-band:
+Creating users is admin-only, so the very first admin has to come from outside
+the API. Two paths:
+
+**Automatic (initial setup).** On startup the backend calls
+`ensure_first_admin`: when `FIRST_ADMIN_EMAIL` and `FIRST_ADMIN_PASSWORD` are
+set **and the users table is empty**, it creates that account as an active
+`admin`. It never runs once any user exists, so renaming or deleting the seeded
+account is permanent. The dev compose defaults these to
+`admin@example.com` / `changeme` (and logs a warning when that well-known
+password is seeded); the HA compose ships no default. Seeding is best-effort —
+a failure is logged and the API still starts.
+
+**Manual (CLI).** Same idempotent effect, on demand:
 
 ```bash
 cd backend

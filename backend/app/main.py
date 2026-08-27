@@ -40,9 +40,34 @@ async def _bootstrap_crowdsec() -> None:
         logger.warning("CrowdSec auto-registration skipped: %s", exc)
 
 
+async def _bootstrap_first_admin() -> None:
+    """Best-effort initial-admin seed on startup.
+
+    Creates ``FIRST_ADMIN_EMAIL`` / ``FIRST_ADMIN_PASSWORD`` as an admin only
+    while the users table is empty (see ``user_service.ensure_first_admin``),
+    so a fresh stack has a login without a manual ``scripts.create_user`` step.
+    Swallowed on failure: a DB that isn't reachable yet, or a sibling node that
+    won the seed race, must never keep the API from coming up. The CLI remains
+    the manual fallback.
+    """
+    from app.services import user as user_service
+
+    try:
+        async with SessionLocal() as session:
+            await user_service.ensure_first_admin(
+                session,
+                email=settings.first_admin_email,
+                password=settings.first_admin_password,
+            )
+    except Exception as exc:  # noqa: BLE001 - startup must not crash on this
+        logger.warning("Initial admin seed skipped: %s", exc)
+
+
 @asynccontextmanager
 async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
-    """Application lifespan: bootstrap CrowdSec, dispose the DB engine on exit."""
+    """Application lifespan: seed the first admin, bootstrap CrowdSec, dispose
+    the DB engine on exit."""
+    await _bootstrap_first_admin()
     await _bootstrap_crowdsec()
     yield
     await engine.dispose()

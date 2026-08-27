@@ -35,6 +35,12 @@ x-app-env: &app-env
   CELERY_BROKER_URL: redis://redis:6379/0
   CELERY_RESULT_BACKEND: redis://redis:6379/1
   CORS_ORIGINS: ${CORS_ORIGINS:-*}
+  # Initial-setup admin, seeded by the backend only while the users table is
+  # empty. No default here on purpose: a production stack must opt in with
+  # real credentials rather than boot with a well-known login. Leave blank to
+  # seed via `python -m scripts.create_user` instead.
+  FIRST_ADMIN_EMAIL: ${FIRST_ADMIN_EMAIL:-}
+  FIRST_ADMIN_PASSWORD: ${FIRST_ADMIN_PASSWORD:-}
   # CrowdSec (MEG-43): no machine-cred env here on purpose — each backend node
   # self-registers its LAPI machine on first use and reads the encrypted creds
   # from the shared DB (Fernet, keyed off SECRET_KEY). The bouncer key stays on

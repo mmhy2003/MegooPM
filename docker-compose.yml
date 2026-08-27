@@ -39,6 +39,12 @@ x-backend-env: &backend-env
   CROWDSEC_LAPI_KEY: ${CROWDSEC_BOUNCER_KEY:-megoopm-dev-bouncer-key}
   CROWDSEC_MACHINE_ID: ${CROWDSEC_MACHINE_ID:-}
   CROWDSEC_MACHINE_PASSWORD: ${CROWDSEC_MACHINE_PASSWORD:-}
+  # Initial-setup admin. On startup the backend seeds this account ONLY when the
+  # users table is empty (so deleting it later never brings it back). Dev-only
+  # well-known defaults — change the password after first login, or override
+  # both here. The HA compose deliberately ships no default.
+  FIRST_ADMIN_EMAIL: ${FIRST_ADMIN_EMAIL:-admin@example.com}
+  FIRST_ADMIN_PASSWORD: ${FIRST_ADMIN_PASSWORD:-changeme}
 
 services:
   db:
