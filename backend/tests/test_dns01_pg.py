@@ -115,3 +115,70 @@ def test_orm_properties_read_meta_without_a_database() -> None:
         ).challenge
         is None
     )
+
+
+# --- issuance task ---------------------------------------------------------------
+
+from app.models.enums import CertificateStatus  # noqa: E402
+from app.services.certs.acme_client import SelfSignedIssuer  # noqa: E402
+from app.services.certs.dns_providers.lexicon_provider import LexiconDnsProvider  # noqa: E402
+from app.tasks import certs as cert_tasks  # noqa: E402
+
+
+async def test_issue_task_passes_the_resolved_provider_to_build_issuer(
+    pg_conn, pg_session: AsyncSession, monkeypatch, tmp_path
+) -> None:
+    cred = await _credential(pg_session)
+    cert = await cert_service.create_letsencrypt_certificate(
+        pg_session,
+        name="wild",
+        domain_names=["example.com"],
+        challenge=ChallengeType.DNS_01,
+        dns_credential_id=cred.id,
+        dns_provider=cred.provider,
+    )
+    await pg_session.commit()  # savepoint inside the rolled-back outer transaction
+
+    captured: dict = {}
+
+    def fake_build_issuer(certificate, *, dns_provider=None):
+        captured["provider"] = dns_provider
+        return SelfSignedIssuer()
+
+    monkeypatch.setattr(cert_tasks, "build_issuer", fake_build_issuer)
+    monkeypatch.setattr(settings, "nginx_certs_dir", str(tmp_path))
+    factory = async_sessionmaker(
+        bind=pg_conn, expire_on_commit=False, join_transaction_mode="create_savepoint"
+    )
+
+    result = await cert_tasks._issue_async(cert.id, session_factory=factory)
+
+    assert result["issued"] is True, result
+    assert isinstance(captured["provider"], LexiconDnsProvider)
+    assert captured["provider"].provider_id == "cloudflare"
+
+
+async def test_issue_task_fails_cleanly_when_the_credential_is_gone(
+    pg_conn, pg_session: AsyncSession, monkeypatch, tmp_path
+) -> None:
+    cert = await cert_service.create_letsencrypt_certificate(
+        pg_session,
+        name="orphan",
+        domain_names=["example.com"],
+        challenge=ChallengeType.DNS_01,
+        dns_credential_id=999999,
+        dns_provider="cloudflare",
+    )
+    await pg_session.commit()
+    monkeypatch.setattr(settings, "nginx_certs_dir", str(tmp_path))
+    factory = async_sessionmaker(
+        bind=pg_conn, expire_on_commit=False, join_transaction_mode="create_savepoint"
+    )
+
+    result = await cert_tasks._issue_async(cert.id, session_factory=factory)
+
+    assert result["issued"] is False and result["status"] == "failed"
+    assert "no longer exists" in result["error"]
+    await pg_session.refresh(cert)
+    assert cert.status == CertificateStatus.failed
+    assert "no longer exists" in cert.meta["last_error"]

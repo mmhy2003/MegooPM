@@ -20,23 +20,44 @@ from sqlalchemy.pool import NullPool
 from app.core.celery_app import celery_app
 from app.core.config import settings
 from app.models.certificate import Certificate
+from app.models.enums import CertificateStatus
+from app.services.certs import dns_credentials
+from app.services.certs.acme_client import ChallengeType
 from app.services.certs.issuance import build_issuer, issue_for_certificate
 from app.services.certs.renewal import list_due_certificate_ids
 
 
-async def _issue_async(cert_id: int) -> dict:
-    engine = create_async_engine(settings.database_url, poolclass=NullPool)
+def _mark_failed(cert: Certificate, exc: Exception) -> None:
+    cert.status = CertificateStatus.failed
+    cert.meta = {
+        **(cert.meta or {}),
+        "last_error": str(exc),
+        "failed_at": datetime.now(UTC).isoformat(),
+    }
+
+
+async def _issue_async(cert_id: int, *, session_factory: async_sessionmaker | None = None) -> dict:
+    """Issue ``cert_id``. ``session_factory`` is injectable for tests; production
+    opens its own engine (Celery runs outside FastAPI's session scope)."""
+    engine = None
+    if session_factory is None:
+        engine = create_async_engine(settings.database_url, poolclass=NullPool)
+        session_factory = async_sessionmaker(engine, expire_on_commit=False)
     try:
-        factory = async_sessionmaker(engine, expire_on_commit=False)
-        async with factory() as session:
+        async with session_factory() as session:
             cert = await session.get(Certificate, cert_id)
             if cert is None:
                 return {"cert_id": cert_id, "issued": False, "error": "not found"}
-            issuer = build_issuer(cert)
             try:
+                dns_provider = None
+                if (cert.meta or {}).get("challenge") == ChallengeType.DNS_01:
+                    dns_provider = await dns_credentials.build_provider_for(session, cert)
+                issuer = build_issuer(cert, dns_provider=dns_provider)
                 issue_for_certificate(cert, issuer=issuer, certs_dir=settings.nginx_certs_dir)
                 await session.commit()
             except Exception as exc:  # noqa: BLE001 - persist the failure, then surface it
+                if cert.status != CertificateStatus.failed:
+                    _mark_failed(cert, exc)  # errors raised before issue_for_certificate
                 await session.commit()  # keep status=failed + last_error
                 return {
                     "cert_id": cert_id,
@@ -52,7 +73,8 @@ async def _issue_async(cert_id: int) -> dict:
                 "domain_names": list(cert.domain_names),
             }
     finally:
-        await engine.dispose()
+        if engine is not None:
+            await engine.dispose()
 
 
 @celery_app.task(name="app.tasks.certs.issue_certificate")
