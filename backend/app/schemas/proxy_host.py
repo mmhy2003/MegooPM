@@ -44,6 +44,55 @@ def _normalise_domains(value: list[str]) -> list[str]:
     return result
 
 
+_LOCATION_FORBIDDEN = frozenset('{};"')
+
+
+def _validate_location_path(value: str) -> str:
+    """Enforce the spec's path rules; the value is embedded in a ``location`` directive."""
+    path = value.strip()
+    if not path.startswith("/"):
+        raise ValueError("location path must start with '/'")
+    if path == "/":
+        raise ValueError("'/' is the host's root route; use a sub-path such as /api/")
+    if any(ch.isspace() or ch in _LOCATION_FORBIDDEN for ch in path):
+        raise ValueError('location path must not contain whitespace or any of { } ; "')
+    if len(path) > 255:
+        raise ValueError("location path must be at most 255 characters")
+    return path
+
+
+def _unique_location_paths(value: list[ProxyHostLocationIn]) -> list[ProxyHostLocationIn]:
+    seen: set[str] = set()
+    for loc in value:
+        if loc.path in seen:
+            raise ValueError(f"duplicate location path: {loc.path!r}")
+        seen.add(loc.path)
+    return value
+
+
+class ProxyHostLocationIn(BaseModel):
+    """One extra ``location <path>`` route of a proxy host."""
+
+    path: str = Field(description="URL prefix, e.g. /api/ (the root '/' is the host itself)")
+    upstream_id: int = Field(description="Pool this prefix forwards to")
+    forward_scheme: HttpScheme = Field(
+        default=HttpScheme.http, description="Scheme used to reach the pool (http/https)"
+    )
+
+    @field_validator("path")
+    @classmethod
+    def _validate_path(cls, value: str) -> str:
+        return _validate_location_path(value)
+
+
+class ProxyHostLocationRead(ProxyHostLocationIn):
+    """Stored location (adds the row id)."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+
+
 class ProxyHostBase(BaseModel):
     """Fields shared by proxy-host read/write schemas."""
 
@@ -80,11 +129,20 @@ class ProxyHostBase(BaseModel):
         default="", description="Raw nginx directives injected into the server block"
     )
     enabled: bool = Field(default=True, description="Disabled hosts are excluded from config")
+    locations: list[ProxyHostLocationIn] = Field(
+        default_factory=list,
+        description="Extra path-prefixed routes to other pools (rendered as location ^~ <path>)",
+    )
 
     @field_validator("domain_names")
     @classmethod
     def _validate_domains(cls, value: list[str]) -> list[str]:
         return _normalise_domains(value)
+
+    @field_validator("locations")
+    @classmethod
+    def _validate_locations(cls, value: list[ProxyHostLocationIn]) -> list[ProxyHostLocationIn]:
+        return _unique_location_paths(value)
 
 
 class ProxyHostCreate(ProxyHostBase):
@@ -110,6 +168,7 @@ class ProxyHostUpdate(BaseModel):
     crowdsec_appsec_enabled: bool | None = None
     advanced_config: str | None = None
     enabled: bool | None = None
+    locations: list[ProxyHostLocationIn] | None = None
 
     @field_validator("domain_names")
     @classmethod
@@ -117,6 +176,15 @@ class ProxyHostUpdate(BaseModel):
         if value is None:
             return None
         return _normalise_domains(value)
+
+    @field_validator("locations")
+    @classmethod
+    def _validate_locations(
+        cls, value: list[ProxyHostLocationIn] | None
+    ) -> list[ProxyHostLocationIn] | None:
+        if value is None:
+            return None
+        return _unique_location_paths(value)
 
 
 class ProxyHostRead(ProxyHostBase):
@@ -127,11 +195,14 @@ class ProxyHostRead(ProxyHostBase):
     id: int
     created_at: datetime
     updated_at: datetime
+    locations: list[ProxyHostLocationRead] = Field(default_factory=list)
 
 
 __all__ = [
     "ProxyHostBase",
     "ProxyHostCreate",
+    "ProxyHostLocationIn",
+    "ProxyHostLocationRead",
     "ProxyHostRead",
     "ProxyHostUpdate",
 ]
