@@ -4,10 +4,11 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, computed_field
 
 from app.models.enums import CertificateProvider, CertificateStatus
 from app.services.certs.acme_client import ChallengeType
+from app.services.certs.dns_providers.catalog import provider_label
 
 
 class CertificateRead(BaseModel):
@@ -23,6 +24,14 @@ class CertificateRead(BaseModel):
     expires_on: datetime | None = None
     created_at: datetime
     updated_at: datetime
+    # Let's Encrypt only: "http-01" / "dns-01"; DNS-01 also carries the provider.
+    challenge: str | None = None
+    dns_provider: str | None = None
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def dns_provider_label(self) -> str | None:
+        return provider_label(self.dns_provider) if self.dns_provider else None
 
 
 class CustomCertificateCreate(BaseModel):
@@ -47,6 +56,11 @@ class LetsEncryptCertificateCreate(BaseModel):
     )
     account_email: str | None = Field(
         default=None, description="Contact email for the ACME account (optional)"
+    )
+    dns_credential_id: int | None = Field(
+        default=None,
+        description="Saved DNS provider credentials (id from /dns-credentials). "
+        "Required for 'dns-01'; must be omitted for 'http-01'.",
     )
 
 

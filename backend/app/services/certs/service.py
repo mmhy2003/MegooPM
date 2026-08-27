@@ -89,21 +89,29 @@ async def create_letsencrypt_certificate(
     domain_names: list[str],
     challenge: str = ChallengeType.HTTP_01,
     account_email: str | None = None,
+    dns_credential_id: int | None = None,
+    dns_provider: str | None = None,
 ) -> Certificate:
     """Persist a ``pending`` Let's Encrypt certificate row awaiting issuance.
 
     The actual ACME order runs asynchronously; the caller enqueues the issuance
-    task with the returned certificate's id after committing.
+    task with the returned certificate's id after committing. For DNS-01 the
+    saved credential reference (and its provider id, for display) is recorded
+    in ``meta`` and resolved again at every issuance/renewal.
     """
     if not domain_names:
         raise ValueError("At least one domain name is required")
 
+    meta: dict = {"challenge": challenge, "account_email": account_email}
+    if dns_credential_id is not None:
+        meta["dns_credential_id"] = dns_credential_id
+        meta["dns_provider"] = dns_provider
     cert = Certificate(
         name=name,
         provider=CertificateProvider.letsencrypt,
         status=CertificateStatus.pending,
         domain_names=domain_names,
-        meta={"challenge": challenge, "account_email": account_email},
+        meta=meta,
     )
     db.add(cert)
     await db.flush()

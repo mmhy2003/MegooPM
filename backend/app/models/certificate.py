@@ -48,5 +48,17 @@ class Certificate(IdMixin, TimestampMixin, Base):
     expires_on: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     meta: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict, server_default="{}")
 
+    @property
+    def challenge(self) -> str | None:
+        """ACME challenge type for Let's Encrypt certificates (from ``meta``)."""
+        if self.provider != CertificateProvider.letsencrypt:
+            return None
+        return (self.meta or {}).get("challenge")
+
+    @property
+    def dns_provider(self) -> str | None:
+        """dns-lexicon provider id used for DNS-01 (from ``meta``), else ``None``."""
+        return (self.meta or {}).get("dns_provider")
+
 
 __all__ = ["Certificate"]

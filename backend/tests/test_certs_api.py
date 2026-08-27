@@ -46,9 +46,7 @@ async def test_letsencrypt_request_requires_admin(
 
 
 async def test_delete_requires_admin(db_client: AsyncClient, member_token: str) -> None:
-    resp = await db_client.delete(
-        f"{BASE}/1", headers={"Authorization": f"Bearer {member_token}"}
-    )
+    resp = await db_client.delete(f"{BASE}/1", headers={"Authorization": f"Bearer {member_token}"})
     assert resp.status_code == 403
 
 
@@ -77,3 +75,41 @@ async def test_custom_upload_rejects_garbage(db_client: AsyncClient, admin_token
         json={"name": "mine", "certificate_pem": "garbage", "private_key_pem": "garbage"},
     )
     assert resp.status_code == 422
+
+
+# --- DNS-01 credential gating (validated before the certificates table is touched) ---
+
+
+async def test_dns01_requires_a_credential(db_client: AsyncClient, admin_token: str) -> None:
+    resp = await db_client.post(
+        f"{BASE}/letsencrypt",
+        headers={"Authorization": f"Bearer {admin_token}"},
+        json={"name": "w", "domain_names": ["*.example.com"], "challenge": "dns-01"},
+    )
+    assert resp.status_code == 422
+    assert "dns_credential_id" in resp.json()["detail"]
+
+
+async def test_dns01_rejects_unknown_credential(db_client: AsyncClient, admin_token: str) -> None:
+    resp = await db_client.post(
+        f"{BASE}/letsencrypt",
+        headers={"Authorization": f"Bearer {admin_token}"},
+        json={
+            "name": "w",
+            "domain_names": ["*.example.com"],
+            "challenge": "dns-01",
+            "dns_credential_id": 999999,
+        },
+    )
+    assert resp.status_code == 422
+    assert resp.json()["detail"] == "Unknown DNS credential"
+
+
+async def test_http01_rejects_a_credential(db_client: AsyncClient, admin_token: str) -> None:
+    resp = await db_client.post(
+        f"{BASE}/letsencrypt",
+        headers={"Authorization": f"Bearer {admin_token}"},
+        json={"name": "w", "domain_names": ["example.com"], "dns_credential_id": 1},
+    )
+    assert resp.status_code == 422
+    assert "dns-01" in resp.json()["detail"]

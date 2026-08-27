@@ -28,7 +28,9 @@ from app.schemas.certificate import (
 )
 from app.services import audit as audit_service
 from app.services import tasks as task_service
+from app.services.certs import dns_credentials
 from app.services.certs import service as cert_service
+from app.services.certs.acme_client import ChallengeType
 from app.services.certs.validation import CertificateValidationError
 
 router = APIRouter(tags=["certificates"])
@@ -82,19 +84,41 @@ async def upload_custom_certificate(
     return CertificateRead.model_validate(cert)
 
 
-@router.post(
-    "/letsencrypt", response_model=CertificateIssued, status_code=status.HTTP_202_ACCEPTED
-)
+@router.post("/letsencrypt", response_model=CertificateIssued, status_code=status.HTTP_202_ACCEPTED)
 async def request_letsencrypt_certificate(
     payload: LetsEncryptCertificateCreate, admin: AdminUser, db: SessionDep
 ) -> CertificateIssued:
-    """Create a pending Let's Encrypt cert and enqueue ACME issuance. Admin-only."""
+    """Create a pending Let's Encrypt cert and enqueue ACME issuance. Admin-only.
+
+    DNS-01 requires saved DNS provider credentials (``dns_credential_id``);
+    HTTP-01 must not carry one. Both are validated before the row is created.
+    """
+    dns_provider: str | None = None
+    if payload.challenge == ChallengeType.DNS_01:
+        if payload.dns_credential_id is None:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="DNS-01 requires dns_credential_id (saved DNS provider credentials)",
+            )
+        credential = await dns_credentials.get_credential(db, payload.dns_credential_id)
+        if credential is None:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Unknown DNS credential"
+            )
+        dns_provider = credential.provider
+    elif payload.dns_credential_id is not None:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="dns_credential_id is only valid with the dns-01 challenge",
+        )
     cert = await cert_service.create_letsencrypt_certificate(
         db,
         name=payload.name,
         domain_names=payload.domain_names,
         challenge=payload.challenge,
         account_email=payload.account_email,
+        dns_credential_id=payload.dns_credential_id,
+        dns_provider=dns_provider,
     )
     await audit_service.record_audit(
         db,
@@ -102,7 +126,12 @@ async def request_letsencrypt_certificate(
         action=AuditAction.create,
         object_type="certificate",
         object_id=cert.id,
-        meta={"provider": "letsencrypt", "domain_names": cert.domain_names},
+        meta={
+            "provider": "letsencrypt",
+            "domain_names": cert.domain_names,
+            "challenge": payload.challenge,
+            "dns_provider": dns_provider,
+        },
     )
     await db.commit()
     await db.refresh(cert)
@@ -120,9 +149,7 @@ async def request_letsencrypt_certificate(
     response_model=CertificateIssued,
     status_code=status.HTTP_202_ACCEPTED,
 )
-async def renew_certificate(
-    cert_id: int, admin: AdminUser, db: SessionDep
-) -> CertificateIssued:
+async def renew_certificate(cert_id: int, admin: AdminUser, db: SessionDep) -> CertificateIssued:
     """Enqueue renewal/re-issuance for a certificate. Admin-only."""
     cert = await cert_service.get_certificate(db, cert_id)
     if cert is None:
