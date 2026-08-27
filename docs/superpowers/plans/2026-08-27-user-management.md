@@ -30,6 +30,7 @@
   docker exec megoopm-test pip install -q --root-user-action=ignore "pytest>=8.2" "pytest-asyncio>=0.23" "aiosqlite>=0.20" "ruff>=0.6"
   ```
   Then every backend command in this plan is `docker exec megoopm-test <cmd>` (the bind mount means edits on the host are visible immediately, and files the container writes — e.g. `openapi.json` — land on the host). `pyproject.toml` already sets `addopts = "-q"`; **do not pass `-q` again** or the summary line disappears. Remove the container at the end: `docker rm -f megoopm-test`.
+- Ruff enforces `line-length = 100` (`E501`). Always run `ruff format <files>` **before** `ruff check <files>` — the code blocks in this plan contain a few call sites longer than 100 columns that the formatter wraps; checking first would fail on them.
 - **Frontend commands run on the host** (Node 22): once, `cd frontend && npm ci`. Then `npx vitest run <path>`, `npm run lint`, `npm run typecheck`, `npm run gen:api`, `npm run build` from `frontend/`.
 - Commit after every task with a Conventional-Commits subject and the trailer `Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>`. Never `--no-verify`.
 
@@ -199,8 +200,8 @@ Expected: `6 passed`.
 - [ ] **Step 5: Lint, normalize, commit**
 
 ```bash
-docker exec megoopm-test ruff check app/schemas/user.py tests/test_user_schemas.py
 docker exec megoopm-test ruff format app/schemas/user.py tests/test_user_schemas.py
+docker exec megoopm-test ruff check app/schemas/user.py tests/test_user_schemas.py
 sed -i 's/\r$//' backend/app/schemas/user.py backend/tests/test_user_schemas.py
 git add backend/app/schemas/user.py backend/tests/test_user_schemas.py
 git commit -m "feat(users): request schemas for update, password reset/change, profile
@@ -554,8 +555,8 @@ Expected: all pass (`13 passed` for the new file; the other two files unchanged)
 - [ ] **Step 5: Lint, normalize, commit**
 
 ```bash
-docker exec megoopm-test ruff check app/services/user.py tests/test_user_service.py
 docker exec megoopm-test ruff format app/services/user.py tests/test_user_service.py
+docker exec megoopm-test ruff check app/services/user.py tests/test_user_service.py
 sed -i 's/\r$//' backend/app/services/user.py backend/tests/test_user_service.py
 git add backend/app/services/user.py backend/tests/test_user_service.py
 git commit -m "feat(users): lock-out guards, update/delete and password services
@@ -1016,8 +1017,8 @@ If `test_admin_handover_between_two_admins` fails on the final assertion with 20
 - [ ] **Step 5: Lint, normalize, commit**
 
 ```bash
-docker exec megoopm-test ruff check app/api/routes/users.py tests/test_users_management.py
 docker exec megoopm-test ruff format app/api/routes/users.py tests/test_users_management.py
+docker exec megoopm-test ruff check app/api/routes/users.py tests/test_users_management.py
 sed -i 's/\r$//' backend/app/api/routes/users.py backend/tests/test_users_management.py
 git add backend/app/api/routes/users.py backend/tests/test_users_management.py
 git commit -m "feat(users): admin update, password reset and delete routes with audit
@@ -1177,8 +1178,8 @@ Expected: everything passes except `tests/test_openapi.py::test_committed_openap
 - [ ] **Step 5: Lint, normalize, commit**
 
 ```bash
-docker exec megoopm-test ruff check app/api/routes/users.py tests/test_users_management.py
 docker exec megoopm-test ruff format app/api/routes/users.py tests/test_users_management.py
+docker exec megoopm-test ruff check app/api/routes/users.py tests/test_users_management.py
 sed -i 's/\r$//' backend/app/api/routes/users.py backend/tests/test_users_management.py
 git add backend/app/api/routes/users.py backend/tests/test_users_management.py
 git commit -m "feat(users): self-service profile edit and password change
