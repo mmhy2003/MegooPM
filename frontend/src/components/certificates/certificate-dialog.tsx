@@ -1,14 +1,18 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
 import {
   ACME_CHALLENGES,
   certificates,
+  dnsCredentials,
   type AcmeChallenge,
+  type DnsCredential,
 } from "@/lib/api";
-import { describeError, parseDomains } from "@/components/proxy-hosts/lib";
+import { describeError } from "@/components/proxy-hosts/lib";
+import { letsEncryptPayload } from "@/components/certificates/lib";
+import { credentialLabel } from "@/components/dns-providers/lib";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -56,6 +60,26 @@ export function CertificateDialog({
   const [leDomains, setLeDomains] = useState("");
   const [challenge, setChallenge] = useState<AcmeChallenge>("http-01");
   const [accountEmail, setAccountEmail] = useState("");
+  const [dnsCredentialId, setDnsCredentialId] = useState("");
+  const [dnsOptions, setDnsOptions] = useState<DnsCredential[]>([]);
+  const [dnsOptionsError, setDnsOptionsError] = useState<string | null>(null);
+
+  // Saved DNS credentials for the DNS-01 picker. The dialog is mounted only
+  // while open, so this runs once per opening; state is set after the await.
+  useEffect(() => {
+    let active = true;
+    void (async () => {
+      try {
+        const list = await dnsCredentials.list();
+        if (active) setDnsOptions(list);
+      } catch (err) {
+        if (active) setDnsOptionsError(describeError(err).message);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, []);
 
   // Custom upload fields
   const [customName, setCustomName] = useState("");
@@ -68,18 +92,18 @@ export function CertificateDialog({
 
   async function submitLetsEncrypt() {
     setError(null);
-    const domains = parseDomains(leDomains);
-    if (!leName.trim()) return setError("Give the certificate a name.");
-    if (domains.length === 0) return setError("Enter at least one domain name.");
+    const result = letsEncryptPayload({
+      name: leName,
+      domainsText: leDomains,
+      challenge,
+      accountEmail,
+      dnsCredentialId,
+    });
+    if (!result.ok) return setError(result.error);
 
     setSaving(true);
     try {
-      const issued = await certificates.requestLetsEncrypt({
-        name: leName.trim(),
-        domain_names: domains,
-        challenge,
-        account_email: accountEmail.trim() || null,
-      });
+      const issued = await certificates.requestLetsEncrypt(result.body);
       toast.success("Issuance requested — this can take a minute.");
       onOpenChange(false);
       onSaved({ taskId: issued.task_id, label: `Issuing “${issued.certificate.name}”` });
@@ -191,6 +215,34 @@ export function CertificateDialog({
                 />
               </div>
             </div>
+
+            {challenge === "dns-01" ? (
+              <div className="space-y-1.5">
+                <Label htmlFor="le-dns-credential">DNS credentials</Label>
+                <Select
+                  value={dnsCredentialId}
+                  onValueChange={(v) => setDnsCredentialId((v as string) ?? "")}
+                >
+                  <SelectTrigger id="le-dns-credential" disabled={saving || dnsOptions.length === 0}>
+                    <SelectValue placeholder="Choose saved credentials" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {dnsOptions.map((c) => (
+                      <SelectItem key={c.id} value={String(c.id)}>
+                        {credentialLabel(c)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  {dnsOptionsError
+                    ? `Couldn’t load DNS credentials: ${dnsOptionsError}`
+                    : dnsOptions.length === 0
+                      ? "No DNS provider credentials yet — add one under Certificates → DNS providers."
+                      : "The provider's API is used to publish the _acme-challenge TXT record."}
+                </p>
+              </div>
+            ) : null}
 
             {error ? (
               <p role="alert" className="text-sm text-destructive">

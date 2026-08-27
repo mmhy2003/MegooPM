@@ -65,3 +65,66 @@ describe("formatDate", () => {
     expect(formatDate("nope")).toBe("—");
   });
 });
+
+import { challengeLabel, letsEncryptPayload } from "@/components/certificates/lib";
+
+describe("challengeLabel", () => {
+  it("describes how a certificate is validated", () => {
+    expect(
+      challengeLabel({ provider: "letsencrypt", challenge: "http-01", dns_provider_label: null }),
+    ).toBe("HTTP-01");
+    expect(
+      challengeLabel({
+        provider: "letsencrypt",
+        challenge: "dns-01",
+        dns_provider_label: "Cloudflare",
+      }),
+    ).toBe("DNS-01 · Cloudflare");
+    expect(challengeLabel({ provider: "custom", challenge: null, dns_provider_label: null })).toBe(
+      "—",
+    );
+  });
+});
+
+describe("letsEncryptPayload", () => {
+  const base = {
+    name: "wild",
+    domainsText: "*.example.com, example.com",
+    accountEmail: "",
+    dnsCredentialId: "",
+  };
+
+  it("requires saved credentials for DNS-01", () => {
+    expect(letsEncryptPayload({ ...base, challenge: "dns-01" })).toEqual({
+      ok: false,
+      error: "Choose DNS provider credentials for DNS-01.",
+    });
+  });
+
+  it("sends the credential id for DNS-01 and null for HTTP-01", () => {
+    expect(letsEncryptPayload({ ...base, challenge: "dns-01", dnsCredentialId: "7" })).toEqual({
+      ok: true,
+      body: {
+        name: "wild",
+        domain_names: ["*.example.com", "example.com"],
+        challenge: "dns-01",
+        account_email: null,
+        dns_credential_id: 7,
+      },
+    });
+    expect(letsEncryptPayload({ ...base, challenge: "http-01", dnsCredentialId: "7" })).toMatchObject(
+      { ok: true, body: { challenge: "http-01", dns_credential_id: null } },
+    );
+  });
+
+  it("still validates name and domains", () => {
+    expect(letsEncryptPayload({ ...base, name: " ", challenge: "http-01" })).toEqual({
+      ok: false,
+      error: "Give the certificate a name.",
+    });
+    expect(letsEncryptPayload({ ...base, domainsText: "", challenge: "http-01" })).toEqual({
+      ok: false,
+      error: "Enter at least one domain name.",
+    });
+  });
+});

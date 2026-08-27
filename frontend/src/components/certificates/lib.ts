@@ -6,6 +6,9 @@
  * isolation. Error/domain normalization is reused from the Proxy Hosts lib.
  */
 
+import type { AcmeChallenge, Certificate, LetsEncryptCertificateCreate } from "@/lib/api";
+import { parseDomains } from "@/components/proxy-hosts/lib";
+
 /** How close a certificate is to (or past) its expiry, for visual flagging. */
 export type ExpiryLevel = "none" | "ok" | "warning" | "expired";
 
@@ -62,4 +65,50 @@ export function formatDate(iso: string | null | undefined): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return "—";
   return d.toISOString().slice(0, 10);
+}
+
+/** "HTTP-01", "DNS-01 · Cloudflare", or "—" for non-ACME certificates. */
+export function challengeLabel(
+  cert: Pick<Certificate, "provider" | "challenge" | "dns_provider_label">,
+): string {
+  if (cert.provider !== "letsencrypt" || !cert.challenge) return "—";
+  if (cert.challenge === "dns-01") {
+    return cert.dns_provider_label ? `DNS-01 · ${cert.dns_provider_label}` : "DNS-01";
+  }
+  return "HTTP-01";
+}
+
+export interface LetsEncryptFormInput {
+  name: string;
+  domainsText: string;
+  challenge: AcmeChallenge;
+  accountEmail: string;
+  /** Selected saved-credential id as a string (Select value); "" = none. */
+  dnsCredentialId: string;
+}
+
+export type LetsEncryptFormResult =
+  | { ok: true; body: LetsEncryptCertificateCreate }
+  | { ok: false; error: string };
+
+/** Validate the Let's Encrypt form and build the request body. */
+export function letsEncryptPayload(input: LetsEncryptFormInput): LetsEncryptFormResult {
+  const name = input.name.trim();
+  const domains = parseDomains(input.domainsText);
+  if (!name) return { ok: false, error: "Give the certificate a name." };
+  if (domains.length === 0) return { ok: false, error: "Enter at least one domain name." };
+  const isDns = input.challenge === "dns-01";
+  if (isDns && !input.dnsCredentialId) {
+    return { ok: false, error: "Choose DNS provider credentials for DNS-01." };
+  }
+  return {
+    ok: true,
+    body: {
+      name,
+      domain_names: domains,
+      challenge: input.challenge,
+      account_email: input.accountEmail.trim() || null,
+      dns_credential_id: isDns ? Number(input.dnsCredentialId) : null,
+    },
+  };
 }

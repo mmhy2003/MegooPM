@@ -1,7 +1,15 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Loader2, Plus, RefreshCw, ShieldCheck, Trash2, TriangleAlert } from "lucide-react";
+import {
+  KeyRound,
+  Loader2,
+  Plus,
+  RefreshCw,
+  ShieldCheck,
+  Trash2,
+  TriangleAlert,
+} from "lucide-react";
 import { toast } from "sonner";
 
 import {
@@ -17,10 +25,17 @@ import {
   CertificateDialog,
   type PendingTask,
 } from "@/components/certificates/certificate-dialog";
-import { expiryInfo, formatDate, type ExpiryLevel } from "@/components/certificates/lib";
+import {
+  challengeLabel,
+  expiryInfo,
+  formatDate,
+  type ExpiryLevel,
+} from "@/components/certificates/lib";
+import { DnsCredentialsView } from "@/components/dns-providers/dns-credentials-view";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Tabs, TabsList, TabsPanel, TabsTab } from "@/components/ui/tabs";
 import {
   Table,
   TableBody,
@@ -189,6 +204,17 @@ export function CertificatesView() {
         </Button>
       </div>
 
+      <Tabs defaultValue="certificates">
+        <TabsList>
+          <TabsTab value="certificates">
+            <ShieldCheck /> Certificates
+          </TabsTab>
+          <TabsTab value="dns-providers">
+            <KeyRound /> DNS providers
+          </TabsTab>
+        </TabsList>
+
+        <TabsPanel value="certificates" className="space-y-6 pt-2">
       {warningCount > 0 ? (
         <div className="flex items-center gap-2 rounded-xl border border-warning/30 bg-warning/5 p-3 text-sm text-warning">
           <TriangleAlert className="size-4 shrink-0" aria-hidden />
@@ -228,6 +254,7 @@ export function CertificatesView() {
               <TableHead>Name</TableHead>
               <TableHead>Domains</TableHead>
               <TableHead>Provider</TableHead>
+              <TableHead>Challenge</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Expiry</TableHead>
               <TableHead className="w-24 text-right">Actions</TableHead>
@@ -235,10 +262,10 @@ export function CertificatesView() {
           </TableHeader>
           <TableBody>
             {loading ? (
-              <LoadingRows cols={6} />
+              <LoadingRows cols={7} />
             ) : certs.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="py-10 text-center text-muted-foreground">
+                <TableCell colSpan={7} className="py-10 text-center text-muted-foreground">
                   No certificates yet. Request one from Let&apos;s Encrypt or upload your own.
                 </TableCell>
               </TableRow>
@@ -266,6 +293,9 @@ export function CertificatesView() {
                       <Badge variant="outline">
                         {CERT_PROVIDER_LABELS[cert.provider] ?? cert.provider}
                       </Badge>
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {challengeLabel(cert)}
                     </TableCell>
                     <TableCell>
                       <StatusBadge status={cert.status} />
@@ -309,6 +339,12 @@ export function CertificatesView() {
           </TableBody>
         </Table>
       </div>
+        </TabsPanel>
+
+        <TabsPanel value="dns-providers" className="pt-2">
+          <DnsCredentialsView />
+        </TabsPanel>
+      </Tabs>
 
       {createOpen ? (
         <CertificateDialog
