@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, model_validator
 
 from app.models.user import UserRole
 
@@ -38,4 +38,53 @@ class UserRead(UserBase):
     updated_at: datetime
 
 
-__all__ = ["UserBase", "UserCreate", "UserRead"]
+class UserUpdate(BaseModel):
+    """Admin partial update of another user.
+
+    ``email`` is identity and immutable, so it is *rejected* (``extra="forbid"``)
+    rather than silently ignored. At least one field must be present.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    full_name: str | None = Field(default=None, max_length=255)
+    role: UserRole | None = None
+    is_active: bool | None = None
+
+    @model_validator(mode="after")
+    def _require_a_field(self) -> UserUpdate:
+        if self.full_name is None and self.role is None and self.is_active is None:
+            raise ValueError("Provide at least one of full_name, role, is_active.")
+        return self
+
+
+class PasswordReset(BaseModel):
+    """Admin-set password for another user (handed over out of band)."""
+
+    password: str = Field(min_length=8, max_length=128)
+
+
+class PasswordChange(BaseModel):
+    """Self-service password change; the current password is re-verified."""
+
+    current_password: str = Field(min_length=1, max_length=128)
+    new_password: str = Field(min_length=8, max_length=128)
+
+
+class ProfileUpdate(BaseModel):
+    """Self-service profile edit. Only the display name is user-editable."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    full_name: str = Field(max_length=255)
+
+
+__all__ = [
+    "PasswordChange",
+    "PasswordReset",
+    "ProfileUpdate",
+    "UserBase",
+    "UserCreate",
+    "UserRead",
+    "UserUpdate",
+]
