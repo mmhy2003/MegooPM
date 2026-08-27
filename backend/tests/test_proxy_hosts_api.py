@@ -307,6 +307,127 @@ async def test_created_host_renders_upstream_and_proxy_pass(client: AsyncClient,
     assert f"proxy_pass http://{pool_name};" in config
 
 
+# --- Locations (per-path routes to other pools) ----------------------------
+
+
+async def _make_named_pool(client: AsyncClient, auth, name: str, backends: bool = True) -> int:
+    resp = await client.post(
+        "/api/v1/upstreams",
+        headers=auth,
+        json={
+            "name": name,
+            "backends": [{"host": "10.0.0.9", "port": 8080}] if backends else [],
+        },
+    )
+    assert resp.status_code == 201, resp.text
+    return resp.json()["id"]
+
+
+async def test_locations_crud_replace_in_full(client: AsyncClient, auth) -> None:
+    root = await _make_pool(client, auth)
+    api = await _make_named_pool(client, auth, "api-pool")
+    ws = await _make_named_pool(client, auth, "ws-pool")
+
+    created = await client.post(
+        "/api/v1/proxy-hosts",
+        headers=auth,
+        json={
+            "domain_names": ["loc.example.com"],
+            "upstream_id": root,
+            "locations": [{"path": "/api/", "upstream_id": api, "forward_scheme": "https"}],
+        },
+    )
+    assert created.status_code == 201, created.text
+    host = created.json()
+    assert [
+        (loc["path"], loc["upstream_id"], loc["forward_scheme"]) for loc in host["locations"]
+    ] == [("/api/", api, "https")]
+    host_id = host["id"]
+
+    # Omitted -> unchanged.
+    patched = await client.patch(
+        f"/api/v1/proxy-hosts/{host_id}", headers=auth, json={"block_exploits": True}
+    )
+    assert patched.status_code == 200, patched.text
+    assert [loc["path"] for loc in patched.json()["locations"]] == ["/api/"]
+
+    # A list -> replaced in full (sorted by path on read).
+    patched = await client.patch(
+        f"/api/v1/proxy-hosts/{host_id}",
+        headers=auth,
+        json={
+            "locations": [
+                {"path": "/ws", "upstream_id": ws},
+                {"path": "/admin/", "upstream_id": api},
+            ]
+        },
+    )
+    assert patched.status_code == 200, patched.text
+    assert [(loc["path"], loc["upstream_id"]) for loc in patched.json()["locations"]] == [
+        ("/admin/", api),
+        ("/ws", ws),
+    ]
+
+    listed = await client.get("/api/v1/proxy-hosts", headers=auth)
+    row = next(h for h in listed.json() if h["id"] == host_id)
+    assert len(row["locations"]) == 2
+
+    # [] -> cleared.
+    patched = await client.patch(
+        f"/api/v1/proxy-hosts/{host_id}", headers=auth, json={"locations": []}
+    )
+    assert patched.json()["locations"] == []
+
+
+async def test_location_with_unknown_pool_is_rejected(client: AsyncClient, auth) -> None:
+    root = await _make_pool(client, auth)
+    resp = await client.post(
+        "/api/v1/proxy-hosts",
+        headers=auth,
+        json={
+            "domain_names": ["badloc.example.com"],
+            "upstream_id": root,
+            "locations": [{"path": "/api/", "upstream_id": 999999}],
+        },
+    )
+    assert resp.status_code == 422, resp.text
+    assert "999999" in resp.json()["detail"]
+
+
+async def test_pool_used_only_by_a_location_cannot_be_deleted(client: AsyncClient, auth) -> None:
+    root = await _make_pool(client, auth)
+    api = await _make_named_pool(client, auth, "api-only")
+    await client.post(
+        "/api/v1/proxy-hosts",
+        headers=auth,
+        json={
+            "domain_names": ["restrict.example.com"],
+            "upstream_id": root,
+            "locations": [{"path": "/api/", "upstream_id": api}],
+        },
+    )
+    resp = await client.delete(f"/api/v1/upstreams/{api}", headers=auth)
+    assert resp.status_code == 409, resp.text
+
+
+async def test_deleting_host_cascades_locations(client: AsyncClient, auth) -> None:
+    root = await _make_pool(client, auth)
+    api = await _make_named_pool(client, auth, "cascade-pool")
+    created = await client.post(
+        "/api/v1/proxy-hosts",
+        headers=auth,
+        json={
+            "domain_names": ["cascade.example.com"],
+            "upstream_id": root,
+            "locations": [{"path": "/api/", "upstream_id": api}],
+        },
+    )
+    host_id = created.json()["id"]
+    assert (await client.delete(f"/api/v1/proxy-hosts/{host_id}", headers=auth)).status_code == 204
+    # The location row is gone, so the pool is deletable again.
+    assert (await client.delete(f"/api/v1/upstreams/{api}", headers=auth)).status_code == 204
+
+
 # --- RBAC ------------------------------------------------------------------
 
 

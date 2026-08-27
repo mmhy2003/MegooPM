@@ -2017,6 +2017,14 @@
             "title": "Http2 Support",
             "type": "boolean"
           },
+          "locations": {
+            "description": "Extra path-prefixed routes to other pools (rendered as location ^~ <path>)",
+            "items": {
+              "$ref": "#/components/schemas/ProxyHostLocationIn"
+            },
+            "title": "Locations",
+            "type": "array"
+          },
           "ssl_forced": {
             "default": false,
             "description": "Redirect :80 to HTTPS",
@@ -2034,6 +2042,63 @@
           "upstream_id"
         ],
         "title": "ProxyHostCreate",
+        "type": "object"
+      },
+      "ProxyHostLocationIn": {
+        "description": "One extra ``location <path>`` route of a proxy host.",
+        "properties": {
+          "forward_scheme": {
+            "$ref": "#/components/schemas/HttpScheme",
+            "default": "http",
+            "description": "Scheme used to reach the pool (http/https)"
+          },
+          "path": {
+            "description": "URL prefix, e.g. /api/ (the root '/' is the host itself)",
+            "title": "Path",
+            "type": "string"
+          },
+          "upstream_id": {
+            "description": "Pool this prefix forwards to",
+            "title": "Upstream Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "path",
+          "upstream_id"
+        ],
+        "title": "ProxyHostLocationIn",
+        "type": "object"
+      },
+      "ProxyHostLocationRead": {
+        "description": "Stored location (adds the row id).",
+        "properties": {
+          "forward_scheme": {
+            "$ref": "#/components/schemas/HttpScheme",
+            "default": "http",
+            "description": "Scheme used to reach the pool (http/https)"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "path": {
+            "description": "URL prefix, e.g. /api/ (the root '/' is the host itself)",
+            "title": "Path",
+            "type": "string"
+          },
+          "upstream_id": {
+            "description": "Pool this prefix forwards to",
+            "title": "Upstream Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "path",
+          "upstream_id",
+          "id"
+        ],
+        "title": "ProxyHostLocationRead",
         "type": "object"
       },
       "ProxyHostRead": {
@@ -2145,6 +2210,13 @@
           "id": {
             "title": "Id",
             "type": "integer"
+          },
+          "locations": {
+            "items": {
+              "$ref": "#/components/schemas/ProxyHostLocationRead"
+            },
+            "title": "Locations",
+            "type": "array"
           },
           "ssl_forced": {
             "default": false,
@@ -2332,6 +2404,20 @@
               }
             ],
             "title": "Http2 Support"
+          },
+          "locations": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/ProxyHostLocationIn"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Locations"
           },
           "ssl_forced": {
             "anyOf": [

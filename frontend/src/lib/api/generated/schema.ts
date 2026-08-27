@@ -2068,6 +2068,11 @@ export interface components {
              */
             http2_support: boolean;
             /**
+             * Locations
+             * @description Extra path-prefixed routes to other pools (rendered as location ^~ <path>)
+             */
+            locations?: components["schemas"]["ProxyHostLocationIn"][];
+            /**
              * Ssl Forced
              * @description Redirect :80 to HTTPS
              * @default false
@@ -2076,6 +2081,50 @@ export interface components {
             /**
              * Upstream Id
              * @description The upstream pool to forward matched traffic to
+             */
+            upstream_id: number;
+        };
+        /**
+         * ProxyHostLocationIn
+         * @description One extra ``location <path>`` route of a proxy host.
+         */
+        ProxyHostLocationIn: {
+            /**
+             * @description Scheme used to reach the pool (http/https)
+             * @default http
+             */
+            forward_scheme: components["schemas"]["HttpScheme"];
+            /**
+             * Path
+             * @description URL prefix, e.g. /api/ (the root '/' is the host itself)
+             */
+            path: string;
+            /**
+             * Upstream Id
+             * @description Pool this prefix forwards to
+             */
+            upstream_id: number;
+        };
+        /**
+         * ProxyHostLocationRead
+         * @description Stored location (adds the row id).
+         */
+        ProxyHostLocationRead: {
+            /**
+             * @description Scheme used to reach the pool (http/https)
+             * @default http
+             */
+            forward_scheme: components["schemas"]["HttpScheme"];
+            /** Id */
+            id: number;
+            /**
+             * Path
+             * @description URL prefix, e.g. /api/ (the root '/' is the host itself)
+             */
+            path: string;
+            /**
+             * Upstream Id
+             * @description Pool this prefix forwards to
              */
             upstream_id: number;
         };
@@ -2171,6 +2220,8 @@ export interface components {
             http2_support: boolean;
             /** Id */
             id: number;
+            /** Locations */
+            locations?: components["schemas"]["ProxyHostLocationRead"][];
             /**
              * Ssl Forced
              * @description Redirect :80 to HTTPS
@@ -2220,6 +2271,8 @@ export interface components {
             hsts_subdomains?: boolean | null;
             /** Http2 Support */
             http2_support?: boolean | null;
+            /** Locations */
+            locations?: components["schemas"]["ProxyHostLocationIn"][] | null;
             /** Ssl Forced */
             ssl_forced?: boolean | null;
             /** Upstream Id */
