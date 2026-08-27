@@ -125,3 +125,14 @@ export type {
   ProfileUpdate,
   UserRole,
 } from "@/lib/api/resources/users";
+
+export { dnsProviders, dnsCredentials } from "@/lib/api/resources/dns-providers";
+export type {
+  DnsProviderInfo,
+  DnsProviderField,
+  DnsCredential,
+  DnsCredentialCreate,
+  DnsCredentialUpdate,
+  DnsCredentialVerify,
+  DnsCredentialVerified,
+} from "@/lib/api/resources/dns-providers";
