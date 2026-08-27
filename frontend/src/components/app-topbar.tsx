@@ -1,7 +1,8 @@
 "use client";
 
+import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { CircleUser, LogOut } from "lucide-react";
+import { CircleUser, LogOut, UserCog } from "lucide-react";
 
 import { primaryNav, utilityRoutes } from "@/config/nav";
 import { useAuth } from "@/lib/auth/context";
@@ -47,6 +48,10 @@ export function AppTopbar() {
           <DropdownMenuContent align="end" className="w-56">
             <DropdownMenuLabel className="truncate">{accountLabel}</DropdownMenuLabel>
             <DropdownMenuSeparator />
+            <DropdownMenuItem render={<Link href="/account" />}>
+              <UserCog className="size-4" />
+              Account
+            </DropdownMenuItem>
             <DropdownMenuItem onClick={logout}>
               <LogOut className="size-4" />
               Sign out
