@@ -6,6 +6,7 @@ import {
   ArrowRightLeft,
   Ban,
   ShieldAlert,
+  Users,
   type LucideIcon,
 } from "lucide-react";
 
@@ -15,6 +16,8 @@ export interface NavItem {
   icon: LucideIcon;
   /** Short description used for the page header / tooltips. */
   description: string;
+  /** Only rendered for `admin` users (see `navForRole`). */
+  adminOnly?: boolean;
 }
 
 /**
@@ -64,7 +67,31 @@ export const primaryNav: NavItem[] = [
     icon: ShieldAlert,
     description: "CrowdSec integration, bouncers and blocklists.",
   },
+  {
+    title: "Users",
+    href: "/users",
+    icon: Users,
+    description: "Accounts and roles for people who sign in to MegooPM.",
+    adminOnly: true,
+  },
 ];
 
 /** Home / dashboard route the shell redirects to after login. */
 export const HOME_ROUTE = "/proxy-hosts";
+
+/**
+ * The sidebar items a user with `role` may see. Admin-only entries are
+ * hidden from members and from signed-out visitors (`null`/`undefined`);
+ * the API's RBAC (403) remains the enforcement.
+ */
+export function navForRole(role: "admin" | "member" | null | undefined): NavItem[] {
+  return primaryNav.filter((item) => !item.adminOnly || role === "admin");
+}
+
+/**
+ * Pages reachable from the account menu rather than the sidebar. The topbar
+ * uses this to title them; they are deliberately absent from `primaryNav`.
+ */
+export const utilityRoutes: Record<string, string> = {
+  "/account": "Account",
+};

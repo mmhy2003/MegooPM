@@ -4,8 +4,9 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Boxes } from "lucide-react";
 
-import { primaryNav } from "@/config/nav";
+import { navForRole } from "@/config/nav";
 import { APP_NAME } from "@/lib/env";
+import { useAuth } from "@/lib/auth/context";
 import {
   Sidebar,
   SidebarContent,
@@ -25,6 +26,8 @@ function isActivePath(pathname: string, href: string): boolean {
 
 export function AppSidebar() {
   const pathname = usePathname();
+  const { user } = useAuth();
+  const items = navForRole(user?.role);
 
   return (
     <Sidebar collapsible="icon">
@@ -55,7 +58,7 @@ export function AppSidebar() {
           <SidebarGroupLabel>Manage</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {primaryNav.map((item) => (
+              {items.map((item) => (
                 <SidebarMenuItem key={item.href}>
                   <SidebarMenuButton
                     isActive={isActivePath(pathname, item.href)}

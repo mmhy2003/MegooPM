@@ -3,7 +3,7 @@
 import { usePathname } from "next/navigation";
 import { CircleUser, LogOut } from "lucide-react";
 
-import { primaryNav } from "@/config/nav";
+import { primaryNav, utilityRoutes } from "@/config/nav";
 import { useAuth } from "@/lib/auth/context";
 import { ModeToggle } from "@/components/mode-toggle";
 import { Button } from "@/components/ui/button";
@@ -22,7 +22,7 @@ function currentTitle(pathname: string): string {
   const match = primaryNav.find(
     (item) => pathname === item.href || pathname.startsWith(`${item.href}/`),
   );
-  return match?.title ?? "Dashboard";
+  return match?.title ?? utilityRoutes[pathname] ?? "Dashboard";
 }
 
 export function AppTopbar() {
