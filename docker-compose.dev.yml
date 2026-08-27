@@ -104,7 +104,6 @@ services:
       - ./backend:/app
       - nginx_confd:/data/nginx/conf.d
       - nginx_certs:/data/certs
-      - /var/run/megoopm
     depends_on:
       db:
         condition: service_healthy
@@ -136,7 +135,6 @@ services:
       - ./backend:/app
       - nginx_confd:/data/nginx/conf.d
       - nginx_certs:/data/certs
-      - /var/run/megoopm
     depends_on:
       redis:
         condition: service_healthy

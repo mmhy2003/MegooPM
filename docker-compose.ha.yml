@@ -1,72 +1,164 @@
-# MegooPM — reference High-Availability (HA) deployment (MEG-35).
+# MegooPM — PRODUCTION, multi-node: run this file ON EVERY NODE.
 #
-# Boots a multi-node topology against SHARED storage so any node can serve
-# traffic and no single node is the source of truth:
+#   cp .env.ha.example .env      # per node: NODE_ID, SHARED_DATA_PATH, secrets, URLs
+#   docker compose -f docker-compose.ha.yml up -d --build      # or: make ha-up
 #
-#   * db / redis          — shared control-plane state (single here; use managed
-#                           HA Postgres + Redis in production).
-#   * backend  x2         — stateless FastAPI API nodes behind the `lb` LB.
-#   * worker   x2         — stateless Celery workers (each reloads its LOCAL
-#                           nginx via the broadcast reconcile queue).
-#   * beat     x1         — one scheduler; periodic sweeps are leader-locked so
-#                           running >1 beat is still safe.
-#   * proxy1 / proxy2     — the managed nginx data plane, each reading the SAME
-#                           shared /data/nginx/conf.d, behind the `lb` LB.
-#   * lb                  — HAProxy: :80/:443 → proxy1/proxy2, :8000 → backends.
+# Every node runs the stateless app tier (API, Celery worker, managed nginx,
+# web UI) against ONE shared data root mounted from the host at
+# SHARED_DATA_PATH (NFS or another shared filesystem — docs/ha.md §2/§6) and
+# shared Postgres/Redis/CrowdSec. Per-node profiles, chosen with
+# COMPOSE_PROFILES in that node's .env:
 #
-# Bring up (>=2 app nodes against shared storage):
+#   control-plane   also run Postgres, Redis and CrowdSec LAPI here and publish
+#                   them on the host (small clusters; otherwise use managed /
+#                   external services and point the *_URL variables at them).
+#   scheduler       run the single Celery beat here (sweeps are leader-locked,
+#                   so an accidental second beat is harmless but pointless).
 #
-#   docker compose -f docker-compose.ha.yml up --build \
-#     --scale backend=2 --scale worker=2
-#
-# The `shared_data` volume below is a LOCAL named volume shared between
-# containers on one host — enough to demonstrate the shared data plane. In a
-# real multi-HOST cluster, replace it with an NFS-backed volume (see the
-# commented block at the bottom and docs/ha.md).
+# Migrations: set RUN_MIGRATIONS=1 on the node you upgrade first, 0 elsewhere.
+# No load balancer inside: put yours in front of :80/:443 (and :3000/:8000 if
+# the admin surface should be balanced too) — infra/ha/haproxy.cfg is an example.
 
 name: megoopm-ha
 
 x-app-env: &app-env
   ENVIRONMENT: production
   DEBUG: "false"
-  SECRET_KEY: ${SECRET_KEY:-change-me-in-production}
-  DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-megoopm}:${POSTGRES_PASSWORD:-megoopm}@db:5432/${POSTGRES_DB:-megoopm}
-  REDIS_URL: redis://redis:6379/0
-  CELERY_BROKER_URL: redis://redis:6379/0
-  CELERY_RESULT_BACKEND: redis://redis:6379/1
-  CORS_ORIGINS: ${CORS_ORIGINS:-*}
-  # Initial-setup admin, seeded by the backend only while the users table is
-  # empty. No default here on purpose: a production stack must opt in with
-  # real credentials rather than boot with a well-known login. Leave blank to
-  # seed via `python -m scripts.create_user` instead.
-  FIRST_ADMIN_EMAIL: ${FIRST_ADMIN_EMAIL:-}
-  FIRST_ADMIN_PASSWORD: ${FIRST_ADMIN_PASSWORD:-}
-  # CrowdSec (MEG-43): no machine-cred env here on purpose — each backend node
-  # self-registers its LAPI machine on first use and reads the encrypted creds
-  # from the shared DB (Fernet, keyed off SECRET_KEY). The bouncer key stays on
-  # the proxy nodes (below) for the nginx enforcement path.
-  # --- HA (MEG-35) ---
+  SECRET_KEY: ${SECRET_KEY:?SECRET_KEY is required and must be IDENTICAL on every node}
+  DATABASE_URL: ${DATABASE_URL:?DATABASE_URL is required (shared Postgres)}
+  REDIS_URL: ${REDIS_URL:?REDIS_URL is required (shared Redis)}
+  CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000}
+  # --- HA (docs/ha.md) ---
   HA_ENABLED: "true"
-  # All mutable state under one shared root; every app node mounts it at /data.
+  NODE_ID: ${NODE_ID:?NODE_ID is required and must be unique per node}
   SHARED_DATA_DIR: /data
-  # Paths derive from SHARED_DATA_DIR when unset — spelled out here for clarity.
-  NGINX_CONFD_DIR: /data/nginx/conf.d
-  NGINX_STREAM_DIR: /data/nginx/conf.d/stream
-  NGINX_CERTS_DIR: /data/certs
-  ACME_HTTP_CHALLENGE_DIR: /data/certs/_acme-challenge
-  # Node-local (NOT shared): each node's run dir + reload marker. Because every
-  # container has its own /var/run, each node tracks its own applied version.
+  # Node-local (NOT on the shared mount): run dir + reload marker.
   HA_LOCK_DIR: /var/run/megoopm
   NGINX_RELOAD_MARKER_PATH: /var/run/megoopm/nginx-config.version
-  HA_RECONCILE_INTERVAL_SECONDS: "15"
+  HA_RECONCILE_INTERVAL_SECONDS: ${HA_RECONCILE_INTERVAL_SECONDS:-15}
+  # Worker -> LOCAL nginx via the in-container reload agent.
+  NGINX_TEST_COMMAND: "python -m scripts.nginx_remote test"
+  NGINX_RELOAD_COMMAND: "python -m scripts.nginx_remote reload"
+  NGINX_AGENT_ADDR: nginx:9099
+  NGINX_RELOAD_TOKEN: ${NGINX_RELOAD_TOKEN:?NGINX_RELOAD_TOKEN is required}
+  ACME_DIRECTORY_URL: ${ACME_DIRECTORY_URL:-https://acme-v02.api.letsencrypt.org/directory}
+  ACME_ACCOUNT_EMAIL: ${ACME_ACCOUNT_EMAIL:-}
+  ACME_DNS_PROPAGATION_TIMEOUT_SECONDS: ${ACME_DNS_PROPAGATION_TIMEOUT_SECONDS:-120}
+  ACME_DNS_PROPAGATION_INTERVAL_SECONDS: ${ACME_DNS_PROPAGATION_INTERVAL_SECONDS:-5}
+  ACME_DNS_PROPAGATION_SETTLE_SECONDS: ${ACME_DNS_PROPAGATION_SETTLE_SECONDS:-10}
+  CROWDSEC_LAPI_URL: ${CROWDSEC_LAPI_URL:?CROWDSEC_LAPI_URL is required (shared LAPI)}
+  CROWDSEC_LAPI_KEY: ${CROWDSEC_BOUNCER_KEY:?CROWDSEC_BOUNCER_KEY is required}
+  FIRST_ADMIN_EMAIL: ${FIRST_ADMIN_EMAIL:-}
+  FIRST_ADMIN_PASSWORD: ${FIRST_ADMIN_PASSWORD:-}
 
 services:
+  # One-shot: lay out the shared root and hand it to uid 1000. Fails fast when
+  # the mount is not writable by root/uid 1000 (e.g. NFS root_squash without a
+  # matching anonuid) instead of letting the backend hit PermissionError later.
+  data-init:
+    image: busybox:1.36
+    command:
+      - sh
+      - -c
+      - "mkdir -p /data/nginx/conf.d/stream /data/certs/_acme-challenge && chown -R 1000:1000 /data || { echo 'data-init: cannot prepare /data (SHARED_DATA_PATH) for uid 1000' >&2; exit 1; }"
+    volumes:
+      - ${SHARED_DATA_PATH:?SHARED_DATA_PATH is required (host path of the shared mount)}:/data
+
+  backend:
+    build: ./backend
+    restart: unless-stopped
+    environment:
+      <<: *app-env
+      RUN_MIGRATIONS: ${RUN_MIGRATIONS:-0}
+    ports:
+      - "${BACKEND_PORT:-8000}:8000"
+    volumes:
+      - ${SHARED_DATA_PATH:?}:/data
+    depends_on:
+      data-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 5s
+      start_period: 30s
+      retries: 5
+
+  worker:
+    build: ./backend
+    restart: unless-stopped
+    command: ["celery", "-A", "app.core.celery_app.celery_app", "worker", "--loglevel=info"]
+    environment:
+      <<: *app-env
+      RUN_MIGRATIONS: "0"
+    volumes:
+      - ${SHARED_DATA_PATH:?}:/data
+    depends_on:
+      backend:
+        condition: service_healthy
+      nginx:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "celery", "-A", "app.core.celery_app.celery_app", "inspect", "ping"]
+      interval: 20s
+      timeout: 10s
+      start_period: 25s
+      retries: 5
+
+  nginx:
+    build: ./infra/nginx
+    restart: unless-stopped
+    environment:
+      CROWDSEC_LAPI_URL: ${CROWDSEC_LAPI_URL:?}
+      CROWDSEC_APPSEC_URL: ${CROWDSEC_APPSEC_URL:?CROWDSEC_APPSEC_URL is required (shared AppSec)}
+      CROWDSEC_BOUNCER_KEY: ${CROWDSEC_BOUNCER_KEY:?}
+      NGINX_RELOAD_TOKEN: ${NGINX_RELOAD_TOKEN:?}
+    ports:
+      - "${NGINX_HTTP_PORT:-80}:80"
+      - "${NGINX_HTTPS_PORT:-443}:443"
+    volumes:
+      - ./infra/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ${SHARED_DATA_PATH:?}:/data
+    depends_on:
+      data-init:
+        condition: service_completed_successfully
+
+  frontend:
+    build:
+      context: ./frontend
+      target: runner
+      args:
+        NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:?NEXT_PUBLIC_API_BASE_URL is required}
+        NEXT_PUBLIC_AUTH_ENABLED: ${NEXT_PUBLIC_AUTH_ENABLED:-true}
+    restart: unless-stopped
+    ports:
+      - "${FRONTEND_PORT:-3000}:3000"
+
+  # ---------------- profile: scheduler (exactly one node) ----------------
+  beat:
+    profiles: ["scheduler"]
+    build: ./backend
+    restart: unless-stopped
+    command: ["celery", "-A", "app.core.celery_app.celery_app", "beat", "--loglevel=info"]
+    environment:
+      <<: *app-env
+      RUN_MIGRATIONS: "0"
+    healthcheck:
+      disable: true
+
+  # ---------------- profile: control-plane (one node, small clusters) ----
   db:
+    profiles: ["control-plane"]
     image: postgres:16-alpine
+    restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-megoopm}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-megoopm}
+      # Empty makes the postgres image refuse to initialise — set it on the
+      # control-plane node's .env (and use the same value in DATABASE_URL).
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-}
       POSTGRES_DB: ${POSTGRES_DB:-megoopm}
+    ports:
+      - "${CONTROL_PLANE_BIND:-0.0.0.0}:${POSTGRES_PORT:-5432}:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -76,125 +168,35 @@ services:
       retries: 10
 
   redis:
+    profiles: ["control-plane"]
     image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - "${CONTROL_PLANE_BIND:-0.0.0.0}:${REDIS_PORT:-6379}:6379"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
       timeout: 3s
       retries: 10
 
-  # One-shot: lay out the shared root and hand it to the backend user (uid 1000)
-  # so app nodes can write renders/certs while nginx (root) reads them.
-  shared-init:
-    image: busybox:1.36
-    command: sh -c "mkdir -p /data/nginx/conf.d/stream /data/certs/_acme-challenge && chown -R 1000:1000 /data"
-    volumes:
-      - shared_data:/data
-
-  # Stateless API nodes. No published port — the LB fronts them. Scale with
-  # `--scale backend=N`. One node runs migrations; use RUN_MIGRATIONS on a
-  # dedicated migrator in production to avoid a startup race.
-  backend:
-    build: ./backend
-    environment: *app-env
-    volumes:
-      - shared_data:/data
-    depends_on:
-      db:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-      shared-init:
-        condition: service_completed_successfully
-    healthcheck:
-      test: ["CMD", "curl", "-fsS", "http://localhost:8000/health"]
-      interval: 15s
-      timeout: 5s
-      start_period: 20s
-      retries: 5
-
-  # Stateless workers. Each consumes the default queue AND the per-node
-  # broadcast reconcile queue, so a config change on any node fans out to every
-  # worker, which reloads its co-located nginx. Scale with `--scale worker=N`.
-  worker:
-    build: ./backend
-    command: ["celery", "-A", "app.core.celery_app.celery_app", "worker", "--loglevel=info"]
+  crowdsec:
+    profiles: ["control-plane"]
+    image: crowdsecurity/crowdsec:v1.6.4
+    restart: unless-stopped
     environment:
-      <<: *app-env
-      RUN_MIGRATIONS: "0"
-    volumes:
-      - shared_data:/data
-    depends_on:
-      redis:
-        condition: service_healthy
-      backend:
-        condition: service_started
-
-  # Exactly one scheduler. Periodic sweeps (cert renewal) are leader-locked, so
-  # even a second beat during a rollout cannot double-enqueue.
-  beat:
-    build: ./backend
-    command: ["celery", "-A", "app.core.celery_app.celery_app", "beat", "--loglevel=info"]
-    environment:
-      <<: *app-env
-      RUN_MIGRATIONS: "0"
-    depends_on:
-      redis:
-        condition: service_healthy
-
-  # Managed nginx data plane — two identical nodes reading the SAME shared
-  # conf.d/certs. The LB balances real traffic across them; each reloads
-  # independently when its node's worker processes a reconcile.
-  proxy1: &proxy
-    build: ./infra/nginx
-    environment:
-      CROWDSEC_LAPI_URL: http://crowdsec:8080
-      CROWDSEC_APPSEC_URL: http://crowdsec:7422
-      CROWDSEC_BOUNCER_KEY: ${CROWDSEC_BOUNCER_KEY:-megoopm-dev-bouncer-key}
-    volumes:
-      - ./infra/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-      - shared_data:/data
-    depends_on:
-      shared-init:
-        condition: service_completed_successfully
-    healthcheck:
-      test: ["CMD", "wget", "-q", "--spider", "http://localhost/healthz"]
-      interval: 15s
-      timeout: 5s
-      start_period: 10s
-      retries: 5
-
-  proxy2:
-    <<: *proxy
-
-  # External load balancer in front of the nginx data plane (and the API).
-  # Replace with your cloud L4/L7 LB in production; HAProxy here keeps the
-  # reference self-contained.
-  lb:
-    image: haproxy:2.9-alpine
-    volumes:
-      - ./infra/ha/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
+      DISABLE_ONLINE_API: "true"
+      BOUNCER_KEY_megoopm: ${CROWDSEC_BOUNCER_KEY:?}
+      COLLECTIONS: "crowdsecurity/appsec-virtual-patching crowdsecurity/appsec-generic-rules crowdsecurity/nginx"
     ports:
-      - "${NGINX_HTTP_PORT:-8080}:80"
-      - "${NGINX_HTTPS_PORT:-8443}:443"
-      - "${BACKEND_PORT:-8000}:8000"
-    depends_on:
-      - proxy1
-      - proxy2
-      - backend
+      - "${CONTROL_PLANE_BIND:-0.0.0.0}:${CROWDSEC_LAPI_PORT:-8080}:8080"
+      - "${CONTROL_PLANE_BIND:-0.0.0.0}:${CROWDSEC_APPSEC_PORT:-7422}:7422"
+    volumes:
+      - crowdsec_config:/etc/crowdsec
+      - crowdsec_data:/var/lib/crowdsec/data
+      - ./infra/crowdsec/acquis/appsec.yaml:/etc/crowdsec/acquis.d/appsec.yaml:ro
 
 volumes:
+  # Control-plane node only (local state of the shared services).
   pgdata:
-  # Shared data plane. LOCAL driver here (single-host demo). For a real cluster,
-  # make this an NFS volume so every HOST sees the same bytes — e.g.:
-  #
-  #   shared_data:
-  #     driver: local
-  #     driver_opts:
-  #       type: nfs
-  #       o: "addr=10.0.0.10,nfsvers=4.1,rw,hard,nolock=no,noatime"
-  #       device: ":/export/megoopm"
-  #
-  # nfsvers=4.1 (or v4.2) is required so byte-range/advisory locking works;
-  # avoid `nolock`. See docs/ha.md for the full rationale.
-  shared_data:
+  crowdsec_config:
+  crowdsec_data:

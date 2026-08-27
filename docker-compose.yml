@@ -90,7 +90,6 @@ services:
       - "${BACKEND_PORT:-8000}:8000"
     volumes:
       - app_data:/data
-      - /var/run/megoopm
     depends_on:
       db:
         condition: service_healthy
@@ -114,7 +113,6 @@ services:
       RUN_MIGRATIONS: "0"
     volumes:
       - app_data:/data
-      - /var/run/megoopm
     depends_on:
       redis:
         condition: service_healthy

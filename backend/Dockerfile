@@ -43,8 +43,11 @@ RUN sed -i 's/\r$//' ./entrypoint.sh ./worker-entrypoint.sh \
     && chmod +x ./entrypoint.sh ./worker-entrypoint.sh
 
 # Run as a non-root user.
+# /var/run/megoopm is the node-LOCAL run dir (fallback lock files + the HA
+# reload marker, see docs/ha.md); it must be writable by the app user.
 RUN useradd --create-home --uid 1000 appuser \
-    && chown -R appuser:appuser /app
+    && mkdir -p /var/run/megoopm \
+    && chown -R appuser:appuser /app /var/run/megoopm
 USER appuser
 
 EXPOSE 8000
