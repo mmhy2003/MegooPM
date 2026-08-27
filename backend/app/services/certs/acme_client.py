@@ -16,6 +16,7 @@ Keeping issuance behind a protocol is what makes the orchestration in
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -115,9 +116,7 @@ class SelfSignedIssuer:
         key = _generate_key()
         now = datetime.now(UTC)
         not_after = now + timedelta(days=self._valid_days)
-        subject = issuer = x509.Name(
-            [x509.NameAttribute(NameOID.COMMON_NAME, domain_names[0])]
-        )
+        subject = issuer = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, domain_names[0])])
         cert = (
             x509.CertificateBuilder()
             .subject_name(subject)
@@ -163,6 +162,7 @@ class AcmeIssuer:
         write_account_key,  # (pem: str) -> None
         challenge_type: str = ChallengeType.HTTP_01,
         dns_provider: DnsProvider | None = None,
+        propagation_check: Callable[[str, str], None] | None = None,
     ) -> None:
         self._directory_url = directory_url
         self._account_email = account_email
@@ -171,6 +171,9 @@ class AcmeIssuer:
         self._write_account_key = write_account_key
         self._challenge_type = challenge_type
         self._dns_provider = dns_provider
+        # DNS-01 only: called with (record name, value) after the provider has
+        # published the TXT record and before the challenge is answered.
+        self._propagation_check = propagation_check
 
     def _load_or_create_account_key(self):
         """Return a ``josepy`` JWK for the ACME account, creating one if needed."""
@@ -204,9 +207,7 @@ class AcmeIssuer:
         from acme import challenges
 
         want = (
-            challenges.HTTP01
-            if self._challenge_type == ChallengeType.HTTP_01
-            else challenges.DNS01
+            challenges.HTTP01 if self._challenge_type == ChallengeType.HTTP_01 else challenges.DNS01
         )
         for challb in authz.body.challenges:
             if isinstance(challb.chall, want):
@@ -245,9 +246,7 @@ class AcmeIssuer:
             not_valid_after=not_after,
         )
 
-    def _provision_challenge(
-        self, challb, domain: str, validation: str, cleanups: list
-    ) -> None:
+    def _provision_challenge(self, challb, domain: str, validation: str, cleanups: list) -> None:
         if self._challenge_type == ChallengeType.HTTP_01:
             token = challb.chall.encode("token")
             path = Path(self._http_challenge_dir)
@@ -258,6 +257,8 @@ class AcmeIssuer:
             name = challb.chall.validation_domain_name(domain)
             provider.set_txt_record(name, validation)
             cleanups.append((name, validation))
+            if self._propagation_check is not None:
+                self._propagation_check(name, validation)
 
     def _cleanup_challenges(self, cleanups: list) -> None:
         if self._challenge_type == ChallengeType.DNS_01 and self._dns_provider:

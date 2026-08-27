@@ -10,6 +10,7 @@ and an injected issuer, no database required.
 
 from __future__ import annotations
 
+import functools
 from datetime import UTC, datetime
 
 from cryptography import x509
@@ -25,6 +26,7 @@ from app.services.certs.acme_client import (
     DnsProvider,
     SelfSignedIssuer,
 )
+from app.services.certs.dns_providers.propagation import wait_for_txt
 from app.services.certs.validation import extract_domain_names
 
 
@@ -38,13 +40,22 @@ def build_issuer(
     ``self_signed`` (and any provider when ``acme_self_signed`` is on) yields a
     :class:`SelfSignedIssuer`; ``letsencrypt`` yields an :class:`AcmeIssuer`
     bound to the configured directory URL and challenge type. The challenge type
-    and DNS provider come from the certificate's ``meta`` (``challenge`` key).
+    and DNS provider come from the certificate's ``meta`` (``challenge`` key);
+    DNS-01 issuers also verify propagation on the authoritative nameservers
+    before answering.
     """
     if certificate.provider == CertificateProvider.self_signed or settings.acme_self_signed:
         return SelfSignedIssuer()
 
     meta = certificate.meta or {}
     challenge_type = meta.get("challenge", ChallengeType.HTTP_01)
+    propagation_check = None
+    if challenge_type == ChallengeType.DNS_01:
+        propagation_check = functools.partial(
+            wait_for_txt,
+            timeout_seconds=settings.acme_dns_propagation_timeout_seconds,
+            interval_seconds=settings.acme_dns_propagation_interval_seconds,
+        )
     return AcmeIssuer(
         directory_url=meta.get("directory_url") or settings.acme_directory_url,
         account_email=meta.get("account_email") or settings.acme_account_email,
@@ -62,6 +73,7 @@ def build_issuer(
         ),
         challenge_type=challenge_type,
         dns_provider=dns_provider,
+        propagation_check=propagation_check,
     )
 
 
@@ -97,9 +109,7 @@ def issue_for_certificate(
             privkey_pem=issued.privkey_pem,
         )
         leaf = x509.load_pem_x509_certificates(issued.fullchain_pem.encode())[0]
-        certificate.domain_names = extract_domain_names(leaf) or list(
-            certificate.domain_names
-        )
+        certificate.domain_names = extract_domain_names(leaf) or list(certificate.domain_names)
         certificate.expires_on = issued.not_valid_after
         certificate.status = CertificateStatus.active
         certificate.meta = {
