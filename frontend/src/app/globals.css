@@ -70,105 +70,111 @@
 }
 
 /*
- * Light theme.
- * Brand hue is indigo (~277). Surfaces are a hair cool rather than pure white
- * so cards (pure white) lift off the page — the reference dashboard's density
- * cue. Contrast ratios are tuned for WCAG AA on their intended surfaces.
+ * Light theme — "daylight city".
+ * Neon-noir palette in daylight: cool off-white surfaces with a faint cyan
+ * cast, white cards lifting off the page, deep violet-navy text. The brand hue
+ * is cyan-teal (~205), deepened so it passes AA on white; magenta (~340) is
+ * the accent/focus family. Contrast ratios are tuned for WCAG AA on their
+ * intended surfaces (see the dark block for the neon counterpart).
  */
 :root {
   --radius: 0.625rem;
 
-  --background: oklch(0.985 0.003 264);
-  --foreground: oklch(0.21 0.03 264);
+  --background: oklch(0.975 0.01 220);
+  --foreground: oklch(0.22 0.05 290);
 
   --card: oklch(1 0 0);
-  --card-foreground: oklch(0.21 0.03 264);
+  --card-foreground: oklch(0.22 0.05 290);
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.21 0.03 264);
+  --popover-foreground: oklch(0.22 0.05 290);
 
-  --primary: oklch(0.51 0.23 277);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.968 0.004 264);
-  --secondary-foreground: oklch(0.27 0.03 264);
-  --muted: oklch(0.968 0.004 264);
-  --muted-foreground: oklch(0.52 0.02 264);
-  --accent: oklch(0.955 0.014 277);
-  --accent-foreground: oklch(0.34 0.11 277);
+  --primary: oklch(0.50 0.14 205);
+  --primary-foreground: oklch(0.99 0.01 200);
+  --secondary: oklch(0.945 0.02 220);
+  --secondary-foreground: oklch(0.30 0.06 290);
+  --muted: oklch(0.95 0.015 220);
+  --muted-foreground: oklch(0.48 0.05 260);
+  --accent: oklch(0.94 0.05 335);
+  --accent-foreground: oklch(0.45 0.22 340);
 
-  --destructive: oklch(0.577 0.245 27.325);
-  --success: oklch(0.52 0.12 160);
-  --success-foreground: oklch(0.985 0 0);
-  --warning: oklch(0.55 0.13 65);
-  --warning-foreground: oklch(0.985 0 0);
+  --destructive: oklch(0.54 0.24 20);
+  --success: oklch(0.50 0.16 145);
+  --success-foreground: oklch(0.99 0.01 145);
+  --warning: oklch(0.54 0.15 70);
+  --warning-foreground: oklch(0.99 0.01 80);
 
-  --border: oklch(0.92 0.005 264);
-  --input: oklch(0.92 0.005 264);
-  --ring: oklch(0.51 0.23 277);
+  --border: oklch(0.86 0.04 210);
+  --input: oklch(0.86 0.04 210);
+  --ring: oklch(0.55 0.22 340);
 
-  --chart-1: oklch(0.51 0.23 277);
-  --chart-2: oklch(0.60 0.13 195);
-  --chart-3: oklch(0.70 0.15 75);
-  --chart-4: oklch(0.58 0.21 12);
-  --chart-5: oklch(0.62 0.16 150);
+  --chart-1: oklch(0.50 0.14 205);
+  --chart-2: oklch(0.55 0.24 340);
+  --chart-3: oklch(0.58 0.18 135);
+  --chart-4: oklch(0.65 0.16 70);
+  --chart-5: oklch(0.50 0.20 300);
 
-  --sidebar: oklch(0.975 0.004 264);
-  --sidebar-foreground: oklch(0.30 0.02 264);
-  --sidebar-primary: oklch(0.51 0.23 277);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.955 0.014 277);
-  --sidebar-accent-foreground: oklch(0.34 0.11 277);
-  --sidebar-border: oklch(0.92 0.005 264);
-  --sidebar-ring: oklch(0.51 0.23 277);
+  --sidebar: oklch(0.955 0.015 220);
+  --sidebar-foreground: oklch(0.30 0.05 290);
+  --sidebar-primary: oklch(0.50 0.14 205);
+  --sidebar-primary-foreground: oklch(0.99 0.01 200);
+  --sidebar-accent: oklch(0.93 0.05 335);
+  --sidebar-accent-foreground: oklch(0.45 0.22 340);
+  --sidebar-border: oklch(0.86 0.04 210);
+  --sidebar-ring: oklch(0.55 0.22 340);
 }
 
 /*
- * Dark theme.
- * Backgrounds are blue-tinted slate (not neutral black) so the indigo brand
- * reads as intentional. The sidebar is a touch darker than cards to separate
- * the nav rail from content, matching the reference shell.
+ * Dark theme — "neon noir".
+ * Near-black violet-blue surfaces (not neutral slate) so neon reads as light
+ * against night. Electric cyan (~195) is the brand/primary with *dark* text on
+ * it — neon is a light colour — and hot magenta (~340) is the accent and focus
+ * ring so hover/selected states and focus outlines glow. Semantic colours are
+ * neon lime / amber / red-pink, all with dark foregrounds. Borders are
+ * cyan-tinted translucent strips rather than grey hairlines. The sidebar is a
+ * step darker than cards to separate the nav rail from content.
  */
 .dark {
-  --background: oklch(0.18 0.015 264);
-  --foreground: oklch(0.98 0.002 264);
+  --background: oklch(0.15 0.03 285);
+  --foreground: oklch(0.95 0.02 200);
 
-  --card: oklch(0.22 0.017 264);
-  --card-foreground: oklch(0.98 0.002 264);
-  --popover: oklch(0.22 0.017 264);
-  --popover-foreground: oklch(0.98 0.002 264);
+  --card: oklch(0.19 0.035 285);
+  --card-foreground: oklch(0.95 0.02 200);
+  --popover: oklch(0.19 0.035 285);
+  --popover-foreground: oklch(0.95 0.02 200);
 
-  --primary: oklch(0.585 0.22 277);
-  --primary-foreground: oklch(0.985 0.005 277);
-  --secondary: oklch(0.27 0.02 264);
-  --secondary-foreground: oklch(0.98 0.002 264);
-  --muted: oklch(0.27 0.02 264);
-  --muted-foreground: oklch(0.72 0.02 264);
-  --accent: oklch(0.30 0.03 277);
-  --accent-foreground: oklch(0.92 0.03 277);
+  --primary: oklch(0.85 0.16 195);
+  --primary-foreground: oklch(0.15 0.03 285);
+  --secondary: oklch(0.26 0.05 295);
+  --secondary-foreground: oklch(0.93 0.02 200);
+  --muted: oklch(0.24 0.035 285);
+  --muted-foreground: oklch(0.72 0.04 215);
+  --accent: oklch(0.30 0.10 330);
+  --accent-foreground: oklch(0.88 0.17 340);
 
-  --destructive: oklch(0.70 0.19 22.2);
-  --success: oklch(0.74 0.15 158);
-  --success-foreground: oklch(0.20 0.02 264);
-  --warning: oklch(0.82 0.13 82);
-  --warning-foreground: oklch(0.20 0.02 264);
+  --destructive: oklch(0.70 0.24 15);
+  --success: oklch(0.85 0.22 135);
+  --success-foreground: oklch(0.15 0.03 285);
+  --warning: oklch(0.85 0.17 85);
+  --warning-foreground: oklch(0.15 0.03 285);
 
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 14%);
-  --ring: oklch(0.55 0.22 277);
+  --border: oklch(0.85 0.16 195 / 18%);
+  --input: oklch(0.85 0.16 195 / 22%);
+  --ring: oklch(0.72 0.26 340);
 
-  --chart-1: oklch(0.62 0.20 277);
-  --chart-2: oklch(0.70 0.13 195);
-  --chart-3: oklch(0.77 0.15 75);
-  --chart-4: oklch(0.65 0.21 14);
-  --chart-5: oklch(0.70 0.16 150);
+  --chart-1: oklch(0.85 0.16 195);
+  --chart-2: oklch(0.72 0.26 340);
+  --chart-3: oklch(0.85 0.22 135);
+  --chart-4: oklch(0.85 0.17 85);
+  --chart-5: oklch(0.70 0.20 300);
 
-  --sidebar: oklch(0.20 0.016 264);
-  --sidebar-foreground: oklch(0.92 0.005 264);
-  --sidebar-primary: oklch(0.585 0.22 277);
-  --sidebar-primary-foreground: oklch(0.985 0.005 277);
-  --sidebar-accent: oklch(0.30 0.03 277);
-  --sidebar-accent-foreground: oklch(0.92 0.03 277);
-  --sidebar-border: oklch(1 0 0 / 8%);
-  --sidebar-ring: oklch(0.55 0.22 277);
+  --sidebar: oklch(0.13 0.03 285);
+  --sidebar-foreground: oklch(0.88 0.03 210);
+  --sidebar-primary: oklch(0.85 0.16 195);
+  --sidebar-primary-foreground: oklch(0.15 0.03 285);
+  --sidebar-accent: oklch(0.28 0.10 330);
+  --sidebar-accent-foreground: oklch(0.88 0.17 340);
+  --sidebar-border: oklch(0.85 0.16 195 / 12%);
+  --sidebar-ring: oklch(0.72 0.26 340);
 }
 
 @layer base {
