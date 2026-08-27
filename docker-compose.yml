@@ -26,10 +26,15 @@ x-backend-env: &backend-env
   CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000}
   NGINX_CONFD_DIR: /etc/nginx/conf.d
   NGINX_CERTS_DIR: /etc/nginx/certs
-  # CrowdSec LAPI (MEG-22). The bouncer key drives the *read* path (decisions);
-  # machine creds (optional; register with `cscli machines add`) enable the
-  # alert read + manual-decision write paths. Left blank they simply disable
-  # those endpoints (503) rather than erroring.
+  # CrowdSec LAPI (MEG-22, MEG-43). Credentials are now DB-backed: on first use
+  # the backend self-registers its own LAPI machine (POST /v1/watchers) and
+  # stores the creds encrypted in Postgres (Fernet, keyed off SECRET_KEY above),
+  # so no manual `cscli machines add` is needed. The two vars below are an
+  # OPTIONAL bootstrap seed — when set on a fresh DB they are migrated in once
+  # (a zero-touch upgrade path for stacks already configured via env); leave
+  # them blank to let auto-registration provision the machine. The bouncer key
+  # still drives the nginx enforcement path and seeds the backend decision-read
+  # path (the backend falls back to its machine token when no bouncer key).
   CROWDSEC_LAPI_URL: http://crowdsec:8080
   CROWDSEC_LAPI_KEY: ${CROWDSEC_BOUNCER_KEY:-megoopm-dev-bouncer-key}
   CROWDSEC_MACHINE_ID: ${CROWDSEC_MACHINE_ID:-}

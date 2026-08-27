@@ -35,6 +35,10 @@ x-app-env: &app-env
   CELERY_BROKER_URL: redis://redis:6379/0
   CELERY_RESULT_BACKEND: redis://redis:6379/1
   CORS_ORIGINS: ${CORS_ORIGINS:-*}
+  # CrowdSec (MEG-43): no machine-cred env here on purpose — each backend node
+  # self-registers its LAPI machine on first use and reads the encrypted creds
+  # from the shared DB (Fernet, keyed off SECRET_KEY). The bouncer key stays on
+  # the proxy nodes (below) for the nginx enforcement path.
   # --- HA (MEG-35) ---
   HA_ENABLED: "true"
   # All mutable state under one shared root; every app node mounts it at /data.
