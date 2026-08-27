@@ -30,11 +30,15 @@ def test_password_reset_enforces_min_length() -> None:
     assert PasswordReset(password="longenough").password == "longenough"
 
 
-def test_password_change_enforces_new_password_min_length_only() -> None:
+def test_password_change_takes_only_the_new_password() -> None:
     with pytest.raises(ValidationError):
-        PasswordChange(current_password="whatever", new_password="short")
-    body = PasswordChange(current_password="x", new_password="longenough")
-    assert body.current_password == "x"
+        PasswordChange(new_password="short")
+    body = PasswordChange(new_password="longenough")
+    assert body.model_dump() == {"new_password": "longenough"}
+    # A stale client still sending current_password is tolerated (ignored).
+    assert PasswordChange(current_password="x", new_password="longenough").model_dump() == {  # type: ignore[call-arg]
+        "new_password": "longenough"
+    }
 
 
 def test_profile_update_rejects_role_changes() -> None:

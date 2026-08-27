@@ -41,3 +41,18 @@ describe("validateNewPassword", () => {
     expect(validateNewPassword("longenough", "longenough")).toBeNull();
   });
 });
+
+import { initials } from "@/components/users/lib";
+
+describe("initials", () => {
+  it("takes the first letters of the first and last name", () => {
+    expect(initials({ full_name: "Mohamed M. Hammad", email: "m@example.com" })).toBe("MH");
+    expect(initials({ full_name: "Ada", email: "ada@example.com" })).toBe("A");
+  });
+
+  it("falls back to the email's first letter, then a placeholder", () => {
+    expect(initials({ full_name: "", email: "admin@example.com" })).toBe("A");
+    expect(initials(null)).toBe("?");
+    expect(initials(undefined)).toBe("?");
+  });
+});

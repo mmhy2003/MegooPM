@@ -65,9 +65,9 @@ class PasswordReset(BaseModel):
 
 
 class PasswordChange(BaseModel):
-    """Self-service password change; the current password is re-verified."""
+    """Self-service password change. The signed-in session is the only proof
+    required — the current password is deliberately not re-verified."""
 
-    current_password: str = Field(min_length=1, max_length=128)
     new_password: str = Field(min_length=8, max_length=128)
 
 

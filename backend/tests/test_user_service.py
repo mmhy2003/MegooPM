@@ -125,20 +125,17 @@ async def test_set_password_replaces_credentials(session_factory):
         )
 
 
-async def test_change_own_password_requires_correct_current_password(session_factory):
+async def test_change_own_password_replaces_credentials_without_the_old_one(session_factory):
     m = await _make(session_factory, "m@example.com", UserRole.member)
     async with session_factory() as session:
         m = await user_service.get_by_id(session, m.id)
-        with pytest.raises(user_service.InvalidCurrentPasswordError):
-            await user_service.change_own_password(
-                session, m, current_password="wrong", new_password="brandnew123"
-            )
-        await user_service.change_own_password(
-            session, m, current_password="password123", new_password="brandnew123"
-        )
+        await user_service.change_own_password(session, m, new_password="brandnew123")
     async with session_factory() as session:
         assert await user_service.authenticate(
             session, email="m@example.com", password="brandnew123"
+        )
+        assert not await user_service.authenticate(
+            session, email="m@example.com", password="password123"
         )
 
 

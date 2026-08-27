@@ -46,7 +46,7 @@ ever created on an empty database, so deleting it later is safe. Sign in at
 http://localhost:3000/login (route guarding is off by default — set
 `NEXT_PUBLIC_AUTH_ENABLED=true` to require it).
 Admins manage accounts and roles at http://localhost:3000/users; everyone can
-change their own password at http://localhost:3000/account.
+change their own name and password at http://localhost:3000/profile (click the avatar).
 Wildcard / DNS-01 certificates: save your DNS provider's API credentials under
 Certificates → DNS providers, then pick them in the new-certificate dialog —
 see [`docs/certificates-dns01.md`](docs/certificates-dns01.md).

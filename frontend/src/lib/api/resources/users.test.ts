@@ -25,7 +25,7 @@ describe("users resource", () => {
     await users.resetPassword(7, { password: "brandnew123" });
     await users.remove(7);
     await users.updateMe({ full_name: "Me" });
-    await users.changeMyPassword({ current_password: "old", new_password: "brandnew123" });
+    await users.changeMyPassword({ new_password: "brandnew123" });
 
     expect(api.get).toHaveBeenCalledWith("/api/v1/users");
     expect(api.post).toHaveBeenCalledWith(
@@ -37,7 +37,6 @@ describe("users resource", () => {
     expect(api.delete).toHaveBeenCalledWith("/api/v1/users/7");
     expect(api.patch).toHaveBeenCalledWith("/api/v1/users/me", { full_name: "Me" });
     expect(api.put).toHaveBeenCalledWith("/api/v1/users/me/password", {
-      current_password: "old",
       new_password: "brandnew123",
     });
   });

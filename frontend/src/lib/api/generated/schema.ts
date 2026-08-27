@@ -951,7 +951,7 @@ export interface paths {
         get?: never;
         /**
          * Change Current User Password
-         * @description Change the caller's own password after re-verifying the current one.
+         * @description Change the caller's own password (no current-password check; the session is the proof).
          */
         put: operations["change_current_user_password_api_v1_users_me_password_put"];
         post?: never;
@@ -1959,11 +1959,10 @@ export interface components {
         };
         /**
          * PasswordChange
-         * @description Self-service password change; the current password is re-verified.
+         * @description Self-service password change. The signed-in session is the only proof
+         *     required — the current password is deliberately not re-verified.
          */
         PasswordChange: {
-            /** Current Password */
-            current_password: string;
             /** New Password */
             new_password: string;
         };

@@ -111,18 +111,8 @@ async def change_current_user_password(
     current_user: CurrentUser,
     db: SessionDep,
 ) -> None:
-    """Change the caller's own password after re-verifying the current one."""
-    try:
-        await user_service.change_own_password(
-            db,
-            current_user,
-            current_password=body.current_password,
-            new_password=body.new_password,
-        )
-    except user_service.InvalidCurrentPasswordError:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="Current password is incorrect"
-        ) from None
+    """Change the caller's own password (no current-password check; the session is the proof)."""
+    await user_service.change_own_password(db, current_user, new_password=body.new_password)
     await _audit(
         db,
         actor=current_user,

@@ -60,8 +60,9 @@ Body: `ProfileUpdate` = `{ full_name }` (nothing else is self-editable).
 → `200` `UserRead`. → `401` unauth, `422` on extra fields.
 
 ### `PUT /api/v1/users/me/password`  _(auth required)_
-Body: `PasswordChange` = `{ current_password, new_password (min 8) }`
-→ `204`. → `400 { "detail": "Current password is incorrect" }`, `401` unauth.
+Body: `PasswordChange` = `{ new_password (min 8) }` — the current password is
+**not** re-verified; a valid session is the only proof required.
+→ `204`. → `401` unauth, `422` when the new password is too short.
 
 ### `PATCH /api/v1/users/{id}`  _(admin only)_
 Body: `UserUpdate` = `{ full_name?, role?, is_active? }` — at least one; `email`

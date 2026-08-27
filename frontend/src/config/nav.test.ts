@@ -51,8 +51,9 @@ describe("navForRole", () => {
 });
 
 describe("utilityRoutes", () => {
-  it("names the account page, which is not in the sidebar", () => {
-    expect(utilityRoutes["/account"]).toBe("Account");
-    expect(primaryNav.some((i) => i.href === "/account")).toBe(false);
+  it("names the profile page, which is not in the sidebar", () => {
+    expect(utilityRoutes["/profile"]).toBe("Profile");
+    expect(utilityRoutes["/account"]).toBeUndefined();
+    expect(primaryNav.some((i) => i.href === "/profile")).toBe(false);
   });
 });

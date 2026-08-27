@@ -275,21 +275,21 @@ async def test_profile_update_requires_authentication(db_client: AsyncClient) ->
 async def test_member_changes_own_password(
     db_client: AsyncClient, member_token: str, session_factory: async_sessionmaker
 ) -> None:
-    wrong = await db_client.put(
-        f"{ME}/password",
-        headers=_auth(member_token),
-        json={"current_password": "nope", "new_password": "brandnew123"},
-    )
-    assert wrong.status_code == 400
-    assert wrong.json()["detail"] == "Current password is incorrect"
-
+    # No current-password check: a signed-in session is the only proof needed.
     ok = await db_client.put(
-        f"{ME}/password",
-        headers=_auth(member_token),
-        json={"current_password": "memberpass123", "new_password": "brandnew123"},
+        f"{ME}/password", headers=_auth(member_token), json={"new_password": "brandnew123"}
     )
     assert ok.status_code == 204, ok.text
     assert await _login(db_client, "member@example.com", "brandnew123")
+    old = await db_client.post(
+        "/api/v1/auth/login", json={"email": "member@example.com", "password": "memberpass123"}
+    )
+    assert old.status_code == 401
+
+    too_short = await db_client.put(
+        f"{ME}/password", headers=_auth(member_token), json={"new_password": "short"}
+    )
+    assert too_short.status_code == 422
 
     rows = await _audit_rows(session_factory)
     assert rows[-1].actor == "member@example.com"
@@ -298,7 +298,5 @@ async def test_member_changes_own_password(
 
 
 async def test_password_change_requires_authentication(db_client: AsyncClient) -> None:
-    resp = await db_client.put(
-        f"{ME}/password", json={"current_password": "a", "new_password": "brandnew123"}
-    )
+    resp = await db_client.put(f"{ME}/password", json={"new_password": "brandnew123"})
     assert resp.status_code == 401

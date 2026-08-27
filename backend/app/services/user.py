@@ -32,10 +32,6 @@ class UserProtectionError(Exception):
     """
 
 
-class InvalidCurrentPasswordError(Exception):
-    """Self-service password change supplied the wrong current password."""
-
-
 async def get_by_id(db: AsyncSession, user_id: int) -> User | None:
     """Return the user with ``user_id`` or ``None``."""
     return await db.get(User, user_id)
@@ -229,12 +225,9 @@ async def set_password(db: AsyncSession, user: User, password: str) -> None:
     await db.commit()
 
 
-async def change_own_password(
-    db: AsyncSession, user: User, *, current_password: str, new_password: str
-) -> None:
-    """Self-service change; raises :class:`InvalidCurrentPasswordError` on mismatch."""
-    if not verify_password(current_password, user.hashed_password):
-        raise InvalidCurrentPasswordError()
+async def change_own_password(db: AsyncSession, user: User, *, new_password: str) -> None:
+    """Self-service change. No current-password check by design: holding a
+    valid session for ``user`` is the only proof required."""
     user.hashed_password = hash_password(new_password)
     await db.commit()
 
@@ -248,7 +241,6 @@ async def delete_user(db: AsyncSession, user: User, *, actor: User) -> None:
 
 __all__ = [
     "EmailAlreadyExistsError",
-    "InvalidCurrentPasswordError",
     "UserProtectionError",
     "assert_no_lockout",
     "authenticate",

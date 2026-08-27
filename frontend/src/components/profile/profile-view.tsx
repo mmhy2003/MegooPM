@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { CircleUser } from "lucide-react";
+import { CircleUser, LogOut } from "lucide-react";
 import { toast } from "sonner";
 
 import { users } from "@/lib/api";
@@ -20,12 +20,12 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-export function AccountView() {
-  const { user, refreshUser } = useAuth();
+export function ProfileView() {
+  const { user, refreshUser, logout } = useAuth();
 
-  // --- profile. `AuthGuard` only renders the shell once the session user is
+  // --- name. `AuthGuard` only renders the shell once the session user is
   // known, so initialising from `user` here is safe; after a save we call
-  // `refreshUser()` so the topbar label reflects the new name.
+  // `refreshUser()` so the topbar avatar reflects the new name.
   const [fullName, setFullName] = useState(user?.full_name ?? "");
   const [profileError, setProfileError] = useState<string | null>(null);
   const [savingProfile, setSavingProfile] = useState(false);
@@ -45,7 +45,6 @@ export function AccountView() {
   }
 
   // --- password
-  const [current, setCurrent] = useState("");
   const [next, setNext] = useState("");
   const [confirm, setConfirm] = useState("");
   const [passwordError, setPasswordError] = useState<string | null>(null);
@@ -57,8 +56,7 @@ export function AccountView() {
     setPasswordError(null);
     setSavingPassword(true);
     try {
-      await users.changeMyPassword({ current_password: current, new_password: next });
-      setCurrent("");
+      await users.changeMyPassword({ new_password: next });
       setNext("");
       setConfirm("");
       toast.success("Password changed");
@@ -75,15 +73,18 @@ export function AccountView() {
         <div className="flex size-10 items-center justify-center rounded-lg bg-muted text-muted-foreground">
           <CircleUser className="size-5" />
         </div>
-        <div>
-          <h2 className="text-xl font-semibold tracking-tight">Account</h2>
-          <p className="text-sm text-muted-foreground">Your profile and sign-in password.</p>
+        <div className="flex-1">
+          <h2 className="text-xl font-semibold tracking-tight">Profile</h2>
+          <p className="text-sm text-muted-foreground">Your name and sign-in password.</p>
         </div>
+        <Button variant="outline" size="sm" onClick={logout}>
+          <LogOut /> Sign out
+        </Button>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Profile</CardTitle>
+          <CardTitle className="text-base">Name</CardTitle>
           <CardDescription>How your name appears in the app and in the audit log.</CardDescription>
         </CardHeader>
         <CardContent className="grid gap-4">
@@ -108,7 +109,7 @@ export function AccountView() {
         </CardContent>
         <CardFooter className="justify-end">
           <Button onClick={saveProfile} disabled={savingProfile}>
-            {savingProfile ? "Saving…" : "Save profile"}
+            {savingProfile ? "Saving…" : "Save name"}
           </Button>
         </CardFooter>
       </Card>
@@ -116,20 +117,9 @@ export function AccountView() {
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Password</CardTitle>
-          <CardDescription>Re-enter your current password to set a new one.</CardDescription>
+          <CardDescription>Choose a new password (at least 8 characters).</CardDescription>
         </CardHeader>
         <CardContent className="grid gap-4">
-          <div className="space-y-1.5">
-            <Label htmlFor="account-current">Current password</Label>
-            <Input
-              id="account-current"
-              type="password"
-              autoComplete="current-password"
-              value={current}
-              onChange={(e) => setCurrent(e.target.value)}
-              disabled={savingPassword}
-            />
-          </div>
           <div className="space-y-1.5">
             <Label htmlFor="account-new">New password</Label>
             <Input

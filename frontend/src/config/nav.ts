@@ -89,9 +89,9 @@ export function navForRole(role: "admin" | "member" | null | undefined): NavItem
 }
 
 /**
- * Pages reachable from the account menu rather than the sidebar. The topbar
+ * Pages reachable from the topbar avatar rather than the sidebar. The topbar
  * uses this to title them; they are deliberately absent from `primaryNav`.
  */
 export const utilityRoutes: Record<string, string> = {
-  "/account": "Account",
+  "/profile": "Profile",
 };

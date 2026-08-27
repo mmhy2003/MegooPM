@@ -20,6 +20,20 @@ export function isSelf(
   return current != null && current.id === user.id;
 }
 
+/**
+ * Avatar initials: first letters of the first and last words of the name
+ * ("Mohamed M. Hammad" → "MH"), else the email's first letter, else "?".
+ */
+export function initials(user: Pick<User, "full_name" | "email"> | null | undefined): string {
+  if (!user) return "?";
+  const words = user.full_name.trim().split(/\s+/).filter(Boolean);
+  if (words.length >= 2) {
+    return (words[0][0] + words[words.length - 1][0]).toUpperCase();
+  }
+  if (words.length === 1) return words[0][0].toUpperCase();
+  return user.email.trim() ? user.email.trim()[0].toUpperCase() : "?";
+}
+
 /** Client-side pre-check for password forms; returns a message or `null` when valid. */
 export function validateNewPassword(password: string, confirm: string): string | null {
   if (password.length < MIN_PASSWORD_LENGTH) {

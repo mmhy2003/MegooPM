@@ -40,7 +40,7 @@ frontend/src/
 ├── components/
 │   ├── ui/                   shadcn primitives — do NOT hand-edit; re-add via CLI
 │   ├── app-sidebar.tsx       Primary navigation
-│   ├── app-topbar.tsx        Top bar (trigger, title, theme, account)
+│   ├── app-topbar.tsx        Top bar (trigger, title, theme, profile avatar)
 │   └── providers.tsx         Client provider stack (theme, tooltip, toaster)
 ├── config/nav.ts             Sidebar nav (+ `adminOnly` items, `navForRole`, `utilityRoutes`)
 ├── lib/
@@ -156,5 +156,5 @@ tests — nothing here needs to be re-scaffolded.
 
 Admin-only areas set `adminOnly: true` on their `NavItem`; the sidebar renders
 `navForRole(user.role)` so members never see them (the API's 403 is the real
-gate). Pages reached from the account menu rather than the sidebar (e.g.
-`/account`) are titled via `utilityRoutes` instead of a nav entry.
+gate). Pages reached from the topbar avatar rather than the sidebar (e.g.
+`/profile`) are titled via `utilityRoutes` instead of a nav entry.

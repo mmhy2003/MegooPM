@@ -2,22 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { CircleUser, LogOut, UserCog } from "lucide-react";
 
 import { primaryNav, utilityRoutes } from "@/config/nav";
 import { useAuth } from "@/lib/auth/context";
 import { ModeToggle } from "@/components/mode-toggle";
-import { Button } from "@/components/ui/button";
+import { displayName, initials } from "@/components/users/lib";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
 import { SidebarTrigger } from "@/components/ui/sidebar";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 
 function currentTitle(pathname: string): string {
   const match = primaryNav.find(
@@ -28,8 +20,8 @@ function currentTitle(pathname: string): string {
 
 export function AppTopbar() {
   const pathname = usePathname();
-  const { user, logout } = useAuth();
-  const accountLabel = user?.full_name || user?.email || "Account";
+  const { user } = useAuth();
+  const name = user ? displayName(user) : "Profile";
 
   return (
     <header className="bg-background/80 supports-[backdrop-filter]:bg-background/60 sticky top-0 z-10 flex h-14 shrink-0 items-center gap-2 border-b px-4 backdrop-blur">
@@ -39,25 +31,19 @@ export function AppTopbar() {
 
       <div className="ml-auto flex items-center gap-1">
         <ModeToggle />
-        <DropdownMenu>
-          <DropdownMenuTrigger
-            render={<Button variant="ghost" size="icon" aria-label="Account" />}
-          >
-            <CircleUser className="size-5" />
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-56">
-            <DropdownMenuLabel className="truncate">{accountLabel}</DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem render={<Link href="/account" />}>
-              <UserCog className="size-4" />
-              Account
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={logout}>
-              <LogOut className="size-4" />
-              Sign out
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        {/* The avatar opens the profile page directly; sign-out lives there. */}
+        <Link
+          href="/profile"
+          aria-label="Profile"
+          title={name}
+          className="rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          <Avatar className="size-8">
+            <AvatarFallback className="bg-primary text-xs font-semibold text-primary-foreground">
+              {initials(user)}
+            </AvatarFallback>
+          </Avatar>
+        </Link>
       </div>
     </header>
   );
