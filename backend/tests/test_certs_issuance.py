@@ -144,3 +144,62 @@ def test_build_issuer_wires_propagation_check_only_for_dns01() -> None:
 
     assert build_issuer(dns_cert)._propagation_check is not None
     assert build_issuer(http_cert)._propagation_check is None
+
+
+def _acme_issuer_no_store() -> AcmeIssuer:
+    return AcmeIssuer(
+        directory_url="https://acme.test/directory",
+        account_email="ops@example.com",
+        http_challenge_dir="/tmp/unused",
+        read_account_key=lambda: None,
+        write_account_key=lambda pem: None,
+    )
+
+
+def _stub_directory(monkeypatch) -> None:
+    from acme import client, messages
+
+    directory = messages.Directory.from_json({"newAccount": "https://acme.test/new-acct"})
+    monkeypatch.setattr(
+        client.ClientV2, "get_directory", classmethod(lambda cls, url, net: directory)
+    )
+
+
+def test_new_client_reuses_existing_account_url_on_conflict(monkeypatch) -> None:
+    """Regression: with a persisted account key the ACME server answers newAccount
+    with 200 + Location, which acme-python raises as ``ConflictError``. Swallowing
+    it left ``net.account`` unset, so every later request had no ``kid`` and the
+    second issuance (and every renewal) failed with
+    "Unable to validate JWS :: No Key ID in JWS header"."""
+    import josepy as jose
+    from acme import client, errors
+    from app.services.certs.acme_client import _generate_key
+
+    _stub_directory(monkeypatch)
+
+    def conflict(self, new_account):
+        raise errors.ConflictError("https://acme.test/acct/42")
+
+    monkeypatch.setattr(client.ClientV2, "new_account", conflict)
+
+    acme_client = _acme_issuer_no_store()._new_client(jose.JWKRSA(key=_generate_key()))
+
+    assert acme_client.net.account is not None
+    assert acme_client.net.account["uri"] == "https://acme.test/acct/42"
+
+
+def test_new_client_surfaces_registration_errors(monkeypatch) -> None:
+    """Anything other than "account already exists" must not be hidden."""
+    import josepy as jose
+    from acme import client, errors
+    from app.services.certs.acme_client import _generate_key
+
+    _stub_directory(monkeypatch)
+
+    def rejected(self, new_account):
+        raise errors.Error("invalid contact")
+
+    monkeypatch.setattr(client.ClientV2, "new_account", rejected)
+
+    with pytest.raises(errors.Error, match="invalid contact"):
+        _acme_issuer_no_store()._new_client(jose.JWKRSA(key=_generate_key()))

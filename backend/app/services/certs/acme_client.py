@@ -188,7 +188,7 @@ class AcmeIssuer:
         return jose.JWKRSA(key=key)
 
     def _new_client(self, account_jwk):
-        from acme import client, messages
+        from acme import client, errors, messages
 
         net = client.ClientNetwork(account_jwk, user_agent="megoopm-acme")
         directory = client.ClientV2.get_directory(self._directory_url, net)
@@ -198,9 +198,16 @@ class AcmeIssuer:
         )
         try:
             acme_client.new_account(registration)
-        except Exception:
-            # Already-registered account keys raise; that is fine — reuse it.
-            pass
+        except errors.ConflictError as exc:
+            # The key is already registered: the server answered newAccount with
+            # 200 + Location instead of 201, which acme-python raises as
+            # ConflictError(location) *without* setting ``net.account``. Adopt the
+            # URL, otherwise every later request lacks the ``kid`` header and the
+            # CA rejects it ("Unable to validate JWS :: No Key ID in JWS header")
+            # — which broke every issuance after the first, renewals included.
+            acme_client.net.account = messages.RegistrationResource(
+                uri=exc.location, body=messages.Registration()
+            )
         return acme_client
 
     def _select_challenge(self, authz, account_jwk):
