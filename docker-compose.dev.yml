@@ -1,0 +1,239 @@
+# MegooPM — development stack with hot reload.
+#
+#   docker compose -f docker-compose.dev.yml up --build     # or: make up
+#
+# * backend / worker: ./backend is bind-mounted; uvicorn runs with --reload and
+#   the Celery worker restarts under `watchfiles` when Python files change.
+# * frontend: ./frontend is bind-mounted into the `dev` image target (next dev).
+# * Polling is on for both so edits propagate through Docker Desktop bind mounts
+#   on Windows/macOS.
+#
+# The project name stays `megoopm` on purpose: the named volumes the previous
+# docker-compose.yml created (pgdata, nginx_confd, nginx_certs, crowdsec_*)
+# are reused, so your dev database, certificates and hosts survive.
+#
+# Production: docker-compose.yml (single node) / docker-compose.ha.yml (per node).
+# Every variable has a safe dev default; a .env is optional (see .env.example).
+
+name: megoopm
+
+x-backend-env: &backend-env
+  ENVIRONMENT: ${ENVIRONMENT:-development}
+  DEBUG: ${DEBUG:-true}
+  SECRET_KEY: ${SECRET_KEY:-change-me-in-production}
+  DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-megoopm}:${POSTGRES_PASSWORD:-megoopm}@db:5432/${POSTGRES_DB:-megoopm}
+  REDIS_URL: redis://redis:6379/0
+  CELERY_BROKER_URL: redis://redis:6379/0
+  CELERY_RESULT_BACKEND: redis://redis:6379/1
+  CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000}
+  # One storage layout in every topology (docs/ha.md §2): rendered vhosts,
+  # stream forwards and certs live under /data; nginx includes them from there.
+  SHARED_DATA_DIR: /data
+  HA_ENABLED: "false"
+  HA_LOCK_DIR: /var/run/megoopm
+  # Worker -> nginx validate/reload goes through the in-container reload agent
+  # (infra/nginx/reload-agent.sh); no Docker socket, not even in dev.
+  NGINX_TEST_COMMAND: "python -m scripts.nginx_remote test"
+  NGINX_RELOAD_COMMAND: "python -m scripts.nginx_remote reload"
+  NGINX_AGENT_ADDR: nginx:9099
+  NGINX_RELOAD_TOKEN: ${NGINX_RELOAD_TOKEN:-megoopm-dev-reload-token}
+  # ACME: staging by default in dev (unthrottled, untrusted certificates).
+  ACME_DIRECTORY_URL: ${ACME_DIRECTORY_URL:-https://acme-staging-v02.api.letsencrypt.org/directory}
+  ACME_ACCOUNT_EMAIL: ${ACME_ACCOUNT_EMAIL:-}
+  ACME_DNS_PROPAGATION_TIMEOUT_SECONDS: ${ACME_DNS_PROPAGATION_TIMEOUT_SECONDS:-120}
+  ACME_DNS_PROPAGATION_INTERVAL_SECONDS: ${ACME_DNS_PROPAGATION_INTERVAL_SECONDS:-5}
+  ACME_DNS_PROPAGATION_SETTLE_SECONDS: ${ACME_DNS_PROPAGATION_SETTLE_SECONDS:-10}
+  # CrowdSec LAPI (docs/crowdsec.md). Machine creds are DB-backed; the two
+  # optional vars are a one-time bootstrap seed.
+  CROWDSEC_LAPI_URL: http://crowdsec:8080
+  CROWDSEC_LAPI_KEY: ${CROWDSEC_BOUNCER_KEY:-megoopm-dev-bouncer-key}
+  CROWDSEC_MACHINE_ID: ${CROWDSEC_MACHINE_ID:-}
+  CROWDSEC_MACHINE_PASSWORD: ${CROWDSEC_MACHINE_PASSWORD:-}
+  # Initial admin, seeded only while the users table is empty.
+  FIRST_ADMIN_EMAIL: ${FIRST_ADMIN_EMAIL:-admin@example.com}
+  FIRST_ADMIN_PASSWORD: ${FIRST_ADMIN_PASSWORD:-changeme}
+  # inotify events do not cross Docker Desktop bind mounts: poll instead.
+  WATCHFILES_FORCE_POLLING: "true"
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-megoopm}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-megoopm}
+      POSTGRES_DB: ${POSTGRES_DB:-megoopm}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-megoopm} -d ${POSTGRES_DB:-megoopm}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # One-shot: lay out /data and hand it to the backend user (uid 1000) so the
+  # backend/worker can write renders and certs while nginx (root) reads them.
+  data-init:
+    image: busybox:1.36
+    command:
+      - sh
+      - -c
+      - "mkdir -p /data/nginx/conf.d/stream /data/certs/_acme-challenge && chown -R 1000:1000 /data || { echo 'data-init: cannot prepare /data for uid 1000' >&2; exit 1; }"
+    volumes:
+      - nginx_confd:/data/nginx/conf.d
+      - nginx_certs:/data/certs
+
+  backend:
+    build: ./backend
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+    environment: *backend-env
+    ports:
+      - "${BACKEND_PORT:-8000}:8000"
+    volumes:
+      - ./backend:/app
+      - nginx_confd:/data/nginx/conf.d
+      - nginx_certs:/data/certs
+      - /var/run/megoopm
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      data-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 5s
+      start_period: 20s
+      retries: 5
+
+  worker:
+    build: ./backend
+    # `watchfiles` restarts the Celery worker when a .py file under app/ changes.
+    command:
+      [
+        "watchfiles",
+        "--filter", "python",
+        "celery -A app.core.celery_app.celery_app worker --loglevel=info",
+        "app",
+      ]
+    environment:
+      <<: *backend-env
+      RUN_MIGRATIONS: "0"
+    volumes:
+      - ./backend:/app
+      - nginx_confd:/data/nginx/conf.d
+      - nginx_certs:/data/certs
+      - /var/run/megoopm
+    depends_on:
+      redis:
+        condition: service_healthy
+      backend:
+        condition: service_healthy
+      nginx:
+        condition: service_started
+      data-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "celery", "-A", "app.core.celery_app.celery_app", "inspect", "ping"]
+      interval: 20s
+      timeout: 10s
+      start_period: 25s
+      retries: 5
+
+  beat:
+    build: ./backend
+    command: ["celery", "-A", "app.core.celery_app.celery_app", "beat", "--loglevel=info"]
+    environment:
+      <<: *backend-env
+      RUN_MIGRATIONS: "0"
+    volumes:
+      - ./backend:/app
+    # No honest liveness probe for the scheduler (MEG-41); watch its logs.
+    healthcheck:
+      disable: true
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ./frontend
+      target: dev
+    environment:
+      NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:8000}
+      NEXT_PUBLIC_AUTH_ENABLED: ${NEXT_PUBLIC_AUTH_ENABLED:-false}
+      WATCHPACK_POLLING: "true"
+      CHOKIDAR_USEPOLLING: "true"
+    ports:
+      - "${FRONTEND_PORT:-3000}:3000"
+    volumes:
+      - ./frontend:/app
+      # Keep the image's installed dependencies and build cache out of the
+      # bind mount (anonymous volumes shadow those paths).
+      - /app/node_modules
+      - /app/.next
+    depends_on:
+      backend:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/"]
+      interval: 15s
+      timeout: 15s
+      start_period: 60s
+      retries: 10
+
+  # The managed nginx (OpenResty + CrowdSec bouncer + reload agent).
+  nginx:
+    build: ./infra/nginx
+    environment:
+      CROWDSEC_LAPI_URL: http://crowdsec:8080
+      CROWDSEC_APPSEC_URL: http://crowdsec:7422
+      CROWDSEC_BOUNCER_KEY: ${CROWDSEC_BOUNCER_KEY:-megoopm-dev-bouncer-key}
+      NGINX_RELOAD_TOKEN: ${NGINX_RELOAD_TOKEN:-megoopm-dev-reload-token}
+    ports:
+      - "${NGINX_HTTP_PORT:-8080}:80"
+      - "${NGINX_HTTPS_PORT:-8443}:443"
+    volumes:
+      - ./infra/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - nginx_confd:/data/nginx/conf.d
+      - nginx_certs:/data/certs:ro
+    depends_on:
+      data-init:
+        condition: service_completed_successfully
+      crowdsec:
+        condition: service_started
+
+  crowdsec:
+    image: crowdsecurity/crowdsec:v1.6.4
+    environment:
+      DISABLE_ONLINE_API: "true"
+      BOUNCER_KEY_megoopm: ${CROWDSEC_BOUNCER_KEY:-megoopm-dev-bouncer-key}
+      COLLECTIONS: "crowdsecurity/appsec-virtual-patching crowdsecurity/appsec-generic-rules crowdsecurity/nginx"
+    expose:
+      - "8080"
+      - "7422"
+    volumes:
+      - crowdsec_config:/etc/crowdsec
+      - crowdsec_data:/var/lib/crowdsec/data
+      # Bind the acquis FILE, not the directory (MEG-36 Defect A).
+      - ./infra/crowdsec/acquis/appsec.yaml:/etc/crowdsec/acquis.d/appsec.yaml:ro
+
+volumes:
+  pgdata:
+  nginx_confd:
+  nginx_certs:
+  crowdsec_config:
+  crowdsec_data:
