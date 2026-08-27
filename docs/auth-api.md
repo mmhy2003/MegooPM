@@ -55,6 +55,43 @@ Alias of `auth/me`, for symmetry with the users resource.
 Body: `UserCreate` = `{ email, password (min 8), full_name?, role?, is_active? }`
 → `201` `UserRead`. → `401`/`403` per RBAC, `409` if the email is taken.
 
+### `PATCH /api/v1/users/me`  _(auth required)_
+Body: `ProfileUpdate` = `{ full_name }` (nothing else is self-editable).
+→ `200` `UserRead`. → `401` unauth, `422` on extra fields.
+
+### `PUT /api/v1/users/me/password`  _(auth required)_
+Body: `PasswordChange` = `{ current_password, new_password (min 8) }`
+→ `204`. → `400 { "detail": "Current password is incorrect" }`, `401` unauth.
+
+### `PATCH /api/v1/users/{id}`  _(admin only)_
+Body: `UserUpdate` = `{ full_name?, role?, is_active? }` — at least one; `email`
+is immutable and rejected with `422`.
+→ `200` `UserRead`. → `404` unknown id, `409` under the lock-out rules below.
+
+### `PUT /api/v1/users/{id}/password`  _(admin only)_
+Body: `PasswordReset` = `{ password (min 8) }`. → `204`. → `404` unknown id.
+
+### `DELETE /api/v1/users/{id}`  _(admin only)_
+Hard delete. → `204`. → `404` unknown id, `409` under the lock-out rules.
+
+## Lock-out rules (409)
+
+Enforced in `app/services/user.py::assert_no_lockout` for every admin mutation:
+
+1. You cannot change your own role, deactivate yourself, or delete yourself.
+2. The last **active** admin cannot be demoted, deactivated, or deleted.
+
+Effects are immediate: roles are read from the DB per request, and tokens of
+inactive/deleted users are rejected with `401`.
+
+## Audit
+
+Every user mutation writes one `audit_log` row (`object_type="user"`):
+`create` / `update` (with `meta.changes = {field: [before, after]}`) /
+`enable` / `disable` (a lone `is_active` flip) / `delete` (`meta.email`,
+`meta.role`). Password operations log `update` with
+`{"password_reset": true}` or `{"password_changed": true}` — never a password.
+
 ### `UserRead` shape
 `{ id, email, full_name, role, is_active, created_at, updated_at }` — no password.
 

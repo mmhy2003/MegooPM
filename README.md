@@ -45,6 +45,8 @@ to pick your own, and change the password after signing in. The account is only
 ever created on an empty database, so deleting it later is safe. Sign in at
 http://localhost:3000/login (route guarding is off by default — set
 `NEXT_PUBLIC_AUTH_ENABLED=true` to require it).
+Admins manage accounts and roles at http://localhost:3000/users; everyone can
+change their own password at http://localhost:3000/account.
 
 The frontend reaches the backend at `NEXT_PUBLIC_API_BASE_URL`
 (default `http://localhost:8000`). The backend writes managed vhosts and TLS

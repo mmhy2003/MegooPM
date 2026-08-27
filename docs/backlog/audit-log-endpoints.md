@@ -21,7 +21,9 @@ acceptance criteria that the current code does not yet meet.
    object_id=None, meta=None)`, and call it from the create/update/delete/enable/
    disable handlers of privileged resources (proxy hosts, upstreams,
    certificates, access lists, streams, users …). `actor` comes from the
-   authenticated principal (nullable for system actions).
+   authenticated principal (nullable for system actions). Users are covered as
+   of the user-management change (create/update/enable/disable/delete +
+   password events; see `docs/auth-api.md#audit`).
 3. **A read endpoint**, e.g. `GET /api/v1/audit-log`, returning entries newest
    first with pagination and filters (`object_type`, `object_id`, `actor`,
    `action`). Access should be restricted to privileged/admin users.
