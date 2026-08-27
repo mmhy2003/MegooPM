@@ -6,12 +6,14 @@
 #
 # The image stays a drop-in replacement for the previous `nginx:1.27-alpine`
 # service: it still reads /etc/nginx/nginx.conf and `include`s the backend's
-# managed vhosts from /etc/nginx/conf.d. Secrets are NOT baked in — the
-# entrypoint substitutes ${CROWDSEC_*} from the environment at start.
+# managed vhosts from /data/nginx/conf.d. Secrets are NOT baked in — the
+# entrypoint substitutes ${CROWDSEC_*} from the environment at start. It also
+# hosts the token-gated reload agent the worker uses instead of a Docker socket.
 FROM openresty/openresty:1.25.3.2-alpine-fat
 
-# envsubst (gettext) renders the bouncer config from the environment at runtime.
-RUN apk add --no-cache gettext ca-certificates
+# envsubst (gettext) renders the bouncer config from the environment at runtime;
+# socat serves the reload agent (see reload-agent.sh / docker-entrypoint.sh).
+RUN apk add --no-cache gettext ca-certificates socat
 
 # lua-resty deps the CrowdSec bouncer requires (`resty.http`, `resty.string`).
 # These DO live on OPM, but under the right accounts: `resty.http` is published
@@ -52,6 +54,7 @@ RUN rm -f /etc/nginx/conf.d/default.conf
 COPY crowdsec-bouncer.conf /etc/nginx/crowdsec-bouncer.conf.template
 COPY lua/ /etc/nginx/lua/
 COPY docker-entrypoint.sh /docker-entrypoint.sh
+COPY reload-agent.sh /reload-agent.sh
 # Strip any CR from the entrypoint before making it executable. If the build
 # context was checked out with CRLF line endings (Windows / core.autocrlf=true)
 # the `#!/bin/sh` shebang carries a trailing \r, the kernel looks for an
@@ -59,9 +62,15 @@ COPY docker-entrypoint.sh /docker-entrypoint.sh
 #   exec /docker-entrypoint.sh: no such file or directory
 # The repo .gitattributes pins *.sh to eol=lf; this mirrors backend/Dockerfile
 # as defence-in-depth so an already-CRLF checkout still builds a working image.
-RUN sed -i 's/\r$//' /docker-entrypoint.sh \
-    && chmod +x /docker-entrypoint.sh
+RUN sed -i 's/\r$//' /docker-entrypoint.sh /reload-agent.sh \
+    && chmod +x /docker-entrypoint.sh /reload-agent.sh
 
 EXPOSE 80 443
+
+# Healthy = nginx answers /healthz AND the reload agent answers `ping` with the
+# configured token (compose passes NGINX_RELOAD_TOKEN into the container).
+HEALTHCHECK --interval=15s --timeout=5s --start-period=10s --retries=5 \
+    CMD sh -c 'wget -q --spider http://127.0.0.1/healthz && printf "%s ping\n" "$NGINX_RELOAD_TOKEN" | socat -T3 - TCP:127.0.0.1:9099 | grep -q pong'
+
 ENTRYPOINT ["/docker-entrypoint.sh"]
 CMD ["openresty", "-p", "/usr/local/openresty/nginx", "-c", "/etc/nginx/nginx.conf", "-g", "daemon off;"]
