@@ -410,7 +410,7 @@ export interface paths {
         };
         /**
          * Crowdsec Health
-         * @description Report whether LAPI is configured and reachable (never errors).
+         * @description Report whether LAPI is configured, reachable, and has our machine (never errors).
          */
         get: operations["crowdsec_health_api_v1_crowdsec_health_get"];
         put?: never;
@@ -1517,7 +1517,7 @@ export interface components {
         CertificateStatus: "pending" | "active" | "failed" | "expired";
         /**
          * CrowdSecHealth
-         * @description Whether the LAPI integration is configured and reachable.
+         * @description Whether the LAPI integration is configured, reachable, and has a machine.
          */
         CrowdSecHealth: {
             /** Configured */
@@ -1526,6 +1526,8 @@ export interface components {
             detail?: string | null;
             /** Lapi Url */
             lapi_url: string;
+            /** Machine Registered */
+            machine_registered: boolean;
             /** Reachable */
             reachable: boolean;
         };

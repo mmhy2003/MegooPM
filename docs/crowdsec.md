@@ -112,17 +112,28 @@ cache invalidated on any write):
 3. Else → unconfigured (health reports it; routes 503, never 500).
 
 **Registration mechanism** (`app/services/crowdsec/registration.py`,
-`ensure_registered()` — run best-effort at app startup and idempotent):
+`ensure_registered()` — run best-effort at app startup **and** by the
+request-scoped client dependency, cached and idempotent):
 
-- **Machine:** self-registered over LAPI HTTP via `POST /v1/watchers` with a
-  generated `machine_id` (`{origin}-{random}`) and a strong random password,
-  then persisted encrypted. Registration is idempotent (an already-existing
-  machine → LAPI `403` → treated as success).
-  - ⚠️ **Live-stack caveat:** whether a freshly registered machine is
-    *auto-validated* depends on the LAPI's `auto_registration` config. If the
-    LAPI does not auto-validate, an operator/QA must run
-    `docker compose exec crowdsec cscli machines validate <machine_id>` once.
-    This is the one live dependency to confirm on the CrowdSec QA gate.
+- **Machine:** whenever the resolved credentials have no machine — no row at
+  all, or a row seeded from the environment with only the bouncer key (which is
+  what every compose stack passes) — the backend self-registers one over LAPI
+  HTTP via `POST /v1/watchers` with a generated `machine_id`
+  (`{origin}-{random}`) and a strong random password, keeping the existing
+  bouncer key, then persists it encrypted. Registration is idempotent (an
+  already-existing machine → LAPI `403` → treated as success).
+  - **Auto-validation:** the request carries `registration_token` =
+    `CROWDSEC_REGISTRATION_TOKEN`. The stacks mount
+    `infra/crowdsec/config.yaml.local`, which enables LAPI's
+    `api.server.auto_registration` with the same token (expanded from the
+    CrowdSec container's environment) and private `allowed_ranges`, so the
+    machine is validated on the spot — no `cscli machines validate`. Without a
+    token the machine still registers but stays pending until an operator
+    validates it. The health endpoint reports `machine_registered`, and the
+    Security page shows a warning while it is false.
+  - A seeded `CROWDSEC_MACHINE_ID`/`PASSWORD` must belong to **this** LAPI: a
+    machine created on another CrowdSec instance fails login with
+    `machine not found` (HTTP 401 → API 503).
 - **Bouncer key:** CrowdSec exposes **no** LAPI HTTP endpoint to mint a bouncer
   key (`cscli bouncers add` writes the engine DB directly). So the bouncer key
   is **optional** for the backend: it is used for the decision-read path when
@@ -152,8 +163,15 @@ Environment (see `.env.example`, all optional):
   (when set) the backend decision-read path. CrowdSec auto-registers the nginx
   bouncer via `BOUNCER_KEY_megoopm`. Optional for the backend — it falls back to
   the machine token to read decisions.
+- `CROWDSEC_REGISTRATION_TOKEN` — LAPI auto-registration token (>= 32 chars),
+  passed to **both** the CrowdSec container (where
+  `infra/crowdsec/config.yaml.local` expands it into
+  `api.server.auto_registration.token`) and the backend (sent as
+  `registration_token` when self-registering), so the machine is validated
+  without `cscli`. Required in the production compose files; defaulted in dev.
 - `CROWDSEC_MACHINE_ID` / `CROWDSEC_MACHINE_PASSWORD` — **optional** override; if
   set they seed the DB, otherwise the backend self-registers its own machine.
+  Only for a machine created on *this* LAPI.
 
 ## Verifying (QA / live stack)
 

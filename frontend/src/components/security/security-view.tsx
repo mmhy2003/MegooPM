@@ -100,6 +100,20 @@ function HealthBanner({ health }: { health: CrowdSecHealth | null }) {
       </div>
     );
   }
+  if (!health.machine_registered) {
+    return (
+      <div className="flex items-start gap-2.5 rounded-xl border border-warning/30 bg-warning/5 p-3 text-sm">
+        <TriangleAlert className="mt-0.5 size-4 shrink-0 text-warning" />
+        <div>
+          <p className="font-medium">Connected to LAPI, but no machine is registered yet</p>
+          <p className="text-muted-foreground">
+            {health.detail ??
+              "Decisions are readable, but alerts and manual bans need the machine login. The backend registers it automatically; check CROWDSEC_REGISTRATION_TOKEN."}
+          </p>
+        </div>
+      </div>
+    );
+  }
   return (
     <div className="flex items-center gap-2.5 rounded-xl border border-success/30 bg-success/5 p-3 text-sm">
       <CircleCheck className="size-4 shrink-0 text-success" />

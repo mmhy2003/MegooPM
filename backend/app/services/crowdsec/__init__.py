@@ -30,8 +30,13 @@ async def get_crowdsec_client(
 
     Credentials are resolved from the ``crowdsec_credentials`` table (seeded from
     env on first use if the DB is empty) and overlaid onto the base settings, so
-    the client transparently uses DB-backed credentials.
+    the client transparently uses DB-backed credentials. ``ensure_registered``
+    runs first (cached, idempotent) so a machine missing at startup — CrowdSec
+    not up yet, or only a bouncer key seeded — is registered on the next request.
     """
+    from app.services.crowdsec import registration
+
+    await registration.ensure_registered(db)
     settings = await credentials.resolve_settings(db)
     client = CrowdSecClient(settings)
     try:

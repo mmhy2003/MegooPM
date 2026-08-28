@@ -47,6 +47,9 @@ x-backend-env: &backend-env
   # optional vars are a one-time bootstrap seed.
   CROWDSEC_LAPI_URL: http://crowdsec:8080
   CROWDSEC_LAPI_KEY: ${CROWDSEC_BOUNCER_KEY:-megoopm-dev-bouncer-key}
+  # Matches LAPI's auto_registration token (infra/crowdsec/config.yaml.local) so
+  # the backend's self-registered machine is validated without any cscli step.
+  CROWDSEC_REGISTRATION_TOKEN: ${CROWDSEC_REGISTRATION_TOKEN:-megoopm-dev-registration-token-0000}
   CROWDSEC_MACHINE_ID: ${CROWDSEC_MACHINE_ID:-}
   CROWDSEC_MACHINE_PASSWORD: ${CROWDSEC_MACHINE_PASSWORD:-}
   # Initial admin, seeded only while the users table is empty.
@@ -219,6 +222,7 @@ services:
     environment:
       DISABLE_ONLINE_API: "true"
       BOUNCER_KEY_megoopm: ${CROWDSEC_BOUNCER_KEY:-megoopm-dev-bouncer-key}
+      CROWDSEC_REGISTRATION_TOKEN: ${CROWDSEC_REGISTRATION_TOKEN:-megoopm-dev-registration-token-0000}
       COLLECTIONS: "crowdsecurity/appsec-virtual-patching crowdsecurity/appsec-generic-rules crowdsecurity/nginx"
     expose:
       - "8080"
@@ -228,6 +232,8 @@ services:
       - crowdsec_data:/var/lib/crowdsec/data
       # Bind the acquis FILE, not the directory (MEG-36 Defect A).
       - ./infra/crowdsec/acquis/appsec.yaml:/etc/crowdsec/acquis.d/appsec.yaml:ro
+      # LAPI machine auto-registration (token from the env above).
+      - ./infra/crowdsec/config.yaml.local:/etc/crowdsec/config.yaml.local:ro
 
 volumes:
   pgdata:

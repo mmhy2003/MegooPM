@@ -48,6 +48,9 @@ x-app-env: &app-env
   ACME_DNS_PROPAGATION_SETTLE_SECONDS: ${ACME_DNS_PROPAGATION_SETTLE_SECONDS:-10}
   CROWDSEC_LAPI_URL: ${CROWDSEC_LAPI_URL:?CROWDSEC_LAPI_URL is required (shared LAPI)}
   CROWDSEC_LAPI_KEY: ${CROWDSEC_BOUNCER_KEY:?CROWDSEC_BOUNCER_KEY is required}
+  # Matches the shared LAPI's auto_registration token: the cluster's one
+  # machine (credentials live in the shared DB) is validated automatically.
+  CROWDSEC_REGISTRATION_TOKEN: ${CROWDSEC_REGISTRATION_TOKEN:?CROWDSEC_REGISTRATION_TOKEN is required and IDENTICAL on every node}
   FIRST_ADMIN_EMAIL: ${FIRST_ADMIN_EMAIL:-}
   FIRST_ADMIN_PASSWORD: ${FIRST_ADMIN_PASSWORD:-}
 
@@ -186,6 +189,7 @@ services:
     environment:
       DISABLE_ONLINE_API: "true"
       BOUNCER_KEY_megoopm: ${CROWDSEC_BOUNCER_KEY:?}
+      CROWDSEC_REGISTRATION_TOKEN: ${CROWDSEC_REGISTRATION_TOKEN:?}
       COLLECTIONS: "crowdsecurity/appsec-virtual-patching crowdsecurity/appsec-generic-rules crowdsecurity/nginx"
     ports:
       - "${CONTROL_PLANE_BIND:-0.0.0.0}:${CROWDSEC_LAPI_PORT:-8080}:8080"
@@ -194,6 +198,8 @@ services:
       - crowdsec_config:/etc/crowdsec
       - crowdsec_data:/var/lib/crowdsec/data
       - ./infra/crowdsec/acquis/appsec.yaml:/etc/crowdsec/acquis.d/appsec.yaml:ro
+      # LAPI machine auto-registration (token from the env above).
+      - ./infra/crowdsec/config.yaml.local:/etc/crowdsec/config.yaml.local:ro
 
 volumes:
   # Control-plane node only (local state of the shared services).

@@ -183,8 +183,13 @@ class _FakeClient:
     async def __aexit__(self, *exc: object) -> None:
         return None
 
-    async def register_machine(self, machine_id: str, password: str) -> None:
+    tokens: list[str | None] = []
+
+    async def register_machine(
+        self, machine_id: str, password: str, *, registration_token: str | None = None
+    ) -> None:
         type(self).registrations.append((machine_id, password))
+        type(self).tokens.append(registration_token)
 
 
 async def test_ensure_registered_self_registers_once(
@@ -227,3 +232,47 @@ async def test_ensure_registered_noop_when_env_present(
     assert creds is not None
     assert creds.machine_id == "env-m"
     assert _FakeClient.registrations == []
+
+
+async def test_ensure_registered_registers_machine_when_env_has_only_bouncer_key(
+    session_factory: async_sessionmaker, monkeypatch
+) -> None:
+    """Regression: every compose stack passes CROWDSEC_BOUNCER_KEY, which used to
+    count as "configured" and silently skip the machine registration — so the
+    alert/decision-write paths never worked on a fresh stack."""
+    _FakeClient.registrations = []
+    _FakeClient.tokens = []
+    monkeypatch.setattr(registration, "CrowdSecClient", _FakeClient)
+    s = _settings(crowdsec_lapi_key="env-b")
+
+    async with session_factory() as db:
+        creds = await registration.ensure_registered(db, settings=s)
+
+    assert creds is not None
+    assert creds.machine_id and creds.machine_password
+    assert creds.bouncer_key == "env-b"  # the seeded bouncer key survives the update
+    assert len(_FakeClient.registrations) == 1
+    assert _FakeClient.tokens == [None]  # no registration token configured
+
+    # Persisted: a fresh resolve (cache cleared) sees both credentials.
+    creds_service.invalidate_cache()
+    async with session_factory() as db:
+        again = await creds_service.resolve(db, settings=s)
+    assert again is not None
+    assert again.machine_id == creds.machine_id
+    assert again.bouncer_key == "env-b"
+
+
+async def test_ensure_registered_forwards_the_registration_token(
+    session_factory: async_sessionmaker, monkeypatch
+) -> None:
+    _FakeClient.registrations = []
+    _FakeClient.tokens = []
+    monkeypatch.setattr(registration, "CrowdSecClient", _FakeClient)
+    token = "t" * 40
+    s = _settings(crowdsec_registration_token=token)
+
+    async with session_factory() as db:
+        await registration.ensure_registered(db, settings=s)
+
+    assert _FakeClient.tokens == [token]

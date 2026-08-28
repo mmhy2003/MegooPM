@@ -63,11 +63,12 @@ services with it.
   the LB → every node on `80`, `443` (and `3000`, `8000` if balanced).
   Keep these on a private network — `CONTROL_PLANE_BIND` lets you pin the
   published control-plane ports to one interface.
-- Three secrets, generated once and used **identically on every node**:
+- Four secrets, generated once and used **identically on every node**:
 
   ```bash
   openssl rand -hex 32   # SECRET_KEY        (encrypts DB-stored credentials — changing it later breaks them)
   openssl rand -hex 32   # CROWDSEC_BOUNCER_KEY
+  openssl rand -hex 32   # CROWDSEC_REGISTRATION_TOKEN  (LAPI auto-validates the backend's machine; >= 32 chars)
   openssl rand -hex 32   # NGINX_RELOAD_TOKEN
   ```
 
@@ -136,13 +137,20 @@ POSTGRES_PASSWORD=<db-password>          # must match DATABASE_URL
 
 SECRET_KEY=<secret 1>
 CROWDSEC_BOUNCER_KEY=<secret 2>
-NGINX_RELOAD_TOKEN=<secret 3>
+CROWDSEC_REGISTRATION_TOKEN=<secret 3>   # LAPI reads it too: the backend's machine is validated automatically
+NGINX_RELOAD_TOKEN=<secret 4>
 
 NEXT_PUBLIC_API_BASE_URL=https://megoopm-api.example.com
 CORS_ORIGINS=https://megoopm.example.com
 FIRST_ADMIN_EMAIL=admin@example.com      # seeded only while the users table is empty
 FIRST_ADMIN_PASSWORD=<initial password>
 ```
+
+CrowdSec needs no manual steps: the backend registers its LAPI machine itself
+(`POST /v1/watchers` with the registration token) and LAPI validates it on the
+spot; the bouncer is registered from `CROWDSEC_BOUNCER_KEY` at LAPI start. The
+machine credentials live in the shared database, so every node shares one
+machine — a new node needs nothing beyond the identical secrets.
 
 Start it:
 
@@ -186,7 +194,8 @@ CROWDSEC_APPSEC_URL=http://10.0.0.10:7422
 
 SECRET_KEY=<secret 1>                     # IDENTICAL to the control plane
 CROWDSEC_BOUNCER_KEY=<secret 2>
-NGINX_RELOAD_TOKEN=<secret 3>
+CROWDSEC_REGISTRATION_TOKEN=<secret 3>
+NGINX_RELOAD_TOKEN=<secret 4>
 NEXT_PUBLIC_API_BASE_URL=https://megoopm-api.example.com
 CORS_ORIGINS=https://megoopm.example.com
 ```
@@ -325,7 +334,7 @@ plane) shows the periodic sweeps.
 | `DATABASE_URL`, `REDIS_URL` | identical (host differs only if `control-plane` is local) | shared Postgres / Redis |
 | `CROWDSEC_LAPI_URL`, `CROWDSEC_APPSEC_URL` | identical (same caveat) | shared CrowdSec |
 | `POSTGRES_USER/PASSWORD/DB` | control plane | what the local Postgres is initialised with |
-| `SECRET_KEY`, `CROWDSEC_BOUNCER_KEY`, `NGINX_RELOAD_TOKEN` | **identical** | secrets |
+| `SECRET_KEY`, `CROWDSEC_BOUNCER_KEY`, `CROWDSEC_REGISTRATION_TOKEN`, `NGINX_RELOAD_TOKEN` | **identical** | secrets (the registration token lets LAPI auto-validate the backend's machine) |
 | `NEXT_PUBLIC_API_BASE_URL`, `NEXT_PUBLIC_AUTH_ENABLED`, `CORS_ORIGINS` | identical | admin surface as the browser sees it |
 | `FIRST_ADMIN_EMAIL/PASSWORD` | control plane, first start only | initial admin seed |
 | `NGINX_HTTP_PORT`, `NGINX_HTTPS_PORT`, `FRONTEND_PORT`, `BACKEND_PORT` | per node | host ports |

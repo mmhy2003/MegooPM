@@ -34,7 +34,6 @@ from app.services import audit as audit_service
 from app.services.crowdsec import (
     CrowdSecClient,
     CrowdSecError,
-    CrowdSecNotConfigured,
     get_crowdsec_client,
 )
 from app.services.crowdsec.filtering import (
@@ -61,23 +60,27 @@ CommunityArg = Annotated[
 
 
 def _handle(exc: CrowdSecError) -> HTTPException:
-    """Map a client error onto the right HTTP status for the frontend."""
-    if isinstance(exc, CrowdSecNotConfigured):
-        return HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc))
-    return HTTPException(status.HTTP_502_BAD_GATEWAY, detail=str(exc))
+    """Map a client error onto the right HTTP status for the frontend.
+
+    Every failure is a 503 (integration unavailable), never a 502: CDNs such as
+    Cloudflare replace origin 502/504 responses with their own error page,
+    dropping the JSON detail and the CORS headers, so the browser only sees a
+    generic "Failed to fetch". A 503 passes through intact.
+    """
+    return HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc))
 
 
 @router.get("/health", response_model=CrowdSecHealth)
 async def crowdsec_health(_admin: AdminUser, client: ClientDep) -> CrowdSecHealth:
-    """Report whether LAPI is configured and reachable (never errors)."""
+    """Report whether LAPI is configured, reachable, and has our machine (never errors)."""
     s = client.settings  # settings snapshot on the request-scoped client
-    configured = bool(
-        s.crowdsec_lapi_key or (s.crowdsec_machine_id and s.crowdsec_machine_password)
-    )
+    machine_registered = bool(s.crowdsec_machine_id and s.crowdsec_machine_password)
+    configured = bool(s.crowdsec_lapi_key or machine_registered)
     if not configured:
         return CrowdSecHealth(
             configured=False,
             reachable=False,
+            machine_registered=False,
             lapi_url=s.crowdsec_lapi_url,
             detail="No CrowdSec credentials configured.",
         )
@@ -85,9 +88,28 @@ async def crowdsec_health(_admin: AdminUser, client: ClientDep) -> CrowdSecHealt
         await client.ping()
     except CrowdSecError as exc:
         return CrowdSecHealth(
-            configured=True, reachable=False, lapi_url=s.crowdsec_lapi_url, detail=str(exc)
+            configured=True,
+            reachable=False,
+            machine_registered=machine_registered,
+            lapi_url=s.crowdsec_lapi_url,
+            detail=str(exc),
         )
-    return CrowdSecHealth(configured=True, reachable=True, lapi_url=s.crowdsec_lapi_url)
+    detail = None
+    if not machine_registered:
+        detail = (
+            "No LAPI machine is registered for this deployment yet: decisions are "
+            "readable, but alerts and manual bans need the machine login. The backend "
+            "self-registers on startup and on the next request; check that LAPI is "
+            "reachable and CROWDSEC_REGISTRATION_TOKEN matches the LAPI's "
+            "auto_registration token."
+        )
+    return CrowdSecHealth(
+        configured=True,
+        reachable=True,
+        machine_registered=machine_registered,
+        lapi_url=s.crowdsec_lapi_url,
+        detail=detail,
+    )
 
 
 @router.get("/decisions", response_model=DecisionList)

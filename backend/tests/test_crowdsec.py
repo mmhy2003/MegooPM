@@ -427,3 +427,77 @@ async def test_admin_lists_alerts_with_null_decisions(
     # The null-decision AppSec alert surfaces with an empty decisions list.
     appsec = next(a for a in body["items"] if a["scenario"] == "crowdsecurity/vpatch-env-access")
     assert appsec["decisions"] == []
+
+
+# --- registration token / health / lazy registration -----------------------
+
+
+async def test_register_machine_sends_registration_token_when_configured() -> None:
+    bodies: list[dict] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        bodies.append(json.loads(request.content))
+        return httpx.Response(202)  # LAPI answers 202 Accepted on registration
+
+    async with _client(handler) as client:
+        await client.register_machine("m1", "pw", registration_token="k" * 32)
+        await client.register_machine("m2", "pw")
+
+    assert bodies[0] == {"machine_id": "m1", "password": "pw", "registration_token": "k" * 32}
+    assert bodies[1] == {"machine_id": "m2", "password": "pw"}  # key absent without a token
+
+
+async def test_health_reports_whether_a_machine_is_registered(
+    db_client: AsyncClient, admin_token: str, override_crowdsec
+) -> None:
+    override_crowdsec(
+        lambda r: httpx.Response(200, json=[]),
+        crowdsec_machine_id=None,
+        crowdsec_machine_password=None,
+    )
+    resp = await db_client.get(
+        "/api/v1/crowdsec/health", headers={"Authorization": f"Bearer {admin_token}"}
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["configured"] is True
+    assert body["machine_registered"] is False
+    assert "machine" in (body["detail"] or "").lower()
+
+    override_crowdsec(lambda r: httpx.Response(200, json=[]))
+    resp = await db_client.get(
+        "/api/v1/crowdsec/health", headers={"Authorization": f"Bearer {admin_token}"}
+    )
+    assert resp.json()["machine_registered"] is True
+
+
+async def test_lapi_rejection_is_reported_as_503_not_502(
+    db_client: AsyncClient, admin_token: str, override_crowdsec
+) -> None:
+    """502/504 get swallowed and rewritten by CDNs (Cloudflare), which strips the
+    JSON detail and CORS headers — the UI then only sees "Failed to fetch"."""
+    override_crowdsec(lambda r: httpx.Response(401, json={"message": "nope"}))
+    resp = await db_client.get(
+        "/api/v1/crowdsec/alerts", headers={"Authorization": f"Bearer {admin_token}"}
+    )
+    assert resp.status_code == 503
+    assert "401" in resp.json()["detail"]
+
+
+async def test_client_dependency_ensures_registration(session_factory, monkeypatch) -> None:
+    """The request-scoped client triggers (cached, idempotent) registration so a
+    stack whose CrowdSec came up after the backend still self-heals."""
+    from app.services import crowdsec as crowdsec_pkg
+    from app.services.crowdsec import registration
+
+    calls: list[object] = []
+
+    async def fake_ensure(db, *, settings=None):
+        calls.append(db)
+        return None
+
+    monkeypatch.setattr(registration, "ensure_registered", fake_ensure)
+    async with session_factory() as db:
+        async for client in crowdsec_pkg.get_crowdsec_client(db=db):
+            await client.aclose()
+    assert len(calls) == 1

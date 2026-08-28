@@ -37,6 +37,9 @@ x-backend-env: &backend-env
   ACME_DNS_PROPAGATION_SETTLE_SECONDS: ${ACME_DNS_PROPAGATION_SETTLE_SECONDS:-10}
   CROWDSEC_LAPI_URL: http://crowdsec:8080
   CROWDSEC_LAPI_KEY: ${CROWDSEC_BOUNCER_KEY:?CROWDSEC_BOUNCER_KEY is required (openssl rand -hex 32)}
+  # Matches LAPI's auto_registration token (infra/crowdsec/config.yaml.local) so
+  # the backend's self-registered machine is validated without any cscli step.
+  CROWDSEC_REGISTRATION_TOKEN: ${CROWDSEC_REGISTRATION_TOKEN:?CROWDSEC_REGISTRATION_TOKEN is required (openssl rand -hex 32)}
   CROWDSEC_MACHINE_ID: ${CROWDSEC_MACHINE_ID:-}
   CROWDSEC_MACHINE_PASSWORD: ${CROWDSEC_MACHINE_PASSWORD:-}
   # No default admin in production. Either set both here before the first
@@ -181,6 +184,7 @@ services:
     environment:
       DISABLE_ONLINE_API: "true"
       BOUNCER_KEY_megoopm: ${CROWDSEC_BOUNCER_KEY:?CROWDSEC_BOUNCER_KEY is required}
+      CROWDSEC_REGISTRATION_TOKEN: ${CROWDSEC_REGISTRATION_TOKEN:?CROWDSEC_REGISTRATION_TOKEN is required}
       COLLECTIONS: "crowdsecurity/appsec-virtual-patching crowdsecurity/appsec-generic-rules crowdsecurity/nginx"
     expose:
       - "8080"
@@ -189,6 +193,8 @@ services:
       - crowdsec_config:/etc/crowdsec
       - crowdsec_data:/var/lib/crowdsec/data
       - ./infra/crowdsec/acquis/appsec.yaml:/etc/crowdsec/acquis.d/appsec.yaml:ro
+      # LAPI machine auto-registration (token from the env above).
+      - ./infra/crowdsec/config.yaml.local:/etc/crowdsec/config.yaml.local:ro
 
 volumes:
   pgdata:

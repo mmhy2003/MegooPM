@@ -121,23 +121,32 @@ class CrowdSecClient:
 
     # --- registration ------------------------------------------------------
 
-    async def register_machine(self, machine_id: str, password: str) -> None:
+    async def register_machine(
+        self, machine_id: str, password: str, *, registration_token: str | None = None
+    ) -> None:
         """Self-register a watcher/machine against LAPI (``POST /v1/watchers``).
 
         Idempotent: a machine that already exists (LAPI answers 403) is treated
-        as success so re-runs don't fail. Whether the freshly registered machine
-        is auto-validated depends on the LAPI's ``auto_registration`` config; see
-        ``docs/crowdsec.md``.
+        as success so re-runs don't fail. With ``registration_token`` matching
+        the LAPI's ``auto_registration`` token (and the caller inside its
+        ``allowed_ranges``) the machine is validated on the spot; otherwise it
+        stays pending until ``cscli machines validate``. See ``docs/crowdsec.md``.
         """
+        body: dict[str, str] = {"machine_id": machine_id, "password": password}
+        if registration_token:
+            body["registration_token"] = registration_token
         try:
-            resp = await self._http.post(
-                "/v1/watchers",
-                json={"machine_id": machine_id, "password": password},
-            )
+            resp = await self._http.post("/v1/watchers", json=body)
         except httpx.HTTPError as exc:  # pragma: no cover - network error path
             raise CrowdSecError(f"CrowdSec machine registration failed: {exc}") from exc
-        # 201 Created (new) or 200 OK; 403 = already registered (idempotent).
-        if resp.status_code in (httpx.codes.CREATED, httpx.codes.OK, httpx.codes.FORBIDDEN):
+        # 201/200 (new), 202 Accepted (auto-registration), 403 = already registered.
+        accepted = (
+            httpx.codes.CREATED,
+            httpx.codes.OK,
+            httpx.codes.ACCEPTED,
+            httpx.codes.FORBIDDEN,
+        )
+        if resp.status_code in accepted:
             return
         raise CrowdSecError(
             f"CrowdSec machine registration rejected (HTTP {resp.status_code}).",

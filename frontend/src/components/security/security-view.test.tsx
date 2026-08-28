@@ -26,6 +26,7 @@ vi.mock("@/components/security/unban-dialog", () => ({
 const healthOk = {
   configured: true,
   reachable: true,
+  machine_registered: true,
   lapi_url: "http://lapi:8080",
   detail: null,
 };

@@ -144,6 +144,11 @@ class Settings(BaseSettings):
     # ``cscli machines add``. Both must be set to enable the write/alert paths.
     crowdsec_machine_id: str | None = None
     crowdsec_machine_password: str | None = None
+    # LAPI auto-registration token (``api.server.auto_registration.token`` on the
+    # CrowdSec side, >= 32 chars). Sent with the self-registration request so the
+    # new machine is validated immediately — no ``cscli machines validate``.
+    # Without it the machine still registers but stays pending validation.
+    crowdsec_registration_token: str | None = None
     # Origin tag stamped on decisions/alerts this backend creates, so operator
     # actions are distinguishable from engine-generated ones in CrowdSec.
     crowdsec_origin: str = "megoopm"

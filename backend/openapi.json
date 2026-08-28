@@ -1015,7 +1015,7 @@
         "type": "string"
       },
       "CrowdSecHealth": {
-        "description": "Whether the LAPI integration is configured and reachable.",
+        "description": "Whether the LAPI integration is configured, reachable, and has a machine.",
         "properties": {
           "configured": {
             "title": "Configured",
@@ -1036,6 +1036,10 @@
             "title": "Lapi Url",
             "type": "string"
           },
+          "machine_registered": {
+            "title": "Machine Registered",
+            "type": "boolean"
+          },
           "reachable": {
             "title": "Reachable",
             "type": "boolean"
@@ -1044,6 +1048,7 @@
         "required": [
           "configured",
           "reachable",
+          "machine_registered",
           "lapi_url"
         ],
         "title": "CrowdSecHealth",
@@ -4851,7 +4856,7 @@
     },
     "/api/v1/crowdsec/health": {
       "get": {
-        "description": "Report whether LAPI is configured and reachable (never errors).",
+        "description": "Report whether LAPI is configured, reachable, and has our machine (never errors).",
         "operationId": "crowdsec_health_api_v1_crowdsec_health_get",
         "responses": {
           "200": {

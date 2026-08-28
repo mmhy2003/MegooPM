@@ -73,27 +73,37 @@ def _derive_machine_id(settings: Settings) -> str:
     return f"{settings.crowdsec_origin}-{secrets.token_hex(6)}"
 
 
-async def _self_register(db: AsyncSession, settings: Settings) -> CrowdSecCreds | None:
+def _has_machine(creds: CrowdSecCreds | None) -> bool:
+    return bool(creds and creds.machine_id and creds.machine_password)
+
+
+async def _self_register(
+    db: AsyncSession, settings: Settings, existing: CrowdSecCreds | None
+) -> CrowdSecCreds | None:
     """Register a fresh machine against LAPI and persist it. Returns creds or None.
 
-    Best-effort: on any LAPI/transport failure it logs and returns ``None`` so a
-    fresh stack whose CrowdSec is not up yet degrades to "unconfigured" rather
-    than crashing startup — a later call retries.
+    ``existing`` is the current row (typically a bouncer-key-only seed from the
+    environment); its bouncer key and LAPI URL are kept, only the machine half
+    is filled in. Best-effort: on any LAPI/transport failure it logs and returns
+    ``existing`` so a fresh stack whose CrowdSec is not up yet degrades to
+    "machine not registered" rather than crashing startup — a later call retries.
     """
     machine_id = _derive_machine_id(settings)
     password = secrets.token_urlsafe(32)
     async with CrowdSecClient(settings) as client:
         try:
-            await client.register_machine(machine_id, password)
+            await client.register_machine(
+                machine_id, password, registration_token=settings.crowdsec_registration_token
+            )
         except CrowdSecError as exc:
             logger.warning("CrowdSec self-registration failed: %s", exc)
-            return None
+            return existing
     await creds_service.save_credentials(
         db,
-        lapi_url=settings.crowdsec_lapi_url,
+        lapi_url=existing.lapi_url if existing else settings.crowdsec_lapi_url,
         machine_id=machine_id,
         machine_password=password,
-        bouncer_key=None,
+        bouncer_key=existing.bouncer_key if existing else None,
         registered_at=datetime.now(UTC),
         settings=settings,
     )
@@ -105,15 +115,18 @@ async def _self_register(db: AsyncSession, settings: Settings) -> CrowdSecCreds 
 async def ensure_registered(
     db: AsyncSession, *, settings: Settings | None = None
 ) -> CrowdSecCreds | None:
-    """Ensure DB-backed credentials exist, self-registering if needed.
+    """Ensure DB-backed credentials with a *machine* exist, self-registering if needed.
 
+    A bouncer key alone (what every compose stack passes in the environment)
+    is not enough: alerts and manual decisions need the machine login, so the
+    machine is registered whenever it is missing, keeping the bouncer key.
     Idempotent and concurrency-safe. Returns the resolved credentials, or
     ``None`` if the integration remains unconfigured (e.g. LAPI unreachable on a
     cold start — the caller treats that as "not set up", never an error).
     """
     settings = settings or default_settings
     creds = await creds_service.resolve(db, settings=settings)
-    if creds is not None:
+    if _has_machine(creds):
         return creds
 
     async with _registration_lock(db):
@@ -121,9 +134,9 @@ async def ensure_registered(
         # registered while we waited for the lock.
         creds_service.invalidate_cache()
         creds = await creds_service.resolve(db, settings=settings)
-        if creds is not None:
+        if _has_machine(creds):
             return creds
-        return await _self_register(db, settings)
+        return await _self_register(db, settings, creds)
 
 
 __all__ = ["ensure_registered"]

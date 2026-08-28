@@ -19,6 +19,7 @@ REQUIRED_PROD = {
     "SECRET_KEY": "x" * 32,
     "POSTGRES_PASSWORD": "pw",
     "CROWDSEC_BOUNCER_KEY": "bouncer",
+    "CROWDSEC_REGISTRATION_TOKEN": "r" * 32,
     "NGINX_RELOAD_TOKEN": "token",
     "NEXT_PUBLIC_API_BASE_URL": "http://localhost:8000",
 }
@@ -31,6 +32,7 @@ REQUIRED_HA = {
     "CROWDSEC_APPSEC_URL": "http://crowdsec:7422",
     "SECRET_KEY": "x" * 32,
     "CROWDSEC_BOUNCER_KEY": "bouncer",
+    "CROWDSEC_REGISTRATION_TOKEN": "r" * 32,
     "NGINX_RELOAD_TOKEN": "token",
     "NEXT_PUBLIC_API_BASE_URL": "http://localhost:8000",
     "COMPOSE_PROFILES": "control-plane,scheduler",

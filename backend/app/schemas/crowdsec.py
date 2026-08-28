@@ -99,10 +99,13 @@ class AlertList(Page):
 
 
 class CrowdSecHealth(BaseModel):
-    """Whether the LAPI integration is configured and reachable."""
+    """Whether the LAPI integration is configured, reachable, and has a machine."""
 
     configured: bool
     reachable: bool
+    # A LAPI machine (watcher) login exists for this deployment. Without it the
+    # decision read path still works (bouncer key) but alerts and manual bans do not.
+    machine_registered: bool
     lapi_url: str
     detail: str | None = None
 

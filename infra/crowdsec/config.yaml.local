@@ -1,0 +1,21 @@
+# LAPI overrides for the MegooPM stacks (merged over the image's config.yaml).
+#
+# Machine auto-registration: the backend self-registers its LAPI machine with
+# `POST /v1/watchers` and sends CROWDSEC_REGISTRATION_TOKEN; when it matches
+# the token below and the request comes from an allowed range, LAPI validates
+# the machine immediately — no `cscli machines add/validate` for operators, and
+# new cluster nodes need nothing beyond the shared token. CrowdSec expands
+# ${VAR} from the container environment; the token must be >= 32 characters.
+#
+# The ranges cover private networks (Docker bridges, cluster LANs) — the token
+# is the real gate; the ranges keep internet-facing LAPIs from being probed.
+api:
+  server:
+    auto_registration:
+      enabled: true
+      token: ${CROWDSEC_REGISTRATION_TOKEN}
+      allowed_ranges:
+        - 127.0.0.1/32
+        - 10.0.0.0/8
+        - 172.16.0.0/12
+        - 192.168.0.0/16
