@@ -70,9 +70,10 @@ for how the stack fits together.
 
 Production refuses to start until the required secrets in the template are
 set. `NEXT_PUBLIC_*` values are baked into the UI image at build time — rebuild
-the frontend after changing them. Multi-node specifics (shared storage path,
-node ids, the `control-plane` / `scheduler` profiles, the external load
-balancer) are in [`docs/ha.md`](docs/ha.md).
+the frontend after changing them. For a cluster, follow the step-by-step
+[`HA-SETUP.md`](HA-SETUP.md) (shared storage, control-plane vs data-plane
+nodes, profiles, load balancer, verification); the design rationale is in
+[`docs/ha.md`](docs/ha.md).
 
 Working on just one side? Each package still runs standalone below.
 
