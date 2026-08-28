@@ -1,8 +1,8 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Boxes } from "lucide-react";
 
 import { navForRole } from "@/config/nav";
 import { APP_NAME } from "@/lib/env";
@@ -39,9 +39,14 @@ export function AppSidebar() {
               tooltip={APP_NAME}
               render={<Link href="/" />}
             >
-              <div className="bg-sidebar-primary text-sidebar-primary-foreground flex aspect-square size-8 items-center justify-center rounded-lg">
-                <Boxes className="size-4" />
-              </div>
+              <Image
+                src="/logo.png"
+                alt={`${APP_NAME} logo`}
+                width={32}
+                height={32}
+                priority
+                className="size-8 shrink-0"
+              />
               <div className="grid flex-1 text-left text-sm leading-tight">
                 <span className="truncate font-semibold">{APP_NAME}</span>
                 <span className="text-muted-foreground truncate text-xs">

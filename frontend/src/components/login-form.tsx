@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Boxes } from "lucide-react";
 
 import { APP_NAME } from "@/lib/env";
 import { ApiError } from "@/lib/api/errors";
@@ -53,9 +53,14 @@ export function LoginForm() {
     <div className="flex min-h-dvh items-center justify-center p-4">
       <div className="w-full max-w-sm space-y-6">
         <div className="flex flex-col items-center gap-2 text-center">
-          <div className="bg-primary text-primary-foreground flex size-11 items-center justify-center rounded-xl">
-            <Boxes className="size-6" />
-          </div>
+          <Image
+            src="/logo.png"
+            alt={`${APP_NAME} logo`}
+            width={64}
+            height={64}
+            priority
+            className="size-16"
+          />
           <h1 className="text-xl font-semibold">Sign in to {APP_NAME}</h1>
           <p className="text-muted-foreground text-sm">
             Enter your credentials to continue.
