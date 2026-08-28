@@ -30,6 +30,7 @@ REQUIRED_HA = {
     "REDIS_URL": "redis://redis:6379/0",
     "CROWDSEC_LAPI_URL": "http://crowdsec:8080",
     "CROWDSEC_APPSEC_URL": "http://crowdsec:7422",
+    "CROWDSEC_SYSLOG_ADDR": "crowdsec:514",
     "SECRET_KEY": "x" * 32,
     "CROWDSEC_BOUNCER_KEY": "bouncer",
     "CROWDSEC_REGISTRATION_TOKEN": "r" * 32,

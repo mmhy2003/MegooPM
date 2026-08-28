@@ -1,0 +1,15 @@
+# CrowdSec syslog datasource: the managed nginx ships its access + error logs
+# here over UDP (`access_log syslog:server=...,tag=nginx`, rendered by
+# infra/nginx/docker-entrypoint.sh from CROWDSEC_SYSLOG_ADDR). The syslog
+# parser sets program=nginx from the tag, so the `crowdsecurity/nginx`
+# collection's scenarios (http-probing, bad user agents, sensitive files,
+# brute force, ...) run on every request and ban attackers at the edge.
+#
+# No log files, no rotation, and it works across nodes: every node's nginx
+# points at the control-plane CrowdSec's :514/udp.
+source: syslog
+listen_addr: 0.0.0.0
+listen_port: 514
+name: megoopm-nginx-syslog
+labels:
+  type: syslog

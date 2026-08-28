@@ -30,7 +30,24 @@ to the CrowdSec Local API (LAPI).
      component, which blocks malicious payloads before they reach the upstream.
 
 Bouncer enforcement is **per host**: hosts with `crowdsec_enabled` off never
-reference the Lua handler, so they are untouched.
+reference the Lua handler, so they are untouched. The switch is
+**CrowdSec protection** on the proxy-host dialog's *Advanced* tab.
+
+### Where decisions come from
+
+| Source | How | Enabled by |
+| --- | --- | --- |
+| Manual bans | Security page → **Ban**, or `cscli decisions add` | always |
+| AppSec / inline WAF | malicious request payloads on protected hosts | `CROWDSEC_APPSEC_URL` (global, see below) |
+| nginx log scenarios (`crowdsecurity/nginx`: probing, bad user agents, sensitive files, brute force, …) | the managed nginx ships access + error logs to the CrowdSec agent over **syslog/UDP** (`access_log syslog:server=$CROWDSEC_SYSLOG_ADDR,tag=nginx`, rendered by `infra/nginx/docker-entrypoint.sh`); `infra/crowdsec/acquis/nginx-syslog.yaml` listens on `:514/udp`; the syslog parser sets `program=nginx` so the nginx parsers/scenarios apply | `CROWDSEC_SYSLOG_ADDR` (set in every compose file; per node in HA) |
+| Community blocklist (CAPI) | CrowdSec's shared threat intel | off (`DISABLE_ONLINE_API=true`) — enable and `cscli capi register` if wanted |
+
+**Client IP behind a CDN / tunnel / load balancer.** nginx sees the proxy's
+address unless `NGINX_REAL_IP_HEADER` (e.g. `CF-Connecting-IP`) and
+`NGINX_REAL_IP_FROM` (trusted proxy CIDRs) are set; the entrypoint renders them
+as `real_ip_header` / `set_real_ip_from`. With them, both the logs and the
+bouncer's `Allow()` see the real client. **Without them, log-based detections
+would eventually ban the proxy itself** — i.e. all traffic.
 
 ### AppSec scope: global, not per host (yet)
 

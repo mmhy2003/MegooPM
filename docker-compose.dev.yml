@@ -204,6 +204,11 @@ services:
       CROWDSEC_APPSEC_URL: http://crowdsec:7422
       CROWDSEC_BOUNCER_KEY: ${CROWDSEC_BOUNCER_KEY:-megoopm-dev-bouncer-key}
       NGINX_RELOAD_TOKEN: ${NGINX_RELOAD_TOKEN:-megoopm-dev-reload-token}
+      # Ship access/error logs to the CrowdSec agent (syslog/UDP) so its nginx
+      # scenarios detect attackers; real-IP settings for CDN/tunnel setups.
+      CROWDSEC_SYSLOG_ADDR: crowdsec:514
+      NGINX_REAL_IP_HEADER: ${NGINX_REAL_IP_HEADER:-}
+      NGINX_REAL_IP_FROM: ${NGINX_REAL_IP_FROM:-}
     ports:
       - "${NGINX_HTTP_PORT:-8080}:80"
       - "${NGINX_HTTPS_PORT:-8443}:443"
@@ -227,11 +232,13 @@ services:
     expose:
       - "8080"
       - "7422"
+      - "514/udp"
     volumes:
       - crowdsec_config:/etc/crowdsec
       - crowdsec_data:/var/lib/crowdsec/data
-      # Bind the acquis FILE, not the directory (MEG-36 Defect A).
+      # Bind the acquis FILES, not the directory (MEG-36 Defect A).
       - ./infra/crowdsec/acquis/appsec.yaml:/etc/crowdsec/acquis.d/appsec.yaml:ro
+      - ./infra/crowdsec/acquis/nginx-syslog.yaml:/etc/crowdsec/acquis.d/nginx-syslog.yaml:ro
       # LAPI machine auto-registration (token from the env above).
       - ./infra/crowdsec/config.yaml.local:/etc/crowdsec/config.yaml.local:ro
 

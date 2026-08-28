@@ -59,8 +59,10 @@ services with it.
   compose file *builds* the images locally, so each node needs the source.
 - An NFS server (or other shared filesystem) reachable from every data-plane node.
 - Network reachability: every data-plane node → control-plane host on
-  `5432` (Postgres), `6379` (Redis), `8080` (CrowdSec LAPI), `7422` (AppSec);
-  the LB → every node on `80`, `443` (and `3000`, `8000` if balanced).
+  `5432` (Postgres), `6379` (Redis), `8080` (CrowdSec LAPI), `7422` (AppSec),
+  `514/udp` (CrowdSec syslog — each node's nginx ships its logs there so the
+  nginx attack scenarios run cluster-wide); the LB → every node on `80`, `443`
+  (and `3000`, `8000` if balanced).
   Keep these on a private network — `CONTROL_PLANE_BIND` lets you pin the
   published control-plane ports to one interface.
 - Four secrets, generated once and used **identically on every node**:
@@ -133,6 +135,7 @@ DATABASE_URL=postgresql+asyncpg://megoopm:<db-password>@db:5432/megoopm
 REDIS_URL=redis://redis:6379/0
 CROWDSEC_LAPI_URL=http://crowdsec:8080
 CROWDSEC_APPSEC_URL=http://crowdsec:7422
+CROWDSEC_SYSLOG_ADDR=crowdsec:514        # nginx log shipping target (UDP)
 POSTGRES_PASSWORD=<db-password>          # must match DATABASE_URL
 
 SECRET_KEY=<secret 1>
@@ -191,6 +194,7 @@ DATABASE_URL=postgresql+asyncpg://megoopm:<db-password>@10.0.0.10:5432/megoopm
 REDIS_URL=redis://10.0.0.10:6379/0
 CROWDSEC_LAPI_URL=http://10.0.0.10:8080
 CROWDSEC_APPSEC_URL=http://10.0.0.10:7422
+CROWDSEC_SYSLOG_ADDR=10.0.0.10:514
 
 SECRET_KEY=<secret 1>                     # IDENTICAL to the control plane
 CROWDSEC_BOUNCER_KEY=<secret 2>
@@ -332,7 +336,8 @@ plane) shows the periodic sweeps.
 | `RUN_MIGRATIONS` | `1` on one node | that node's backend runs `alembic upgrade head` on start |
 | `CONTROL_PLANE_BIND` | control plane | interface the shared services are published on |
 | `DATABASE_URL`, `REDIS_URL` | identical (host differs only if `control-plane` is local) | shared Postgres / Redis |
-| `CROWDSEC_LAPI_URL`, `CROWDSEC_APPSEC_URL` | identical (same caveat) | shared CrowdSec |
+| `CROWDSEC_LAPI_URL`, `CROWDSEC_APPSEC_URL`, `CROWDSEC_SYSLOG_ADDR` | identical (same caveat) | shared CrowdSec: LAPI, AppSec, and the syslog port nginx ships its logs to |
+| `NGINX_REAL_IP_HEADER`, `NGINX_REAL_IP_FROM` | identical | header + trusted proxy CIDRs carrying the real client IP behind your LB/CDN — required for log-based bans to hit clients, not the LB |
 | `POSTGRES_USER/PASSWORD/DB` | control plane | what the local Postgres is initialised with |
 | `SECRET_KEY`, `CROWDSEC_BOUNCER_KEY`, `CROWDSEC_REGISTRATION_TOKEN`, `NGINX_RELOAD_TOKEN` | **identical** | secrets (the registration token lets LAPI auto-validate the backend's machine) |
 | `NEXT_PUBLIC_API_BASE_URL`, `NEXT_PUBLIC_AUTH_ENABLED`, `CORS_ORIGINS` | identical | admin surface as the browser sees it |

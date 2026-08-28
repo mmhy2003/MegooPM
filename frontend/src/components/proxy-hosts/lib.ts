@@ -80,6 +80,7 @@ export const TOGGLE_KEYS = [
   "caching_enabled",
   "block_exploits",
   "allow_websocket_upgrade",
+  "crowdsec_enabled",
 ] as const;
 export type ToggleKey = (typeof TOGGLE_KEYS)[number];
 
@@ -206,9 +207,8 @@ export function buildPayload(
       upstream_id: Number.parseInt(row.upstreamId, 10),
       forward_scheme: row.scheme,
     })),
-    // CrowdSec enforcement is owned by the Security UI (MEG-22); pass the
-    // existing values through untouched so this form never clobbers them.
-    crowdsec_enabled: host?.crowdsec_enabled ?? false,
+    // `crowdsec_enabled` is a form toggle (Advanced tab). AppSec is not
+    // per-host yet (docs/crowdsec.md), so its flag passes through untouched.
     crowdsec_appsec_enabled: host?.crowdsec_appsec_enabled ?? false,
   };
 }

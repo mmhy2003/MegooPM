@@ -116,4 +116,18 @@ describe("ProxyHostDialog", () => {
       locations: [{ path: "/api/", upstream_id: 2, forward_scheme: "https" }],
     });
   });
+
+  it("exposes CrowdSec protection on the Advanced tab and saves it", async () => {
+    const user = userEvent.setup();
+    renderDialog(makeHost({ crowdsec_enabled: false }));
+    await user.click(screen.getByRole("tab", { name: "Advanced" }));
+    const toggle = await screen.findByLabelText("CrowdSec protection");
+    expect(toggle).toHaveAttribute("aria-checked", "false");
+    await user.click(toggle);
+    await user.click(screen.getByRole("button", { name: "Save changes" }));
+    await waitFor(() => expect(proxyHosts.update).toHaveBeenCalledTimes(1));
+    expect(vi.mocked(proxyHosts.update).mock.calls[0][1]).toMatchObject({
+      crowdsec_enabled: true,
+    });
+  });
 });

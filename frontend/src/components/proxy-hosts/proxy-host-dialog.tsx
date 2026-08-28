@@ -59,6 +59,14 @@ const TLS_TOGGLES: readonly ToggleDef[] = [
   ["hsts_subdomains", "HSTS subdomains", "Include subdomains in HSTS"],
 ];
 
+const SECURITY_TOGGLES: readonly ToggleDef[] = [
+  [
+    "crowdsec_enabled",
+    "CrowdSec protection",
+    "Enforce CrowdSec bans (and the AppSec WAF) for this host at the edge",
+  ],
+];
+
 function ToggleGrid({
   defs,
   values,
@@ -285,16 +293,24 @@ export function ProxyHostDialog({
             />
           </TabsPanel>
 
-          <TabsPanel value="advanced" className="space-y-1.5 pt-2">
-            <Label htmlFor="host-advanced">Advanced nginx config</Label>
-            <Textarea
-              id="host-advanced"
-              value={form.advancedConfig}
-              onChange={(e) => patch({ advancedConfig: e.target.value })}
-              placeholder="# Raw directives injected into the server block"
-              className="font-mono text-xs"
+          <TabsPanel value="advanced" className="space-y-4 pt-2">
+            <ToggleGrid
+              defs={SECURITY_TOGGLES}
+              values={form.toggles}
               disabled={saving}
+              onChange={setToggle}
             />
+            <div className="space-y-1.5">
+              <Label htmlFor="host-advanced">Advanced nginx config</Label>
+              <Textarea
+                id="host-advanced"
+                value={form.advancedConfig}
+                onChange={(e) => patch({ advancedConfig: e.target.value })}
+                placeholder="# Raw directives injected into the server block"
+                className="font-mono text-xs"
+                disabled={saving}
+              />
+            </div>
           </TabsPanel>
         </Tabs>
 

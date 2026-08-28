@@ -145,4 +145,15 @@ describe("stateFromHost / buildPayload", () => {
       crowdsec_appsec_enabled: true,
     });
   });
+
+  it("lets the form change crowdsec_enabled while AppSec stays a pass-through", () => {
+    const host = makeHost({ crowdsec_enabled: true, crowdsec_appsec_enabled: true });
+    const form = stateFromHost(host);
+    expect(form.toggles.crowdsec_enabled).toBe(true);
+    form.toggles.crowdsec_enabled = false;
+    expect(buildPayload(form, host)).toMatchObject({
+      crowdsec_enabled: false,
+      crowdsec_appsec_enabled: true,
+    });
+  });
 });

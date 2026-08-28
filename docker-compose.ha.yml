@@ -116,6 +116,11 @@ services:
       CROWDSEC_APPSEC_URL: ${CROWDSEC_APPSEC_URL:?CROWDSEC_APPSEC_URL is required (shared AppSec)}
       CROWDSEC_BOUNCER_KEY: ${CROWDSEC_BOUNCER_KEY:?}
       NGINX_RELOAD_TOKEN: ${NGINX_RELOAD_TOKEN:?}
+      # This node's nginx ships its logs to the shared CrowdSec agent's
+      # syslog port (control-plane host:514/udp). Real-IP for CDN/LB setups.
+      CROWDSEC_SYSLOG_ADDR: ${CROWDSEC_SYSLOG_ADDR:?CROWDSEC_SYSLOG_ADDR is required (shared CrowdSec host:514)}
+      NGINX_REAL_IP_HEADER: ${NGINX_REAL_IP_HEADER:-}
+      NGINX_REAL_IP_FROM: ${NGINX_REAL_IP_FROM:-}
     ports:
       - "${NGINX_HTTP_PORT:-80}:80"
       - "${NGINX_HTTPS_PORT:-443}:443"
@@ -194,10 +199,13 @@ services:
     ports:
       - "${CONTROL_PLANE_BIND:-0.0.0.0}:${CROWDSEC_LAPI_PORT:-8080}:8080"
       - "${CONTROL_PLANE_BIND:-0.0.0.0}:${CROWDSEC_APPSEC_PORT:-7422}:7422"
+      # Syslog acquisition: every node's nginx ships its logs here.
+      - "${CONTROL_PLANE_BIND:-0.0.0.0}:${CROWDSEC_SYSLOG_PORT:-514}:514/udp"
     volumes:
       - crowdsec_config:/etc/crowdsec
       - crowdsec_data:/var/lib/crowdsec/data
       - ./infra/crowdsec/acquis/appsec.yaml:/etc/crowdsec/acquis.d/appsec.yaml:ro
+      - ./infra/crowdsec/acquis/nginx-syslog.yaml:/etc/crowdsec/acquis.d/nginx-syslog.yaml:ro
       # LAPI machine auto-registration (token from the env above).
       - ./infra/crowdsec/config.yaml.local:/etc/crowdsec/config.yaml.local:ro
 
