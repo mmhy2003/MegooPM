@@ -190,6 +190,16 @@ async def resolve_settings(db: AsyncSession, *, settings: Settings | None = None
     The overlay keeps non-credential knobs (origin, timeout) from the base
     settings while swapping in the DB-backed credentials, so the existing
     ``Settings``-driven client needs no changes to read creds from the DB.
+
+    **The endpoint is deliberately not overlaid.** ``CROWDSEC_LAPI_URL`` is
+    deployment configuration; only the credentials belong in the database. This
+    used to overlay ``creds.lapi_url``, so once the row existed the environment
+    was ignored forever: moving from the bundled agent to an external LAPI left
+    the backend resolving the old compose service name, and the operator saw a
+    DNS error while looking at a correct address in their ``.env``.
+    ``creds.lapi_url`` now only records which endpoint the stored identity was
+    registered against, so :func:`..registration.ensure_registered` can notice
+    the endpoint moved and register a new machine there.
     """
     settings = settings or default_settings
     creds = await resolve(db, settings=settings)
@@ -197,7 +207,6 @@ async def resolve_settings(db: AsyncSession, *, settings: Settings | None = None
         return settings
     return settings.model_copy(
         update={
-            "crowdsec_lapi_url": creds.lapi_url,
             "crowdsec_lapi_key": creds.bouncer_key,
             "crowdsec_machine_id": creds.machine_id,
             "crowdsec_machine_password": creds.machine_password,

@@ -159,9 +159,13 @@ async def test_resolve_settings_overlay(session_factory: async_sessionmaker) -> 
     creds_service.invalidate_cache()
     async with session_factory() as db:
         overlaid = await creds_service.resolve_settings(db, settings=s)
-    assert overlaid.crowdsec_lapi_url == "http://db-lapi:8080"
     assert overlaid.crowdsec_lapi_key == "dbk"
     assert overlaid.crowdsec_machine_id == "dbm"
+    # The endpoint is configuration, not a credential: the stored lapi_url
+    # ("http://db-lapi:8080") must NOT shadow the configured one. This assertion
+    # previously ran the other way round, which is exactly what let a stale row
+    # pin the backend to a decommissioned LAPI.
+    assert overlaid.crowdsec_lapi_url == s.crowdsec_lapi_url == "http://crowdsec.test:8080"
     # Non-credential settings are preserved from the base.
     assert overlaid.crowdsec_origin == "megoopm"
 
@@ -276,3 +280,85 @@ async def test_ensure_registered_forwards_the_registration_token(
         await registration.ensure_registered(db, settings=s)
 
     assert _FakeClient.tokens == [token]
+
+
+# --- endpoint changes (regression: MEG-43 stored URL shadowed the environment) ---
+
+
+async def test_configured_lapi_url_wins_over_the_stored_one(
+    session_factory: async_sessionmaker,
+) -> None:
+    """The endpoint is deployment config; only the credentials live in the DB.
+
+    Regression: ``resolve_settings`` overlaid the stored ``lapi_url`` on top of
+    the configured one, so once the row existed ``CROWDSEC_LAPI_URL`` was
+    ignored forever. Moving from the bundled agent to an external LAPI left the
+    backend resolving the old compose service name — surfacing as a DNS error
+    while the operator was looking at a correct IP in their .env.
+    """
+    s = _settings(crowdsec_lapi_url="http://10.10.0.16:8080")
+    async with session_factory() as db:
+        await creds_service.save_credentials(
+            db, lapi_url="http://crowdsec:8080", machine_id="dbm",
+            machine_password="dbp", bouncer_key="dbk", settings=s,
+        )
+        await db.commit()
+    creds_service.invalidate_cache()
+
+    async with session_factory() as db:
+        overlaid = await creds_service.resolve_settings(db, settings=s)
+
+    assert overlaid.crowdsec_lapi_url == "http://10.10.0.16:8080"
+    # Credentials still come from the database.
+    assert overlaid.crowdsec_lapi_key == "dbk"
+    assert overlaid.crowdsec_machine_id == "dbm"
+
+
+async def test_machine_is_reregistered_when_the_endpoint_changes(
+    session_factory: async_sessionmaker, monkeypatch
+) -> None:
+    """A machine registered against a different LAPI does not exist on the new one."""
+    _FakeClient.registrations = []
+    monkeypatch.setattr(registration, "CrowdSecClient", _FakeClient)
+    old = _settings(crowdsec_lapi_url="http://crowdsec:8080")
+    async with session_factory() as db:
+        await creds_service.save_credentials(
+            db, lapi_url="http://crowdsec:8080", machine_id="old-machine",
+            machine_password="old-pw", bouncer_key="dbk", settings=old,
+        )
+        await db.commit()
+    creds_service.invalidate_cache()
+
+    moved = _settings(crowdsec_lapi_url="http://10.10.0.16:8080")
+    async with session_factory() as db:
+        creds = await registration.ensure_registered(db, settings=moved)
+
+    assert creds is not None
+    assert len(_FakeClient.registrations) == 1, "should re-register on the new LAPI"
+    assert creds.machine_id != "old-machine"
+    assert creds.lapi_url == "http://10.10.0.16:8080"
+    # The bouncer key is deployment config, not LAPI-issued — keep it.
+    assert creds.bouncer_key == "dbk"
+
+
+async def test_no_reregistration_when_the_endpoint_is_unchanged(
+    session_factory: async_sessionmaker, monkeypatch
+) -> None:
+    """Guard the fix above: identical endpoint must stay idempotent."""
+    _FakeClient.registrations = []
+    monkeypatch.setattr(registration, "CrowdSecClient", _FakeClient)
+    s = _settings(crowdsec_lapi_url="http://crowdsec:8080")
+    async with session_factory() as db:
+        await creds_service.save_credentials(
+            db, lapi_url="http://crowdsec:8080", machine_id="m",
+            machine_password="p", bouncer_key="b", settings=s,
+        )
+        await db.commit()
+    creds_service.invalidate_cache()
+
+    async with session_factory() as db:
+        creds = await registration.ensure_registered(db, settings=s)
+
+    assert creds is not None
+    assert creds.machine_id == "m"
+    assert _FakeClient.registrations == []

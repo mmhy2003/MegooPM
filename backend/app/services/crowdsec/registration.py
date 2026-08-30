@@ -77,14 +77,28 @@ def _has_machine(creds: CrowdSecCreds | None) -> bool:
     return bool(creds and creds.machine_id and creds.machine_password)
 
 
+def _is_usable(creds: CrowdSecCreds | None, settings: Settings) -> bool:
+    """True when the stored machine can actually be used against *this* LAPI.
+
+    A machine identity only exists on the LAPI that issued it. If the configured
+    endpoint has moved since the row was written, the stored machine is not
+    merely stale — it does not exist on the new LAPI — so it must be re-registered
+    rather than reused.
+    """
+    if not _has_machine(creds):
+        return False
+    return creds.lapi_url == settings.crowdsec_lapi_url
+
+
 async def _self_register(
     db: AsyncSession, settings: Settings, existing: CrowdSecCreds | None
 ) -> CrowdSecCreds | None:
     """Register a fresh machine against LAPI and persist it. Returns creds or None.
 
     ``existing`` is the current row (typically a bouncer-key-only seed from the
-    environment); its bouncer key and LAPI URL are kept, only the machine half
-    is filled in. Best-effort: on any LAPI/transport failure it logs and returns
+    environment); its bouncer key is kept, the machine half is filled in, and the
+    endpoint is taken from the current configuration. Best-effort: on any
+    LAPI/transport failure it logs and returns
     ``existing`` so a fresh stack whose CrowdSec is not up yet degrades to
     "machine not registered" rather than crashing startup — a later call retries.
     """
@@ -100,7 +114,9 @@ async def _self_register(
             return existing
     await creds_service.save_credentials(
         db,
-        lapi_url=existing.lapi_url if existing else settings.crowdsec_lapi_url,
+        # The endpoint we just registered against — never the row's old value,
+        # which is what let a moved LAPI keep a machine that does not exist there.
+        lapi_url=settings.crowdsec_lapi_url,
         machine_id=machine_id,
         machine_password=password,
         bouncer_key=existing.bouncer_key if existing else None,
@@ -126,7 +142,7 @@ async def ensure_registered(
     """
     settings = settings or default_settings
     creds = await creds_service.resolve(db, settings=settings)
-    if _has_machine(creds):
+    if _is_usable(creds, settings):
         return creds
 
     async with _registration_lock(db):
@@ -134,7 +150,7 @@ async def ensure_registered(
         # registered while we waited for the lock.
         creds_service.invalidate_cache()
         creds = await creds_service.resolve(db, settings=settings)
-        if _has_machine(creds):
+        if _is_usable(creds, settings):
             return creds
         return await _self_register(db, settings, creds)
 
