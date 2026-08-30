@@ -3,6 +3,7 @@ import {
   ShieldCheck,
   ListChecks,
   Network,
+  Server,
   ArrowRightLeft,
   Ban,
   ShieldAlert,
@@ -30,6 +31,12 @@ export const primaryNav: NavItem[] = [
     href: "/proxy-hosts",
     icon: Globe,
     description: "Reverse-proxy hosts forwarding traffic to upstream services.",
+  },
+  {
+    title: "Upstream Pools",
+    href: "/upstreams",
+    icon: Server,
+    description: "Backend server pools that proxy hosts and streams forward to.",
   },
   {
     title: "Certificates",

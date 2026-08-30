@@ -7,6 +7,7 @@ describe("primaryNav", () => {
     const titles = primaryNav.map((item) => item.title);
     expect(titles).toEqual([
       "Proxy Hosts",
+      "Upstream Pools",
       "Certificates",
       "Access Lists",
       "Streams",
