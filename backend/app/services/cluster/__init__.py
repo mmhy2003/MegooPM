@@ -8,6 +8,8 @@ Facade over the two coordination concerns:
   the node-local reload marker that together propagate config changes.
 * **Membership** (:mod:`.nodes`) — the per-node registry that names the fan-out
   targets and exposes how far each node has converged.
+* **Sweep claims** (:mod:`.sweeps`) — makes a scheduled sweep run once per
+  period, not once per beat, which a mutual-exclusion lock cannot do.
 
 :func:`sync_engine` builds the short-lived synchronous engine the Celery tasks
 use for these operations (they run outside FastAPI's event loop).
@@ -26,6 +28,7 @@ from app.services.cluster.nodes import (
     node_states,
     record_node_state,
 )
+from app.services.cluster.sweeps import claim_sweep
 from app.services.cluster.version import (
     UNKNOWN_LOCAL_VERSION,
     bump_config_version,
@@ -50,6 +53,7 @@ __all__ = [
     "NodeState",
     "apply_lock",
     "bump_config_version",
+    "claim_sweep",
     "leader_lock",
     "live_peers",
     "node_states",

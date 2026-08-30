@@ -124,16 +124,29 @@ def _enqueue_due_renewals() -> dict:
 def renew_due_certificates() -> dict:
     """Beat sweep: enqueue a renewal for every Let's Encrypt cert near expiry.
 
-    In HA mode multiple nodes may each run beat, so the sweep body is guarded by
-    a cluster-wide leader lock: whichever node grabs it enqueues the renewals,
-    the rest no-op. This keeps the sweep a singleton without a dedicated beat
-    node. Outside HA mode it runs unguarded (single host).
+    In HA mode every node runs beat, so this task is emitted once per node. Two
+    guards, and only the second is sufficient on its own:
+
+    * a cluster-wide **leader lock**, which excludes nodes sweeping at the same
+      instant;
+    * a **sweep claim**, which excludes nodes sweeping in quick succession.
+
+    The lock alone is not enough, and that distinction is the whole point: it is
+    held only for the milliseconds it takes to read the due list and enqueue, so
+    a second node's beat firing a fraction of a second later finds it free and
+    re-enqueues every certificate the first node's renewals have not yet marked.
+    Each duplicate drives another ACME order against Let's Encrypt's
+    five-duplicates-per-week ceiling, and two nodes issuing the same certificate
+    concurrently race to write the same files on the shared mount.
+
+    Outside HA mode there is one beat and no shared database, so it runs
+    unguarded.
     """
     if not settings.ha_enabled:
         return _enqueue_due_renewals()
 
     # Imported lazily so the single-host path has no DB-coordination dependency.
-    from app.services.cluster import leader_lock, sync_engine
+    from app.services.cluster import claim_sweep, leader_lock, sync_engine
 
     engine = sync_engine()
     try:
@@ -141,6 +154,16 @@ def renew_due_certificates() -> dict:
         with leader_lock(engine, "cert-renew-sweep", lock_file=lock_file) as is_leader:
             if not is_leader:
                 return {"skipped": True, "reason": "another node holds the renewal lock"}
+            # Its own transaction: the claim must commit even though the leader
+            # lock's connection stays open for the enqueue below.
+            with engine.begin() as conn:
+                claimed = claim_sweep(
+                    conn,
+                    "cert-renew-sweep",
+                    min_interval_seconds=settings.cert_renew_sweep_min_interval_seconds,
+                )
+            if not claimed:
+                return {"skipped": True, "reason": "already swept this period"}
             return _enqueue_due_renewals()
     finally:
         engine.dispose()

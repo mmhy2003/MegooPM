@@ -74,4 +74,27 @@ class ClusterNode(Base):
     )
 
 
-__all__ = ["ClusterState", "ClusterNode", "CLUSTER_STATE_ROW_ID"]
+class ClusterSweep(Base):
+    """Last run of each cluster-wide periodic sweep, keyed by sweep name.
+
+    ``leader_lock`` makes a sweep mutually exclusive; it does not make it happen
+    once per period. The lock is held only for the body — for the renewal sweep,
+    long enough to read the due list and enqueue — so a second node's beat firing
+    a fraction of a second later finds the lock free and repeats the work. With
+    beat running on every node that is the normal case, not an edge case.
+
+    Claiming against this table closes that gap: the claim is conditional on the
+    previous run being older than the sweep's interval, so only the first beat of
+    each period does the work however many nodes fire it.
+    """
+
+    __tablename__ = "cluster_sweep"
+
+    # Matches the name passed to ``leader_lock`` (e.g. "cert-renew-sweep").
+    name: Mapped[str] = mapped_column(String(128), primary_key=True)
+    last_run_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
+__all__ = ["ClusterState", "ClusterNode", "ClusterSweep", "CLUSTER_STATE_ROW_ID"]

@@ -130,6 +130,13 @@ class Settings(BaseSettings):
     # How often the auto-renew sweep runs (cron hour; default 03:15 daily).
     cert_renew_sweep_hour: int = 3
     cert_renew_sweep_minute: int = 15
+    # Minimum gap between two *effective* renewal sweeps, cluster-wide. Every node
+    # runs beat, so the daily sweep is emitted once per node; a leader lock only
+    # excludes concurrent runs, and these are sequential. Claiming the sweep
+    # against this window makes it run once per period however many beats fire it.
+    # Half the schedule: long enough to swallow clock skew between nodes, short
+    # enough never to suppress a genuine next day.
+    cert_renew_sweep_min_interval_seconds: float = 12 * 3600
 
     # --- CrowdSec (MEG-22) ---
     # Base URL of the CrowdSec Local API (LAPI). The backend reads decisions /

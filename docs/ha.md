@@ -181,10 +181,20 @@ once per node. Each such sweep grabs a non-blocking **leader lock**
 (`leader_lock(engine, "cert-renew-sweep")`): whichever node wins does the work,
 the rest no-op.
 
-This is what makes running a `beat` on **every** node safe, which §4 requires: the
-per-node reconcile tick must be emitted by the node it targets, so confining beat
-to one host would make convergence depend on that host staying up. Cluster-wide
-sweeps stay singletons regardless of how many beats are running.
+A leader lock alone is **not** enough for that, and the distinction matters: it is
+a mutual-exclusion primitive, held only for the milliseconds the sweep body takes
+to read the due list and enqueue. A second node's beat firing a fraction of a
+second later finds it free and repeats the work — for renewals, that means another
+ACME order per certificate against Let's Encrypt's five-duplicates-per-week
+ceiling. So each sweep also **claims** its period in `cluster_sweep`
+(`claim_sweep`, a single conditional upsert on Postgres): the first beat of the
+period does the work, the rest no-op, however many nodes fire it.
+`CERT_RENEW_SWEEP_MIN_INTERVAL_SECONDS` (default 12h, half the daily schedule)
+is the window.
+
+Together, that is what makes running a `beat` on **every** node safe, which §4
+requires: the per-node reconcile tick must be emitted by the node it targets, so
+confining beat to one host would make convergence depend on that host staying up.
 
 Verified against a real Postgres: two independent engines racing for
 `leader_lock` grant exactly one holder, and the lock is released on exit.
@@ -297,6 +307,7 @@ Sentinel/Cluster); MegooPM only requires that they are reachable from all nodes.
 | `HA_RECONCILE_INTERVAL_SECONDS`  | `30` (`15` in `docker-compose.ha.yml`) | Each node's self-reconcile cadence — the upper bound on how long any node can serve stale config. |
 | `HA_RECONCILE_EXPIRES_SECONDS`   | 3 × the interval                      | TTL on a reconcile message, so an offline node wakes to a bounded queue. |
 | `HA_NODE_LIVENESS_MULTIPLIER`    | `4`                                   | How many intervals a node may miss before it drops out of the push fan-out. |
+| `CERT_RENEW_SWEEP_MIN_INTERVAL_SECONDS` | `43200` (12h)                  | Minimum gap between two effective renewal sweeps, cluster-wide. |
 | `SHARED_DATA_PATH`               | —                                     | Compose only: host directory bind-mounted to `/data`. |
 | `NGINX_RELOAD_TOKEN`             | —                                     | Shared secret between the worker and the nginx reload agent. |
 | `NGINX_AGENT_ADDR`               | `nginx:9099`                          | Where the worker's `scripts.nginx_remote` finds its local nginx agent. |
