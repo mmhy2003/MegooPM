@@ -1,5 +1,7 @@
 "use client";
 
+import { toast } from "sonner";
+
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ArrowRightLeft, Pencil, Plus, ShieldCheck, Trash2 } from "lucide-react";
 
@@ -13,6 +15,7 @@ import { describeError } from "@/components/proxy-hosts/lib";
 import { ConfirmDeleteDialog } from "@/components/proxy-hosts/confirm-delete-dialog";
 import { RedirectionHostDialog } from "@/components/redirection-hosts/redirection-host-dialog";
 import { Badge } from "@/components/ui/badge";
+import { EnabledToggle } from "@/components/hosts/enabled-toggle";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -23,18 +26,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-
-function StatusBadge({ enabled }: { enabled: boolean }) {
-  return (
-    <Badge variant={enabled ? "success" : "muted"}>
-      <span
-        className={`size-1.5 rounded-full ${enabled ? "bg-success" : "bg-muted-foreground"}`}
-        aria-hidden
-      />
-      {enabled ? "Active" : "Disabled"}
-    </Badge>
-  );
-}
 
 function LoadingRows({ cols }: { cols: number }) {
   return (
@@ -97,6 +88,20 @@ export function RedirectionHostsView() {
       scheme === "auto" ? "" : `${scheme}://`,
     [],
   );
+
+  /** Flip one row now, PATCH in the background, and put it back if that fails.
+   *
+   * Deliberately does not call refresh(): that sets loading, which would flash
+   * the skeleton rows over the whole table after every toggle. */
+  async function setEnabled(row: RedirectionHost, next: boolean) {
+    setRows((prev) => prev.map((r) => (r.id === row.id ? { ...r, enabled: next } : r)));
+    try {
+      await redirectionHosts.update(row.id, { enabled: next });
+    } catch (err) {
+      setRows((prev) => prev.map((r) => (r.id === row.id ? { ...r, enabled: !next } : r)));
+      toast.error(describeError(err).message);
+    }
+  }
 
   return (
     <div className="mx-auto flex max-w-6xl flex-col gap-6">
@@ -180,7 +185,11 @@ export function RedirectionHostsView() {
                       )}
                     </TableCell>
                     <TableCell>
-                      <StatusBadge enabled={host.enabled} />
+                      <EnabledToggle
+                        checked={host.enabled}
+                        name={host.domain_names[0]}
+                        onToggle={(next) => setEnabled(host, next)}
+                      />
                     </TableCell>
                     <TableCell>
                       <div className="flex justify-end gap-1">

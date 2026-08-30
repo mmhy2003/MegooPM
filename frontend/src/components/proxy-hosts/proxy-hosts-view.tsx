@@ -1,5 +1,7 @@
 "use client";
 
+import { toast } from "sonner";
+
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Globe, ListChecks, Pencil, Plus, Server, Trash2 } from "lucide-react";
 
@@ -19,6 +21,7 @@ import { ConfirmDeleteDialog } from "@/components/proxy-hosts/confirm-delete-dia
 import { ProxyHostDialog } from "@/components/proxy-hosts/proxy-host-dialog";
 import { UpstreamDialog } from "@/components/proxy-hosts/upstream-dialog";
 import { Badge } from "@/components/ui/badge";
+import { EnabledToggle } from "@/components/hosts/enabled-toggle";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsPanel, TabsTab } from "@/components/ui/tabs";
@@ -30,18 +33,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-
-function StatusBadge({ enabled }: { enabled: boolean }) {
-  return (
-    <Badge variant={enabled ? "success" : "muted"}>
-      <span
-        className={`size-1.5 rounded-full ${enabled ? "bg-success" : "bg-muted-foreground"}`}
-        aria-hidden
-      />
-      {enabled ? "Active" : "Disabled"}
-    </Badge>
-  );
-}
 
 function LoadingRows({ cols }: { cols: number }) {
   return (
@@ -126,6 +117,31 @@ export function ProxyHostsView() {
     for (const list of lists) map.set(list.id, list);
     return map;
   }, [lists]);
+
+  /** Flip one row now, PATCH in the background, and put it back if that fails.
+   *
+   * Deliberately does not call refresh(): that sets loading, which would flash
+   * the skeleton rows over the whole table after every toggle. */
+  async function setEnabled(row: ProxyHost, next: boolean) {
+    setHosts((prev) => prev.map((r) => (r.id === row.id ? { ...r, enabled: next } : r)));
+    try {
+      await proxyHosts.update(row.id, { enabled: next });
+    } catch (err) {
+      setHosts((prev) => prev.map((r) => (r.id === row.id ? { ...r, enabled: !next } : r)));
+      toast.error(describeError(err).message);
+    }
+  }
+
+  /** Same optimistic flip for upstream pools, which share this page. */
+  async function setPoolEnabled(pool: Upstream, next: boolean) {
+    setPools((prev) => prev.map((p) => (p.id === pool.id ? { ...p, enabled: next } : p)));
+    try {
+      await upstreams.update(pool.id, { enabled: next });
+    } catch (err) {
+      setPools((prev) => prev.map((p) => (p.id === pool.id ? { ...p, enabled: !next } : p)));
+      toast.error(describeError(err).message);
+    }
+  }
 
   return (
     <div className="mx-auto flex max-w-6xl flex-col gap-6">
@@ -230,7 +246,11 @@ export function ProxyHostsView() {
                           <Badge variant="outline">{host.forward_scheme}</Badge>
                         </TableCell>
                         <TableCell>
-                          <StatusBadge enabled={host.enabled ?? true} />
+                          <EnabledToggle
+                        checked={host.enabled ?? true}
+                        name={host.domain_names[0]}
+                        onToggle={(next) => setEnabled(host, next)}
+                      />
                         </TableCell>
                         <TableCell>
                           <div className="flex justify-end gap-1">
@@ -311,7 +331,11 @@ export function ProxyHostsView() {
                           </span>
                         </TableCell>
                         <TableCell>
-                          <StatusBadge enabled={pool.enabled ?? true} />
+                          <EnabledToggle
+                            checked={pool.enabled ?? true}
+                            name={pool.name}
+                            onToggle={(next) => setPoolEnabled(pool, next)}
+                          />
                         </TableCell>
                         <TableCell>
                           <div className="flex justify-end gap-1">
