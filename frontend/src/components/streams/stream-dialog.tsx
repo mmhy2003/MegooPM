@@ -11,6 +11,7 @@ import {
   certificateIdFromValue,
   valueFromCertificateId,
 } from "@/components/hosts/certificate-select";
+import { ToggleRow } from "@/components/hosts/toggle-row";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -22,7 +23,9 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
+import { Tabs, TabsList, TabsPanel, TabsTab } from "@/components/ui/tabs";
+
+type DialogTab = "details" | "ssl";
 
 interface FormState {
   incomingPort: string;
@@ -71,28 +74,39 @@ export function StreamDialog({
   onSaved: () => void;
 }) {
   const isEdit = Boolean(stream);
+  // Seeded from props on mount; the parent remounts this dialog (keyed) per
+  // target, so neither the form nor the tab needs a reset-on-open effect.
   const [form, setForm] = useState<FormState>(() => stateFromStream(stream));
+  const [tab, setTab] = useState<DialogTab>("details");
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
+  /** Report a problem and reveal the field it refers to. */
+  function fail(message: string, on: DialogTab = "details") {
+    setTab(on);
+    setError(message);
+  }
+
   async function handleSubmit() {
     setError(null);
+    // Every check below concerns a Details field, so surface that tab with the
+    // error — otherwise the operator reads a complaint about a hidden input.
     const incomingPort = parsePort(form.incomingPort);
     if (incomingPort === null) {
-      setError("Incoming port must be between 1 and 65535.");
+      fail("Incoming port must be between 1 and 65535.");
       return;
     }
     if (!form.forwardHost.trim()) {
-      setError("Enter a forward host.");
+      fail("Enter a forward host.");
       return;
     }
     const forwardPort = parsePort(form.forwardPort);
     if (forwardPort === null) {
-      setError("Forward port must be between 1 and 65535.");
+      fail("Forward port must be between 1 and 65535.");
       return;
     }
     if (!form.tcpForwarding && !form.udpForwarding) {
-      setError("Enable at least one protocol (TCP or UDP).");
+      fail("Enable at least one protocol (TCP or UDP).");
       return;
     }
 
@@ -135,50 +149,86 @@ export function StreamDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div className="space-y-1.5">
-            <Label htmlFor="stream-incoming-port">Incoming port</Label>
-            <Input
-              id="stream-incoming-port"
-              type="number"
-              inputMode="numeric"
-              min={1}
-              max={65535}
-              value={form.incomingPort}
-              onChange={(e) => setForm((p) => ({ ...p, incomingPort: e.target.value }))}
-              placeholder="e.g. 5432"
-              disabled={saving}
-            />
-            <p className="text-xs text-muted-foreground">Port nginx listens on.</p>
-          </div>
+        <Tabs value={tab} onValueChange={(value) => setTab(value as DialogTab)}>
+          <TabsList>
+            <TabsTab value="details">Details</TabsTab>
+            <TabsTab value="ssl">SSL</TabsTab>
+          </TabsList>
 
-          <div className="space-y-1.5">
-            <Label htmlFor="stream-forward-port">Forward port</Label>
-            <Input
-              id="stream-forward-port"
-              type="number"
-              inputMode="numeric"
-              min={1}
-              max={65535}
-              value={form.forwardPort}
-              onChange={(e) => setForm((p) => ({ ...p, forwardPort: e.target.value }))}
-              placeholder="e.g. 5432"
-              disabled={saving}
-            />
-          </div>
+          <TabsPanel value="details" className="space-y-4 pt-2">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label htmlFor="stream-incoming-port">Incoming port</Label>
+                <Input
+                  id="stream-incoming-port"
+                  type="number"
+                  inputMode="numeric"
+                  min={1}
+                  max={65535}
+                  value={form.incomingPort}
+                  onChange={(e) => setForm((p) => ({ ...p, incomingPort: e.target.value }))}
+                  placeholder="e.g. 5432"
+                  disabled={saving}
+                />
+                <p className="text-xs text-muted-foreground">Port nginx listens on.</p>
+              </div>
 
-          <div className="space-y-1.5 sm:col-span-2">
-            <Label htmlFor="stream-forward-host">Forward host</Label>
-            <Input
-              id="stream-forward-host"
-              value={form.forwardHost}
-              onChange={(e) => setForm((p) => ({ ...p, forwardHost: e.target.value }))}
-              placeholder="db.internal or 10.0.0.5"
-              disabled={saving}
-            />
-          </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="stream-forward-port">Forward port</Label>
+                <Input
+                  id="stream-forward-port"
+                  type="number"
+                  inputMode="numeric"
+                  min={1}
+                  max={65535}
+                  value={form.forwardPort}
+                  onChange={(e) => setForm((p) => ({ ...p, forwardPort: e.target.value }))}
+                  placeholder="e.g. 5432"
+                  disabled={saving}
+                />
+              </div>
 
-          <div className="sm:col-span-2">
+              <div className="space-y-1.5 sm:col-span-2">
+                <Label htmlFor="stream-forward-host">Forward host</Label>
+                <Input
+                  id="stream-forward-host"
+                  value={form.forwardHost}
+                  onChange={(e) => setForm((p) => ({ ...p, forwardHost: e.target.value }))}
+                  placeholder="db.internal or 10.0.0.5"
+                  disabled={saving}
+                />
+              </div>
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-2">
+              <ToggleRow
+                label="TCP"
+                hint="Forward TCP on the incoming port"
+                checked={form.tcpForwarding}
+                onCheckedChange={(v) => setForm((p) => ({ ...p, tcpForwarding: v }))}
+                disabled={saving}
+              />
+              <ToggleRow
+                label="UDP"
+                hint="Forward UDP on the incoming port"
+                checked={form.udpForwarding}
+                onCheckedChange={(v) => setForm((p) => ({ ...p, udpForwarding: v }))}
+                disabled={saving}
+              />
+              <ToggleRow
+                className="sm:col-span-2"
+                label="Enabled"
+                hint="Disabled streams are excluded from the nginx config"
+                checked={form.enabled}
+                onCheckedChange={(v) => setForm((p) => ({ ...p, enabled: v }))}
+                disabled={saving}
+              />
+            </div>
+          </TabsPanel>
+
+          <TabsPanel value="ssl" className="space-y-4 pt-2">
+            {/* Raw TCP/UDP has no Force SSL / HSTS / HTTP2 equivalent, so the
+                certificate is the whole of this tab. */}
             <CertificateSelect
               id="stream-certificate"
               value={form.certificateId}
@@ -188,50 +238,8 @@ export function StreamDialog({
               noneLabel="None (plain TCP/UDP)"
               hint="Optional — terminate TLS on the incoming TCP listener."
             />
-          </div>
-        </div>
-
-        <div className="grid gap-3 sm:grid-cols-2">
-          <label className="flex items-start gap-2">
-            <Switch
-              checked={form.tcpForwarding}
-              onCheckedChange={(v) => setForm((p) => ({ ...p, tcpForwarding: v }))}
-              disabled={saving}
-            />
-            <span className="space-y-0.5">
-              <span className="block text-sm font-medium leading-none">TCP</span>
-              <span className="block text-xs text-muted-foreground">
-                Forward TCP on the incoming port
-              </span>
-            </span>
-          </label>
-          <label className="flex items-start gap-2">
-            <Switch
-              checked={form.udpForwarding}
-              onCheckedChange={(v) => setForm((p) => ({ ...p, udpForwarding: v }))}
-              disabled={saving}
-            />
-            <span className="space-y-0.5">
-              <span className="block text-sm font-medium leading-none">UDP</span>
-              <span className="block text-xs text-muted-foreground">
-                Forward UDP on the incoming port
-              </span>
-            </span>
-          </label>
-          <label className="flex items-start gap-2 sm:col-span-2">
-            <Switch
-              checked={form.enabled}
-              onCheckedChange={(v) => setForm((p) => ({ ...p, enabled: v }))}
-              disabled={saving}
-            />
-            <span className="space-y-0.5">
-              <span className="block text-sm font-medium leading-none">Enabled</span>
-              <span className="block text-xs text-muted-foreground">
-                Disabled streams are excluded from the nginx config
-              </span>
-            </span>
-          </label>
-        </div>
+          </TabsPanel>
+        </Tabs>
 
         {error ? (
           <p role="alert" className="text-sm text-destructive">

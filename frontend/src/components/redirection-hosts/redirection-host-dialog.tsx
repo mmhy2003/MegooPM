@@ -39,7 +39,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
+import { ToggleRow } from "@/components/hosts/toggle-row";
 import { Tabs, TabsList, TabsPanel, TabsTab } from "@/components/ui/tabs";
 
 const SCHEME_LABELS: Record<RedirectScheme, string> = {
@@ -122,40 +122,6 @@ function stateFromHost(host: RedirectionHost | null | undefined): FormState {
       block_exploits: host.block_exploits,
     },
   };
-}
-
-/** One switch with its label and hint — shared by both tabs. */
-function ToggleRow({
-  label,
-  hint,
-  checked,
-  onCheckedChange,
-  disabled,
-  className,
-}: {
-  label: string;
-  hint: string;
-  checked: boolean;
-  onCheckedChange: (value: boolean) => void;
-  disabled?: boolean;
-  className?: string;
-}) {
-  return (
-    <label className={`flex items-start gap-2 ${className ?? ""}`}>
-      {/* The wrapping label also contains the hint, so name the switch explicitly
-          — same as the proxy-host dialog's ToggleGrid. */}
-      <Switch
-        aria-label={label}
-        checked={checked}
-        onCheckedChange={onCheckedChange}
-        disabled={disabled}
-      />
-      <span className="space-y-0.5">
-        <span className="block text-sm font-medium leading-none">{label}</span>
-        <span className="block text-xs text-muted-foreground">{hint}</span>
-      </span>
-    </label>
-  );
 }
 
 export function RedirectionHostDialog({

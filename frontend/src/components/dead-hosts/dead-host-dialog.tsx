@@ -12,6 +12,7 @@ import {
   certificateIdFromValue,
   valueFromCertificateId,
 } from "@/components/hosts/certificate-select";
+import { ToggleRow } from "@/components/hosts/toggle-row";
 import { DomainTagsInput } from "@/components/domains/domain-tags-input";
 import { Button } from "@/components/ui/button";
 import {
@@ -23,17 +24,19 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
+import { Tabs, TabsList, TabsPanel, TabsTab } from "@/components/ui/tabs";
 
-/** Boolean feature toggles rendered as a switch grid. */
-const TOGGLES = [
+/** TLS options — meaningless without a certificate, so the SSL tab gates them. */
+const TLS_TOGGLES = [
   ["ssl_forced", "Force SSL", "Redirect :80 to HTTPS"],
   ["http2_support", "HTTP/2", "Enable HTTP/2 on the TLS listener"],
   ["hsts_enabled", "HSTS", "Emit a Strict-Transport-Security header"],
   ["hsts_subdomains", "HSTS subdomains", "Include subdomains in HSTS"],
 ] as const;
 
-type ToggleKey = (typeof TOGGLES)[number][0];
+type ToggleKey = (typeof TLS_TOGGLES)[number][0];
+
+type DialogTab = "details" | "ssl";
 
 interface FormState {
   domains: string[];
@@ -87,24 +90,38 @@ export function DeadHostDialog({
   onSaved: () => void;
 }) {
   const isEdit = Boolean(host);
+  // Seeded from props on mount; the parent remounts this dialog (keyed) per
+  // target, so neither the form nor the tab needs a reset-on-open effect.
   const [form, setForm] = useState<FormState>(() => stateFromHost(host));
+  const [tab, setTab] = useState<DialogTab>("details");
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [domainsInvalid, setDomainsInvalid] = useState(false);
+
+  // Force SSL / HTTP2 / HSTS all describe a TLS listener this host will not have.
+  const noCertificate = certificateIdFromValue(form.certificateId) === null;
 
   function setToggle(key: ToggleKey, value: boolean) {
     setForm((prev) => ({ ...prev, toggles: { ...prev.toggles, [key]: value } }));
   }
 
+  /** Report a problem and reveal the field it refers to. */
+  function fail(message: string, on: DialogTab = "details") {
+    setTab(on);
+    setError(message);
+  }
+
   async function handleSubmit() {
     setError(null);
+    // Both checks concern a Details field, so surface that tab with the error —
+    // otherwise the operator reads a complaint about a hidden input.
     if (domainsInvalid) {
-      setError("Fix the highlighted domain first.");
+      fail("Fix the highlighted domain first.");
       return;
     }
     const domains = form.domains;
     if (domains.length === 0) {
-      setError("Enter at least one domain name.");
+      fail("Enter at least one domain name.");
       return;
     }
 
@@ -146,61 +163,61 @@ export function DeadHostDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="grid gap-4">
-          <div className="space-y-1.5">
-            <Label htmlFor="dead-domains">Domain names</Label>
-            <DomainTagsInput
-              id="dead-domains"
-              value={form.domains}
-              onChange={(domains) => setForm((p) => ({ ...p, domains }))}
-              onPendingInvalidChange={setDomainsInvalid}
-              placeholder="parked.example.com"
-              disabled={saving}
-            />
-            <p className="text-xs text-muted-foreground">
-              Press Enter or comma after each domain. Wildcards like <code>*.example.com</code>{" "}
-              are allowed.
-            </p>
-          </div>
+        <Tabs value={tab} onValueChange={(value) => setTab(value as DialogTab)}>
+          <TabsList>
+            <TabsTab value="details">Details</TabsTab>
+            <TabsTab value="ssl">SSL</TabsTab>
+          </TabsList>
 
-          <CertificateSelect
-            id="dead-certificate"
-            value={form.certificateId}
-            onValueChange={(v) => setForm((p) => ({ ...p, certificateId: v }))}
-            certificates={certificates}
-            disabled={saving}
-            hint="Optional — terminate TLS for these domains."
-          />
-        </div>
-
-        <div className="grid gap-3 sm:grid-cols-2">
-          {TOGGLES.map(([key, label, hint]) => (
-            <label key={key} className="flex items-start gap-2">
-              <Switch
-                checked={form.toggles[key]}
-                onCheckedChange={(v) => setToggle(key, v)}
+          <TabsPanel value="details" className="space-y-4 pt-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="dead-domains">Domain names</Label>
+              <DomainTagsInput
+                id="dead-domains"
+                value={form.domains}
+                onChange={(domains) => setForm((p) => ({ ...p, domains }))}
+                onPendingInvalidChange={setDomainsInvalid}
+                placeholder="parked.example.com"
                 disabled={saving}
               />
-              <span className="space-y-0.5">
-                <span className="block text-sm font-medium leading-none">{label}</span>
-                <span className="block text-xs text-muted-foreground">{hint}</span>
-              </span>
-            </label>
-          ))}
-          <label className="flex items-start gap-2">
-            <Switch
+              <p className="text-xs text-muted-foreground">
+                Press Enter or comma after each domain. Wildcards like{" "}
+                <code>*.example.com</code> are allowed.
+              </p>
+            </div>
+
+            <ToggleRow
+              label="Enabled"
+              hint="Disabled hosts are excluded from the nginx config"
               checked={form.enabled}
               onCheckedChange={(v) => setForm((p) => ({ ...p, enabled: v }))}
               disabled={saving}
             />
-            <span className="space-y-0.5">
-              <span className="block text-sm font-medium leading-none">Enabled</span>
-              <span className="block text-xs text-muted-foreground">
-                Disabled hosts are excluded from the nginx config
-              </span>
-            </span>
-          </label>
-        </div>
+          </TabsPanel>
+
+          <TabsPanel value="ssl" className="space-y-4 pt-2">
+            <CertificateSelect
+              id="dead-certificate"
+              value={form.certificateId}
+              onValueChange={(v) => setForm((p) => ({ ...p, certificateId: v }))}
+              certificates={certificates}
+              disabled={saving}
+              hint="Optional — terminate TLS for these domains. Without one the options below have no effect."
+            />
+            <div className="grid gap-3 sm:grid-cols-2">
+              {TLS_TOGGLES.map(([key, label, hint]) => (
+                <ToggleRow
+                  key={key}
+                  label={label}
+                  hint={hint}
+                  checked={form.toggles[key]}
+                  onCheckedChange={(v) => setToggle(key, v)}
+                  disabled={saving || noCertificate}
+                />
+              ))}
+            </div>
+          </TabsPanel>
+        </Tabs>
 
         {error ? (
           <p role="alert" className="text-sm text-destructive">
