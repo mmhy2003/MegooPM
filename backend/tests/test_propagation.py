@@ -6,6 +6,7 @@ import pytest
 from app.services.certs.dns_providers.propagation import (
     PropagationTimeoutError,
     authoritative_nameservers,
+    ipv6_available,
     wait_for_txt,
 )
 
@@ -189,3 +190,89 @@ def test_authoritative_nameservers_resolves_ns_then_addresses() -> None:
         "192.0.2.1",
         "192.0.2.2",
     ]
+
+
+def test_timeout_message_separates_unreachable_servers_from_stale_ones() -> None:
+    """A dead server and a server still serving the old record are very different
+    problems; the message used to report both as "not visible"."""
+
+    def query(ns: str, name: str) -> set[str]:
+        if ns == "dead":
+            raise TimeoutError("no route to host")
+        return {"other"}
+
+    clock = _Clock()
+
+    def sleep(seconds: float) -> None:
+        clock.now += seconds
+
+    with pytest.raises(PropagationTimeoutError) as excinfo:
+        wait_for_txt(
+            "_acme-challenge.example.com",
+            "v",
+            timeout_seconds=1,
+            interval_seconds=1,
+            nameservers=["dead", "stale"],
+            query=query,
+            sleep=sleep,
+            clock=clock,
+        )
+    message = str(excinfo.value)
+    assert "2/2" in message
+    assert "1 unreachable (TimeoutError)" in message
+    assert "1 serving other values" in message
+
+
+class _DualStackResolver:
+    """An NS host with both A and AAAA addresses (Cloudflare-style)."""
+
+    def resolve(self, name: str, rtype: str):
+        if rtype == "NS" and name == "example.com":
+            return [_Rdata("ns1.example.net.", target=True)]
+        if rtype == "A" and name == "ns1.example.net.":
+            return [_Rdata("192.0.2.1")]
+        if rtype == "AAAA" and name == "ns1.example.net.":
+            return [_Rdata("2001:db8::1")]
+        raise OSError("NXDOMAIN")
+
+
+def test_authoritative_nameservers_skips_aaaa_when_the_host_has_no_ipv6() -> None:
+    """Regression: a worker container without an IPv6 route timed out on every
+    AAAA address of the zone's NS hosts, and each dead query counted as "not
+    propagated yet". Cloudflare's two NS hosts (3 A + 3 AAAA each) therefore
+    failed as "6/12 authoritative nameservers" while the record was published
+    and served correctly over IPv4."""
+    assert authoritative_nameservers("example.com", resolver=_DualStackResolver(), ipv6=False) == [
+        "192.0.2.1"
+    ]
+
+
+def test_authoritative_nameservers_keeps_aaaa_when_ipv6_works() -> None:
+    assert authoritative_nameservers("example.com", resolver=_DualStackResolver(), ipv6=True) == [
+        "192.0.2.1",
+        "2001:db8::1",
+    ]
+
+
+class _V6OnlyResolver:
+    def resolve(self, name: str, rtype: str):
+        if rtype == "NS" and name == "example.com":
+            return [_Rdata("ns1.example.net.", target=True)]
+        if rtype == "AAAA" and name == "ns1.example.net.":
+            return [_Rdata("2001:db8::1")]
+        raise OSError("NXDOMAIN")
+
+
+def test_ipv6_only_zone_without_ipv6_says_so() -> None:
+    """Skipping the AAAA addresses must not degrade into the generic "no
+    authoritative nameservers" message when they were the only ones."""
+    with pytest.raises(PropagationTimeoutError, match="IPv6"):
+        authoritative_nameservers("example.com", resolver=_V6OnlyResolver(), ipv6=False)
+
+
+def test_ipv6_available_follows_the_route_probe() -> None:
+    def unreachable() -> None:
+        raise OSError(101, "Network is unreachable")
+
+    assert ipv6_available(probe=unreachable) is False
+    assert ipv6_available(probe=lambda: None) is True
