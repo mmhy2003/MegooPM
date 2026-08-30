@@ -176,8 +176,22 @@ class Settings(BaseSettings):
     # version to decide whether a reload is due.
     nginx_reload_marker_path: str = "/var/run/megoopm/nginx-config.version"
     # How often (seconds) each node reconciles its local nginx against the
-    # shared config version — the self-healing backstop for a missed broadcast.
+    # shared config version. Every node runs its own beat emitting this onto its
+    # own queue, so this is the hard upper bound on how long a node can serve a
+    # stale config after a change — including a node that was down or newly
+    # added, for which the push fan-out never fired.
     ha_reconcile_interval_seconds: float = 30.0
+    # TTL stamped on reconcile messages. A reconcile is only meaningful while it
+    # is current: the version check makes a stale one a no-op, but without a TTL
+    # a node that is offline for hours wakes to a backlog of them. Defaults to
+    # three intervals — long enough to survive a slow node, short enough to keep
+    # the queue bounded.
+    ha_reconcile_expires_seconds: float | None = None
+    # Multiple of the reconcile interval within which a node must have checked in
+    # to still receive pushed reconciles. Beyond it a node is presumed gone and
+    # drops out of the fan-out, so a decommissioned node's queue stops growing;
+    # if it ever returns, its own beat converges it.
+    ha_node_liveness_multiplier: float = 4.0
 
     # --- CORS ---
     # Comma-separated origins, or "*" for all. NoDecode disables
@@ -220,6 +234,18 @@ class Settings(BaseSettings):
     def effective_node_id(self) -> str:
         """This node's identifier, falling back to the hostname."""
         return self.node_id or socket.gethostname()
+
+    @property
+    def effective_reconcile_expires_seconds(self) -> float:
+        """TTL for a reconcile message, defaulting to three reconcile intervals."""
+        if self.ha_reconcile_expires_seconds is not None:
+            return self.ha_reconcile_expires_seconds
+        return self.ha_reconcile_interval_seconds * 3
+
+    @property
+    def node_liveness_window_seconds(self) -> float:
+        """How recently a node must have reconciled to still be pushed to."""
+        return self.ha_reconcile_interval_seconds * self.ha_node_liveness_multiplier
 
     @property
     def effective_celery_broker_url(self) -> str:

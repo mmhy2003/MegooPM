@@ -5,9 +5,10 @@ with the **current** implementation (`docker-compose.ha.yml`). It is
 deliberately practical; the design rationale (locking, propagation, failure
 model) lives in [`docs/ha.md`](docs/ha.md).
 
-> **Read §8 "Known limitation" before relying on this in production.** Today
-> only the node that applies a change reloads its own nginx; the other nodes
-> need the documented workaround until the reconcile fan-out is fixed.
+> Config changes propagate to every node automatically — see §8 to verify it.
+> (Before 2026-08-30 they did not: the reconcile fan-out used a Celery Broadcast
+> queue that never delivered on Redis. If you deployed an earlier commit, upgrade
+> and drop the manual reconcile cron you were told to add.)
 
 ---
 
@@ -33,15 +34,15 @@ model) lives in [`docs/ha.md`](docs/ha.md).
               └─────────────────────────────────────────┘
               ┌─────────────────────────────────────────┐
               │ CONTROL PLANE (one host)                │  Postgres, Redis,
-              │ docker-compose.ha.yml with              │  CrowdSec LAPI/AppSec,
-              │ COMPOSE_PROFILES=control-plane,scheduler│  Celery beat
+              │ docker-compose.ha.yml with              │  CrowdSec LAPI/AppSec
+              │ COMPOSE_PROFILES=control-plane          │
               └─────────────────────────────────────────┘
 ```
 
 | Role | What runs there | How many |
 | --- | --- | --- |
-| **Control plane** | Postgres, Redis, CrowdSec LAPI + AppSec, Celery `beat` | exactly one (or replace Postgres/Redis with managed HA services) |
-| **Data plane** | managed nginx (+ reload agent), API, Celery worker, web UI | as many as you like |
+| **Control plane** | Postgres, Redis, CrowdSec LAPI + AppSec | exactly one (or replace Postgres/Redis with managed HA services) |
+| **Data plane** | managed nginx (+ reload agent), API, Celery worker, **beat**, web UI | as many as you like |
 | **Shared storage** | NFS (or any shared filesystem) mounted on every data-plane node | one export |
 | **Load balancer** | anything L4 for `:80/:443`; optionally L7 for `:3000/:8000` | yours — not part of the stack |
 
@@ -126,7 +127,7 @@ Edit `.env`:
 ```dotenv
 NODE_ID=node-cp
 SHARED_DATA_PATH=/mnt/megoopm            # this host also mounts the share
-COMPOSE_PROFILES=control-plane,scheduler # Postgres, Redis, CrowdSec, beat live here
+COMPOSE_PROFILES=control-plane           # Postgres, Redis and CrowdSec live here
 RUN_MIGRATIONS=1                         # this node applies schema migrations
 CONTROL_PLANE_BIND=10.0.0.10             # private interface the shared services are published on
 
@@ -170,7 +171,7 @@ proxy traffic from the LB.
 **Using managed Postgres / Redis instead:** drop `control-plane` from
 `COMPOSE_PROFILES`, point `DATABASE_URL` / `REDIS_URL` at the managed
 endpoints, and run CrowdSec LAPI wherever you like (its URL is all the nodes
-need). Keep `scheduler` on exactly one node.
+need).
 
 ---
 
@@ -263,37 +264,55 @@ see §8.
 
 ---
 
-## 8. Known limitation — the reconcile fan-out (read this)
+## 8. Verify config propagation
 
-Design: when a node applies a change it bumps `cluster_state.config_version`
-and broadcasts `reconcile_local_nginx` to every worker; each worker compares
-the shared version with its local marker and reloads its own nginx. Beat also
-broadcasts a reconcile every `HA_RECONCILE_INTERVAL_SECONDS` (15 s) as a
-backstop.
+When a node applies a change it bumps `cluster_state.config_version`, then pushes
+a `reconcile_local_nginx` onto every *other* node's own queue
+(`megoopm.node.<NODE_ID>`). Independently, **every node runs its own `beat`**,
+which reconciles that node every `HA_RECONCILE_INTERVAL_SECONDS` (15 s here).
+The push is a latency optimisation; the per-node tick is the guarantee, and it is
+what converges a node that was down, partitioned, or newly added.
 
-**Current state:** the Celery *Broadcast* queue over Redis is not delivering
-(details and evidence in [`docs/ha.md`](docs/ha.md#4-config-propagation--reload-fan-out)).
-The node that applied the change reloads itself correctly; **the other nodes
-do not pick it up**. Until this is fixed:
+Check the whole cluster from one place:
 
-- Either apply configuration changes and then trigger the reconcile on each
-  other node by hand:
+```bash
+curl -s -H "Authorization: Bearer $TOKEN"   https://megoopm-api.example.com/api/v1/cluster/status | jq
+```
 
-  ```bash
-  docker compose -f docker-compose.ha.yml exec worker python -W ignore -c \
-    "from app.tasks.nginx import reconcile_local_nginx; print(reconcile_local_nginx())"
-  ```
+```json
+{
+  "ha_enabled": true,
+  "config_version": 42,
+  "this_node": "node-cp",
+  "converged": true,
+  "nodes": [
+    {"node_id": "node-a", "applied_version": 42, "in_sync": true,  "stale": false},
+    {"node_id": "node-b", "applied_version": 41, "in_sync": false, "stale": false}
+  ]
+}
+```
 
-  (idempotent — a current node answers `already current`; a lagging node
-  validates and reloads and advances its marker),
+`in_sync: false` on a non-stale node means it has not reloaded yet — normally it
+catches up within one interval. If it stays behind, that node's `nginx -t` is
+rejecting the shared config; check `docker compose -f docker-compose.ha.yml logs
+worker` on it for `shared config failed nginx -t`. A node reports the version it
+is actually serving, so it will never claim to have caught up when it has not.
 
-- or run that command from a host cron on every data-plane node, e.g. every
-  minute. It only reloads when the shared version is newer, so it is cheap.
+`stale: true` means the node has stopped reporting entirely (down, or partitioned
+from Postgres). It is excluded from the push fan-out until it returns.
 
-The fix (per-`NODE_ID` task queues instead of Redis fanout) is tracked as a
-follow-up to MEG-35.
+Or straight from the database:
 
----
+```bash
+docker compose -f docker-compose.ha.yml exec db psql -U megoopm -d megoopm -c   "select n.node_id, n.applied_version, s.config_version, n.last_seen_at
+     from cluster_node n cross join cluster_state s where s.id = 1 order by n.node_id;"
+```
+
+To force a node to reconcile immediately rather than waiting for its tick:
+
+```bash
+docker compose -f docker-compose.ha.yml exec worker python -W ignore -c   "from app.tasks.nginx import reconcile_local_nginx; print(reconcile_local_nginx())"
+```
 
 ## 9. Operations
 
@@ -307,8 +326,9 @@ edit `.env`, then `docker compose -f docker-compose.ha.yml build frontend && …
 on every node.
 
 **Adding a node.** §5. **Removing a node.** Drain it at the LB, `docker compose
--f docker-compose.ha.yml down` — it holds no authoritative state. If it ran
-`scheduler`, move that profile to another node.
+-f docker-compose.ha.yml down` — it holds no authoritative state. Its row lingers
+in `cluster_node` until you delete it; it goes stale within a few intervals and
+stops receiving pushed reconciles on its own.
 
 **Backups.** Postgres (`pgdata` volume on the control-plane node, or your
 managed service's backups) and the shared export (`/export/megoopm` — certs,
@@ -332,7 +352,7 @@ plane) shows the periodic sweeps.
 | --- | --- | --- |
 | `NODE_ID` | per node | unique id stamped on `cluster_state.updated_by` |
 | `SHARED_DATA_PATH` | per node (usually the same path) | host directory of the shared mount → `/data` in containers |
-| `COMPOSE_PROFILES` | per node | `control-plane`, `scheduler`, both, or empty |
+| `COMPOSE_PROFILES` | per node | `control-plane` on one node, empty elsewhere |
 | `RUN_MIGRATIONS` | `1` on one node | that node's backend runs `alembic upgrade head` on start |
 | `CONTROL_PLANE_BIND` | control plane | interface the shared services are published on |
 | `DATABASE_URL`, `REDIS_URL` | identical (host differs only if `control-plane` is local) | shared Postgres / Redis |
@@ -345,4 +365,4 @@ plane) shows the periodic sweeps.
 | `NGINX_HTTP_PORT`, `NGINX_HTTPS_PORT`, `FRONTEND_PORT`, `BACKEND_PORT` | per node | host ports |
 | `POSTGRES_PORT`, `REDIS_PORT`, `CROWDSEC_LAPI_PORT`, `CROWDSEC_APPSEC_PORT` | control plane | published control-plane ports |
 | `ACME_*` | identical | Let's Encrypt directory, account email, DNS-01 propagation timings |
-| `HA_RECONCILE_INTERVAL_SECONDS` | identical | beat's backstop reconcile cadence |
+| `HA_RECONCILE_INTERVAL_SECONDS` | identical | each node's self-reconcile cadence — the bound on stale config |

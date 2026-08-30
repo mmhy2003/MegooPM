@@ -119,6 +119,10 @@ server {
     listen 443 ssl{% if host.http2_support %} http2{% endif %};
     server_name {{ server_names }};
 
+    # Renewal rewrites the files below in place, so without this line the
+    # rendered config would be unchanged and no node would reload onto the new
+    # certificate. See CertificateSpec.fingerprint.
+    # cert-material {{ host.certificate.id }}:{{ host.certificate.fingerprint }}
     ssl_certificate {{ host.certificate.fullchain_path }};
     ssl_certificate_key {{ host.certificate.privkey_path }};
 {{- hsts() }}

@@ -63,3 +63,52 @@ def test_challenge_not_in_443_server() -> None:
     # Split at the 443 server; the challenge belongs only to the :80 block.
     tls_block = server.split("listen 443")[1]
     assert _CHALLENGE_LOCATION not in tls_block
+
+
+def test_renewal_changes_the_rendered_config() -> None:
+    """A renewal must produce a different config, or no node ever reloads.
+
+    Renewal rewrites fullchain.pem/privkey.pem in place, so the paths — and
+    before the fingerprint, the whole rendered file — were byte-identical.
+    ``apply_config`` then reported ``changed=False``, skipping the reload and the
+    ``config_version`` bump, so every node kept serving the expiring certificate
+    from memory until an unrelated edit happened to trigger a reload.
+    """
+
+    def render_with(fingerprint: str) -> str:
+        cert = CertificateSpec(
+            id=7,
+            fullchain_path="/data/certs/7/fullchain.pem",
+            privkey_path="/data/certs/7/privkey.pem",
+            fingerprint=fingerprint,
+        )
+        return _render(
+            ProxyHostSpec(
+                id=1,
+                domain_names=("example.com",),
+                upstream_id=1,
+                certificate=cert,
+            )
+        )
+
+    before = render_with("aaaaaaaaaaaaaaaa")
+    after = render_with("bbbbbbbbbbbbbbbb")
+
+    assert before != after
+    # The paths themselves are unchanged — the fingerprint is the only signal.
+    assert "/data/certs/7/fullchain.pem" in before
+    assert "/data/certs/7/fullchain.pem" in after
+
+
+def test_identical_material_renders_identically() -> None:
+    """Idempotency must survive: same material, same bytes, no needless reload."""
+    cert = CertificateSpec(
+        id=7,
+        fullchain_path="/data/certs/7/fullchain.pem",
+        privkey_path="/data/certs/7/privkey.pem",
+        fingerprint="cafecafecafecafe",
+    )
+    host = ProxyHostSpec(
+        id=1, domain_names=("example.com",), upstream_id=1, certificate=cert
+    )
+    assert _render(host) == _render(host)

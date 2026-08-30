@@ -4,11 +4,16 @@ Two tasks:
 
 * :func:`reload_nginx_config` — the write path. Loads desired state, applies it
   (render → validate → reload) with rollback safety, and — in HA mode — does so
-  under a cross-node lock, bumps the shared ``config_version``, and fans a
-  reconcile out to every node.
+  under a cross-node lock, bumps the shared ``config_version``, and pushes a
+  reconcile onto each live peer's own queue.
 * :func:`reconcile_local_nginx` — the propagation path. Reloads *this* node's
   nginx iff the shared config version is newer than what this node last applied.
-  Fanned out on every change and run periodically as a self-healing backstop.
+
+Propagation has a fast path and a guarantee, and only the guarantee is load
+bearing: the push above is best-effort, while every node's own beat schedules a
+reconcile onto its own queue every ``HA_RECONCILE_INTERVAL_SECONDS``. That bound
+holds for a node that was down, partitioned, or newly added — cases where no
+push was ever delivered.
 
 All the transactional safety (locking, validation, rollback) lives in
 :func:`app.services.nginx.apply_config`; the HA coordination lives in
@@ -19,13 +24,15 @@ from __future__ import annotations
 
 from contextlib import nullcontext
 
-from app.core.celery_app import celery_app
+from app.core.celery_app import celery_app, node_queue
 from app.core.config import settings
 from app.services.cluster import (
     apply_lock,
     bump_config_version,
+    live_peers,
     read_config_version,
     read_local_version,
+    record_node_state,
     sync_engine,
     write_local_version,
 )
@@ -78,12 +85,47 @@ def _apply_ha() -> dict:
 
     # This node already reloaded (or was already current) inside apply_config.
     write_local_version(settings.nginx_reload_marker_path, version)
+    _record_state(version)
     payload = result.as_dict()
     payload["config_version"] = version
     if result.changed:
-        # Tell every *other* node to reload its local nginx from the shared dir.
-        reconcile_local_nginx.delay()
+        payload["notified"] = _push_reconcile_to_peers()
     return payload
+
+
+def _push_reconcile_to_peers() -> list[str]:
+    """Enqueue a reconcile onto each live peer's own queue; return their ids.
+
+    This is the low-latency path only. It is deliberately best-effort: a peer
+    that is absent from the registry, or a broker hiccup here, costs latency and
+    nothing else, because every node's own beat reconciles it within
+    ``HA_RECONCILE_INTERVAL_SECONDS`` regardless. So a failure to notify must
+    never fail the apply that already succeeded.
+    """
+    engine = sync_engine()
+    try:
+        with engine.connect() as conn:
+            peers = live_peers(
+                conn,
+                exclude=settings.effective_node_id,
+                max_age_seconds=settings.node_liveness_window_seconds,
+            )
+    except Exception:  # noqa: BLE001 - the apply is already committed; never fail it
+        return []
+    finally:
+        engine.dispose()
+
+    notified: list[str] = []
+    for peer in peers:
+        try:
+            reconcile_local_nginx.apply_async(
+                queue=node_queue(peer),
+                expires=settings.effective_reconcile_expires_seconds,
+            )
+            notified.append(peer)
+        except Exception:  # noqa: BLE001 - one unreachable peer must not stop the rest
+            continue
+    return notified
 
 
 @celery_app.task(name="app.tasks.nginx.reload_nginx_config")
@@ -106,8 +148,16 @@ def reconcile_local_nginx() -> dict:
     The shared ``conf.d`` volume already holds the file bytes (written by
     whichever node applied the change), so this only has to reload the local
     nginx process. Idempotent: a node already at the current version does
-    nothing. Fanned out on every change and scheduled periodically so a node
-    that missed the broadcast still converges.
+    nothing.
+
+    Reached two ways: pushed onto this node's queue by whichever node applied a
+    change, and scheduled onto its own queue by this node's beat every
+    ``HA_RECONCILE_INTERVAL_SECONDS``. The scheduled path is the guarantee — it
+    is what converges a node that was down, partitioned, or newly added, for
+    which no push was ever delivered.
+
+    Every run records this node's position in ``cluster_node``, which is both the
+    fan-out target list and the cluster's convergence view.
     """
     engine = sync_engine()
     try:
@@ -118,11 +168,15 @@ def reconcile_local_nginx() -> dict:
 
     local = read_local_version(settings.nginx_reload_marker_path)
     if version <= local:
+        _record_state(local)
         return {"reloaded": False, "reason": "already current", "version": version}
 
     controller = build_controller()
     test = controller.test()
     if not test.ok:
+        # Report the version this node is actually serving, not the one it failed
+        # to reach — otherwise the convergence view would claim it caught up.
+        _record_state(local)
         return {
             "reloaded": False,
             "valid": False,
@@ -133,12 +187,29 @@ def reconcile_local_nginx() -> dict:
     reload = controller.reload()
     if reload.ok:
         write_local_version(settings.nginx_reload_marker_path, version)
+    _record_state(version if reload.ok else local)
     return {
         "reloaded": reload.ok,
         "valid": True,
         "version": version,
         "reload_output": reload.output,
     }
+
+
+def _record_state(applied_version: int) -> None:
+    """Best-effort heartbeat into the node registry.
+
+    Never raises: the registry is advisory (see :mod:`app.services.cluster.nodes`),
+    so a write failure here must not turn a successful reload into a failed task.
+    """
+    engine = sync_engine()
+    try:
+        with engine.begin() as conn:
+            record_node_state(conn, settings.effective_node_id, applied_version)
+    except Exception:  # noqa: BLE001 - advisory data only
+        pass
+    finally:
+        engine.dispose()
 
 
 __all__ = ["reload_nginx_config", "reconcile_local_nginx"]

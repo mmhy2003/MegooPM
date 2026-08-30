@@ -3,11 +3,12 @@
 Exercises the full HA write + propagation path in Celery eager mode against a
 sync SQLite engine and a temp ``conf.d`` — no Postgres, no nginx, no broker:
 
-* ``reload_nginx_config`` (HA mode) writes files, bumps the shared version, and
-  records the node-local marker.
+* ``reload_nginx_config`` (HA mode) writes files, bumps the shared version,
+  records the node-local marker, and pushes a reconcile to each live peer's own
+  queue.
 * ``reconcile_local_nginx`` reloads a node's nginx iff the shared version is
   ahead of that node's marker — the mechanism that makes a change on node A land
-  on node B.
+  on node B — and records this node's position in the node registry.
 """
 
 from __future__ import annotations
@@ -16,8 +17,10 @@ from pathlib import Path
 
 import app.tasks.nginx as nginx_task
 import pytest
+from app.core.celery_app import node_queue
 from app.core.config import settings
-from app.models.cluster_state import ClusterState
+from app.models.cluster_state import ClusterNode, ClusterState
+from app.services.cluster.nodes import node_states, record_node_state
 from app.services.nginx.controller import CommandResult
 from app.services.nginx.state import (
     BackendSpec,
@@ -55,6 +58,7 @@ def ha_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     """Wire the HA task path to a temp conf.d, temp marker, and SQLite engine."""
     engine = create_engine(f"sqlite:///{tmp_path / 'cluster.db'}", future=True)
     ClusterState.__table__.create(engine)
+    ClusterNode.__table__.create(engine)
 
     confd = tmp_path / "conf.d"
     marker = tmp_path / "node-a" / "nginx-config.version"
@@ -125,3 +129,89 @@ def test_reconcile_is_noop_when_current(ha_env) -> None:
 
     assert result["reloaded"] is False
     assert controller.reloads == reloads_before
+
+
+def test_apply_records_this_node_in_the_registry(ha_env) -> None:
+    """The applying node must register itself, or peers cannot push to it."""
+    nginx_task.reload_nginx_config()
+
+    with ha_env["engine"].connect() as conn:
+        states = {s.node_id: s.applied_version for s in node_states(conn)}
+    assert states == {"node-a": 1}
+
+
+def test_apply_pushes_a_reconcile_to_every_live_peer(ha_env, monkeypatch) -> None:
+    """The fan-out addresses each peer's own queue — and never this node's."""
+    with ha_env["engine"].begin() as conn:
+        record_node_state(conn, "node-a", 0)
+        record_node_state(conn, "node-b", 0)
+        record_node_state(conn, "node-c", 0)
+
+    sent: list[str] = []
+    monkeypatch.setattr(
+        nginx_task.reconcile_local_nginx,
+        "apply_async",
+        lambda **kw: sent.append(kw["queue"]),
+    )
+
+    result = nginx_task.reload_nginx_config()
+
+    assert result["changed"]
+    assert sorted(sent) == [node_queue("node-b"), node_queue("node-c")]
+    assert node_queue("node-a") not in sent
+    assert result["notified"] == ["node-b", "node-c"]
+
+
+def test_unchanged_apply_pushes_nothing(ha_env, monkeypatch) -> None:
+    nginx_task.reload_nginx_config()
+    with ha_env["engine"].begin() as conn:
+        record_node_state(conn, "node-b", 1)
+
+    sent: list[str] = []
+    monkeypatch.setattr(
+        nginx_task.reconcile_local_nginx,
+        "apply_async",
+        lambda **kw: sent.append(kw["queue"]),
+    )
+    result = nginx_task.reload_nginx_config()
+
+    assert not result["changed"]
+    # No config change means nothing to propagate; waking every node would be noise.
+    assert sent == []
+
+
+def test_reconcile_records_the_version_it_reloaded_to(ha_env, monkeypatch) -> None:
+    nginx_task.reload_nginx_config()  # version -> 1, node-a marker -> 1
+
+    node_b_marker = ha_env["marker"].parent.parent / "node-b" / "nginx-config.version"
+    monkeypatch.setattr(settings, "nginx_reload_marker_path", str(node_b_marker))
+    monkeypatch.setattr(settings, "node_id", "node-b")
+    monkeypatch.setattr(nginx_task, "build_controller", lambda: _FakeController())
+
+    nginx_task.reconcile_local_nginx()
+
+    with ha_env["engine"].connect() as conn:
+        states = {s.node_id: s.applied_version for s in node_states(conn)}
+    assert states["node-b"] == 1
+
+
+def test_reconcile_does_not_claim_convergence_when_nginx_test_fails(
+    ha_env, monkeypatch
+) -> None:
+    """A node that could not load the new config must still report as lagging."""
+    nginx_task.reload_nginx_config()  # shared version -> 1
+
+    node_b_marker = ha_env["marker"].parent.parent / "node-b" / "nginx-config.version"
+    monkeypatch.setattr(settings, "nginx_reload_marker_path", str(node_b_marker))
+    monkeypatch.setattr(settings, "node_id", "node-b")
+    monkeypatch.setattr(
+        nginx_task, "build_controller", lambda: _FakeController(test_ok=False)
+    )
+
+    result = nginx_task.reconcile_local_nginx()
+
+    assert result["reloaded"] is False and result["valid"] is False
+    with ha_env["engine"].connect() as conn:
+        states = {s.node_id: s.applied_version for s in node_states(conn)}
+    # -1 = never converged. Reporting 1 here would hide a broken node.
+    assert states["node-b"] == -1

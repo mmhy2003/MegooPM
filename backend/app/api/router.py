@@ -14,6 +14,7 @@ from app.api.routes import (
     audit_log,
     auth,
     certificates,
+    cluster,
     crowdsec,
     dead_hosts,
     dns_providers,
@@ -33,6 +34,7 @@ api_router.include_router(auth.router, prefix="/auth")
 api_router.include_router(users.router, prefix="/users")
 api_router.include_router(audit_log.router, prefix="/audit-log")
 api_router.include_router(nginx.router, prefix="/nginx")
+api_router.include_router(cluster.router, prefix="/cluster")
 api_router.include_router(certificates.router, prefix="/certificates")
 # Paths already carry /dns-providers and /dns-credentials (two resources, one module).
 api_router.include_router(dns_providers.router)

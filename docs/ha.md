@@ -39,8 +39,9 @@ applies.
         └──────────────────────────────────────────────────┘
         ┌───────────────────────┐   ┌───────────────────────┐
         │  Postgres (shared)     │   │  Redis (shared broker) │
-        │  cluster_state.version │   │  Celery + broadcast    │
-        │  advisory locks        │   │  reconcile queue       │
+        │  cluster_state.version │   │  Celery + one direct   │
+        │  cluster_node registry │   │  queue per node        │
+        │  advisory locks        │   │                        │
         └───────────────────────┘   └───────────────────────┘
 ```
 
@@ -107,44 +108,69 @@ host and keeps the code path exercisable without Postgres.
 ## 4. Config propagation / reload fan-out
 
 **Chosen mechanism: a shared `config_version` row in Postgres + per-node
-reconcile, with a Celery broadcast as the fast path.** Rationale and the rejected
-alternative are in the MEG-35 thread; summary:
+reconcile, with a directly-addressed Celery task as the fast path.**
+
+**Every node consumes one queue of its own, `megoopm.node.<NODE_ID>`.** Reconciles
+are *addressed* to a node, never broadcast.
 
 1. The writing node applies the change (files land on the shared `conf.d`) and
    **bumps** `cluster_state.config_version` inside the apply transaction.
 2. It records the new version in its own reload marker (it already reloaded
-   in-place) and fans a `reconcile_local_nginx` task out to **every** node over a
-   Celery **Broadcast** queue (`megoopm_reconcile`). A Broadcast queue delivers
-   one copy per worker, so every node's worker receives it.
+   in-place), then **pushes** one `reconcile_local_nginx` onto each live peer's
+   own queue. Peers come from the `cluster_node` registry (§4.1).
 3. Each node's `reconcile_local_nginx` compares the shared version to its local
    marker. If the shared version is newer, it reloads its *local* nginx (the files
    are already on the shared mount) and advances its marker. Idempotent: an
    already-current node does nothing.
-4. **Self-healing backstop:** beat also emits a reconcile every
-   `HA_RECONCILE_INTERVAL_SECONDS` (default 15s in the reference stack). A node
-   that missed the broadcast (was down / partitioned) catches up on the next tick.
+4. **The guarantee:** every node runs its own `beat`, which schedules a reconcile
+   onto *its own* queue every `HA_RECONCILE_INTERVAL_SECONDS`. Because the route
+   is built from that process's `NODE_ID`, a beat tick can only ever target the
+   node it runs on.
 
-Why the DB version is the source of truth and not raw Redis pub/sub: pub/sub has
-no delivery guarantee and no catch-up for a node that was offline. The version row
-+ shared files + idempotent apply mean a lagging node always converges.
-
-> **Known issue (2026-08-28):** with the Redis broker the `megoopm_reconcile`
-> Broadcast queue is not delivering. Verified on a single `docker-compose.ha.yml`
-> node: `beat` logs `Sending due task reconcile-nginx-across-nodes` every 15 s and
-> the apply path calls `reconcile_local_nginx.delay()`, but the worker — which
-> declares `bcast.<uuid>` bound to the `megoopm_reconcile` fanout exchange — never
-> logs a `received` for it (and `redis-cli PUBSUB CHANNELS` shows no subscriber).
-> The applying node still reloads itself inside `apply_config`, so a one-node
-> cluster is correct; **other nodes do not reload until this is fixed.** The
-> likely fix is to stop relying on Redis fanout: give each worker a direct queue
-> named after `NODE_ID` and have the apply path enqueue one reconcile per
-> registered node (or have beat's periodic reconcile target every node queue).
+Only step 4 is load-bearing. The push in step 2 is best-effort latency
+optimisation — if it fails, or the node was down, or the node is brand new, the
+node's own tick still converges it. That is why beat runs everywhere rather than
+on one scheduler node: a single beat would make convergence depend on one host.
 
 ```
- node A: write ──▶ [apply-lock] render+reload+bump(v→N) ──▶ broadcast reconcile
+ node A: write ──▶ [apply-lock] render+reload+bump(v→N) ──▶ push to node B's queue
                                                               │
  node B: reconcile ── shared v=N > local v=N-1 ? ──▶ reload local nginx, mark N
+ node B: (also, every HA_RECONCILE_INTERVAL_SECONDS, from its own beat)
 ```
+
+### 4.1 The node registry
+
+`cluster_node` holds one row per node — `node_id`, `applied_version`,
+`last_seen_at` — upserted by every reconcile. It supplies the push target list
+(nodes seen within `HA_RECONCILE_INTERVAL_SECONDS × HA_NODE_LIVENESS_MULTIPLIER`,
+so a decommissioned node stops accumulating queued reconciles), and it is the
+cluster's convergence view: `GET /api/v1/cluster/status` compares every node's
+`applied_version` to `cluster_state.config_version`.
+
+A node reports the version it is *actually serving*. If `nginx -t` fails on the
+shared config, it stays at its old version rather than claiming to have caught up.
+
+### 4.2 Why not a Celery Broadcast queue (fixed 2026-08-30)
+
+The first implementation routed `reconcile_local_nginx` to a `kombu` **Broadcast**
+(fanout exchange) queue. **It never delivered on the Redis broker**, and because
+the periodic backstop was routed through the same queue, config propagation
+between nodes did not work at all.
+
+The failure is a publish/consume mismatch, not a lost message: the publish side
+writes the message into each bound worker's `bcast.<uuid>` Redis **list**, while
+kombu's Redis transport consumes fanout queues over **pub/sub**. Verified with two
+workers against a real Redis — the message was delivered to both workers' queues
+(`LLEN bcast.… = 1` each) and sat there permanently, while a control task on the
+default queue executed in milliseconds. (An earlier note here blamed "no
+subscriber" based on `PUBSUB CHANNELS` being empty; that was a red herring —
+`PUBSUB NUMPAT` showed the workers *were* subscribed, by pattern.)
+
+Direct per-node queues also buy a property fanout could not offer: a reconcile
+addressed to a node that is **down** waits in Redis and is consumed when that node
+returns. Verified end-to-end: node-2 stopped, version bumped, node-2 restarted and
+converged.
 
 ---
 
@@ -153,10 +179,15 @@ no delivery guarantee and no catch-up for a node that was offline. The version r
 Cert renewal (and any future CrowdSec sync) must run **once cluster-wide**, not
 once per node. Each such sweep grabs a non-blocking **leader lock**
 (`leader_lock(engine, "cert-renew-sweep")`): whichever node wins does the work,
-the rest no-op. This makes it safe to run more than one `beat` (e.g. transiently
-during a rolling deploy) without double-enqueuing renewals. Run a single `beat`
-in steady state anyway; the leader lock is the correctness guarantee, not a
-license to run many.
+the rest no-op.
+
+This is what makes running a `beat` on **every** node safe, which §4 requires: the
+per-node reconcile tick must be emitted by the node it targets, so confining beat
+to one host would make convergence depend on that host staying up. Cluster-wide
+sweeps stay singletons regardless of how many beats are running.
+
+Verified against a real Postgres: two independent engines racing for
+`leader_lock` grant exactly one holder, and the lock is released on exit.
 
 ---
 
@@ -241,8 +272,10 @@ released on disconnect and the next sweep re-elects a leader.
 | One app node dies           | LB routes to survivors; shared state intact; no config/cert loss.        |
 | Node partitioned from DB    | Its apply/reconcile calls fail fast; other nodes unaffected; it catches up via the version row on rejoin. |
 | Two nodes apply at once     | Serialized by the advisory lock; the config set is never half-written.   |
-| A node misses the broadcast | The periodic reconcile backstop reloads it within `HA_RECONCILE_INTERVAL_SECONDS`. |
-| Duplicate beat during deploy| Sweeps are leader-locked → run once; no double renewal.                  |
+| A node misses the pushed reconcile | Its own beat reconciles it within `HA_RECONCILE_INTERVAL_SECONDS`; the pushed message also waits durably in that node's queue. |
+| A node is down during a change | It converges on restart — from its own beat tick and from the reconcile still queued for it. |
+| A node is added | Its marker is absent (reads `-1`), so its first tick reloads it onto the current version. |
+| Every node runs beat        | By design. Sweeps are leader-locked → run once; reconcile ticks only ever target the emitting node. |
 | nginx reload fails on a node| That node keeps its last-known-good config (engine rollback); other nodes still serve. |
 
 Postgres and Redis are the remaining single points of truth. For full HA, run
@@ -261,7 +294,9 @@ Sentinel/Cluster); MegooPM only requires that they are reachable from all nodes.
 | `NODE_ID`                        | hostname                              | Node identifier stamped on version bumps.            |
 | `HA_LOCK_DIR`                    | `/var/run/megoopm`                    | **Node-local** run dir for fallback locks.           |
 | `NGINX_RELOAD_MARKER_PATH`       | `/var/run/megoopm/nginx-config.version` | **Node-local** last-applied-version marker.        |
-| `HA_RECONCILE_INTERVAL_SECONDS`  | `30` (`15` in `docker-compose.ha.yml`) | Backstop reconcile cadence per node.                |
+| `HA_RECONCILE_INTERVAL_SECONDS`  | `30` (`15` in `docker-compose.ha.yml`) | Each node's self-reconcile cadence — the upper bound on how long any node can serve stale config. |
+| `HA_RECONCILE_EXPIRES_SECONDS`   | 3 × the interval                      | TTL on a reconcile message, so an offline node wakes to a bounded queue. |
+| `HA_NODE_LIVENESS_MULTIPLIER`    | `4`                                   | How many intervals a node may miss before it drops out of the push fan-out. |
 | `SHARED_DATA_PATH`               | —                                     | Compose only: host directory bind-mounted to `/data`. |
 | `NGINX_RELOAD_TOKEN`             | —                                     | Shared secret between the worker and the nginx reload agent. |
 | `NGINX_AGENT_ADDR`               | `nginx:9099`                          | Where the worker's `scripts.nginx_remote` finds its local nginx agent. |

@@ -78,35 +78,59 @@ def create_celery() -> Celery:
     return celery_app
 
 
-# Name of the Celery *broadcast* (fanout) queue used to reload every node's
-# local nginx. A Broadcast queue delivers each message to a per-worker queue, so
-# every node receives the reconcile — unlike a normal queue (one consumer).
-RECONCILE_BROADCAST_QUEUE = "megoopm_reconcile"
+# Every node consumes ONE queue of its own, named for its NODE_ID. Reconciles
+# are addressed to a specific node's queue rather than broadcast.
+#
+# This replaces a :class:`~kombu.common.Broadcast` (fanout exchange) queue that
+# does not work on the Redis broker: the publish side writes the message into
+# each bound worker's ``bcast.<uuid>`` Redis *list*, while kombu's Redis
+# transport consumes fanout queues over *pub/sub*. The messages were delivered
+# and persisted, and nothing ever read them — reconciles were silently black
+# holed, taking the periodic backstop (routed to the same queue) with them.
+#
+# Direct queues also give a property fanout never could: a reconcile addressed
+# to a node that is DOWN waits in Redis and is consumed when that node returns.
+NODE_QUEUE_PREFIX = "megoopm.node."
+
+
+def node_queue(node_id: str) -> str:
+    """The name of the queue a given node consumes its own reconciles from."""
+    return f"{NODE_QUEUE_PREFIX}{node_id}"
 
 
 def _configure_ha(celery_app: Celery) -> None:
-    """Wire HA config propagation: a broadcast reconcile queue + periodic sweep.
+    """Wire HA config propagation: this node's own queue + a self-scheduled sweep.
 
-    Routing ``reconcile_local_nginx`` to a :class:`~kombu.common.Broadcast`
-    queue makes ``.delay()`` fan out to *every* node so each reloads its local
-    nginx. The default queue is retained so ordinary tasks keep one-consumer
-    semantics. A short periodic reconcile is the self-healing backstop for a
-    node that missed a broadcast (was down / partitioned).
+    Two paths keep every node's nginx current, and either alone is sufficient:
+
+    * **Push (fast path).** After a successful apply, the applying node enqueues
+      one reconcile per live peer, addressed to that peer's queue — see
+      :func:`app.tasks.nginx._apply_ha`.
+    * **Poll (guarantee).** Every node runs its own beat, which schedules a
+      reconcile onto *its own* queue every ``HA_RECONCILE_INTERVAL_SECONDS``.
+      Because the route below is built from this process's ``NODE_ID``, a beat
+      tick can only ever target the node it runs on. This is what bounds
+      convergence for a node that was down, partitioned, or newly added, and it
+      is why beat is no longer confined to a single scheduler node — the
+      cluster-wide sweeps it also drives stay singletons via ``leader_lock``.
+
+    Reconciles carry an ``expires`` so a node that is offline for a long time
+    wakes to a bounded queue rather than a backlog of stale, no-op reconciles.
     """
     from kombu import Queue
-    from kombu.common import Broadcast
 
     default_queue = celery_app.conf.task_default_queue or "celery"
-    celery_app.conf.task_queues = (
-        Queue(default_queue),
-        Broadcast(RECONCILE_BROADCAST_QUEUE),
-    )
+    own_queue = node_queue(settings.effective_node_id)
+    celery_app.conf.task_queues = (Queue(default_queue), Queue(own_queue))
+    # Unaddressed reconciles (this node's beat) land on this node's own queue.
+    # An explicit ``queue=`` on apply_async overrides this — that is the push path.
     celery_app.conf.task_routes = {
-        "app.tasks.nginx.reconcile_local_nginx": {"queue": RECONCILE_BROADCAST_QUEUE},
+        "app.tasks.nginx.reconcile_local_nginx": {"queue": own_queue},
     }
     celery_app.conf.beat_schedule["reconcile-nginx-across-nodes"] = {
         "task": "app.tasks.nginx.reconcile_local_nginx",
         "schedule": settings.ha_reconcile_interval_seconds,
+        "options": {"expires": settings.effective_reconcile_expires_seconds},
     }
 
 

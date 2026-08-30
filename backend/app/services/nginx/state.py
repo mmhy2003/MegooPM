@@ -50,6 +50,17 @@ class CertificateSpec:
     # the generator only references these paths.
     fullchain_path: str
     privkey_path: str
+    # Identifies the *material* currently at those paths. Renewal rewrites the
+    # files in place, leaving the paths — and therefore the rendered config —
+    # byte-identical, so the engine's idempotency check saw "no change" and
+    # skipped the reload: every node kept serving the old certificate from
+    # memory until some unrelated edit happened to trigger one. Rendering this
+    # into the server block makes a renewal a real config change, so the
+    # existing apply → version-bump → propagate path carries it to every node
+    # with no special casing. Derived from database columns, never from the
+    # files, so all nodes render identical text without reading the shared
+    # mount.
+    fingerprint: str = ""
 
 
 @dataclass(frozen=True, slots=True)

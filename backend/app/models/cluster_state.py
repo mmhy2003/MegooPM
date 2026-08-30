@@ -43,4 +43,35 @@ class ClusterState(Base):
     )
 
 
-__all__ = ["ClusterState", "CLUSTER_STATE_ROW_ID"]
+class ClusterNode(Base):
+    """One row per node, recording how far that node has converged.
+
+    Written by every ``reconcile_local_nginx`` run. Serves two purposes:
+
+    * **Fan-out targets** — the applying node reads the recently-seen rows to
+      decide which per-node queues to push a reconcile onto. A node that has
+      stopped reporting drops out of the fan-out instead of accumulating an
+      unbounded queue.
+    * **Observability** — comparing ``applied_version`` here to
+      :attr:`ClusterState.config_version` answers "has the cluster converged?"
+      from one query, rather than shelling into every node to read its marker.
+    """
+
+    __tablename__ = "cluster_node"
+
+    # ``Settings.effective_node_id`` — NODE_ID, or the hostname when unset.
+    node_id: Mapped[str] = mapped_column(String(255), primary_key=True)
+    # The config version this node has actually reloaded nginx for.
+    applied_version: Mapped[int] = mapped_column(
+        BigInteger, nullable=False, default=0, server_default="0"
+    )
+    # Heartbeat: refreshed on every reconcile, so staleness is detectable.
+    last_seen_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+    )
+
+
+__all__ = ["ClusterState", "ClusterNode", "CLUSTER_STATE_ROW_ID"]

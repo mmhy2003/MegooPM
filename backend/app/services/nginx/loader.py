@@ -16,6 +16,7 @@ usable backend is skipped rather than emitted as an invalid (empty)
 from __future__ import annotations
 
 import asyncio
+import hashlib
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
@@ -45,11 +46,26 @@ from app.services.nginx.state import (
 )
 
 
+def _certificate_fingerprint(certificate) -> str:
+    """A short, stable id for the material currently on disk for this cert.
+
+    Built from the columns issuance updates — ``expires_on`` and
+    ``meta['issued_at']`` — so it changes on every renewal and on nothing else.
+    Deterministic across nodes (same row in the shared database), so two nodes
+    rendering the same state still produce byte-identical config.
+    """
+    meta = certificate.meta or {}
+    expires = certificate.expires_on.isoformat() if certificate.expires_on else ""
+    material = f"{expires}|{meta.get('issued_at', '')}"
+    return hashlib.sha256(material.encode("utf-8")).hexdigest()[:16]
+
+
 def _certificate_spec(certificate, certs_dir: str) -> CertificateSpec:
     return CertificateSpec(
         id=certificate.id,
         fullchain_path=f"{certs_dir}/{certificate.id}/fullchain.pem",
         privkey_path=f"{certs_dir}/{certificate.id}/privkey.pem",
+        fingerprint=_certificate_fingerprint(certificate),
     )
 
 

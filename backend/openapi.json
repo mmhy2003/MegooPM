@@ -1014,6 +1014,84 @@
         "title": "CertificateStatus",
         "type": "string"
       },
+      "ClusterNodeStatus": {
+        "description": "One node's position relative to the shared config version.",
+        "properties": {
+          "applied_version": {
+            "title": "Applied Version",
+            "type": "integer"
+          },
+          "in_sync": {
+            "title": "In Sync",
+            "type": "boolean"
+          },
+          "last_seen_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Seen At"
+          },
+          "node_id": {
+            "title": "Node Id",
+            "type": "string"
+          },
+          "stale": {
+            "title": "Stale",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "node_id",
+          "applied_version",
+          "in_sync",
+          "stale"
+        ],
+        "title": "ClusterNodeStatus",
+        "type": "object"
+      },
+      "ClusterStatus": {
+        "description": "Cluster-wide convergence snapshot.",
+        "properties": {
+          "config_version": {
+            "title": "Config Version",
+            "type": "integer"
+          },
+          "converged": {
+            "title": "Converged",
+            "type": "boolean"
+          },
+          "ha_enabled": {
+            "title": "Ha Enabled",
+            "type": "boolean"
+          },
+          "nodes": {
+            "items": {
+              "$ref": "#/components/schemas/ClusterNodeStatus"
+            },
+            "title": "Nodes",
+            "type": "array"
+          },
+          "this_node": {
+            "title": "This Node",
+            "type": "string"
+          }
+        },
+        "required": [
+          "ha_enabled",
+          "config_version",
+          "this_node",
+          "nodes",
+          "converged"
+        ],
+        "title": "ClusterStatus",
+        "type": "object"
+      },
       "CrowdSecHealth": {
         "description": "Whether the LAPI integration is configured, reachable, and has a machine.",
         "properties": {
@@ -4598,6 +4676,33 @@
         "summary": "Renew Certificate",
         "tags": [
           "certificates"
+        ]
+      }
+    },
+    "/api/v1/cluster/status": {
+      "get": {
+        "description": "Report the shared config version and how far each node has converged.",
+        "operationId": "cluster_status_api_v1_cluster_status_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClusterStatus"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Cluster Status",
+        "tags": [
+          "cluster"
         ]
       }
     },

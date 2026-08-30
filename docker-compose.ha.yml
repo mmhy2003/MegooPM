@@ -12,8 +12,10 @@
 #   control-plane   also run Postgres, Redis and CrowdSec LAPI here and publish
 #                   them on the host (small clusters; otherwise use managed /
 #                   external services and point the *_URL variables at them).
-#   scheduler       run the single Celery beat here (sweeps are leader-locked,
-#                   so an accidental second beat is harmless but pointless).
+#
+# Beat is NOT a profile: every node runs one. Each node's beat reconciles that
+# node against the shared config version, which is what bounds how long any node
+# can serve stale config; cluster-wide sweeps stay singletons via a leader lock.
 #
 # Migrations: set RUN_MIGRATIONS=1 on the node you upgrade first, 0 elsewhere.
 # No load balancer inside: put yours in front of :80/:443 (and :3000/:8000 if
@@ -142,12 +144,23 @@ services:
     ports:
       - "${FRONTEND_PORT:-3000}:3000"
 
-  # ---------------- profile: scheduler (exactly one node) ----------------
+  # Runs on EVERY node, not one. Its reconcile tick is routed to this node's own
+  # queue (megoopm.node.$NODE_ID), so beat is what guarantees THIS node converges
+  # within HA_RECONCILE_INTERVAL_SECONDS even if the applying node's push never
+  # arrived — the node was down, partitioned, or newly added. Cluster-wide sweeps
+  # (cert renewal) stay singletons via the Postgres leader lock, which is what
+  # makes running N beats safe.
   beat:
-    profiles: ["scheduler"]
     build: ./backend
     restart: unless-stopped
-    command: ["celery", "-A", "app.core.celery_app.celery_app", "beat", "--loglevel=info"]
+    # The schedule file must stay node-local and off the shared mount.
+    command:
+      - celery
+      - -A
+      - app.core.celery_app.celery_app
+      - beat
+      - --loglevel=info
+      - --schedule=/tmp/celerybeat-schedule
     environment:
       <<: *app-env
       RUN_MIGRATIONS: "0"
