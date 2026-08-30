@@ -35,7 +35,9 @@ x-backend-env: &backend-env
   ACME_DNS_PROPAGATION_TIMEOUT_SECONDS: ${ACME_DNS_PROPAGATION_TIMEOUT_SECONDS:-120}
   ACME_DNS_PROPAGATION_INTERVAL_SECONDS: ${ACME_DNS_PROPAGATION_INTERVAL_SECONDS:-5}
   ACME_DNS_PROPAGATION_SETTLE_SECONDS: ${ACME_DNS_PROPAGATION_SETTLE_SECONDS:-10}
-  CROWDSEC_LAPI_URL: http://crowdsec:8080
+  # Defaults to the bundled agent. Point at an external/shared LAPI by setting
+  # these in .env — they must be reachable from inside the containers.
+  CROWDSEC_LAPI_URL: ${CROWDSEC_LAPI_URL:-http://crowdsec:8080}
   CROWDSEC_LAPI_KEY: ${CROWDSEC_BOUNCER_KEY:?CROWDSEC_BOUNCER_KEY is required (openssl rand -hex 32)}
   # Matches LAPI's auto_registration token (infra/crowdsec/config.yaml.local) so
   # the backend's self-registered machine is validated without any cscli step.
@@ -162,15 +164,15 @@ services:
     build: ./infra/nginx
     restart: unless-stopped
     environment:
-      CROWDSEC_LAPI_URL: http://crowdsec:8080
-      CROWDSEC_APPSEC_URL: http://crowdsec:7422
+      CROWDSEC_LAPI_URL: ${CROWDSEC_LAPI_URL:-http://crowdsec:8080}
+      CROWDSEC_APPSEC_URL: ${CROWDSEC_APPSEC_URL:-http://crowdsec:7422}
       CROWDSEC_BOUNCER_KEY: ${CROWDSEC_BOUNCER_KEY:?CROWDSEC_BOUNCER_KEY is required}
       NGINX_RELOAD_TOKEN: ${NGINX_RELOAD_TOKEN:?NGINX_RELOAD_TOKEN is required}
       # Ship access/error logs to the CrowdSec agent (syslog/UDP) so its nginx
       # scenarios detect attackers. Behind a CDN/tunnel/LB set the real-IP pair
       # (e.g. Cloudflare: NGINX_REAL_IP_HEADER=CF-Connecting-IP) or detections
       # would ban the proxy's own address.
-      CROWDSEC_SYSLOG_ADDR: crowdsec:514
+      CROWDSEC_SYSLOG_ADDR: ${CROWDSEC_SYSLOG_ADDR:-crowdsec:514}
       NGINX_REAL_IP_HEADER: ${NGINX_REAL_IP_HEADER:-}
       NGINX_REAL_IP_FROM: ${NGINX_REAL_IP_FROM:-}
     ports:
