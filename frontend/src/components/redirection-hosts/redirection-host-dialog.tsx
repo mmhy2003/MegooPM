@@ -40,6 +40,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import { Tabs, TabsList, TabsPanel, TabsTab } from "@/components/ui/tabs";
 
 const SCHEME_LABELS: Record<RedirectScheme, string> = {
   auto: "auto (keep request scheme)",
@@ -47,16 +48,29 @@ const SCHEME_LABELS: Record<RedirectScheme, string> = {
   https: "https",
 };
 
-/** Boolean feature toggles rendered as a switch grid. */
-const TOGGLES = [
+type ToggleDef = readonly [ToggleKey, string, string];
+
+/** TLS options — meaningless without a certificate, so the SSL tab gates them. */
+const TLS_TOGGLES: readonly ToggleDef[] = [
   ["ssl_forced", "Force SSL", "Redirect :80 to HTTPS"],
   ["http2_support", "HTTP/2", "Enable HTTP/2 on the TLS listener"],
   ["hsts_enabled", "HSTS", "Emit a Strict-Transport-Security header"],
   ["hsts_subdomains", "HSTS subdomains", "Include subdomains in HSTS"],
-  ["block_exploits", "Block exploits", "Block common exploit probes"],
-] as const;
+];
 
-type ToggleKey = (typeof TOGGLES)[number][0];
+/** Security options that apply with or without TLS — these stay on Details. */
+const DETAILS_TOGGLES: readonly ToggleDef[] = [
+  ["block_exploits", "Block exploits", "Block common exploit probes"],
+];
+
+type ToggleKey =
+  | "ssl_forced"
+  | "http2_support"
+  | "hsts_enabled"
+  | "hsts_subdomains"
+  | "block_exploits";
+
+type DialogTab = "details" | "ssl";
 
 interface FormState {
   domains: string[];
@@ -110,6 +124,40 @@ function stateFromHost(host: RedirectionHost | null | undefined): FormState {
   };
 }
 
+/** One switch with its label and hint — shared by both tabs. */
+function ToggleRow({
+  label,
+  hint,
+  checked,
+  onCheckedChange,
+  disabled,
+  className,
+}: {
+  label: string;
+  hint: string;
+  checked: boolean;
+  onCheckedChange: (value: boolean) => void;
+  disabled?: boolean;
+  className?: string;
+}) {
+  return (
+    <label className={`flex items-start gap-2 ${className ?? ""}`}>
+      {/* The wrapping label also contains the hint, so name the switch explicitly
+          — same as the proxy-host dialog's ToggleGrid. */}
+      <Switch
+        aria-label={label}
+        checked={checked}
+        onCheckedChange={onCheckedChange}
+        disabled={disabled}
+      />
+      <span className="space-y-0.5">
+        <span className="block text-sm font-medium leading-none">{label}</span>
+        <span className="block text-xs text-muted-foreground">{hint}</span>
+      </span>
+    </label>
+  );
+}
+
 export function RedirectionHostDialog({
   open,
   onOpenChange,
@@ -124,28 +172,42 @@ export function RedirectionHostDialog({
   onSaved: () => void;
 }) {
   const isEdit = Boolean(host);
+  // Seeded from props on mount; the parent remounts this dialog (keyed) per
+  // target, so neither the form nor the tab needs a reset-on-open effect.
   const [form, setForm] = useState<FormState>(() => stateFromHost(host));
+  const [tab, setTab] = useState<DialogTab>("details");
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [domainsInvalid, setDomainsInvalid] = useState(false);
+
+  // Force SSL / HTTP2 / HSTS all describe a TLS listener this host will not have.
+  const noCertificate = certificateIdFromValue(form.certificateId) === null;
 
   function setToggle(key: ToggleKey, value: boolean) {
     setForm((prev) => ({ ...prev, toggles: { ...prev.toggles, [key]: value } }));
   }
 
+  /** Report a problem and reveal the field it refers to. */
+  function fail(message: string, on: DialogTab = "details") {
+    setTab(on);
+    setError(message);
+  }
+
   async function handleSubmit() {
     setError(null);
+    // Every check below concerns a Details field, so surface that tab with the
+    // error — otherwise the operator reads a complaint about a hidden input.
     if (domainsInvalid) {
-      setError("Fix the highlighted domain first.");
+      fail("Fix the highlighted domain first.");
       return;
     }
     const domains = form.domains;
     if (domains.length === 0) {
-      setError("Enter at least one domain name.");
+      fail("Enter at least one domain name.");
       return;
     }
     if (!form.forwardDomainName.trim()) {
-      setError("Enter a forward domain to redirect to.");
+      fail("Enter a forward domain to redirect to.");
       return;
     }
 
@@ -193,129 +255,142 @@ export function RedirectionHostDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div className="space-y-1.5 sm:col-span-2">
-            <Label htmlFor="redir-domains">Domain names</Label>
-            <DomainTagsInput
-              id="redir-domains"
-              value={form.domains}
-              onChange={(domains) => setForm((p) => ({ ...p, domains }))}
-              onPendingInvalidChange={setDomainsInvalid}
-              placeholder="old.example.com"
-              disabled={saving}
-            />
-            <p className="text-xs text-muted-foreground">
-              Press Enter or comma after each domain. Wildcards like <code>*.example.com</code>{" "}
-              are allowed.
-            </p>
-          </div>
+        {/* Domains identify the host, so they stay visible above the tabs. */}
+        <div className="space-y-1.5">
+          <Label htmlFor="redir-domains">Domain names</Label>
+          <DomainTagsInput
+            id="redir-domains"
+            value={form.domains}
+            onChange={(domains) => setForm((p) => ({ ...p, domains }))}
+            onPendingInvalidChange={setDomainsInvalid}
+            placeholder="old.example.com"
+            disabled={saving}
+          />
+          <p className="text-xs text-muted-foreground">
+            Press Enter or comma after each domain. Wildcards like <code>*.example.com</code>{" "}
+            are allowed.
+          </p>
+        </div>
 
-          <div className="space-y-1.5">
-            <Label htmlFor="redir-forward-domain">Forward domain</Label>
-            <Input
-              id="redir-forward-domain"
-              value={form.forwardDomainName}
-              onChange={(e) => setForm((p) => ({ ...p, forwardDomainName: e.target.value }))}
-              placeholder="new.example.com"
-              disabled={saving}
-            />
-          </div>
+        <Tabs value={tab} onValueChange={(value) => setTab(value as DialogTab)}>
+          <TabsList>
+            <TabsTab value="details">Details</TabsTab>
+            <TabsTab value="ssl">SSL</TabsTab>
+          </TabsList>
 
-          <div className="space-y-1.5">
-            <Label htmlFor="redir-scheme">Forward scheme</Label>
-            <Select
-              value={form.forwardScheme}
-              onValueChange={(value) =>
-                setForm((p) => ({ ...p, forwardScheme: value as RedirectScheme }))
-              }
-            >
-              <SelectTrigger id="redir-scheme" disabled={saving}>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {REDIRECT_SCHEMES.map((scheme) => (
-                  <SelectItem key={scheme} value={scheme}>
-                    {SCHEME_LABELS[scheme]}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          <TabsPanel value="details" className="space-y-4 pt-2">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label htmlFor="redir-forward-domain">Forward domain</Label>
+                <Input
+                  id="redir-forward-domain"
+                  value={form.forwardDomainName}
+                  onChange={(e) =>
+                    setForm((p) => ({ ...p, forwardDomainName: e.target.value }))
+                  }
+                  placeholder="new.example.com"
+                  disabled={saving}
+                />
+              </div>
 
-          <div className="space-y-1.5">
-            <Label htmlFor="redir-code">HTTP status code</Label>
-            <Select
-              value={String(form.forwardHttpCode)}
-              onValueChange={(value) =>
-                setForm((p) => ({ ...p, forwardHttpCode: Number.parseInt(value as string, 10) }))
-              }
-            >
-              <SelectTrigger id="redir-code" disabled={saving}>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {REDIRECT_HTTP_CODES.map((code) => (
-                  <SelectItem key={code} value={String(code)}>
-                    {REDIRECT_CODE_LABELS[code] ?? String(code)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="redir-scheme">Forward scheme</Label>
+                <Select
+                  value={form.forwardScheme}
+                  onValueChange={(value) =>
+                    setForm((p) => ({ ...p, forwardScheme: value as RedirectScheme }))
+                  }
+                >
+                  <SelectTrigger id="redir-scheme" disabled={saving}>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {REDIRECT_SCHEMES.map((scheme) => (
+                      <SelectItem key={scheme} value={scheme}>
+                        {SCHEME_LABELS[scheme]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
 
-          <div className="sm:col-span-2">
+              <div className="space-y-1.5">
+                <Label htmlFor="redir-code">HTTP status code</Label>
+                <Select
+                  value={String(form.forwardHttpCode)}
+                  onValueChange={(value) =>
+                    setForm((p) => ({
+                      ...p,
+                      forwardHttpCode: Number.parseInt(value as string, 10),
+                    }))
+                  }
+                >
+                  <SelectTrigger id="redir-code" disabled={saving}>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {REDIRECT_HTTP_CODES.map((code) => (
+                      <SelectItem key={code} value={String(code)}>
+                        {REDIRECT_CODE_LABELS[code] ?? String(code)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-2">
+              <ToggleRow
+                className="sm:col-span-2"
+                label="Preserve path"
+                hint="Append the original request URI to the target"
+                checked={form.preservePath}
+                onCheckedChange={(v) => setForm((p) => ({ ...p, preservePath: v }))}
+                disabled={saving}
+              />
+              {DETAILS_TOGGLES.map(([key, label, hint]) => (
+                <ToggleRow
+                  key={key}
+                  label={label}
+                  hint={hint}
+                  checked={form.toggles[key]}
+                  onCheckedChange={(v) => setToggle(key, v)}
+                  disabled={saving}
+                />
+              ))}
+              <ToggleRow
+                label="Enabled"
+                hint="Disabled hosts are excluded from the nginx config"
+                checked={form.enabled}
+                onCheckedChange={(v) => setForm((p) => ({ ...p, enabled: v }))}
+                disabled={saving}
+              />
+            </div>
+          </TabsPanel>
+
+          <TabsPanel value="ssl" className="space-y-4 pt-2">
             <CertificateSelect
               id="redir-certificate"
               value={form.certificateId}
               onValueChange={(v) => setForm((p) => ({ ...p, certificateId: v }))}
               certificates={certificates}
               disabled={saving}
-              hint="Optional — terminate TLS for the redirecting domains."
+              hint="Optional — terminate TLS for the redirecting domains. Without one the options below have no effect."
             />
-          </div>
-        </div>
-
-        <div className="grid gap-3 sm:grid-cols-2">
-          <label className="flex items-start gap-2 sm:col-span-2">
-            <Switch
-              checked={form.preservePath}
-              onCheckedChange={(v) => setForm((p) => ({ ...p, preservePath: v }))}
-              disabled={saving}
-            />
-            <span className="space-y-0.5">
-              <span className="block text-sm font-medium leading-none">Preserve path</span>
-              <span className="block text-xs text-muted-foreground">
-                Append the original request URI to the target
-              </span>
-            </span>
-          </label>
-          {TOGGLES.map(([key, label, hint]) => (
-            <label key={key} className="flex items-start gap-2">
-              <Switch
-                checked={form.toggles[key]}
-                onCheckedChange={(v) => setToggle(key, v)}
-                disabled={saving}
-              />
-              <span className="space-y-0.5">
-                <span className="block text-sm font-medium leading-none">{label}</span>
-                <span className="block text-xs text-muted-foreground">{hint}</span>
-              </span>
-            </label>
-          ))}
-          <label className="flex items-start gap-2">
-            <Switch
-              checked={form.enabled}
-              onCheckedChange={(v) => setForm((p) => ({ ...p, enabled: v }))}
-              disabled={saving}
-            />
-            <span className="space-y-0.5">
-              <span className="block text-sm font-medium leading-none">Enabled</span>
-              <span className="block text-xs text-muted-foreground">
-                Disabled hosts are excluded from the nginx config
-              </span>
-            </span>
-          </label>
-        </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              {TLS_TOGGLES.map(([key, label, hint]) => (
+                <ToggleRow
+                  key={key}
+                  label={label}
+                  hint={hint}
+                  checked={form.toggles[key]}
+                  onCheckedChange={(v) => setToggle(key, v)}
+                  disabled={saving || noCertificate}
+                />
+              ))}
+            </div>
+          </TabsPanel>
+        </Tabs>
 
         {error ? (
           <p role="alert" className="text-sm text-destructive">
