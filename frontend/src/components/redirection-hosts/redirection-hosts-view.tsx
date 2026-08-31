@@ -16,6 +16,7 @@ import { ConfirmDeleteDialog } from "@/components/proxy-hosts/confirm-delete-dia
 import { RedirectionHostDialog } from "@/components/redirection-hosts/redirection-host-dialog";
 import { Badge } from "@/components/ui/badge";
 import { EnabledToggle } from "@/components/hosts/enabled-toggle";
+import { DomainLinks } from "@/components/hosts/domain-links";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -159,11 +160,10 @@ export function RedirectionHostsView() {
                 rows.map((host) => (
                   <TableRow key={host.id}>
                     <TableCell className="font-medium">
-                      <div className="flex flex-wrap gap-1">
-                        {host.domain_names.map((d) => (
-                          <span key={d}>{d}</span>
-                        ))}
-                      </div>
+                      <DomainLinks
+                          domains={host.domain_names}
+                          secure={host.certificate_id != null}
+                        />
                     </TableCell>
                     <TableCell>
                       {schemePrefix(host.forward_scheme)}
