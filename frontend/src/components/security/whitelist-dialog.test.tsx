@@ -82,7 +82,8 @@ describe("WhitelistDialog", () => {
 
     await user.type(screen.getByLabelText("Name"), "Internal");
     await user.type(screen.getByLabelText("Reason"), "internal backends");
-    await user.type(screen.getByLabelText("IP addresses"), "10.10.0.14{enter}10.10.0.15");
+    await user.click(screen.getByLabelText("IP addresses"));
+    await user.paste("10.10.0.14\n10.10.0.15");
     await user.click(screen.getByRole("button", { name: "Save" }));
 
     await waitFor(() =>
@@ -164,11 +165,10 @@ describe("WhitelistDialog — expression kind", () => {
 
     await user.type(screen.getByLabelText("Name"), "Health");
     await user.type(screen.getByLabelText("Reason"), "health checks");
-    await user.type(screen.getByLabelText("Filter (optional)"), "evt.Meta.service == 'http'");
-    await user.type(
-      screen.getByLabelText("Expressions"),
-      "evt.Meta.http_path == '/health'{enter}evt.Meta.http_verb == 'GET'",
-    );
+    await user.click(screen.getByLabelText("Filter (optional)"));
+    await user.paste("evt.Meta.service == 'http'");
+    await user.click(screen.getByLabelText("Expressions"));
+    await user.paste("evt.Meta.http_path == '/health'\nevt.Meta.http_verb == 'GET'");
     await user.click(screen.getByRole("button", { name: "Save" }));
 
     await waitFor(() =>
@@ -196,7 +196,8 @@ describe("WhitelistDialog — expression kind", () => {
 
     await user.type(screen.getByLabelText("Name"), "Health");
     await user.type(screen.getByLabelText("Reason"), "health checks");
-    await user.type(screen.getByLabelText("Expressions"), "evt.Meta.http_path == '/health'");
+    await user.click(screen.getByLabelText("Expressions"));
+    await user.paste("evt.Meta.http_path == '/health'");
     await user.click(screen.getByRole("button", { name: "Save" }));
 
     // An absent filter means "every event"; sending "" would be a filter that

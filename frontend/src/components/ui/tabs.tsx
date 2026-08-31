@@ -19,7 +19,14 @@ function TabsList({ className, children, ...props }: TabsPrimitive.List.Props) {
     <TabsPrimitive.List
       data-slot="tabs-list"
       className={cn(
-        "relative inline-flex h-9 w-fit items-center justify-center rounded-lg bg-muted p-1 text-muted-foreground",
+        // `max-w-full` + `overflow-x-auto` let a list that is wider than its
+        // container scroll instead of putting its last tabs out of reach — the
+        // Security page has four, which is well past a phone's width.
+        //
+        // `justify-start`, not `justify-center`: a centred flex container whose
+        // content overflows spills equally out of BOTH ends, and the overflow
+        // at the start cannot be scrolled back to.
+        "relative inline-flex h-9 w-fit max-w-full items-center justify-start overflow-x-auto rounded-lg bg-muted p-1 text-muted-foreground",
         className,
       )}
       {...props}
@@ -38,7 +45,9 @@ function TabsTab({ className, ...props }: TabsPrimitive.Tab.Props) {
     <TabsPrimitive.Tab
       data-slot="tabs-tab"
       className={cn(
-        "relative z-10 inline-flex h-7 flex-1 items-center justify-center gap-1.5 rounded-md px-3 text-sm font-medium whitespace-nowrap transition-colors outline-none select-none data-selected:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+        // `shrink-0` so a tab keeps its label width and the list scrolls,
+        // rather than every tab being squeezed until the text is clipped.
+        "relative z-10 inline-flex h-7 shrink-0 flex-1 items-center justify-center gap-1.5 rounded-md px-3 text-sm font-medium whitespace-nowrap transition-colors outline-none select-none data-selected:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
         className,
       )}
       {...props}

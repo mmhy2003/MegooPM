@@ -84,7 +84,7 @@ export function DnsCredentialDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] max-w-lg overflow-y-auto">
+      <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle>{isEdit ? "Edit DNS credentials" : "New DNS credentials"}</DialogTitle>
           <DialogDescription>
