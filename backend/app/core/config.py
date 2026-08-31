@@ -172,6 +172,17 @@ class Settings(BaseSettings):
     # docs/crowdsec.md. Written in place, never replaced, because the mount is
     # pinned to the inode the container saw at start.
     crowdsec_whitelist_path: str = "/data/crowdsec/whitelists/megoopm.yaml"
+    # Applying a whitelist restarts CrowdSec so it re-reads its parsers. That
+    # container runs only on the control-plane node (compose profile
+    # "control-plane") while workers run everywhere, so this names the node
+    # whose worker holds the docker socket. Unset disables reloads: whitelists
+    # save but are reported as not applied, never silently accepted.
+    crowdsec_control_node_id: str | None = None
+    crowdsec_container_name: str = "megoopm-crowdsec-1"
+    docker_socket_path: str = "/var/run/docker.sock"
+    # How long to wait for LAPI to answer again after a restart before giving
+    # up and rolling the whitelist file back.
+    crowdsec_reload_health_timeout_seconds: int = 60
 
     # --- High Availability (MEG-35) ---
     # Turn on cross-node coordination for multi-node deployments. When True the

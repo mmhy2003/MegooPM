@@ -23,7 +23,12 @@ from app.core.config import settings
 
 # Task modules Celery imports on worker startup so their ``@task`` decorators
 # register. Add new task modules here.
-TASK_MODULES = ["app.tasks.sample", "app.tasks.nginx", "app.tasks.certs"]
+TASK_MODULES = [
+    "app.tasks.sample",
+    "app.tasks.nginx",
+    "app.tasks.certs",
+    "app.tasks.crowdsec",
+]
 
 
 def create_celery() -> Celery:
