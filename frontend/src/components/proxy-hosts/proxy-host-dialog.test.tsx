@@ -133,3 +133,45 @@ describe("ProxyHostDialog", () => {
     });
   });
 });
+
+describe("ProxyHostDialog forward target", () => {
+  beforeEach(() => {
+    vi.spyOn(proxyHosts, "update").mockResolvedValue(makeHost());
+  });
+  afterEach(() => {
+    cleanup();
+    vi.restoreAllMocks();
+  });
+
+  it("shows the root route's kind and target", async () => {
+    renderDialog();
+    expect(await screen.findByLabelText("Root target kind")).toBeInTheDocument();
+    expect(screen.getByLabelText("Upstream pool")).toBeInTheDocument();
+  });
+
+  it("swaps the root cell to host and port", async () => {
+    const user = userEvent.setup();
+    renderDialog();
+    await user.click(screen.getByLabelText("Root target kind"));
+    await user.click(await screen.findByRole("option", { name: "Single host" }));
+
+    expect(screen.getByLabelText("Root forward host")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Upstream pool")).not.toBeInTheDocument();
+  });
+
+  it("switches one location row without touching its siblings", async () => {
+    const user = userEvent.setup();
+    renderDialog();
+    await user.click(screen.getByRole("button", { name: "Add location" }));
+    await user.click(screen.getByRole("button", { name: "Add location" }));
+
+    // Root + two locations = three pool selects before, two after.
+    expect(screen.getAllByLabelText("Upstream pool")).toHaveLength(3);
+    const kinds = screen.getAllByLabelText("Location target kind");
+    await user.click(kinds[0]);
+    await user.click(await screen.findByRole("option", { name: "Single host" }));
+
+    expect(screen.getAllByLabelText("Upstream pool")).toHaveLength(2);
+    expect(screen.getAllByLabelText("Location forward host")).toHaveLength(1);
+  });
+});

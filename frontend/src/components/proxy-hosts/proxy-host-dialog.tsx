@@ -246,7 +246,10 @@ export function ProxyHostDialog({
               onChange={setToggle}
             />
             <LocationsEditor
+              rootTargetMode={form.rootTargetMode}
               rootUpstreamId={form.rootUpstreamId}
+              rootForwardHost={form.rootForwardHost}
+              rootForwardPort={form.rootForwardPort}
               rootScheme={form.rootScheme}
               onRootChange={patch}
               rows={form.locations}

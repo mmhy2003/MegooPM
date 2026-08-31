@@ -3,7 +3,11 @@
 import { Plus, Trash2 } from "lucide-react";
 
 import { HTTP_SCHEMES, type HttpScheme, type Upstream } from "@/lib/api";
-import { newLocationRow, type LocationRow } from "@/components/proxy-hosts/lib";
+import {
+  newLocationRow,
+  type LocationRow,
+  type TargetMode,
+} from "@/components/proxy-hosts/lib";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -23,6 +27,94 @@ import {
 } from "@/components/ui/table";
 
 const SCHEME_LABELS: Record<HttpScheme, string> = { http: "http", https: "https" };
+
+/** Pool or single backend, as a compact select rather than radios.
+ *
+ * These are table rows, and a radio group per row would wreck a dense table.
+ * A select is one control in one cell and reads the same on every row.
+ */
+function KindSelect({
+  value,
+  onChange,
+  label,
+  disabled,
+}: {
+  value: TargetMode;
+  onChange: (v: TargetMode) => void;
+  label: string;
+  disabled: boolean;
+}) {
+  return (
+    <Select value={value} onValueChange={(v) => onChange(v as TargetMode)}>
+      <SelectTrigger aria-label={label} disabled={disabled}>
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value="pool">Pool</SelectItem>
+        <SelectItem value="host">Single host</SelectItem>
+      </SelectContent>
+    </Select>
+  );
+}
+
+/** The target cell: a pool picker, or a host and port pair. */
+function TargetCell({
+  mode,
+  upstreamId,
+  forwardHost,
+  forwardPort,
+  onChange,
+  pools,
+  disabled,
+  labelPrefix,
+}: {
+  mode: TargetMode;
+  upstreamId: string;
+  forwardHost: string;
+  forwardPort: string;
+  onChange: (patch: {
+    upstreamId?: string;
+    forwardHost?: string;
+    forwardPort?: string;
+  }) => void;
+  pools: Upstream[];
+  disabled: boolean;
+  labelPrefix: string;
+}) {
+  if (mode === "pool") {
+    return (
+      <PoolSelect
+        value={upstreamId}
+        onChange={(v) => onChange({ upstreamId: v })}
+        pools={pools}
+        disabled={disabled}
+      />
+    );
+  }
+  return (
+    <div className="flex gap-2">
+      <Input
+        aria-label={`${labelPrefix} forward host`}
+        value={forwardHost}
+        onChange={(e) => onChange({ forwardHost: e.target.value })}
+        placeholder="10.0.0.1"
+        disabled={disabled}
+      />
+      <Input
+        aria-label={`${labelPrefix} forward port`}
+        type="number"
+        inputMode="numeric"
+        min={1}
+        max={65535}
+        value={forwardPort}
+        onChange={(e) => onChange({ forwardPort: e.target.value })}
+        placeholder="8080"
+        className="w-28"
+        disabled={disabled}
+      />
+    </div>
+  );
+}
 
 function PoolSelect({
   value,
@@ -79,10 +171,13 @@ function SchemeSelect({
 
 /**
  * Root route (pinned to `/`) plus extra `location ^~ <path>` rows, each
- * forwarding to its own upstream pool with its own scheme.
+ * forwarding to its own pool or single backend, with its own scheme.
  */
 export function LocationsEditor({
+  rootTargetMode,
   rootUpstreamId,
+  rootForwardHost,
+  rootForwardPort,
   rootScheme,
   onRootChange,
   rows,
@@ -90,9 +185,18 @@ export function LocationsEditor({
   pools,
   disabled,
 }: {
+  rootTargetMode: TargetMode;
   rootUpstreamId: string;
+  rootForwardHost: string;
+  rootForwardPort: string;
   rootScheme: HttpScheme;
-  onRootChange: (patch: { rootUpstreamId?: string; rootScheme?: HttpScheme }) => void;
+  onRootChange: (patch: {
+    rootTargetMode?: TargetMode;
+    rootUpstreamId?: string;
+    rootForwardHost?: string;
+    rootForwardPort?: string;
+    rootScheme?: HttpScheme;
+  }) => void;
   rows: LocationRow[];
   onRowsChange: (rows: LocationRow[]) => void;
   pools: Upstream[];
@@ -122,7 +226,8 @@ export function LocationsEditor({
           <TableHeader>
             <TableRow>
               <TableHead className="w-40">Path</TableHead>
-              <TableHead>Upstream pool</TableHead>
+              <TableHead className="w-32">Kind</TableHead>
+              <TableHead>Target</TableHead>
               <TableHead className="w-28">Scheme</TableHead>
               <TableHead className="w-10" />
             </TableRow>
@@ -133,11 +238,29 @@ export function LocationsEditor({
                 <Input aria-label="Root path" value="/" readOnly disabled className="font-mono" />
               </TableCell>
               <TableCell>
-                <PoolSelect
-                  value={rootUpstreamId}
-                  onChange={(v) => onRootChange({ rootUpstreamId: v })}
+                <KindSelect
+                  value={rootTargetMode}
+                  onChange={(v) => onRootChange({ rootTargetMode: v })}
+                  label="Root target kind"
+                  disabled={disabled}
+                />
+              </TableCell>
+              <TableCell>
+                <TargetCell
+                  mode={rootTargetMode}
+                  upstreamId={rootUpstreamId}
+                  forwardHost={rootForwardHost}
+                  forwardPort={rootForwardPort}
+                  onChange={({ upstreamId, forwardHost, forwardPort }) =>
+                    onRootChange({
+                      ...(upstreamId !== undefined && { rootUpstreamId: upstreamId }),
+                      ...(forwardHost !== undefined && { rootForwardHost: forwardHost }),
+                      ...(forwardPort !== undefined && { rootForwardPort: forwardPort }),
+                    })
+                  }
                   pools={pools}
                   disabled={disabled}
+                  labelPrefix="Root"
                 />
               </TableCell>
               <TableCell>
@@ -162,11 +285,23 @@ export function LocationsEditor({
                   />
                 </TableCell>
                 <TableCell>
-                  <PoolSelect
-                    value={row.upstreamId}
-                    onChange={(v) => updateRow(row.key, { upstreamId: v })}
+                  <KindSelect
+                    value={row.targetMode}
+                    onChange={(v) => updateRow(row.key, { targetMode: v })}
+                    label="Location target kind"
+                    disabled={disabled}
+                  />
+                </TableCell>
+                <TableCell>
+                  <TargetCell
+                    mode={row.targetMode}
+                    upstreamId={row.upstreamId}
+                    forwardHost={row.forwardHost}
+                    forwardPort={row.forwardPort}
+                    onChange={(patch) => updateRow(row.key, patch)}
                     pools={pools}
                     disabled={disabled}
+                    labelPrefix="Location"
                   />
                 </TableCell>
                 <TableCell>

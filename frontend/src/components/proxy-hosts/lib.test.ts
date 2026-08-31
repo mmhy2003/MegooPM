@@ -115,7 +115,15 @@ describe("stateFromHost / buildPayload", () => {
     const form = stateFromHost(host);
     expect(form.certificateId).toBe("7");
     expect(form.locations).toEqual([
-      { key: "loc-5", path: "/api/", upstreamId: "2", scheme: "https" },
+      {
+        key: "loc-5",
+        path: "/api/",
+        targetMode: "pool",
+        upstreamId: "2",
+        forwardHost: "",
+        forwardPort: "",
+        scheme: "https",
+      },
     ]);
     expect(buildPayload(form, host)).toMatchObject({
       domain_names: ["app.example.com"],
@@ -134,7 +142,15 @@ describe("stateFromHost / buildPayload", () => {
     expect(form.certificateId).toBe(NO_CERTIFICATE);
     const payload = buildPayload(form, null);
     expect(payload.certificate_id).toBeNull();
-    expect(payload.locations).toEqual([{ path: "/ws", upstream_id: 2, forward_scheme: "http" }]);
+    expect(payload.locations).toEqual([
+      {
+        path: "/ws",
+        upstream_id: 2,
+        forward_host: null,
+        forward_port: null,
+        forward_scheme: "http",
+      },
+    ]);
     expect(payload.crowdsec_enabled).toBe(false);
   });
 
@@ -209,5 +225,55 @@ describe("root forward target", () => {
   it("still requires a pool in pool mode", () => {
     const form = { ...stateFromHost(null), domains: ["a.example.com"] };
     expect(validateForm(form)?.message).toMatch(/pool/i);
+  });
+});
+
+describe("location forward target", () => {
+  it("defaults a new row to the pool target", () => {
+    expect(newLocationRow().targetMode).toBe("pool");
+  });
+
+  it("validates each row by its own mode", () => {
+    const rows = [
+      { ...newLocationRow(), path: "/api", targetMode: "host" as const },
+      { ...newLocationRow(), path: "/img", upstreamId: "2" },
+    ];
+    expect(validateLocations(rows)?.message).toMatch(/forward host for \/api/i);
+  });
+
+  it("accepts a host-targeted row with a host and port", () => {
+    const rows = [
+      {
+        ...newLocationRow(),
+        path: "/api",
+        targetMode: "host" as const,
+        forwardHost: "10.0.0.9",
+        forwardPort: "9000",
+      },
+    ];
+    expect(validateLocations(rows)).toBeNull();
+  });
+
+  it("sends one target per row", () => {
+    const rows = [
+      { ...newLocationRow(), path: "/api", upstreamId: "2" },
+      {
+        ...newLocationRow(),
+        path: "/img",
+        targetMode: "host" as const,
+        forwardHost: "10.0.0.9",
+        forwardPort: "9000",
+      },
+    ];
+    const out = buildPayload(
+      { ...stateFromHost(null), domains: ["a.example.com"], rootUpstreamId: "1", locations: rows },
+      null,
+    );
+    expect(out.locations?.[0]).toMatchObject({ upstream_id: 2, forward_host: null });
+    expect(out.locations?.[1]).toMatchObject({
+      upstream_id: null,
+      forward_host: "10.0.0.9",
+      forward_port: 9000,
+    });
   });
 });

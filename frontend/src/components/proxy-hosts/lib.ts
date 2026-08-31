@@ -91,8 +91,12 @@ export interface LocationRow {
   /** Stable React key; `loc-<id>` for stored rows, `loc-new-<n>` for new ones. */
   key: string;
   path: string;
+  /** Which kind of target this row forwards to. */
+  targetMode: TargetMode;
   /** Pool id as a Select value; "" while unset. */
   upstreamId: string;
+  forwardHost: string;
+  forwardPort: string;
   scheme: HttpScheme;
 }
 
@@ -133,7 +137,15 @@ let newRowSeq = 0;
 
 export function newLocationRow(): LocationRow {
   newRowSeq += 1;
-  return { key: `loc-new-${newRowSeq}`, path: "", upstreamId: "", scheme: "http" };
+  return {
+    key: `loc-new-${newRowSeq}`,
+    path: "",
+    targetMode: "pool",
+    upstreamId: "",
+    forwardHost: "",
+    forwardPort: "",
+    scheme: "http",
+  };
 }
 
 export function emptyToggles(): Record<ToggleKey, boolean> {
@@ -170,7 +182,10 @@ export function stateFromHost(host: ProxyHost | null | undefined): ProxyHostForm
     locations: (host.locations ?? []).map((l) => ({
       key: `loc-${l.id}`,
       path: l.path,
-      upstreamId: String(l.upstream_id),
+      targetMode: l.upstream_id != null ? "pool" : "host",
+      upstreamId: l.upstream_id != null ? String(l.upstream_id) : "",
+      forwardHost: l.forward_host ?? "",
+      forwardPort: l.forward_port == null ? "" : String(l.forward_port),
       scheme: l.forward_scheme ?? "http",
     })),
     certificateId: host.certificate_id ? String(host.certificate_id) : NO_CERTIFICATE,
@@ -196,7 +211,12 @@ export function validateLocations(rows: LocationRow[]): FormError | null {
       message = `Location path "${path}" must not contain whitespace or { } ; ".`;
     else if (path.length > 255) message = "Location paths are limited to 255 characters.";
     else if (seen.has(path)) message = `Duplicate location path "${path}".`;
-    else if (!row.upstreamId) message = `Select an upstream pool for ${path}.`;
+    else if (row.targetMode === "pool" && !row.upstreamId)
+      message = `Select an upstream pool for ${path}.`;
+    else if (row.targetMode === "host" && !row.forwardHost.trim())
+      message = `Enter a forward host for ${path}.`;
+    else if (row.targetMode === "host" && parsePort(row.forwardPort) === null)
+      message = `Forward port for ${path} must be between 1 and 65535.`;
     if (message) return { message, tab: "forwarding" };
     seen.add(path);
   }
@@ -240,11 +260,16 @@ export function buildPayload(
     enabled: form.enabled,
     advanced_config: form.advancedConfig,
     ...form.toggles,
-    locations: form.locations.map((row) => ({
-      path: row.path.trim(),
-      upstream_id: Number.parseInt(row.upstreamId, 10),
-      forward_scheme: row.scheme,
-    })),
+    locations: form.locations.map((row) => {
+      const pooled = row.targetMode === "pool";
+      return {
+        path: row.path.trim(),
+        upstream_id: pooled ? Number.parseInt(row.upstreamId, 10) : null,
+        forward_host: pooled ? null : row.forwardHost.trim(),
+        forward_port: pooled ? null : parsePort(row.forwardPort),
+        forward_scheme: row.scheme,
+      };
+    }),
     // `crowdsec_enabled` is a form toggle (Advanced tab). AppSec is not
     // per-host yet (docs/crowdsec.md), so its flag passes through untouched.
     crowdsec_appsec_enabled: host?.crowdsec_appsec_enabled ?? false,
