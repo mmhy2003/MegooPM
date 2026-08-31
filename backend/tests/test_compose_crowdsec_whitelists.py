@@ -127,3 +127,44 @@ def test_control_node_id_is_not_given_a_default(compose_file: str) -> None:
     """
     env = _services(compose_file)["worker"]["environment"]
     assert env["CROWDSEC_CONTROL_NODE_ID"] == "${CROWDSEC_CONTROL_NODE_ID:-}"
+
+
+# --- env example coverage --------------------------------------------------
+#
+# An operator configures from these files. A setting that exists in code and in
+# compose but is undocumented here is one nobody will find — and the HA file is
+# the one a multi-node deployment actually copies.
+
+ENV_EXAMPLES = (".env.example", ".env.ha.example")
+
+
+@pytest.mark.parametrize("env_file", ENV_EXAMPLES)
+@pytest.mark.parametrize("key", REQUIRED_ENV)
+def test_env_examples_document_the_whitelist_settings(env_file: str, key: str) -> None:
+    path = REPO_ROOT / env_file
+    if not path.exists():  # pragma: no cover - partial checkout
+        pytest.skip(f"{env_file} not present at {REPO_ROOT}")
+    lines = [
+        line.split("=", 1)[0].strip()
+        for line in path.read_text(encoding="utf-8").splitlines()
+        if line.strip() and not line.lstrip().startswith("#")
+    ]
+    assert key in lines, f"{key} is not documented in {env_file}"
+
+
+@pytest.mark.parametrize("env_file", ENV_EXAMPLES)
+def test_env_examples_ship_a_blank_control_node(env_file: str) -> None:
+    """Shipping a value would be a footgun.
+
+    Under HA the id names the control plane and must be identical everywhere;
+    a copied-in default would have every node believe it is the control plane
+    and try to restart a container it does not run.
+    """
+    path = REPO_ROOT / env_file
+    if not path.exists():  # pragma: no cover - partial checkout
+        pytest.skip(f"{env_file} not present at {REPO_ROOT}")
+    for line in path.read_text(encoding="utf-8").splitlines():
+        if line.startswith("CROWDSEC_CONTROL_NODE_ID="):
+            assert line.strip() == "CROWDSEC_CONTROL_NODE_ID="
+            return
+    raise AssertionError(f"CROWDSEC_CONTROL_NODE_ID missing from {env_file}")

@@ -227,18 +227,39 @@ async def delete_decision(
 # the apply actually landed.
 
 
-def _enqueue_apply() -> bool:
-    """Queue the apply onto the control-plane node. False when not configured.
+def _reload_configured() -> bool:
+    """Whether an apply has a worker that will actually run it.
 
-    Returning False rather than enqueueing blindly matters: a task sent to any
-    other node would sit unconsumed forever, and the operator would see a
-    whitelist that never takes effect with nothing anywhere explaining why.
+    Single node (``HA_ENABLED=false``): there is one worker on the default
+    queue, and it is the one with the docker socket. Nothing to address, so
+    reloads are always configured.
+
+    HA: workers consume their own ``megoopm.node.<id>`` queues, and only the
+    control-plane node runs the CrowdSec container and holds the socket. That
+    node has to be named, or there is nowhere to send the task.
     """
-    node = settings.crowdsec_control_node_id
-    if not node:
+    return not settings.ha_enabled or bool(settings.crowdsec_control_node_id)
+
+
+def _enqueue_apply() -> bool:
+    """Queue the apply. False when no worker would run it.
+
+    Returning False rather than enqueueing blindly matters: under HA a task
+    addressed to a queue no worker consumes sits there forever, and the
+    operator would see a whitelist that never takes effect with nothing
+    anywhere explaining why.
+    """
+    if not _reload_configured():
         return False
+    if not settings.ha_enabled:
+        # Default queue: the single worker consumes it. Addressing a per-node
+        # queue here would be worse than useless — `_configure_ha` never ran,
+        # so nothing is listening on it.
+        celery_app.send_task("app.tasks.crowdsec.apply_crowdsec_whitelists")
+        return True
     celery_app.send_task(
-        "app.tasks.crowdsec.apply_crowdsec_whitelists", queue=node_queue(node)
+        "app.tasks.crowdsec.apply_crowdsec_whitelists",
+        queue=node_queue(settings.crowdsec_control_node_id),
     )
     return True
 
@@ -366,7 +387,7 @@ async def preview_whitelist(_: AdminUser, payload: WhitelistCreate) -> Whitelist
 async def whitelist_status(_: AdminUser, db: SessionDep) -> WhitelistApplyStatus:
     """Whether the last apply reached CrowdSec, and whether reloads are wired."""
     row = await db.get(CrowdSecWhitelistApply, 1)
-    configured = bool(settings.crowdsec_control_node_id)
+    configured = _reload_configured()
     if row is None:
         return WhitelistApplyStatus(ok=True, reload_configured=configured)
     return WhitelistApplyStatus(
@@ -385,7 +406,8 @@ async def apply_whitelists(_: AdminUser) -> dict[str, bool]:
             status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=(
                 "CrowdSec reloads are not configured: set CROWDSEC_CONTROL_NODE_ID "
-                "to the node whose worker has the docker socket."
+                "to the node whose worker has the docker socket (HA only; a "
+                "single-node deployment needs no node id)."
             ),
         )
     return {"queued": True}

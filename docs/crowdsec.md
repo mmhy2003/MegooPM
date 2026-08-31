@@ -338,10 +338,17 @@ correctly but renders an expression unreadable in the dialog's preview.
 
 ### Configuration
 
-- `CROWDSEC_CONTROL_NODE_ID` — the node whose worker holds the docker socket and
-  runs the CrowdSec container. **Leave blank to disable reloads**: whitelists
-  then save but the Security page reports them as not applied, rather than
-  implying they are in force.
+- `CROWDSEC_CONTROL_NODE_ID` — **HA only.** The node whose worker holds the
+  docker socket and runs the CrowdSec container. Set it to that node's
+  `NODE_ID` and use the **same value on every node**: it names the control
+  plane, it is not each node's own id. Leave blank to disable reloads —
+  whitelists then save but the Security page reports them as not applied,
+  rather than implying they are in force.
+
+  On a single-node stack (`HA_ENABLED=false`) leave it blank. Workers only
+  consume a `megoopm.node.<id>` queue when HA is on, so the apply goes to the
+  default queue that the one worker already consumes; addressing a node queue
+  there would leave the task unconsumed forever.
 - `CROWDSEC_CONTAINER_NAME` — container the reload restarts (default
   `megoopm-crowdsec-1`). Check with `docker ps --format '{{.Names}}'`.
 - `CROWDSEC_WHITELIST_PATH` — rendered file (default

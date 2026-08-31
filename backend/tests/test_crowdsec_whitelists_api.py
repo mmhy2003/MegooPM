@@ -30,6 +30,17 @@ pytestmark = pytest.mark.asyncio
 BASE = "/api/v1/crowdsec/whitelists"
 
 
+@pytest.fixture(autouse=True)
+def _no_broker(monkeypatch) -> None:
+    """Stub the apply enqueue: these tests have no broker.
+
+    Every mutation now queues an apply (on a single node that goes to the
+    default queue), so without this the CRUD tests fail trying to reach Redis.
+    Tests that care about routing replace this with their own recorder.
+    """
+    monkeypatch.setattr(crowdsec_routes.celery_app, "send_task", lambda *a, **kw: None)
+
+
 @pytest.fixture
 async def pg_conn() -> AsyncIterator:
     engine = create_async_engine(settings.database_url, poolclass=NullPool)
@@ -204,15 +215,23 @@ async def test_preview_returns_the_yaml_that_would_be_written(client, auth) -> N
 # --- status ----------------------------------------------------------------
 
 
-async def test_status_reports_when_reload_is_not_configured(client, auth) -> None:
-    # CROWDSEC_CONTROL_NODE_ID is unset here. Saving must not silently imply
-    # the whitelist is in force.
+async def test_status_reports_when_reload_is_not_configured(
+    client, auth, monkeypatch
+) -> None:
+    # Under HA with no control node named, there is no queue to send the apply
+    # to. Saving must not silently imply the whitelist is in force.
+    monkeypatch.setattr(settings, "ha_enabled", True)
+    monkeypatch.setattr(settings, "crowdsec_control_node_id", None)
     resp = await client.get(f"{BASE}/status", headers=auth)
     assert resp.status_code == 200
     assert resp.json()["reload_configured"] is False
 
 
-async def test_apply_refuses_when_reload_is_not_configured(client, auth) -> None:
+async def test_apply_refuses_when_reload_is_not_configured(
+    client, auth, monkeypatch
+) -> None:
+    monkeypatch.setattr(settings, "ha_enabled", True)
+    monkeypatch.setattr(settings, "crowdsec_control_node_id", None)
     resp = await client.post(f"{BASE}/apply", headers=auth)
     assert resp.status_code == 503
     assert "CROWDSEC_CONTROL_NODE_ID" in resp.text
@@ -222,6 +241,7 @@ async def test_apply_enqueues_when_a_control_node_is_set(
     client, auth, monkeypatch
 ) -> None:
     sent: dict[str, object] = {}
+    monkeypatch.setattr(settings, "ha_enabled", True)
     monkeypatch.setattr(settings, "crowdsec_control_node_id", "node-1")
     monkeypatch.setattr(
         crowdsec_routes.celery_app,
@@ -321,3 +341,61 @@ async def test_defaults_to_the_ip_kind_when_unspecified(client, auth) -> None:
     resp = await client.post(BASE, headers=auth, json=body)
     assert resp.status_code == 201
     assert resp.json()["kind"] == "ip_cidr"
+
+
+# --- reload routing --------------------------------------------------------
+#
+# Workers only consume a `megoopm.node.<id>` queue when HA is on
+# (`_configure_ha`). Addressing one on a single-node deployment would leave the
+# task queued forever with nothing consuming it.
+
+
+async def test_single_node_reload_is_configured_without_a_node_id(
+    client, auth, monkeypatch
+) -> None:
+    monkeypatch.setattr(settings, "ha_enabled", False)
+    monkeypatch.setattr(settings, "crowdsec_control_node_id", None)
+    resp = await client.get(f"{BASE}/status", headers=auth)
+    assert resp.json()["reload_configured"] is True
+
+
+async def test_single_node_apply_goes_to_the_default_queue(
+    client, auth, monkeypatch
+) -> None:
+    sent: dict[str, object] = {}
+    monkeypatch.setattr(settings, "ha_enabled", False)
+    monkeypatch.setattr(settings, "crowdsec_control_node_id", None)
+    monkeypatch.setattr(
+        crowdsec_routes.celery_app,
+        "send_task",
+        lambda name, queue=None: sent.update(name=name, queue=queue),
+    )
+    resp = await client.post(f"{BASE}/apply", headers=auth)
+    assert resp.status_code == 202
+    # No queue: the single worker consumes the default one.
+    assert sent["queue"] is None
+
+
+async def test_ha_without_a_control_node_is_not_configured(
+    client, auth, monkeypatch
+) -> None:
+    monkeypatch.setattr(settings, "ha_enabled", True)
+    monkeypatch.setattr(settings, "crowdsec_control_node_id", None)
+    resp = await client.get(f"{BASE}/status", headers=auth)
+    assert resp.json()["reload_configured"] is False
+
+
+async def test_ha_apply_is_addressed_to_the_control_node(
+    client, auth, monkeypatch
+) -> None:
+    sent: dict[str, object] = {}
+    monkeypatch.setattr(settings, "ha_enabled", True)
+    monkeypatch.setattr(settings, "crowdsec_control_node_id", "node-1")
+    monkeypatch.setattr(
+        crowdsec_routes.celery_app,
+        "send_task",
+        lambda name, queue=None: sent.update(name=name, queue=queue),
+    )
+    resp = await client.post(f"{BASE}/apply", headers=auth)
+    assert resp.status_code == 202
+    assert sent["queue"] == "megoopm.node.node-1"
