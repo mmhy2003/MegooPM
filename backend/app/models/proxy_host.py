@@ -9,7 +9,16 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Boolean, Enum, ForeignKey, String, Text, UniqueConstraint
+from sqlalchemy import (
+    Boolean,
+    CheckConstraint,
+    Enum,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+)
 from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -24,18 +33,38 @@ if TYPE_CHECKING:
 
 
 class ProxyHost(IdMixin, TimestampMixin, Base):
-    """A reverse-proxy host that fans traffic out to an upstream pool."""
+    """A reverse-proxy host, forwarding to a pool or to a single backend.
+
+    The target is either ``upstream_id`` or ``forward_host``/``forward_port``,
+    never both — see ``host_target_exactly_one``. A pool brings weighted
+    balancing and passive failover; a single backend is the simpler shape for
+    one server, and cannot be skipped from the render for pool reasons because
+    it has no pool.
+    """
 
     __tablename__ = "proxy_hosts"
+    __table_args__ = (
+        CheckConstraint(
+            "forward_port IS NULL OR forward_port BETWEEN 1 AND 65535",
+            name="forward_port_range",
+        ),
+        CheckConstraint(
+            "(forward_host IS NOT NULL AND forward_port IS NOT NULL AND upstream_id IS NULL)"
+            " OR (forward_host IS NULL AND forward_port IS NULL AND upstream_id IS NOT NULL)",
+            name="host_target_exactly_one",
+        ),
+    )
 
     domain_names: Mapped[list[str]] = mapped_column(
         ARRAY(String(255)), nullable=False, default=list, server_default="{}"
     )
-    # Every proxy host forwards to exactly one pool. RESTRICT: a pool that is
-    # still referenced cannot be deleted.
-    upstream_id: Mapped[int] = mapped_column(
-        ForeignKey("upstreams.id", ondelete="RESTRICT"), nullable=False, index=True
+    # Either a pool — RESTRICT: one still referenced cannot be deleted...
+    upstream_id: Mapped[int | None] = mapped_column(
+        ForeignKey("upstreams.id", ondelete="RESTRICT"), nullable=True, index=True
     )
+    # ...or a single backend. Exactly one; the scheme below applies to both.
+    forward_host: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    forward_port: Mapped[int | None] = mapped_column(Integer, nullable=True)
     forward_scheme: Mapped[HttpScheme] = mapped_column(
         Enum(
             HttpScheme,
