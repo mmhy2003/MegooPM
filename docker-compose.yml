@@ -81,7 +81,7 @@ services:
     command:
       - sh
       - -c
-      - "mkdir -p /data/nginx/conf.d/stream /data/certs/_acme-challenge && chown -R 1000:1000 /data || { echo 'data-init: cannot prepare /data for uid 1000' >&2; exit 1; }"
+      - "mkdir -p /data/nginx/conf.d/stream /data/certs/_acme-challenge /data/crowdsec/whitelists && { [ -f /data/crowdsec/whitelists/megoopm.yaml ] || echo '# Managed by MegooPM - no whitelists defined.' > /data/crowdsec/whitelists/megoopm.yaml; } && chown -R 1000:1000 /data || { echo 'data-init: cannot prepare /data for uid 1000' >&2; exit 1; }"
     volumes:
       - app_data:/data
 
@@ -118,6 +118,11 @@ services:
       RUN_MIGRATIONS: "0"
     volumes:
       - app_data:/data
+      # Reload path: the worker restarts the CrowdSec container so it
+      # re-reads the whitelist parser file. Mounted here and deliberately NOT
+      # on `backend` — the socket is root-equivalent on the host and backend is
+      # the process taking internet traffic.
+      - /var/run/docker.sock:/var/run/docker.sock:ro
     depends_on:
       redis:
         condition: service_healthy
@@ -206,6 +211,16 @@ services:
       - ./infra/crowdsec/acquis/nginx-syslog.yaml:/etc/crowdsec/acquis.d/nginx-syslog.yaml:ro
       # LAPI machine auto-registration (token from the env above).
       - ./infra/crowdsec/config.yaml.local:/etc/crowdsec/config.yaml.local:ro
+      # Whitelists authored in the UI. A single FILE out of the shared
+      # volume: s02-enrich also holds hub-installed parsers and mounting a
+      # directory over it would mask them. `subpath` needs Docker Engine 26+
+      # / Compose 2.26+; the HA file uses a plain host-path bind instead.
+      - type: volume
+        source: app_data
+        target: /etc/crowdsec/parsers/s02-enrich/99-megoopm-whitelist.yaml
+        read_only: true
+        volume:
+          subpath: crowdsec/whitelists/megoopm.yaml
 
 volumes:
   pgdata:
