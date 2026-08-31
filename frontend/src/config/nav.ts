@@ -4,6 +4,7 @@ import {
   ListChecks,
   Network,
   Server,
+  Settings,
   ArrowRightLeft,
   Ban,
   ShieldAlert,
@@ -79,6 +80,13 @@ export const primaryNav: NavItem[] = [
     href: "/users",
     icon: Users,
     description: "Accounts and roles for people who sign in to MegooPM.",
+    adminOnly: true,
+  },
+  {
+    title: "Settings",
+    href: "/settings",
+    icon: Settings,
+    description: "Instance configuration.",
     adminOnly: true,
   },
 ];

@@ -15,6 +15,7 @@ describe("primaryNav", () => {
       "404 Hosts",
       "Security",
       "Users",
+      "Settings",
     ]);
   });
 
@@ -30,7 +31,7 @@ describe("primaryNav", () => {
 
   it("marks only Users as admin-only", () => {
     const adminOnly = primaryNav.filter((item) => item.adminOnly).map((item) => item.href);
-    expect(adminOnly).toEqual(["/users"]);
+    expect(adminOnly).toEqual(["/users", "/settings"]);
   });
 });
 
