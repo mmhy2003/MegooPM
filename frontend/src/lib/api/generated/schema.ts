@@ -2153,6 +2153,10 @@ export interface components {
          * @description One extra ``location <path>`` route of a proxy host.
          */
         ProxyHostLocationIn: {
+            /** Forward Host */
+            forward_host?: string | null;
+            /** Forward Port */
+            forward_port?: number | null;
             /**
              * @description Scheme used to reach the pool (http/https)
              * @default http
@@ -2165,15 +2169,19 @@ export interface components {
             path: string;
             /**
              * Upstream Id
-             * @description Pool this prefix forwards to
+             * @description Pool this prefix forwards to; null when using a host
              */
-            upstream_id: number;
+            upstream_id?: number | null;
         };
         /**
          * ProxyHostLocationRead
          * @description Stored location (adds the row id).
          */
         ProxyHostLocationRead: {
+            /** Forward Host */
+            forward_host?: string | null;
+            /** Forward Port */
+            forward_port?: number | null;
             /**
              * @description Scheme used to reach the pool (http/https)
              * @default http
@@ -2188,9 +2196,9 @@ export interface components {
             path: string;
             /**
              * Upstream Id
-             * @description Pool this prefix forwards to
+             * @description Pool this prefix forwards to; null when using a host
              */
-            upstream_id: number;
+            upstream_id?: number | null;
         };
         /**
          * ProxyHostRead

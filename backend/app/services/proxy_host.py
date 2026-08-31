@@ -64,9 +64,9 @@ def _location_rows(locations: list[dict[str, Any]]) -> list[ProxyHostLocation]:
 
 
 async def _check_location_pools(db: AsyncSession, locations: list[dict[str, Any]]) -> None:
-    await _assert_pools_usable(
-        db, {loc["upstream_id"] for loc in locations}, what="location upstream(s)"
-    )
+    # Skip host-targeted locations: they name no pool to validate.
+    ids = {loc["upstream_id"] for loc in locations if loc.get("upstream_id") is not None}
+    await _assert_pools_usable(db, ids, what="location upstream(s)")
 
 
 def _with_locations(stmt):

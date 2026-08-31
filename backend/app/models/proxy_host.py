@@ -119,12 +119,26 @@ class ProxyHost(IdMixin, TimestampMixin, Base):
 
 
 class ProxyHostLocation(IdMixin, TimestampMixin, Base):
-    """One ``location <path>`` block of a proxy host forwarding to a pool."""
+    """One ``location <path>`` block of a proxy host.
+
+    Forwards to a pool or a single backend, the same either/or the host itself
+    has — a user who chose a literal backend for ``/`` expects the same choice
+    for ``/api``.
+    """
 
     __tablename__ = "proxy_host_locations"
     __table_args__ = (
         UniqueConstraint(
             "proxy_host_id", "path", name="uq_proxy_host_locations_proxy_host_id_path"
+        ),
+        CheckConstraint(
+            "forward_port IS NULL OR forward_port BETWEEN 1 AND 65535",
+            name="forward_port_range",
+        ),
+        CheckConstraint(
+            "(forward_host IS NOT NULL AND forward_port IS NOT NULL AND upstream_id IS NULL)"
+            " OR (forward_host IS NULL AND forward_port IS NULL AND upstream_id IS NOT NULL)",
+            name="location_target_exactly_one",
         ),
     )
 
@@ -133,9 +147,11 @@ class ProxyHostLocation(IdMixin, TimestampMixin, Base):
     )
     path: Mapped[str] = mapped_column(String(255), nullable=False)
     # RESTRICT, like ``proxy_hosts.upstream_id``: a pool in use cannot be deleted.
-    upstream_id: Mapped[int] = mapped_column(
-        ForeignKey("upstreams.id", ondelete="RESTRICT"), nullable=False, index=True
+    upstream_id: Mapped[int | None] = mapped_column(
+        ForeignKey("upstreams.id", ondelete="RESTRICT"), nullable=True, index=True
     )
+    forward_host: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    forward_port: Mapped[int | None] = mapped_column(Integer, nullable=True)
     forward_scheme: Mapped[HttpScheme] = mapped_column(
         Enum(
             HttpScheme,

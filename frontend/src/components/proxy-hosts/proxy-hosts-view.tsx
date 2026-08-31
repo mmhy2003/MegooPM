@@ -194,7 +194,12 @@ export function ProxyHostsView() {
                         </div>
                       </TableCell>
                       <TableCell>
-                        {pool ? (
+                        {host.upstream_id == null ? (
+                          // A host-targeted row has no pool to name.
+                          <span className="font-mono text-xs">
+                            {host.forward_host}:{host.forward_port}
+                          </span>
+                        ) : pool ? (
                           <span className="inline-flex items-center gap-1.5">
                             <Server className="size-3.5 text-muted-foreground" />
                             {pool.name}

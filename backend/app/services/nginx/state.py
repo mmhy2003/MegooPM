@@ -97,10 +97,15 @@ class AccessListSpec:
 
 @dataclass(frozen=True, slots=True)
 class LocationSpec:
-    """An extra ``location ^~ <path>`` route of a proxy host to another pool."""
+    """An extra ``location ^~ <path>`` route of a proxy host.
+
+    Forwards to a pool or a single backend, exactly as the host itself does.
+    """
 
     path: str
-    upstream_id: int
+    upstream_id: int | None = None
+    forward_host: str | None = None
+    forward_port: int | None = None
     forward_scheme: str = "http"
 
 

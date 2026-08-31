@@ -2164,6 +2164,32 @@
       "ProxyHostLocationIn": {
         "description": "One extra ``location <path>`` route of a proxy host.",
         "properties": {
+          "forward_host": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Forward Host"
+          },
+          "forward_port": {
+            "anyOf": [
+              {
+                "maximum": 65535.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Forward Port"
+          },
           "forward_scheme": {
             "$ref": "#/components/schemas/HttpScheme",
             "default": "http",
@@ -2175,14 +2201,20 @@
             "type": "string"
           },
           "upstream_id": {
-            "description": "Pool this prefix forwards to",
-            "title": "Upstream Id",
-            "type": "integer"
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Pool this prefix forwards to; null when using a host",
+            "title": "Upstream Id"
           }
         },
         "required": [
-          "path",
-          "upstream_id"
+          "path"
         ],
         "title": "ProxyHostLocationIn",
         "type": "object"
@@ -2190,6 +2222,32 @@
       "ProxyHostLocationRead": {
         "description": "Stored location (adds the row id).",
         "properties": {
+          "forward_host": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Forward Host"
+          },
+          "forward_port": {
+            "anyOf": [
+              {
+                "maximum": 65535.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Forward Port"
+          },
           "forward_scheme": {
             "$ref": "#/components/schemas/HttpScheme",
             "default": "http",
@@ -2205,14 +2263,20 @@
             "type": "string"
           },
           "upstream_id": {
-            "description": "Pool this prefix forwards to",
-            "title": "Upstream Id",
-            "type": "integer"
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Pool this prefix forwards to; null when using a host",
+            "title": "Upstream Id"
           }
         },
         "required": [
           "path",
-          "upstream_id",
           "id"
         ],
         "title": "ProxyHostLocationRead",

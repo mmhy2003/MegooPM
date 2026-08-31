@@ -154,17 +154,22 @@ async def load_desired_state(
         )
         location_specs: list[LocationSpec] = []
         for location in sorted(host.locations, key=lambda loc: loc.path):
-            loc_pool = location.upstream
-            if loc_pool is None or not loc_pool.enabled:
-                continue
-            if loc_pool.id not in upstreams:
-                upstreams[loc_pool.id] = _upstream_spec(loc_pool)
-            if not upstreams[loc_pool.id].backends:
-                continue  # empty pool → drop this location, keep the host
+            # As for the host: only a pool-targeted location can be dropped for
+            # pool reasons. A literal backend has no pool to be missing.
+            if location.upstream_id is not None:
+                loc_pool = location.upstream
+                if loc_pool is None or not loc_pool.enabled:
+                    continue
+                if loc_pool.id not in upstreams:
+                    upstreams[loc_pool.id] = _upstream_spec(loc_pool)
+                if not upstreams[loc_pool.id].backends:
+                    continue  # empty pool → drop this location, keep the host
             location_specs.append(
                 LocationSpec(
                     path=location.path,
-                    upstream_id=loc_pool.id,
+                    upstream_id=location.upstream_id,
+                    forward_host=location.forward_host,
+                    forward_port=location.forward_port,
                     forward_scheme=str(location.forward_scheme),
                 )
             )
@@ -202,7 +207,12 @@ async def load_desired_state(
     # Only emit pools actually referenced by an included host, in id order.
     # These render into http{}; stream-referenced pools are collected separately.
     referenced = {h.upstream_id for h in host_specs if h.upstream_id is not None}
-    referenced |= {loc.upstream_id for h in host_specs for loc in h.locations}
+    referenced |= {
+        loc.upstream_id
+        for h in host_specs
+        for loc in h.locations
+        if loc.upstream_id is not None
+    }
     upstream_specs = tuple(upstreams[i] for i in sorted(referenced))
 
     redirection_specs = await _load_redirection_hosts(session, certs_dir)

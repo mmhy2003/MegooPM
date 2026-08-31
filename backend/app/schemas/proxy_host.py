@@ -75,7 +75,11 @@ class ProxyHostLocationIn(BaseModel):
     """One extra ``location <path>`` route of a proxy host."""
 
     path: str = Field(description="URL prefix, e.g. /api/ (the root '/' is the host itself)")
-    upstream_id: int = Field(description="Pool this prefix forwards to")
+    upstream_id: int | None = Field(
+        default=None, description="Pool this prefix forwards to; null when using a host"
+    )
+    forward_host: str | None = Field(default=None, min_length=1, max_length=255)
+    forward_port: int | None = Field(default=None, ge=1, le=65535)
     forward_scheme: HttpScheme = Field(
         default=HttpScheme.http, description="Scheme used to reach the pool (http/https)"
     )

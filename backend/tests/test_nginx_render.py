@@ -350,3 +350,24 @@ def test_host_target_honours_the_forward_scheme() -> None:
     )
     out = render_config(DesiredState(proxy_hosts=(host,)))["megoopm-proxy-1.conf"]
     assert "proxy_pass https://10.0.0.1:8443;" in out
+
+
+def test_locations_render_both_target_kinds() -> None:
+    """A host may mix a pooled location with a literal-backend one."""
+    from app.services.nginx.state import LocationSpec
+
+    host = ProxyHostSpec(
+        id=1,
+        domain_names=("a.example.com",),
+        upstream_id=1,
+        locations=(
+            LocationSpec(path="/api", upstream_id=2),
+            LocationSpec(path="/img", forward_host="10.0.0.9", forward_port=9000),
+        ),
+    )
+    out = render_config(
+        DesiredState(proxy_hosts=(host,), http_upstreams=(_pool(id=1), _pool(id=2)))
+    )["megoopm-proxy-1.conf"]
+
+    assert "proxy_pass http://megoopm_upstream_2;" in out
+    assert "proxy_pass http://10.0.0.9:9000;" in out

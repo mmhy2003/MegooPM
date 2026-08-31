@@ -28,7 +28,7 @@
 {%- for loc in host.locations %}
 
     # Extra route: ^~ makes the longest prefix win over the cache-assets regex.
-{{- proxy_block(loc.path, loc.forward_scheme, location_pools[loc.upstream_id], "^~ ") }}
+{{- proxy_block(loc.path, loc.forward_scheme, location_targets[loc.path], "^~ ") }}
 {%- endfor %}
 {%- if host.caching_enabled %}
 

@@ -38,3 +38,25 @@ describe("ProxyHostsView enable toggle", () => {
 
 
 });
+
+describe("ProxyHostsView forward target", () => {
+  beforeEach(() => {
+    vi.spyOn(toast, "error").mockImplementation(() => "" as never);
+  });
+  afterEach(() => {
+    cleanup();
+    vi.restoreAllMocks();
+  });
+
+  it("shows a literal backend for a host-targeted row", async () => {
+    vi.spyOn(proxyHosts, "list").mockResolvedValue([
+      makeHost({ upstream_id: null, forward_host: "10.0.0.1", forward_port: 8080 }),
+    ]);
+    vi.spyOn(upstreams, "list").mockResolvedValue([]);
+    vi.spyOn(accessLists, "list").mockResolvedValue([]);
+    vi.spyOn(certificates, "list").mockResolvedValue([]);
+    render(<ProxyHostsView />);
+
+    expect(await screen.findByText("10.0.0.1:8080")).toBeInTheDocument();
+  });
+});

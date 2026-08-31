@@ -123,8 +123,9 @@ def _render_proxy_host(host: ProxyHostSpec) -> str:
     return _env().get_template("server.conf.j2").render(
         host=host,
         target=_target(host),
-        # Pool name per extra location's upstream id (root pool is ``pool_name``).
-        location_pools={loc.upstream_id: pool_name(loc.upstream_id) for loc in host.locations},
+        # Keyed by path, not upstream id: a host-targeted location has no id to
+        # key on, and two of them would collide on None.
+        location_targets={loc.path: _target(loc) for loc in host.locations},
         server_names=" ".join(host.domain_names),
         # Deployment-constant webroot the ACME HTTP-01 challenge location serves
         # from; matches where the issuer drops tokens (settings-driven, stable).
