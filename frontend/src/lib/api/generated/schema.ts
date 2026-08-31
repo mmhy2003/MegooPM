@@ -441,6 +441,118 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/crowdsec/whitelists": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Whitelists
+         * @description Every whitelist, enabled or not, oldest first.
+         */
+        get: operations["list_whitelists_api_v1_crowdsec_whitelists_get"];
+        put?: never;
+        /**
+         * Create Whitelist
+         * @description Create a whitelist and queue the apply.
+         */
+        post: operations["create_whitelist_api_v1_crowdsec_whitelists_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/crowdsec/whitelists/apply": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Apply Whitelists
+         * @description Re-run the apply — the retry path after a failed reload.
+         */
+        post: operations["apply_whitelists_api_v1_crowdsec_whitelists_apply_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/crowdsec/whitelists/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Preview Whitelist
+         * @description Render one whitelist exactly as the writer would.
+         *
+         *     The dialog shows this rather than re-implementing the renderer in
+         *     TypeScript: a second renderer would drift, and the preview's whole value is
+         *     being the same bytes that reach CrowdSec.
+         */
+        post: operations["preview_whitelist_api_v1_crowdsec_whitelists_preview_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/crowdsec/whitelists/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Whitelist Status
+         * @description Whether the last apply reached CrowdSec, and whether reloads are wired.
+         */
+        get: operations["whitelist_status_api_v1_crowdsec_whitelists_status_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/crowdsec/whitelists/{whitelist_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete Whitelist
+         * @description Delete a whitelist and queue the apply.
+         */
+        delete: operations["delete_whitelist_api_v1_crowdsec_whitelists__whitelist_id__delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Update Whitelist
+         * @description Replace a whitelist and queue the apply.
+         */
+        patch: operations["update_whitelist_api_v1_crowdsec_whitelists__whitelist_id__patch"];
+        trace?: never;
+    };
     "/api/v1/dead-hosts": {
         parameters: {
             query?: never;
@@ -2978,6 +3090,169 @@ export interface components {
             /** Error Type */
             type: string;
         };
+        /**
+         * WhitelistApplyStatus
+         * @description Whether the last render actually reached CrowdSec.
+         */
+        WhitelistApplyStatus: {
+            /**
+             * Applied At
+             * @description When the last apply attempt finished
+             */
+            applied_at?: string | null;
+            /**
+             * Error
+             * @description Operator-facing failure text
+             */
+            error?: string | null;
+            /**
+             * Ok
+             * @description False when the last apply failed
+             */
+            ok: boolean;
+            /**
+             * Reload Configured
+             * @description False when CROWDSEC_CONTROL_NODE_ID is unset; whitelists then save but are never applied
+             */
+            reload_configured: boolean;
+        };
+        /**
+         * WhitelistCreate
+         * @description Request body for creating a whitelist.
+         */
+        WhitelistCreate: {
+            /**
+             * Cidrs
+             * @description CIDR ranges to exempt
+             */
+            cidrs?: string[];
+            /**
+             * Description
+             * @description Free-text note
+             * @default
+             */
+            description: string;
+            /**
+             * Enabled
+             * @description Disabled whitelists are not rendered
+             * @default true
+             */
+            enabled: boolean;
+            /**
+             * Ips
+             * @description Exact IP addresses to exempt
+             */
+            ips?: string[];
+            /**
+             * Name
+             * @description Operator-facing name
+             */
+            name: string;
+            /**
+             * Reason
+             * @description Why these addresses are exempt; appears in CrowdSec's logs
+             */
+            reason: string;
+        };
+        /**
+         * WhitelistPreview
+         * @description The YAML a given whitelist would contribute to the parser file.
+         */
+        WhitelistPreview: {
+            /**
+             * Yaml
+             * @description Exactly what the renderer would write
+             */
+            yaml: string;
+        };
+        /**
+         * WhitelistRead
+         * @description A stored whitelist.
+         */
+        WhitelistRead: {
+            /**
+             * Cidrs
+             * @description CIDR ranges to exempt
+             */
+            cidrs?: string[];
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Description
+             * @description Free-text note
+             * @default
+             */
+            description: string;
+            /**
+             * Enabled
+             * @description Disabled whitelists are not rendered
+             * @default true
+             */
+            enabled: boolean;
+            /** Id */
+            id: number;
+            /**
+             * Ips
+             * @description Exact IP addresses to exempt
+             */
+            ips?: string[];
+            /**
+             * Name
+             * @description Operator-facing name
+             */
+            name: string;
+            /**
+             * Reason
+             * @description Why these addresses are exempt; appears in CrowdSec's logs
+             */
+            reason: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /**
+         * WhitelistUpdate
+         * @description Request body for replacing a whitelist.
+         */
+        WhitelistUpdate: {
+            /**
+             * Cidrs
+             * @description CIDR ranges to exempt
+             */
+            cidrs?: string[];
+            /**
+             * Description
+             * @description Free-text note
+             * @default
+             */
+            description: string;
+            /**
+             * Enabled
+             * @description Disabled whitelists are not rendered
+             * @default true
+             */
+            enabled: boolean;
+            /**
+             * Ips
+             * @description Exact IP addresses to exempt
+             */
+            ips?: string[];
+            /**
+             * Name
+             * @description Operator-facing name
+             */
+            name: string;
+            /**
+             * Reason
+             * @description Why these addresses are exempt; appears in CrowdSec's logs
+             */
+            reason: string;
+        };
     };
     responses: never;
     parameters: never;
@@ -3816,6 +4091,198 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CrowdSecHealth"];
+                };
+            };
+        };
+    };
+    list_whitelists_api_v1_crowdsec_whitelists_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WhitelistRead"][];
+                };
+            };
+        };
+    };
+    create_whitelist_api_v1_crowdsec_whitelists_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WhitelistCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WhitelistRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    apply_whitelists_api_v1_crowdsec_whitelists_apply_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: boolean;
+                    };
+                };
+            };
+        };
+    };
+    preview_whitelist_api_v1_crowdsec_whitelists_preview_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WhitelistCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WhitelistPreview"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    whitelist_status_api_v1_crowdsec_whitelists_status_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WhitelistApplyStatus"];
+                };
+            };
+        };
+    };
+    delete_whitelist_api_v1_crowdsec_whitelists__whitelist_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                whitelist_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_whitelist_api_v1_crowdsec_whitelists__whitelist_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                whitelist_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WhitelistUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WhitelistRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

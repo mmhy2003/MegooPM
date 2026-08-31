@@ -3832,6 +3832,240 @@
         ],
         "title": "ValidationError",
         "type": "object"
+      },
+      "WhitelistApplyStatus": {
+        "description": "Whether the last render actually reached CrowdSec.",
+        "properties": {
+          "applied_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "When the last apply attempt finished",
+            "title": "Applied At"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Operator-facing failure text",
+            "title": "Error"
+          },
+          "ok": {
+            "description": "False when the last apply failed",
+            "title": "Ok",
+            "type": "boolean"
+          },
+          "reload_configured": {
+            "description": "False when CROWDSEC_CONTROL_NODE_ID is unset; whitelists then save but are never applied",
+            "title": "Reload Configured",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "ok",
+          "reload_configured"
+        ],
+        "title": "WhitelistApplyStatus",
+        "type": "object"
+      },
+      "WhitelistCreate": {
+        "description": "Request body for creating a whitelist.",
+        "properties": {
+          "cidrs": {
+            "description": "CIDR ranges to exempt",
+            "items": {
+              "type": "string"
+            },
+            "title": "Cidrs",
+            "type": "array"
+          },
+          "description": {
+            "default": "",
+            "description": "Free-text note",
+            "title": "Description",
+            "type": "string"
+          },
+          "enabled": {
+            "default": true,
+            "description": "Disabled whitelists are not rendered",
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "ips": {
+            "description": "Exact IP addresses to exempt",
+            "items": {
+              "type": "string"
+            },
+            "title": "Ips",
+            "type": "array"
+          },
+          "name": {
+            "description": "Operator-facing name",
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "reason": {
+            "description": "Why these addresses are exempt; appears in CrowdSec's logs",
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "reason"
+        ],
+        "title": "WhitelistCreate",
+        "type": "object"
+      },
+      "WhitelistPreview": {
+        "description": "The YAML a given whitelist would contribute to the parser file.",
+        "properties": {
+          "yaml": {
+            "description": "Exactly what the renderer would write",
+            "title": "Yaml",
+            "type": "string"
+          }
+        },
+        "required": [
+          "yaml"
+        ],
+        "title": "WhitelistPreview",
+        "type": "object"
+      },
+      "WhitelistRead": {
+        "description": "A stored whitelist.",
+        "properties": {
+          "cidrs": {
+            "description": "CIDR ranges to exempt",
+            "items": {
+              "type": "string"
+            },
+            "title": "Cidrs",
+            "type": "array"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "description": {
+            "default": "",
+            "description": "Free-text note",
+            "title": "Description",
+            "type": "string"
+          },
+          "enabled": {
+            "default": true,
+            "description": "Disabled whitelists are not rendered",
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "ips": {
+            "description": "Exact IP addresses to exempt",
+            "items": {
+              "type": "string"
+            },
+            "title": "Ips",
+            "type": "array"
+          },
+          "name": {
+            "description": "Operator-facing name",
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "reason": {
+            "description": "Why these addresses are exempt; appears in CrowdSec's logs",
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "reason",
+          "id",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "WhitelistRead",
+        "type": "object"
+      },
+      "WhitelistUpdate": {
+        "description": "Request body for replacing a whitelist.",
+        "properties": {
+          "cidrs": {
+            "description": "CIDR ranges to exempt",
+            "items": {
+              "type": "string"
+            },
+            "title": "Cidrs",
+            "type": "array"
+          },
+          "description": {
+            "default": "",
+            "description": "Free-text note",
+            "title": "Description",
+            "type": "string"
+          },
+          "enabled": {
+            "default": true,
+            "description": "Disabled whitelists are not rendered",
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "ips": {
+            "description": "Exact IP addresses to exempt",
+            "items": {
+              "type": "string"
+            },
+            "title": "Ips",
+            "type": "array"
+          },
+          "name": {
+            "description": "Operator-facing name",
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "reason": {
+            "description": "Why these addresses are exempt; appears in CrowdSec's logs",
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "reason"
+        ],
+        "title": "WhitelistUpdate",
+        "type": "object"
       }
     },
     "securitySchemes": {
@@ -5228,6 +5462,284 @@
           }
         ],
         "summary": "Crowdsec Health",
+        "tags": [
+          "crowdsec"
+        ]
+      }
+    },
+    "/api/v1/crowdsec/whitelists": {
+      "get": {
+        "description": "Every whitelist, enabled or not, oldest first.",
+        "operationId": "list_whitelists_api_v1_crowdsec_whitelists_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/WhitelistRead"
+                  },
+                  "title": "Response List Whitelists Api V1 Crowdsec Whitelists Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "List Whitelists",
+        "tags": [
+          "crowdsec"
+        ]
+      },
+      "post": {
+        "description": "Create a whitelist and queue the apply.",
+        "operationId": "create_whitelist_api_v1_crowdsec_whitelists_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WhitelistCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WhitelistRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Create Whitelist",
+        "tags": [
+          "crowdsec"
+        ]
+      }
+    },
+    "/api/v1/crowdsec/whitelists/apply": {
+      "post": {
+        "description": "Re-run the apply — the retry path after a failed reload.",
+        "operationId": "apply_whitelists_api_v1_crowdsec_whitelists_apply_post",
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "boolean"
+                  },
+                  "title": "Response Apply Whitelists Api V1 Crowdsec Whitelists Apply Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Apply Whitelists",
+        "tags": [
+          "crowdsec"
+        ]
+      }
+    },
+    "/api/v1/crowdsec/whitelists/preview": {
+      "post": {
+        "description": "Render one whitelist exactly as the writer would.\n\nThe dialog shows this rather than re-implementing the renderer in\nTypeScript: a second renderer would drift, and the preview's whole value is\nbeing the same bytes that reach CrowdSec.",
+        "operationId": "preview_whitelist_api_v1_crowdsec_whitelists_preview_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WhitelistCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WhitelistPreview"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Preview Whitelist",
+        "tags": [
+          "crowdsec"
+        ]
+      }
+    },
+    "/api/v1/crowdsec/whitelists/status": {
+      "get": {
+        "description": "Whether the last apply reached CrowdSec, and whether reloads are wired.",
+        "operationId": "whitelist_status_api_v1_crowdsec_whitelists_status_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WhitelistApplyStatus"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Whitelist Status",
+        "tags": [
+          "crowdsec"
+        ]
+      }
+    },
+    "/api/v1/crowdsec/whitelists/{whitelist_id}": {
+      "delete": {
+        "description": "Delete a whitelist and queue the apply.",
+        "operationId": "delete_whitelist_api_v1_crowdsec_whitelists__whitelist_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "whitelist_id",
+            "required": true,
+            "schema": {
+              "title": "Whitelist Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Delete Whitelist",
+        "tags": [
+          "crowdsec"
+        ]
+      },
+      "patch": {
+        "description": "Replace a whitelist and queue the apply.",
+        "operationId": "update_whitelist_api_v1_crowdsec_whitelists__whitelist_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "whitelist_id",
+            "required": true,
+            "schema": {
+              "title": "Whitelist Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WhitelistUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WhitelistRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Update Whitelist",
         "tags": [
           "crowdsec"
         ]

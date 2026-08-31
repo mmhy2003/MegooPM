@@ -20,8 +20,12 @@ from __future__ import annotations
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy import select
 
 from app.api.deps import AdminUser, SessionDep
+from app.core.celery_app import celery_app, node_queue
+from app.core.config import settings
+from app.models.crowdsec_whitelist import CrowdSecWhitelist, CrowdSecWhitelistApply
 from app.models.enums import AuditAction
 from app.schemas.crowdsec import (
     AlertList,
@@ -29,6 +33,13 @@ from app.schemas.crowdsec import (
     Decision,
     DecisionCreate,
     DecisionList,
+)
+from app.schemas.crowdsec_whitelist import (
+    WhitelistApplyStatus,
+    WhitelistCreate,
+    WhitelistPreview,
+    WhitelistRead,
+    WhitelistUpdate,
 )
 from app.services import audit as audit_service
 from app.services.crowdsec import (
@@ -41,6 +52,12 @@ from app.services.crowdsec.filtering import (
     is_community_alert,
     is_community_decision,
     paginate,
+)
+from app.services.crowdsec.whitelists import (
+    WhitelistDoc,
+    WhitelistValidationError,
+    render_whitelists,
+    slugify,
 )
 
 router = APIRouter(tags=["crowdsec"])
@@ -199,6 +216,176 @@ async def delete_decision(
     )
     await db.commit()
     return {"deleted": deleted}
+
+
+# --- whitelists ------------------------------------------------------------
+#
+# UI-authored CrowdSec parser whitelists. Writing the file and reloading
+# CrowdSec happens in a Celery task on the control-plane node (only that node
+# runs the CrowdSec container, and only its worker has the docker socket), so
+# these routes persist and enqueue; ``GET /whitelists/status`` reports whether
+# the apply actually landed.
+
+
+def _enqueue_apply() -> bool:
+    """Queue the apply onto the control-plane node. False when not configured.
+
+    Returning False rather than enqueueing blindly matters: a task sent to any
+    other node would sit unconsumed forever, and the operator would see a
+    whitelist that never takes effect with nothing anywhere explaining why.
+    """
+    node = settings.crowdsec_control_node_id
+    if not node:
+        return False
+    celery_app.send_task(
+        "app.tasks.crowdsec.apply_crowdsec_whitelists", queue=node_queue(node)
+    )
+    return True
+
+
+async def _guard_slug_unique(db: SessionDep, name: str, *, exclude_id: int | None) -> None:
+    """409 when two names would render the same CrowdSec ``name:``.
+
+    CrowdSec requires parser names to be unique across everything it loads, and
+    a duplicate makes it refuse to start — so this is caught here rather than
+    discovered when the container fails to come back.
+    """
+    try:
+        slug = slugify(name)
+    except WhitelistValidationError as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
+    result = await db.execute(select(CrowdSecWhitelist))
+    for row in result.scalars():
+        if row.id != exclude_id and slugify(row.name) == slug:
+            raise HTTPException(
+                status.HTTP_409_CONFLICT,
+                detail=f"Whitelist {row.name!r} already renders as megoopm/wl-{slug}.",
+            )
+
+
+@router.get("/whitelists", response_model=list[WhitelistRead])
+async def list_whitelists(_: AdminUser, db: SessionDep) -> list[CrowdSecWhitelist]:
+    """Every whitelist, enabled or not, oldest first."""
+    result = await db.execute(select(CrowdSecWhitelist).order_by(CrowdSecWhitelist.id))
+    return list(result.scalars())
+
+
+@router.post("/whitelists", response_model=WhitelistRead, status_code=status.HTTP_201_CREATED)
+async def create_whitelist(
+    admin: AdminUser, db: SessionDep, payload: WhitelistCreate
+) -> CrowdSecWhitelist:
+    """Create a whitelist and queue the apply."""
+    await _guard_slug_unique(db, payload.name, exclude_id=None)
+    row = CrowdSecWhitelist(**payload.model_dump())
+    db.add(row)
+    await db.flush()
+    await audit_service.record_audit(
+        db,
+        actor=admin.email,
+        action=AuditAction.create,
+        object_type="crowdsec_whitelist",
+        object_id=row.id,
+        meta={"name": row.name, "ips": row.ips, "cidrs": row.cidrs},
+    )
+    await db.commit()
+    await db.refresh(row)
+    _enqueue_apply()
+    return row
+
+
+@router.patch("/whitelists/{whitelist_id}", response_model=WhitelistRead)
+async def update_whitelist(
+    admin: AdminUser, db: SessionDep, whitelist_id: int, payload: WhitelistUpdate
+) -> CrowdSecWhitelist:
+    """Replace a whitelist and queue the apply."""
+    row = await db.get(CrowdSecWhitelist, whitelist_id)
+    if row is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Whitelist not found.")
+    await _guard_slug_unique(db, payload.name, exclude_id=whitelist_id)
+    for field, value in payload.model_dump().items():
+        setattr(row, field, value)
+    await audit_service.record_audit(
+        db,
+        actor=admin.email,
+        action=AuditAction.update,
+        object_type="crowdsec_whitelist",
+        object_id=row.id,
+        meta={"name": row.name, "enabled": row.enabled},
+    )
+    await db.commit()
+    await db.refresh(row)
+    _enqueue_apply()
+    return row
+
+
+@router.delete("/whitelists/{whitelist_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_whitelist(admin: AdminUser, db: SessionDep, whitelist_id: int) -> None:
+    """Delete a whitelist and queue the apply."""
+    row = await db.get(CrowdSecWhitelist, whitelist_id)
+    if row is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Whitelist not found.")
+    name = row.name
+    await db.delete(row)
+    await audit_service.record_audit(
+        db,
+        actor=admin.email,
+        action=AuditAction.delete,
+        object_type="crowdsec_whitelist",
+        object_id=whitelist_id,
+        meta={"name": name},
+    )
+    await db.commit()
+    _enqueue_apply()
+
+
+@router.post("/whitelists/preview", response_model=WhitelistPreview)
+async def preview_whitelist(_: AdminUser, payload: WhitelistCreate) -> WhitelistPreview:
+    """Render one whitelist exactly as the writer would.
+
+    The dialog shows this rather than re-implementing the renderer in
+    TypeScript: a second renderer would drift, and the preview's whole value is
+    being the same bytes that reach CrowdSec.
+    """
+    doc = WhitelistDoc(
+        name=payload.name,
+        reason=payload.reason,
+        description=payload.description,
+        ips=payload.ips,
+        cidrs=payload.cidrs,
+    )
+    try:
+        return WhitelistPreview(yaml=render_whitelists([doc]))
+    except WhitelistValidationError as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
+
+
+@router.get("/whitelists/status", response_model=WhitelistApplyStatus)
+async def whitelist_status(_: AdminUser, db: SessionDep) -> WhitelistApplyStatus:
+    """Whether the last apply reached CrowdSec, and whether reloads are wired."""
+    row = await db.get(CrowdSecWhitelistApply, 1)
+    configured = bool(settings.crowdsec_control_node_id)
+    if row is None:
+        return WhitelistApplyStatus(ok=True, reload_configured=configured)
+    return WhitelistApplyStatus(
+        ok=row.ok,
+        error=row.error,
+        applied_at=row.applied_at,
+        reload_configured=configured,
+    )
+
+
+@router.post("/whitelists/apply", status_code=status.HTTP_202_ACCEPTED)
+async def apply_whitelists(_: AdminUser) -> dict[str, bool]:
+    """Re-run the apply — the retry path after a failed reload."""
+    if not _enqueue_apply():
+        raise HTTPException(
+            status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=(
+                "CrowdSec reloads are not configured: set CROWDSEC_CONTROL_NODE_ID "
+                "to the node whose worker has the docker socket."
+            ),
+        )
+    return {"queued": True}
 
 
 __all__ = ["router"]
