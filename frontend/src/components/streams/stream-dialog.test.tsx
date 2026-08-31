@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
-import { streams, type Stream } from "@/lib/api";
+import { streams, type Stream, type Upstream } from "@/lib/api";
 import { StreamDialog } from "@/components/streams/stream-dialog";
 
 function makeStream(over: Partial<Stream> = {}): Stream {
@@ -21,13 +21,29 @@ function makeStream(over: Partial<Stream> = {}): Stream {
   };
 }
 
-function renderDialog(stream: Stream | null = makeStream()) {
+function makePool(over: Partial<Upstream> = {}): Upstream {
+  return {
+    id: 4,
+    name: "db-pool",
+    description: "",
+    lb_method: "round_robin",
+    context: "stream",
+    enabled: true,
+    backends: [],
+    created_at: "2026-08-27T00:00:00Z",
+    updated_at: "2026-08-27T00:00:00Z",
+    ...over,
+  } as Upstream;
+}
+
+function renderDialog(stream: Stream | null = makeStream(), pools: Upstream[] = [makePool()]) {
   return render(
     <StreamDialog
       open
       onOpenChange={() => {}}
       stream={stream}
       certificates={[]}
+      pools={pools}
       onSaved={() => {}}
     />,
   );
@@ -124,5 +140,72 @@ describe("StreamDialog", () => {
       certificate_id: 4,
       enabled: true,
     });
+  });
+});
+
+
+describe("StreamDialog target mode", () => {
+  beforeEach(() => {
+    vi.spyOn(streams, "update").mockResolvedValue(makeStream());
+    vi.spyOn(streams, "create").mockResolvedValue(makeStream());
+  });
+  afterEach(() => {
+    cleanup();
+    vi.restoreAllMocks();
+  });
+
+  it("starts on Single host for a host-targeted stream", () => {
+    renderDialog();
+    expect(screen.getByLabelText("Forward host")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Upstream pool")).not.toBeInTheDocument();
+  });
+
+  it("switches to a pool picker", async () => {
+    const user = userEvent.setup();
+    renderDialog();
+    await user.click(screen.getByRole("radio", { name: "Pool" }));
+    expect(screen.getByLabelText("Upstream pool")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Forward host")).not.toBeInTheDocument();
+  });
+
+  it("keeps typed host values across a round trip through Pool", async () => {
+    const user = userEvent.setup();
+    renderDialog();
+    const host = screen.getByLabelText("Forward host");
+    await user.clear(host);
+    await user.type(host, "cache.internal");
+
+    await user.click(screen.getByRole("radio", { name: "Pool" }));
+    await user.click(screen.getByRole("radio", { name: "Single host" }));
+
+    // Losing typed input on a mis-click would be its own small betrayal.
+    expect(screen.getByLabelText("Forward host")).toHaveValue("cache.internal");
+  });
+
+  it("starts on Pool for a pool-targeted stream", () => {
+    renderDialog(makeStream({ upstream_id: 4, forward_host: null, forward_port: null }));
+    expect(screen.getByLabelText("Upstream pool")).toBeInTheDocument();
+  });
+
+  it("sends exactly one target", async () => {
+    const user = userEvent.setup();
+    renderDialog(makeStream({ upstream_id: 4, forward_host: null, forward_port: null }));
+    await user.click(screen.getByRole("button", { name: "Save changes" }));
+
+    await waitFor(() => expect(streams.update).toHaveBeenCalledTimes(1));
+    const body = vi.mocked(streams.update).mock.calls[0][1];
+    expect(body.upstream_id).toBe(4);
+    expect(body.forward_host).toBeNull();
+    expect(body.forward_port).toBeNull();
+  });
+
+  it("requires a pool in Pool mode", async () => {
+    const user = userEvent.setup();
+    renderDialog(makeStream(), []);
+    await user.click(screen.getByRole("radio", { name: "Pool" }));
+    await user.click(screen.getByRole("button", { name: "Save changes" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(/pool/i);
+    expect(streams.update).not.toHaveBeenCalled();
   });
 });

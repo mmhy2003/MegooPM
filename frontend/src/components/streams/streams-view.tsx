@@ -5,7 +5,14 @@ import { toast } from "sonner";
 import { useCallback, useEffect, useState } from "react";
 import { Network, Pencil, Plus, ShieldCheck, Trash2 } from "lucide-react";
 
-import { certificates, streams, type Certificate, type Stream } from "@/lib/api";
+import {
+  certificates,
+  streams,
+  upstreams,
+  type Certificate,
+  type Stream,
+  type Upstream,
+} from "@/lib/api";
 import { describeError } from "@/components/proxy-hosts/lib";
 import { ConfirmDeleteDialog } from "@/components/proxy-hosts/confirm-delete-dialog";
 import { StreamDialog } from "@/components/streams/stream-dialog";
@@ -58,12 +65,18 @@ export function StreamsView() {
     stream: null,
   });
   const [toDelete, setToDelete] = useState<Stream | null>(null);
+  const [pools, setPools] = useState<Upstream[]>([]);
 
   const load = useCallback(async () => {
     try {
-      const [s, c] = await Promise.all([streams.list(), certificates.list()]);
+      const [s, c, p] = await Promise.all([
+        streams.list(),
+        certificates.list(),
+        upstreams.list(),
+      ]);
       setRows(s);
       setCerts(c);
+      setPools(p);
       setLoadError(null);
     } catch (err) {
       setLoadError(describeError(err).message);
@@ -217,6 +230,7 @@ export function StreamsView() {
           onOpenChange={(open) => !open && setDialog({ open: false, stream: null })}
           stream={dialog.stream}
           certificates={certs}
+          pools={pools}
           onSaved={refresh}
         />
       ) : null}

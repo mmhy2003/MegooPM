@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { toast } from "sonner";
 
-import { streams, type Certificate, type Stream } from "@/lib/api";
+import { streams, type Certificate, type Stream, type Upstream } from "@/lib/api";
 import { describeError } from "@/components/proxy-hosts/lib";
 import { parsePort } from "@/components/streams/lib";
 import {
@@ -23,11 +23,23 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Tabs, TabsList, TabsPanel, TabsTab } from "@/components/ui/tabs";
 
 type DialogTab = "details" | "ssl";
 
+/** Which kind of target the stream forwards to. Exactly one is ever sent. */
+type TargetMode = "host" | "pool";
+
 interface FormState {
+  targetMode: TargetMode;
+  upstreamId: string;
   incomingPort: string;
   forwardHost: string;
   forwardPort: string;
@@ -40,6 +52,8 @@ interface FormState {
 function stateFromStream(stream: Stream | null | undefined): FormState {
   if (!stream) {
     return {
+      targetMode: "host",
+      upstreamId: "",
       incomingPort: "",
       forwardHost: "",
       forwardPort: "",
@@ -50,6 +64,8 @@ function stateFromStream(stream: Stream | null | undefined): FormState {
     };
   }
   return {
+    targetMode: stream.upstream_id != null ? "pool" : "host",
+    upstreamId: stream.upstream_id != null ? String(stream.upstream_id) : "",
     incomingPort: String(stream.incoming_port),
     forwardHost: stream.forward_host ?? "",
     forwardPort: stream.forward_port == null ? "" : String(stream.forward_port),
@@ -65,12 +81,14 @@ export function StreamDialog({
   onOpenChange,
   stream,
   certificates,
+  pools,
   onSaved,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   stream?: Stream | null;
   certificates: Certificate[];
+  pools: Upstream[];
   onSaved: () => void;
 }) {
   const isEdit = Boolean(stream);
@@ -80,6 +98,9 @@ export function StreamDialog({
   const [tab, setTab] = useState<DialogTab>("details");
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+
+  // An http-only pool never renders into stream{}, so attaching one is a 422.
+  const streamPools = pools.filter((p) => p.context === "stream" || p.context === "both");
 
   /** Report a problem and reveal the field it refers to. */
   function fail(message: string, on: DialogTab = "details") {
@@ -96,12 +117,17 @@ export function StreamDialog({
       fail("Incoming port must be between 1 and 65535.");
       return;
     }
-    if (!form.forwardHost.trim()) {
+    const usingPool = form.targetMode === "pool";
+    if (usingPool && !form.upstreamId) {
+      fail("Choose an upstream pool to forward to.");
+      return;
+    }
+    if (!usingPool && !form.forwardHost.trim()) {
       fail("Enter a forward host.");
       return;
     }
-    const forwardPort = parsePort(form.forwardPort);
-    if (forwardPort === null) {
+    const forwardPort = usingPool ? null : parsePort(form.forwardPort);
+    if (!usingPool && forwardPort === null) {
       fail("Forward port must be between 1 and 65535.");
       return;
     }
@@ -112,8 +138,11 @@ export function StreamDialog({
 
     const payload = {
       incoming_port: incomingPort,
-      forward_host: form.forwardHost.trim(),
-      forward_port: forwardPort,
+      // Exactly one target reaches the API; the other side is explicitly
+      // nulled so switching mode on an existing stream clears the old value.
+      forward_host: usingPool ? null : form.forwardHost.trim(),
+      forward_port: usingPool ? null : forwardPort,
+      upstream_id: usingPool ? Number.parseInt(form.upstreamId, 10) : null,
       tcp_forwarding: form.tcpForwarding,
       udp_forwarding: form.udpForwarding,
       certificate_id: certificateIdFromValue(form.certificateId),
@@ -173,6 +202,7 @@ export function StreamDialog({
                 <p className="text-xs text-muted-foreground">Port nginx listens on.</p>
               </div>
 
+              {form.targetMode === "host" ? (
               <div className="space-y-1.5">
                 <Label htmlFor="stream-forward-port">Forward port</Label>
                 <Input
@@ -187,17 +217,63 @@ export function StreamDialog({
                   disabled={saving}
                 />
               </div>
+              ) : null}
 
               <div className="space-y-1.5 sm:col-span-2">
-                <Label htmlFor="stream-forward-host">Forward host</Label>
-                <Input
-                  id="stream-forward-host"
-                  value={form.forwardHost}
-                  onChange={(e) => setForm((p) => ({ ...p, forwardHost: e.target.value }))}
-                  placeholder="db.internal or 10.0.0.5"
-                  disabled={saving}
-                />
+                {/* Both modes' values stay in form state, so flipping back and
+                    forth never loses typed input; only the active one is sent. */}
+                <span className="text-sm font-medium">Forward to</span>
+                <div className="flex gap-4" role="radiogroup" aria-label="Forward to">
+                  {(["host", "pool"] as const).map((mode) => (
+                    <label key={mode} className="flex items-center gap-2 text-sm">
+                      <input
+                        type="radio"
+                        name="stream-target"
+                        aria-label={mode === "host" ? "Single host" : "Pool"}
+                        checked={form.targetMode === mode}
+                        onChange={() => setForm((p) => ({ ...p, targetMode: mode }))}
+                        disabled={saving}
+                      />
+                      {mode === "host" ? "Single host" : "Pool"}
+                    </label>
+                  ))}
+                </div>
               </div>
+
+              {form.targetMode === "host" ? (
+                <div className="space-y-1.5 sm:col-span-2">
+                  <Label htmlFor="stream-forward-host">Forward host</Label>
+                  <Input
+                    id="stream-forward-host"
+                    value={form.forwardHost}
+                    onChange={(e) => setForm((p) => ({ ...p, forwardHost: e.target.value }))}
+                    placeholder="db.internal or 10.0.0.5"
+                    disabled={saving}
+                  />
+                </div>
+              ) : (
+                <div className="space-y-1.5 sm:col-span-2">
+                  <Label htmlFor="stream-upstream">Upstream pool</Label>
+                  <Select
+                    value={form.upstreamId}
+                    onValueChange={(v) => setForm((p) => ({ ...p, upstreamId: v as string }))}
+                  >
+                    <SelectTrigger id="stream-upstream" disabled={saving}>
+                      <SelectValue placeholder="Choose a pool" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {streamPools.map((pool) => (
+                        <SelectItem key={pool.id} value={String(pool.id)}>
+                          {pool.name} — {(pool.backends ?? []).length} backend(s)
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    Only pools whose context allows streams are listed.
+                  </p>
+                </div>
+              )}
             </div>
 
             <div className="grid gap-3 sm:grid-cols-2">
