@@ -35,6 +35,7 @@ export type {
   BackendCreate,
   BackendUpdate,
   LoadBalanceMethod,
+  UpstreamContext,
 } from "@/lib/api/resources/upstreams";
 
 export {

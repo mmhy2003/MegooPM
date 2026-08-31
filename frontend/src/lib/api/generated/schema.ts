@@ -334,6 +334,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/cluster/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Cluster Status
+         * @description Report the shared config version and how far each node has converged.
+         */
+        get: operations["cluster_status_api_v1_cluster_status_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/crowdsec/alerts": {
         parameters: {
             query?: never;
@@ -1516,6 +1536,38 @@ export interface components {
          */
         CertificateStatus: "pending" | "active" | "failed" | "expired";
         /**
+         * ClusterNodeStatus
+         * @description One node's position relative to the shared config version.
+         */
+        ClusterNodeStatus: {
+            /** Applied Version */
+            applied_version: number;
+            /** In Sync */
+            in_sync: boolean;
+            /** Last Seen At */
+            last_seen_at?: string | null;
+            /** Node Id */
+            node_id: string;
+            /** Stale */
+            stale: boolean;
+        };
+        /**
+         * ClusterStatus
+         * @description Cluster-wide convergence snapshot.
+         */
+        ClusterStatus: {
+            /** Config Version */
+            config_version: number;
+            /** Converged */
+            converged: boolean;
+            /** Ha Enabled */
+            ha_enabled: boolean;
+            /** Nodes */
+            nodes: components["schemas"]["ClusterNodeStatus"][];
+            /** This Node */
+            this_node: string;
+        };
+        /**
          * CrowdSecHealth
          * @description Whether the LAPI integration is configured, reachable, and has a machine.
          */
@@ -2682,12 +2734,29 @@ export interface components {
             token_type: string;
         };
         /**
+         * UpstreamContext
+         * @description Which nginx context a pool may be rendered into.
+         *
+         *     ``upstream`` blocks are context-local: one defined in ``http {}`` is
+         *     invisible to ``stream {}``, so a pool has to declare where it may be
+         *     attached. This also constrains its load-balancing method — ``ip_hash``
+         *     exists only in ``http``, and using it on a stream pool is a hard
+         *     ``nginx -t`` failure rather than a degraded fallback.
+         * @enum {string}
+         */
+        UpstreamContext: "http" | "stream" | "both";
+        /**
          * UpstreamCreate
          * @description Payload to create a pool, optionally seeding its backends inline.
          */
         UpstreamCreate: {
             /** Backends */
             backends?: components["schemas"]["BackendCreate"][];
+            /**
+             * @description Where the pool may be attached: http (proxy hosts), stream (TCP/UDP), or both. ip_hash is only valid for http.
+             * @default http
+             */
+            context: components["schemas"]["UpstreamContext"];
             /**
              * Description
              * @description Optional free-text description
@@ -2718,6 +2787,11 @@ export interface components {
         UpstreamRead: {
             /** Backends */
             backends?: components["schemas"]["BackendRead"][];
+            /**
+             * @description Where the pool may be attached: http (proxy hosts), stream (TCP/UDP), or both. ip_hash is only valid for http.
+             * @default http
+             */
+            context: components["schemas"]["UpstreamContext"];
             /**
              * Created At
              * Format: date-time
@@ -2758,6 +2832,7 @@ export interface components {
          * @description Partial update of a pool's own attributes (not its backends).
          */
         UpstreamUpdate: {
+            context?: components["schemas"]["UpstreamContext"] | null;
             /** Description */
             description?: string | null;
             /** Enabled */
@@ -3519,6 +3594,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    cluster_status_api_v1_cluster_status_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClusterStatus"];
                 };
             };
         };

@@ -6,6 +6,7 @@ import { toast } from "sonner";
 
 import {
   LB_METHODS,
+  type UpstreamContext,
   LB_METHOD_LABELS,
   upstreams,
   type Backend,
@@ -44,6 +45,13 @@ import {
 } from "@/components/ui/table";
 
 /** An editable backend row. Numeric fields are held as strings while editing. */
+/** Plain-language names for the nginx contexts a pool may serve. */
+const CONTEXT_LABELS: Record<UpstreamContext, string> = {
+  http: "HTTP only (proxy hosts)",
+  stream: "Streams only (TCP/UDP)",
+  both: "Both",
+};
+
 interface BackendRow {
   key: string;
   id?: number;
@@ -159,7 +167,18 @@ export function UpstreamDialog({
   const [lbMethod, setLbMethod] = useState<LoadBalanceMethod>(
     upstream?.lb_method ?? "round_robin",
   );
+  const [context, setContext] = useState<UpstreamContext>(upstream?.context ?? "http");
   const [enabled, setEnabled] = useState(upstream?.enabled ?? true);
+
+  // ip_hash is an http-only directive. Offering it for a stream-capable pool
+  // would only earn a 422 on save, so the list shrinks with the context.
+  const methods = context === "http" ? LB_METHODS : LB_METHODS.filter((m) => m !== "ip_hash");
+
+  function changeContext(next: UpstreamContext) {
+    setContext(next);
+    // Drop a now-illegal selection rather than letting the user submit it.
+    if (next !== "http" && lbMethod === "ip_hash") setLbMethod("round_robin");
+  }
   const [rows, setRows] = useState<BackendRow[]>(() =>
     upstream?.backends?.length ? upstream.backends.map(rowFromBackend) : [newRow()],
   );
@@ -205,6 +224,7 @@ export function UpstreamDialog({
           name: name.trim(),
           description: description.trim(),
           lb_method: lbMethod,
+          context,
           enabled,
           backends: rows.map(rowToCreate),
         });
@@ -213,6 +233,7 @@ export function UpstreamDialog({
           name: name.trim(),
           description: description.trim(),
           lb_method: lbMethod,
+          context,
           enabled,
         });
         // Reconcile backends: delete removed, patch changed, add new.
@@ -276,13 +297,35 @@ export function UpstreamDialog({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {LB_METHODS.map((method) => (
+                {methods.map((method) => (
                   <SelectItem key={method} value={method}>
                     {LB_METHOD_LABELS[method]}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="pool-context">Context</Label>
+            <Select
+              value={context}
+              onValueChange={(value) => changeContext(value as UpstreamContext)}
+              items={CONTEXT_LABELS}
+            >
+              <SelectTrigger id="pool-context" disabled={saving}>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {(["http", "stream", "both"] as const).map((c) => (
+                  <SelectItem key={c} value={c}>
+                    {CONTEXT_LABELS[c]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              Where this pool may be attached. Streams cannot use IP hash.
+            </p>
           </div>
           <div className="space-y-1.5 sm:col-span-2">
             <Label htmlFor="pool-desc">Description</Label>

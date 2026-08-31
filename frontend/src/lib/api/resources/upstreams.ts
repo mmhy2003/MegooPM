@@ -16,6 +16,7 @@ export type Backend = Schemas["BackendRead"];
 export type BackendCreate = Schemas["BackendCreate"];
 export type BackendUpdate = Schemas["BackendUpdate"];
 export type LoadBalanceMethod = Schemas["LoadBalanceMethod"];
+export type UpstreamContext = Schemas["UpstreamContext"];
 
 const BASE = "/api/v1/upstreams";
 
