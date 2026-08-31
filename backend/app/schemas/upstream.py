@@ -17,7 +17,7 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from app.models.enums import LoadBalanceMethod
+from app.models.enums import LoadBalanceMethod, UpstreamContext
 
 
 class BackendBase(BaseModel):
@@ -91,6 +91,13 @@ class UpstreamBase(BaseModel):
     lb_method: LoadBalanceMethod = Field(
         default=LoadBalanceMethod.round_robin, description="nginx load-balancing strategy"
     )
+    context: UpstreamContext = Field(
+        default=UpstreamContext.http,
+        description=(
+            "Where the pool may be attached: http (proxy hosts), stream "
+            "(TCP/UDP), or both. ip_hash is only valid for http."
+        ),
+    )
     enabled: bool = Field(default=True, description="Disabled pools are excluded from config")
 
 
@@ -106,6 +113,7 @@ class UpstreamUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=255)
     description: str | None = None
     lb_method: LoadBalanceMethod | None = None
+    context: UpstreamContext | None = None
     enabled: bool | None = None
 
 

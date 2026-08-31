@@ -49,9 +49,14 @@ async def create_upstream(
             name=body.name,
             description=body.description,
             lb_method=body.lb_method,
+            context=body.context,
             enabled=body.enabled,
             backends=[b.model_dump() for b in body.backends],
         )
+    except upstream_service.InvalidPoolConfigError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
+        ) from None
     except upstream_service.DuplicateBackendError:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -90,6 +95,10 @@ async def update_upstream(
     changes = body.model_dump(exclude_unset=True)
     try:
         pool = await upstream_service.update_upstream(db, upstream_id, changes)
+    except upstream_service.InvalidPoolConfigError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
+        ) from None
     except upstream_service.UpstreamNotFoundError:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Upstream not found"
@@ -154,6 +163,10 @@ async def add_backend(
     """Add a backend server to a pool. Admin-only."""
     try:
         backend = await upstream_service.add_backend(db, upstream_id, body.model_dump())
+    except upstream_service.InvalidPoolConfigError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
+        ) from None
     except upstream_service.UpstreamNotFoundError:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Upstream not found"
@@ -188,6 +201,10 @@ async def update_backend(
     changes = body.model_dump(exclude_unset=True)
     try:
         backend = await upstream_service.update_backend(db, upstream_id, backend_id, changes)
+    except upstream_service.InvalidPoolConfigError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
+        ) from None
     except upstream_service.BackendNotFoundError:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Backend not found in this pool"

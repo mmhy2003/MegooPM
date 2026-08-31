@@ -20,7 +20,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.models.enums import LoadBalanceMethod
+from app.models.enums import LoadBalanceMethod, UpstreamContext
 from app.models.upstream import Upstream, UpstreamBackend
 
 
@@ -38,6 +38,38 @@ class DuplicateBackendError(Exception):
 
 class UpstreamInUseError(Exception):
     """Raised when deleting a pool still referenced by a proxy host."""
+
+
+class InvalidPoolConfigError(Exception):
+    """A pool's method, context and backends cannot be combined."""
+
+
+# nginx forbids backup servers with any hashing or random method:
+# "The parameter cannot be used along with the hash, ip_hash, and random load
+# balancing methods." (``down`` carries no such restriction.)
+_NO_BACKUP_METHODS = frozenset(
+    {LoadBalanceMethod.hash, LoadBalanceMethod.ip_hash, LoadBalanceMethod.random}
+)
+
+
+def validate_pool_config(
+    *, lb_method: LoadBalanceMethod, context: UpstreamContext, has_backup: bool
+) -> None:
+    """Reject combinations nginx would refuse, before they reach the config.
+
+    Catching these here matters more than it looks: a directive nginx rejects is
+    only discovered at ``nginx -t``, which rolls back the *entire* apply for
+    every managed object and reports one generic "failed nginx -t" message. The
+    operator gets no indication which pool caused it.
+    """
+    if lb_method is LoadBalanceMethod.ip_hash and context is not UpstreamContext.http:
+        raise InvalidPoolConfigError(
+            "ip_hash is not supported for TCP/UDP streams. Use hash or least_conn."
+        )
+    if has_backup and lb_method in _NO_BACKUP_METHODS:
+        raise InvalidPoolConfigError(
+            f"nginx does not allow backup servers with the {lb_method.value} method."
+        )
 
 
 async def get_upstream(db: AsyncSession, upstream_id: int) -> Upstream | None:
@@ -64,17 +96,26 @@ async def create_upstream(
     name: str,
     description: str = "",
     lb_method: LoadBalanceMethod = LoadBalanceMethod.round_robin,
+    context: UpstreamContext = UpstreamContext.http,
     enabled: bool = True,
     backends: list[dict[str, Any]] | None = None,
 ) -> Upstream:
     """Create a pool, optionally seeding backends inline.
 
-    Raises :class:`DuplicateBackendError` if two seed backends share a host/port.
+    Raises :class:`DuplicateBackendError` if two seed backends share a host/port,
+    or :class:`InvalidPoolConfigError` if the method, context and backends
+    cannot be combined.
     """
+    validate_pool_config(
+        lb_method=lb_method,
+        context=context,
+        has_backup=any(b.get("backup") for b in (backends or [])),
+    )
     pool = Upstream(
         name=name,
         description=description,
         lb_method=lb_method,
+        context=context,
         enabled=enabled,
         backends=[UpstreamBackend(**b) for b in (backends or [])],
     )
@@ -100,6 +141,13 @@ async def update_upstream(
     pool = await get_upstream(db, upstream_id)
     if pool is None:
         raise UpstreamNotFoundError(str(upstream_id))
+    # Validate the merged result: a PATCH that only flips lb_method still has to
+    # be checked against the backends already on the pool.
+    validate_pool_config(
+        lb_method=changes.get("lb_method", pool.lb_method),
+        context=changes.get("context", pool.context),
+        has_backup=any(b.backup for b in pool.backends),
+    )
     for field, value in changes.items():
         setattr(pool, field, value)
     await db.commit()
@@ -136,6 +184,13 @@ async def add_backend(
     pool = await get_upstream(db, upstream_id)
     if pool is None:
         raise UpstreamNotFoundError(str(upstream_id))
+    # The pool's method is unchanged here, but adding a backup server to a
+    # hash/random pool is the same illegal pair arrived at from the other side.
+    validate_pool_config(
+        lb_method=pool.lb_method,
+        context=pool.context,
+        has_backup=bool(fields.get("backup")) or any(b.backup for b in pool.backends),
+    )
     backend = UpstreamBackend(upstream_id=upstream_id, **fields)
     db.add(backend)
     try:
@@ -170,6 +225,16 @@ async def update_backend(
     backend = await _get_backend(db, upstream_id, backend_id)
     if backend is None:
         raise BackendNotFoundError(str(backend_id))
+    if "backup" in changes:
+        # Flipping an existing server to backup reaches the illegal pair too.
+        pool = await get_upstream(db, upstream_id)
+        assert pool is not None
+        validate_pool_config(
+            lb_method=pool.lb_method,
+            context=pool.context,
+            has_backup=bool(changes["backup"])
+            or any(b.backup for b in pool.backends if b.id != backend_id),
+        )
     for field, value in changes.items():
         setattr(backend, field, value)
     try:

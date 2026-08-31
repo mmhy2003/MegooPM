@@ -3263,6 +3263,16 @@
         "title": "TokenPair",
         "type": "object"
       },
+      "UpstreamContext": {
+        "description": "Which nginx context a pool may be rendered into.\n\n``upstream`` blocks are context-local: one defined in ``http {}`` is\ninvisible to ``stream {}``, so a pool has to declare where it may be\nattached. This also constrains its load-balancing method — ``ip_hash``\nexists only in ``http``, and using it on a stream pool is a hard\n``nginx -t`` failure rather than a degraded fallback.",
+        "enum": [
+          "http",
+          "stream",
+          "both"
+        ],
+        "title": "UpstreamContext",
+        "type": "string"
+      },
       "UpstreamCreate": {
         "description": "Payload to create a pool, optionally seeding its backends inline.",
         "properties": {
@@ -3272,6 +3282,11 @@
             },
             "title": "Backends",
             "type": "array"
+          },
+          "context": {
+            "$ref": "#/components/schemas/UpstreamContext",
+            "default": "http",
+            "description": "Where the pool may be attached: http (proxy hosts), stream (TCP/UDP), or both. ip_hash is only valid for http."
           },
           "description": {
             "default": "",
@@ -3313,6 +3328,11 @@
             },
             "title": "Backends",
             "type": "array"
+          },
+          "context": {
+            "$ref": "#/components/schemas/UpstreamContext",
+            "default": "http",
+            "description": "Where the pool may be attached: http (proxy hosts), stream (TCP/UDP), or both. ip_hash is only valid for http."
           },
           "created_at": {
             "format": "date-time",
@@ -3365,6 +3385,16 @@
       "UpstreamUpdate": {
         "description": "Partial update of a pool's own attributes (not its backends).",
         "properties": {
+          "context": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/UpstreamContext"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "description": {
             "anyOf": [
               {

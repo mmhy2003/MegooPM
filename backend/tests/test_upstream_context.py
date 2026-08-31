@@ -10,8 +10,10 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from app.models.enums import UpstreamContext
+import pytest
+from app.models.enums import LoadBalanceMethod, UpstreamContext
 from app.models.upstream import Upstream
+from app.services import upstream as upstream_service
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
@@ -51,3 +53,46 @@ def test_context_round_trips_when_set(tmp_path: Path) -> None:
 def test_context_values_are_stable_strings() -> None:
     # The value, not the member name, is what lands in Postgres.
     assert [c.value for c in UpstreamContext] == ["http", "stream", "both"]
+
+
+# --- validation: combinations nginx would refuse at `nginx -t` --------------
+
+
+@pytest.mark.parametrize("context", [UpstreamContext.stream, UpstreamContext.both])
+def test_ip_hash_rejected_outside_http(context: UpstreamContext) -> None:
+    """ip_hash is not a stream directive; nginx -t fails hard on it there."""
+    with pytest.raises(upstream_service.InvalidPoolConfigError) as err:
+        upstream_service.validate_pool_config(
+            lb_method=LoadBalanceMethod.ip_hash, context=context, has_backup=False
+        )
+    assert "ip_hash" in str(err.value)
+
+
+def test_ip_hash_allowed_for_http_pools() -> None:
+    upstream_service.validate_pool_config(
+        lb_method=LoadBalanceMethod.ip_hash, context=UpstreamContext.http, has_backup=False
+    )
+
+
+@pytest.mark.parametrize(
+    "method",
+    [LoadBalanceMethod.hash, LoadBalanceMethod.ip_hash, LoadBalanceMethod.random],
+)
+def test_backup_rejected_with_hashing_methods(method: LoadBalanceMethod) -> None:
+    """nginx: "cannot be used along with the hash, ip_hash, and random methods".
+
+    This combination is accepted by the editor today and only fails at
+    `nginx -t`, which rolls back the whole apply with a generic message.
+    """
+    with pytest.raises(upstream_service.InvalidPoolConfigError) as err:
+        upstream_service.validate_pool_config(
+            lb_method=method, context=UpstreamContext.http, has_backup=True
+        )
+    assert "backup" in str(err.value)
+
+
+def test_backup_allowed_with_round_robin_and_least_conn() -> None:
+    for method in (LoadBalanceMethod.round_robin, LoadBalanceMethod.least_conn):
+        upstream_service.validate_pool_config(
+            lb_method=method, context=UpstreamContext.http, has_backup=True
+        )
