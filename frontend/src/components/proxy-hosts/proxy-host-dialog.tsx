@@ -46,6 +46,11 @@ import { Textarea } from "@/components/ui/textarea";
 
 type ToggleDef = readonly [ToggleKey, string, string];
 
+/** One label for a certificate, so option and trigger cannot disagree. */
+function certLabel(cert: Certificate): string {
+  return cert.status !== "active" ? `${cert.name} — ${cert.status}` : cert.name;
+}
+
 const FORWARDING_TOGGLES: readonly ToggleDef[] = [
   ["caching_enabled", "Cache assets", "Cache static assets"],
   ["block_exploits", "Block exploits", "Block common exploit probes"],
@@ -200,6 +205,10 @@ export function ProxyHostDialog({
             <Select
               value={form.accessListId}
               onValueChange={(value) => patch({ accessListId: value as string })}
+              items={{
+                [NO_ACCESS_LIST]: "None (public)",
+                ...Object.fromEntries(lists.map((l) => [String(l.id), l.name])),
+              }}
             >
               <SelectTrigger id="host-access-list" disabled={saving}>
                 <SelectValue />
@@ -265,6 +274,10 @@ export function ProxyHostDialog({
               <Select
                 value={form.certificateId}
                 onValueChange={(value) => patch({ certificateId: value as string })}
+                items={{
+                  [NO_CERTIFICATE]: "None (HTTP only)",
+                  ...Object.fromEntries(certs.map((c) => [String(c.id), certLabel(c)])),
+                }}
               >
                 <SelectTrigger id="host-certificate" disabled={saving}>
                   <SelectValue />
@@ -277,8 +290,7 @@ export function ProxyHostDialog({
                       value={String(cert.id)}
                       disabled={cert.status !== "active"}
                     >
-                      {cert.name}
-                      {cert.status !== "active" ? ` — ${cert.status}` : ""}
+                      {certLabel(cert)}
                     </SelectItem>
                   ))}
                 </SelectContent>

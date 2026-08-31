@@ -34,6 +34,11 @@ import { Tabs, TabsList, TabsPanel, TabsTab } from "@/components/ui/tabs";
 
 type DialogTab = "details" | "ssl";
 
+/** One label for a pool, so the option and the trigger cannot disagree. */
+function poolLabel(pool: Upstream): string {
+  return `${pool.name} — ${(pool.backends ?? []).length} backend(s)`;
+}
+
 /** Which kind of target the stream forwards to. Exactly one is ever sent. */
 type TargetMode = "host" | "pool";
 
@@ -257,6 +262,7 @@ export function StreamDialog({
                   <Select
                     value={form.upstreamId}
                     onValueChange={(v) => setForm((p) => ({ ...p, upstreamId: v as string }))}
+                    items={Object.fromEntries(streamPools.map((p) => [String(p.id), poolLabel(p)]))}
                   >
                     <SelectTrigger id="stream-upstream" disabled={saving}>
                       <SelectValue placeholder="Choose a pool" />
@@ -264,7 +270,7 @@ export function StreamDialog({
                     <SelectContent>
                       {streamPools.map((pool) => (
                         <SelectItem key={pool.id} value={String(pool.id)}>
-                          {pool.name} — {(pool.backends ?? []).length} backend(s)
+                          {poolLabel(pool)}
                         </SelectItem>
                       ))}
                     </SelectContent>

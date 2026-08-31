@@ -266,6 +266,7 @@ export function RedirectionHostDialog({
                   onValueChange={(value) =>
                     setForm((p) => ({ ...p, forwardScheme: value as RedirectScheme }))
                   }
+                  items={SCHEME_LABELS}
                 >
                   <SelectTrigger id="redir-scheme" disabled={saving}>
                     <SelectValue />
@@ -290,6 +291,9 @@ export function RedirectionHostDialog({
                       forwardHttpCode: Number.parseInt(value as string, 10),
                     }))
                   }
+                  items={Object.fromEntries(
+                    REDIRECT_HTTP_CODES.map((c) => [String(c), REDIRECT_CODE_LABELS[c] ?? String(c)]),
+                  )}
                 >
                   <SelectTrigger id="redir-code" disabled={saving}>
                     <SelectValue />

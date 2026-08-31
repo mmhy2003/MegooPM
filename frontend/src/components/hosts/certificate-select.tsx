@@ -23,6 +23,11 @@ export function valueFromCertificateId(id: number | null | undefined): string {
   return id != null ? String(id) : NO_CERTIFICATE;
 }
 
+/** One label, used for both the option and the trigger, so they cannot drift. */
+function certificateLabel(cert: Certificate): string {
+  return cert.domain_names[0] ? `${cert.name} (${cert.domain_names[0]})` : cert.name;
+}
+
 /**
  * Shared TLS-certificate picker for the redirection / dead / stream dialogs.
  *
@@ -46,10 +51,16 @@ export function CertificateSelect({
   noneLabel?: string;
   hint?: string;
 }) {
+  // base-ui renders the raw value in the trigger unless the root is given
+  // `items` to map value -> label. Without it a picked certificate shows as its
+  // bare id, which tells an operator nothing.
+  const items: Record<string, string> = { [NO_CERTIFICATE]: noneLabel };
+  for (const cert of certificates) items[String(cert.id)] = certificateLabel(cert);
+
   return (
     <div className="space-y-1.5">
       <Label htmlFor={id}>SSL certificate</Label>
-      <Select value={value} onValueChange={(v) => onValueChange(v as string)}>
+      <Select value={value} onValueChange={(v) => onValueChange(v as string)} items={items}>
         <SelectTrigger id={id} disabled={disabled}>
           <SelectValue />
         </SelectTrigger>
@@ -57,8 +68,7 @@ export function CertificateSelect({
           <SelectItem value={NO_CERTIFICATE}>{noneLabel}</SelectItem>
           {certificates.map((cert) => (
             <SelectItem key={cert.id} value={String(cert.id)}>
-              {cert.name}
-              {cert.domain_names[0] ? ` (${cert.domain_names[0]})` : ""}
+              {certificateLabel(cert)}
             </SelectItem>
           ))}
         </SelectContent>

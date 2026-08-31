@@ -28,6 +28,16 @@ import {
 
 const SCHEME_LABELS: Record<HttpScheme, string> = { http: "http", https: "https" };
 
+/** One label for a pool, used by both the option and the trigger. */
+function poolLabel(pool: Upstream): string {
+  return `${pool.name} (${pool.backends?.length ?? 0} backends)`;
+}
+
+const KIND_LABELS: Record<TargetMode, string> = {
+  pool: "Pool",
+  host: "Single host",
+};
+
 /** Pool or single backend, as a compact select rather than radios.
  *
  * These are table rows, and a radio group per row would wreck a dense table.
@@ -45,13 +55,16 @@ function KindSelect({
   disabled: boolean;
 }) {
   return (
-    <Select value={value} onValueChange={(v) => onChange(v as TargetMode)}>
+    <Select value={value} onValueChange={(v) => onChange(v as TargetMode)} items={KIND_LABELS}>
       <SelectTrigger aria-label={label} disabled={disabled}>
         <SelectValue />
       </SelectTrigger>
       <SelectContent>
-        <SelectItem value="pool">Pool</SelectItem>
-        <SelectItem value="host">Single host</SelectItem>
+        {(["pool", "host"] as const).map((k) => (
+          <SelectItem key={k} value={k}>
+            {KIND_LABELS[k]}
+          </SelectItem>
+        ))}
       </SelectContent>
     </Select>
   );
@@ -128,15 +141,17 @@ function PoolSelect({
   disabled: boolean;
 }) {
   const noPools = pools.length === 0;
+  // Without `items` the trigger renders the raw value — the pool's id.
+  const items = Object.fromEntries(pools.map((p) => [String(p.id), poolLabel(p)]));
   return (
-    <Select value={value} onValueChange={(v) => onChange(v as string)}>
+    <Select value={value} onValueChange={(v) => onChange(v as string)} items={items}>
       <SelectTrigger aria-label="Upstream pool" disabled={disabled || noPools}>
         <SelectValue placeholder={noPools ? "No pools — create one first" : "Select a pool"} />
       </SelectTrigger>
       <SelectContent>
         {pools.map((pool) => (
           <SelectItem key={pool.id} value={String(pool.id)}>
-            {pool.name} ({pool.backends?.length ?? 0} backends)
+            {poolLabel(pool)}
           </SelectItem>
         ))}
       </SelectContent>

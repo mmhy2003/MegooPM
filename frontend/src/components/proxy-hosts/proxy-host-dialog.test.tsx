@@ -175,3 +175,45 @@ describe("ProxyHostDialog forward target", () => {
     expect(screen.getAllByLabelText("Location forward host")).toHaveLength(1);
   });
 });
+
+describe("ProxyHostDialog select labels", () => {
+  afterEach(() => {
+    cleanup();
+    vi.restoreAllMocks();
+  });
+
+  it("shows the certificate's name, not its id", async () => {
+    const user = userEvent.setup();
+    render(
+      <ProxyHostDialog
+        open
+        onOpenChange={() => {}}
+        host={makeHost({ certificate_id: 7 })}
+        pools={pools}
+        lists={[]}
+        certs={[{ id: 7, name: "wildcard-cert", status: "active" } as never]}
+        onSaved={() => {}}
+      />,
+    );
+    await user.click(screen.getByRole("tab", { name: "Certificate" }));
+    // The tab is also called "Certificate", so scope to the control itself.
+    expect(await screen.findByRole("combobox", { name: "Certificate" })).toHaveTextContent(
+      "wildcard-cert",
+    );
+  });
+
+  it("shows the access list's name, not its id", () => {
+    render(
+      <ProxyHostDialog
+        open
+        onOpenChange={() => {}}
+        host={makeHost({ access_list_id: 3 })}
+        pools={pools}
+        lists={[{ id: 3, name: "office-ips" } as never]}
+        certs={[]}
+        onSaved={() => {}}
+      />,
+    );
+    expect(screen.getByRole("combobox", { name: "Access list" })).toHaveTextContent("office-ips");
+  });
+});
