@@ -46,6 +46,12 @@ x-backend-env: &backend-env
   CROWDSEC_MACHINE_PASSWORD: ${CROWDSEC_MACHINE_PASSWORD:-}
   # No default admin in production. Either set both here before the first
   # start, or seed later with: docker compose exec backend python -m scripts.create_user …
+  # Whitelist reloads: names the node whose worker holds the docker socket
+  # and runs the CrowdSec container. Blank disables reloads — whitelists
+  # then save but are reported as not applied. See docs/crowdsec.md.
+  CROWDSEC_CONTROL_NODE_ID: ${CROWDSEC_CONTROL_NODE_ID:-}
+  CROWDSEC_CONTAINER_NAME: ${CROWDSEC_CONTAINER_NAME:-megoopm-crowdsec-1}
+  CROWDSEC_RELOAD_HEALTH_TIMEOUT_SECONDS: ${CROWDSEC_RELOAD_HEALTH_TIMEOUT_SECONDS:-60}
   FIRST_ADMIN_EMAIL: ${FIRST_ADMIN_EMAIL:-}
   FIRST_ADMIN_PASSWORD: ${FIRST_ADMIN_PASSWORD:-}
 

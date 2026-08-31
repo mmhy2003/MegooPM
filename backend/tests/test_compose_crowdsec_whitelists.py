@@ -89,3 +89,41 @@ def test_api_backend_cannot_reach_the_docker_socket(compose_file: str) -> None:
     """The socket is root-equivalent on the host; it stays off the web process."""
     mounts = _services(compose_file)["backend"].get("volumes", [])
     assert "/var/run/docker.sock" not in _mount_targets(mounts)
+
+
+# --- environment passthrough ----------------------------------------------
+#
+# The compose files declare an explicit `environment:` map rather than using
+# `env_file`, so a key in .env.example reaches the application ONLY if it is
+# also listed here. Getting this wrong is silent: the setting keeps its default,
+# `crowdsec_control_node_id` stays None, and every whitelist reports "reload not
+# configured" no matter what the operator puts in .env. That is exactly what
+# shipped before this test existed.
+
+REQUIRED_ENV = (
+    "CROWDSEC_CONTROL_NODE_ID",
+    "CROWDSEC_CONTAINER_NAME",
+)
+
+
+@pytest.mark.parametrize("compose_file", ["docker-compose.yml", "docker-compose.ha.yml"])
+@pytest.mark.parametrize("service", ["backend", "worker"])
+@pytest.mark.parametrize("key", REQUIRED_ENV)
+def test_whitelist_settings_reach_the_app(compose_file: str, service: str, key: str) -> None:
+    env = _services(compose_file)[service].get("environment", {})
+    assert key in env, (
+        f"{key} is not passed to `{service}` in {compose_file}; the setting would "
+        "silently keep its default"
+    )
+
+
+@pytest.mark.parametrize("compose_file", ["docker-compose.yml", "docker-compose.ha.yml"])
+def test_control_node_id_is_not_given_a_default(compose_file: str) -> None:
+    """Blank must stay blank.
+
+    Defaulting it to a node name would make a cluster where that node is not the
+    control plane queue applies onto a queue nobody consumes — the failure the
+    "reload not configured" state exists to make visible.
+    """
+    env = _services(compose_file)["worker"]["environment"]
+    assert env["CROWDSEC_CONTROL_NODE_ID"] == "${CROWDSEC_CONTROL_NODE_ID:-}"
