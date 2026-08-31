@@ -161,6 +161,12 @@ class Settings(BaseSettings):
     crowdsec_origin: str = "megoopm"
     # Per-request timeout (seconds) for LAPI calls.
     crowdsec_timeout_seconds: float = 5.0
+    # How many alerts to pull from LAPI before server-side filtering/pagination.
+    # Kept low deliberately: CrowdSec 1.6.4 hangs on GET /v1/alerts with a large
+    # limit — measured against a live LAPI holding ~136 alerts, limit=200
+    # returned all of them in 0.03s while limit=1000 timed out every time. A
+    # bigger install can raise this, but raise it carefully and measure.
+    crowdsec_alert_fetch_cap: int = 200
 
     # --- High Availability (MEG-35) ---
     # Turn on cross-node coordination for multi-node deployments. When True the

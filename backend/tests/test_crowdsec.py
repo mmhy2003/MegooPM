@@ -86,24 +86,24 @@ async def test_list_decisions_requires_some_credential() -> None:
             await client.list_decisions()
 
 
-async def test_list_decisions_falls_back_to_machine_token() -> None:
-    # No bouncer key, but machine creds present: read decisions via the JWT.
+async def test_list_decisions_never_falls_back_to_the_machine_token() -> None:
+    """GET /v1/decisions is an API-key endpoint; a machine JWT can only 403.
+
+    This used to fall back to the machine token for deployments holding only
+    machine credentials. Against a real LAPI that fallback returns 403 every
+    time, so it turned a missing setting into an opaque failure.
+    """
     calls: list[str] = []
 
     def handler(request: httpx.Request) -> httpx.Response:
         calls.append(f"{request.method} {request.url.path}")
-        if request.url.path == "/v1/watchers/login":
-            return httpx.Response(200, json={"token": "jwt-xyz"})
-        assert request.headers.get("Authorization") == "Bearer jwt-xyz"
-        return httpx.Response(
-            200, json=[{"type": "ban", "scope": "Ip", "value": "1.1.1.1", "duration": "1h"}]
-        )
+        return httpx.Response(200, json=[])
 
     async with _client(handler, crowdsec_lapi_key=None) as client:
-        decisions = await client.list_decisions()
-
-    assert calls == ["POST /v1/watchers/login", "GET /v1/decisions"]
-    assert decisions[0].value == "1.1.1.1"
+        with pytest.raises(CrowdSecNotConfigured, match="bouncer key"):
+            await client.list_decisions()
+    # It must not even try to log in.
+    assert calls == []
 
 
 async def test_list_alerts_logs_in_and_uses_bearer_token() -> None:
@@ -501,3 +501,74 @@ async def test_client_dependency_ensures_registration(session_factory, monkeypat
         async for client in crowdsec_pkg.get_crowdsec_client(db=db):
             await client.aclose()
     assert len(calls) == 1
+
+
+# --- diagnosability and the alert fetch cap (production incident 2026-08-31) --
+
+
+def test_alert_fetch_cap_is_within_what_lapi_can_serve() -> None:
+    """CrowdSec 1.6.4 hangs on GET /v1/alerts with a large limit.
+
+    Measured against a live LAPI holding ~136 alerts: limit=200 returned every
+    alert in 0.03s, limit=1000 timed out on 4 of 4 attempts. The high cap
+    fetched no extra data — it only triggered the hang, which surfaced as a
+    503 on the Security page.
+    """
+    from app.services.crowdsec.filtering import ALERT_FETCH_CAP
+
+    assert ALERT_FETCH_CAP <= 200
+
+
+def test_alert_fetch_cap_is_configurable() -> None:
+    """A larger install must be able to tune this without a code change."""
+    from app.core.config import Settings
+
+    assert Settings(secret_key="x", crowdsec_alert_fetch_cap=500).crowdsec_alert_fetch_cap == 500
+
+
+@pytest.mark.asyncio
+async def test_request_failure_names_the_endpoint_and_cause() -> None:
+    """A bare timeout stringifies to "", which told an operator nothing.
+
+    The message must carry the exception type, the method and path, and the
+    configured base URL and timeout.
+    """
+    import httpx
+    from app.services.crowdsec.client import CrowdSecClient, CrowdSecError
+
+    def _handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/v1/watchers/login":
+            return httpx.Response(200, json={"token": "jwt"})
+        raise httpx.ReadTimeout("")  # the empty message is the point
+
+    settings = _settings(crowdsec_lapi_url="http://lapi.test:8080", crowdsec_timeout_seconds=5.0)
+    client = CrowdSecClient(settings, transport=httpx.MockTransport(_handler))
+    try:
+        with pytest.raises(CrowdSecError) as err:
+            await client.list_alerts()
+    finally:
+        await client.aclose()
+
+    text = str(err.value)
+    assert "ReadTimeout" in text
+    assert "/v1/alerts" in text
+    assert "http://lapi.test:8080" in text
+    assert "5.0" in text
+
+
+@pytest.mark.asyncio
+async def test_reading_decisions_without_a_bouncer_key_says_so() -> None:
+    """GET /v1/decisions is bouncer-key-only; a machine JWT can only ever 403.
+
+    Falling back to the machine token produced an opaque 403 instead of naming
+    the missing configuration.
+    """
+    from app.services.crowdsec.client import CrowdSecClient, CrowdSecError
+
+    settings = _settings(crowdsec_lapi_key=None)
+    client = CrowdSecClient(settings)
+    try:
+        with pytest.raises(CrowdSecError, match="bouncer"):
+            await client.list_decisions()
+    finally:
+        await client.aclose()

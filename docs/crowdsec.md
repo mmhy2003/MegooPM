@@ -5,6 +5,42 @@ IP-reputation **bouncer** and an inline **AppSec/WAF**, both wired into the
 managed nginx proxy and toggleable **per proxy host**, plus a backend that talks
 to the CrowdSec Local API (LAPI).
 
+## Alert fetch cap
+
+`GET /crowdsec/alerts` pulls up to `CROWDSEC_ALERT_FETCH_CAP` (default **200**)
+alerts from LAPI before filtering and paginating, so `total` is relative to that
+window.
+
+The default is low on purpose. CrowdSec 1.6.4 **hangs** on `GET /v1/alerts` with
+a large limit — measured against a live LAPI holding ~136 alerts, `limit=200`
+returned every one of them in 0.03s while `limit=1000` timed out on 4 of 4
+attempts. The previous cap of 1000 fetched no extra data; it only triggered the
+hang, which reached operators as a bare 503 on the Security page.
+
+Raise it if you need a wider window, but measure first:
+
+```bash
+docker compose exec backend python -c "
+import asyncio, time, httpx
+from app.db.session import SessionLocal
+from app.services.crowdsec import credentials
+async def main():
+    async with SessionLocal() as db:
+        s = await credentials.resolve_settings(db)
+    async with httpx.AsyncClient(base_url=s.crowdsec_lapi_url, timeout=30) as c:
+        r = await c.post('/v1/watchers/login', json={
+            'machine_id': s.crowdsec_machine_id, 'password': s.crowdsec_machine_password})
+        h = {'Authorization': 'Bearer ' + r.json()['token']}
+        for n in (200, 500, 1000):
+            t = time.monotonic()
+            try:
+                rr = await c.get('/v1/alerts', headers=h, params={'limit': n})
+                print(n, 'OK', round(time.monotonic()-t, 2), 's', len(rr.content), 'bytes')
+            except Exception as e:
+                print(n, 'FAILED', type(e).__name__)
+asyncio.run(main())"
+```
+
 ## Moving parts
 
 | Piece | Where | Role |

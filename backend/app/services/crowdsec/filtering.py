@@ -24,6 +24,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
+from app.core.config import settings as default_settings
 from app.schemas.crowdsec import Alert, Decision
 
 # Origins considered "community" (hidden unless ``include_community=true``),
@@ -33,9 +34,14 @@ COMMUNITY_ORIGINS = frozenset(
 )
 
 # Max records fetched from LAPI for a single alerts listing before server-side
-# pagination. Bounds memory/latency on very large alert histories; the API
-# documents ``total`` as being relative to this window.
-ALERT_FETCH_CAP = 1000
+# pagination; ``total`` is documented as relative to this window.
+#
+# This is a ceiling LAPI can actually serve, not just a memory bound. CrowdSec
+# 1.6.4 hangs outright on ``GET /v1/alerts`` with a large limit: against a live
+# LAPI holding ~136 alerts, limit=200 returned every one in 0.03s while
+# limit=1000 timed out on 4 of 4 attempts. The old cap of 1000 fetched no extra
+# data — it only triggered the hang, which reached operators as a bare 503.
+ALERT_FETCH_CAP = default_settings.crowdsec_alert_fetch_cap
 
 
 def is_community_origin(origin: str | None) -> bool:

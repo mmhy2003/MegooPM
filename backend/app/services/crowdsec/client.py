@@ -108,7 +108,10 @@ class CrowdSecClient:
                 },
             )
         except httpx.HTTPError as exc:  # pragma: no cover - network error path
-            raise CrowdSecError(f"CrowdSec LAPI login failed: {exc}") from exc
+            raise CrowdSecError(
+                f"CrowdSec LAPI login failed: {type(exc).__name__} on "
+                f"{self._where('POST', '/v1/watchers/login')} — {exc or 'no detail'}"
+            ) from exc
         if resp.status_code != httpx.codes.OK:
             raise CrowdSecError(
                 f"CrowdSec LAPI login rejected credentials (HTTP {resp.status_code}).",
@@ -138,7 +141,10 @@ class CrowdSecClient:
         try:
             resp = await self._http.post("/v1/watchers", json=body)
         except httpx.HTTPError as exc:  # pragma: no cover - network error path
-            raise CrowdSecError(f"CrowdSec machine registration failed: {exc}") from exc
+            raise CrowdSecError(
+                f"CrowdSec machine registration failed: {type(exc).__name__} on "
+                f"{self._where('POST', '/v1/watchers')} — {exc or 'no detail'}"
+            ) from exc
         # 201/200 (new), 202 Accepted (auto-registration), 403 = already registered.
         accepted = (
             httpx.codes.CREATED,
@@ -155,11 +161,27 @@ class CrowdSecClient:
 
     # --- request helper ----------------------------------------------------
 
+    def _where(self, method: str, url: str) -> str:
+        """Enough context to act on, for errors that carry no message.
+
+        Timeouts stringify to "" — a bare ``request failed:`` sent an operator
+        chasing DNS, firewalls and credentials for an afternoon when the cause
+        was a slow endpoint. Always name the type, the call and the target.
+        """
+        return (
+            f"{method} {url} ({self._http.base_url}, "
+            f"timeout {self._s.crowdsec_timeout_seconds}s)"
+        )
+
     async def _request(self, method: str, url: str, *, headers: dict[str, str], **kw: Any) -> Any:
         try:
             resp = await self._http.request(method, url, headers=headers, **kw)
         except httpx.HTTPError as exc:
-            raise CrowdSecError(f"CrowdSec LAPI request failed: {exc}") from exc
+            detail = str(exc) or "no detail"
+            raise CrowdSecError(
+                f"CrowdSec LAPI request failed: {type(exc).__name__} on "
+                f"{self._where(method, url)} — {detail}"
+            ) from exc
         if resp.status_code >= httpx.codes.BAD_REQUEST:
             raise CrowdSecError(
                 f"CrowdSec LAPI returned HTTP {resp.status_code} for {method} {url}.",
@@ -171,20 +193,25 @@ class CrowdSecClient:
 
     # --- read paths --------------------------------------------------------
 
-    async def _decisions_read_headers(self) -> dict[str, str]:
-        """Auth for reading decisions: bouncer key if set, else machine token.
+    def _decisions_read_headers(self) -> dict[str, str]:
+        """Auth for reading decisions — a bouncer key, and only a bouncer key.
 
-        A self-registered deployment may hold only machine credentials (CrowdSec
-        exposes no LAPI HTTP path to mint a bouncer key), so fall back to the
-        machine JWT when no bouncer key is configured.
+        ``GET /v1/decisions`` is an API-key endpoint: per CrowdSec's docs,
+        bouncers read decisions with ``X-Api-Key`` while machines authenticate
+        with a login. There used to be a machine-JWT fallback here for
+        deployments holding only machine credentials; it could not work, and
+        turned a missing setting into an opaque 403.
         """
-        if self._s.crowdsec_lapi_key:
-            return self._bouncer_headers()
-        return await self._machine_token_header()
+        if not self._s.crowdsec_lapi_key:
+            raise CrowdSecNotConfigured(
+                "No CrowdSec bouncer key configured (CROWDSEC_LAPI_KEY). Reading "
+                "decisions requires one — a machine login cannot read /v1/decisions."
+            )
+        return self._bouncer_headers()
 
     async def list_decisions(self) -> list[Decision]:
         """Return all active decisions the bouncer would enforce."""
-        headers = await self._decisions_read_headers()
+        headers = self._decisions_read_headers()
         data = await self._request("GET", "/v1/decisions", headers=headers)
         # LAPI returns ``null`` (not ``[]``) when there are no decisions.
         return [Decision.model_validate(d) for d in (data or [])]
