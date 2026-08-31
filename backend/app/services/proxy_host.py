@@ -20,8 +20,10 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.models.enums import UpstreamContext
 from app.models.proxy_host import ProxyHost, ProxyHostLocation
 from app.models.upstream import Upstream
+from app.services import upstream as upstream_service
 
 
 class ProxyHostNotFoundError(Exception):
@@ -32,16 +34,29 @@ class InvalidReferenceError(Exception):
     """Raised when a referenced pool/certificate/access-list does not exist."""
 
 
-async def _missing_upstreams(db: AsyncSession, ids: set[int]) -> set[int]:
-    """Subset of ``ids`` that does not exist as a pool."""
+async def _assert_pools_usable(db: AsyncSession, ids: set[int], *, what: str) -> None:
+    """Every id must exist *and* be attachable in the http context.
+
+    A stream-only pool is never rendered into ``http {}``, so a host pointing at
+    one would emit a ``server`` block naming an ``upstream`` that does not
+    exist there — an ``nginx -t`` failure that rolls back the whole apply.
+    Reported as :class:`InvalidReferenceError` so the route's existing 422
+    covers it, and reusing ``assert_usable_in``'s wording keeps one source of
+    truth for the message.
+    """
     if not ids:
-        return set()
-    found = set((await db.scalars(select(Upstream.id).where(Upstream.id.in_(ids)))).all())
-    return ids - found
-
-
-async def _upstream_exists(db: AsyncSession, upstream_id: int) -> bool:
-    return not await _missing_upstreams(db, {upstream_id})
+        return
+    pools = (await db.scalars(select(Upstream).where(Upstream.id.in_(ids)))).all()
+    missing = ids - {p.id for p in pools}
+    if missing:
+        raise InvalidReferenceError(
+            f"{what} do not exist: " + ", ".join(str(i) for i in sorted(missing))
+        )
+    for pool in pools:
+        try:
+            upstream_service.assert_usable_in(pool, UpstreamContext.http)
+        except upstream_service.InvalidPoolConfigError as exc:
+            raise InvalidReferenceError(str(exc)) from None
 
 
 def _location_rows(locations: list[dict[str, Any]]) -> list[ProxyHostLocation]:
@@ -49,11 +64,9 @@ def _location_rows(locations: list[dict[str, Any]]) -> list[ProxyHostLocation]:
 
 
 async def _check_location_pools(db: AsyncSession, locations: list[dict[str, Any]]) -> None:
-    missing = await _missing_upstreams(db, {loc["upstream_id"] for loc in locations})
-    if missing:
-        raise InvalidReferenceError(
-            "location upstream(s) do not exist: " + ", ".join(str(i) for i in sorted(missing))
-        )
+    await _assert_pools_usable(
+        db, {loc["upstream_id"] for loc in locations}, what="location upstream(s)"
+    )
 
 
 def _with_locations(stmt):
@@ -77,8 +90,7 @@ async def create_proxy_host(db: AsyncSession, values: dict[str, Any]) -> ProxyHo
     Raises :class:`InvalidReferenceError` if the target pool, a location's pool,
     or an optional certificate/access list does not exist.
     """
-    if not await _upstream_exists(db, values["upstream_id"]):
-        raise InvalidReferenceError(f"upstream {values['upstream_id']} does not exist")
+    await _assert_pools_usable(db, {values["upstream_id"]}, what="upstream")
     locations = values.get("locations") or []
     await _check_location_pools(db, locations)
 
@@ -113,8 +125,8 @@ async def update_proxy_host(db: AsyncSession, host_id: int, changes: dict[str, A
         raise ProxyHostNotFoundError(str(host_id))
 
     new_upstream = changes.get("upstream_id")
-    if new_upstream is not None and not await _upstream_exists(db, new_upstream):
-        raise InvalidReferenceError(f"upstream {new_upstream} does not exist")
+    if new_upstream is not None:
+        await _assert_pools_usable(db, {new_upstream}, what="upstream")
     locations = changes.get("locations")
     if locations is not None:
         await _check_location_pools(db, locations)

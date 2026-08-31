@@ -15,12 +15,13 @@ from __future__ import annotations
 
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.models.enums import LoadBalanceMethod, UpstreamContext
+from app.models.proxy_host import ProxyHost, ProxyHostLocation
 from app.models.upstream import Upstream, UpstreamBackend
 
 
@@ -70,6 +71,59 @@ def validate_pool_config(
         raise InvalidPoolConfigError(
             f"nginx does not allow backup servers with the {lb_method.value} method."
         )
+
+
+def assert_usable_in(pool: Upstream, context: UpstreamContext) -> None:
+    """Reject attaching a pool somewhere its declared context does not allow."""
+    if pool.context is UpstreamContext.both or pool.context is context:
+        return
+    where = "streams" if context is UpstreamContext.stream else "proxy hosts"
+    raise InvalidPoolConfigError(f"Pool '{pool.name}' is not available for {where}.")
+
+
+def assert_context_change_allowed(
+    *, pool_name: str, new_context: UpstreamContext, counts: dict[str, int]
+) -> None:
+    """Reject narrowing a pool's context out from under live references.
+
+    Widening is always safe. Narrowing is not: the pool would stop rendering
+    into the dropped context, and every object still pointing at it would emit
+    a ``server`` block naming an ``upstream`` that no longer exists — which
+    fails ``nginx -t`` and rolls back the apply on every node.
+
+    ``counts`` comes from :func:`reference_counts`.
+    """
+    if new_context is UpstreamContext.both:
+        return
+    if new_context is UpstreamContext.http and counts.get("streams"):
+        raise InvalidPoolConfigError(
+            f"Pool '{pool_name}' is used by {counts['streams']} stream(s); "
+            "keep 'stream' or 'both'."
+        )
+    if new_context is UpstreamContext.stream and counts.get("proxy_hosts"):
+        raise InvalidPoolConfigError(
+            f"Pool '{pool_name}' is used by {counts['proxy_hosts']} proxy host(s); "
+            "keep 'http' or 'both'."
+        )
+
+
+async def reference_counts(db: AsyncSession, upstream_id: int) -> dict[str, int]:
+    """How many objects point at this pool, split by nginx context.
+
+    ``streams`` is always 0 until streams can reference a pool; the key exists
+    now so callers do not have to change shape later.
+    """
+    hosts = await db.scalar(
+        select(func.count())
+        .select_from(ProxyHost)
+        .where(ProxyHost.upstream_id == upstream_id)
+    )
+    locations = await db.scalar(
+        select(func.count())
+        .select_from(ProxyHostLocation)
+        .where(ProxyHostLocation.upstream_id == upstream_id)
+    )
+    return {"proxy_hosts": int(hosts or 0) + int(locations or 0), "streams": 0}
 
 
 async def get_upstream(db: AsyncSession, upstream_id: int) -> Upstream | None:
@@ -148,6 +202,13 @@ async def update_upstream(
         context=changes.get("context", pool.context),
         has_backup=any(b.backup for b in pool.backends),
     )
+    new_context = changes.get("context", pool.context)
+    if new_context is not pool.context:
+        assert_context_change_allowed(
+            pool_name=pool.name,
+            new_context=new_context,
+            counts=await reference_counts(db, upstream_id),
+        )
     for field, value in changes.items():
         setattr(pool, field, value)
     await db.commit()

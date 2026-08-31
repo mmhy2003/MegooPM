@@ -96,3 +96,73 @@ def test_backup_allowed_with_round_robin_and_least_conn() -> None:
         upstream_service.validate_pool_config(
             lb_method=method, context=UpstreamContext.http, has_backup=True
         )
+
+
+# --- attaching a pool where its context allows ------------------------------
+
+
+def test_http_only_pool_rejected_for_streams() -> None:
+    pool = Upstream(name="web", context=UpstreamContext.http)
+    with pytest.raises(upstream_service.InvalidPoolConfigError) as err:
+        upstream_service.assert_usable_in(pool, UpstreamContext.stream)
+    assert "web" in str(err.value)
+    assert "streams" in str(err.value)
+
+
+def test_stream_only_pool_rejected_for_proxy_hosts() -> None:
+    pool = Upstream(name="db", context=UpstreamContext.stream)
+    with pytest.raises(upstream_service.InvalidPoolConfigError) as err:
+        upstream_service.assert_usable_in(pool, UpstreamContext.http)
+    assert "proxy hosts" in str(err.value)
+
+
+def test_both_pool_is_usable_everywhere() -> None:
+    pool = Upstream(name="shared", context=UpstreamContext.both)
+    upstream_service.assert_usable_in(pool, UpstreamContext.http)
+    upstream_service.assert_usable_in(pool, UpstreamContext.stream)
+
+
+def test_matching_context_is_usable() -> None:
+    upstream_service.assert_usable_in(
+        Upstream(name="web", context=UpstreamContext.http), UpstreamContext.http
+    )
+
+
+# --- narrowing a context out from under its references ----------------------
+
+
+def test_cannot_narrow_to_http_while_streams_reference_it() -> None:
+    """Narrowing would stop the pool rendering into stream{}.
+
+    The stream's server block would then name an upstream that no longer
+    exists, which fails nginx -t and rolls back every node's apply.
+    """
+    with pytest.raises(upstream_service.InvalidPoolConfigError) as err:
+        upstream_service.assert_context_change_allowed(
+            pool_name="db", new_context=UpstreamContext.http,
+            counts={"proxy_hosts": 0, "streams": 2},
+        )
+    assert "2 stream(s)" in str(err.value)
+
+
+def test_cannot_narrow_to_stream_while_proxy_hosts_reference_it() -> None:
+    with pytest.raises(upstream_service.InvalidPoolConfigError) as err:
+        upstream_service.assert_context_change_allowed(
+            pool_name="web", new_context=UpstreamContext.stream,
+            counts={"proxy_hosts": 3, "streams": 0},
+        )
+    assert "3 proxy host(s)" in str(err.value)
+
+
+def test_widening_to_both_is_always_allowed() -> None:
+    upstream_service.assert_context_change_allowed(
+        pool_name="web", new_context=UpstreamContext.both,
+        counts={"proxy_hosts": 3, "streams": 2},
+    )
+
+
+def test_narrowing_is_allowed_once_nothing_references_it() -> None:
+    upstream_service.assert_context_change_allowed(
+        pool_name="unused", new_context=UpstreamContext.http,
+        counts={"proxy_hosts": 0, "streams": 0},
+    )
