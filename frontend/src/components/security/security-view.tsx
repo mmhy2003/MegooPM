@@ -6,6 +6,7 @@ import {
   LayoutDashboard,
   Plus,
   ShieldAlert,
+  ShieldCheck,
   ShieldX,
   Trash2,
   TriangleAlert,
@@ -21,6 +22,9 @@ import {
   type DecisionList,
   type DecisionScope,
   type DecisionType,
+  type Whitelist,
+  type WhitelistApplyStatus,
+  type WhitelistCreate,
 } from "@/lib/api";
 import {
   alertSourceKey,
@@ -33,6 +37,9 @@ import { BanDialog } from "@/components/security/ban-dialog";
 import { PaginationControls } from "@/components/security/pagination-controls";
 import { SecurityMetrics } from "@/components/security/security-metrics";
 import { UnbanDialog } from "@/components/security/unban-dialog";
+import { WhitelistDialog } from "@/components/security/whitelist-dialog";
+import { WhitelistStatusBanner } from "@/components/security/whitelist-status-banner";
+import { WhitelistsTable } from "@/components/security/whitelists-table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -169,6 +176,12 @@ export function SecurityView() {
   });
   const [unban, setUnban] = useState<Decision | null>(null);
 
+  // Whitelists. `wlStatus` is separate from the rows on purpose: a row can
+  // exist while its apply has failed, and the banner is what says so.
+  const [whitelists, setWhitelists] = useState<Whitelist[]>([]);
+  const [wlStatus, setWlStatus] = useState<WhitelistApplyStatus | null>(null);
+  const [wlDialog, setWlDialog] = useState<{ row: Whitelist | null } | null>(null);
+
   // Restore the persisted toggle once, after mount. SSR renders the OFF default
   // (no `window`), so this post-mount read is the correct place to hydrate a
   // client-only preference without risking a hydration mismatch.
@@ -281,6 +294,71 @@ export function SecurityView() {
   const decTotal = decList?.total ?? 0;
   const alertTotal = alertList?.total ?? 0;
 
+
+  const loadWhitelists = useCallback(async () => {
+    try {
+      const [rows, status] = await Promise.all([
+        crowdsec.listWhitelists(),
+        crowdsec.whitelistStatus(),
+      ]);
+      setWhitelists(rows);
+      setWlStatus(status);
+    } catch {
+      // The banner and table are secondary to decisions/alerts; a failure here
+      // must not blank the page the operator opened to read those.
+      setWlStatus(null);
+    }
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    void (async () => {
+      if (active) await loadWhitelists();
+    })();
+    return () => {
+      active = false;
+    };
+  }, [loadWhitelists, refreshTick]);
+
+  const toggleWhitelist = useCallback(
+    async (row: Whitelist, next: boolean) => {
+      await crowdsec.updateWhitelist(row.id, {
+        name: row.name,
+        reason: row.reason,
+        description: row.description,
+        ips: row.ips,
+        cidrs: row.cidrs,
+        enabled: next,
+      });
+      await loadWhitelists();
+    },
+    [loadWhitelists],
+  );
+
+  const deleteWhitelist = useCallback(
+    async (row: Whitelist) => {
+      await crowdsec.deleteWhitelist(row.id);
+      await loadWhitelists();
+    },
+    [loadWhitelists],
+  );
+
+  const saveWhitelist = useCallback(
+    async (body: WhitelistCreate) => {
+      const editing = wlDialog?.row;
+      if (editing) await crowdsec.updateWhitelist(editing.id, body);
+      else await crowdsec.createWhitelist(body);
+      setWlDialog(null);
+      await loadWhitelists();
+    },
+    [wlDialog, loadWhitelists],
+  );
+
+  const retryWhitelistApply = useCallback(async () => {
+    await crowdsec.applyWhitelists();
+    await loadWhitelists();
+  }, [loadWhitelists]);
+
   return (
     <div className="mx-auto flex max-w-6xl flex-col gap-6">
       <div className="flex flex-wrap items-center gap-3">
@@ -324,6 +402,9 @@ export function SecurityView() {
           </TabsTab>
           <TabsTab value="alerts">
             <TriangleAlert /> Recent alerts
+          </TabsTab>
+          <TabsTab value="whitelists">
+            <ShieldCheck /> Whitelists
           </TabsTab>
         </TabsList>
 
@@ -501,8 +582,35 @@ export function SecurityView() {
             </>
           )}
         </TabsPanel>
+
+        {/* ---- Whitelists ---- */}
+        <TabsPanel value="whitelists" className="space-y-3">
+          {wlStatus ? (
+            <WhitelistStatusBanner status={wlStatus} onRetry={retryWhitelistApply} />
+          ) : null}
+          <div className="flex justify-end">
+            <Button size="sm" onClick={() => setWlDialog({ row: null })}>
+              <Plus /> Add whitelist
+            </Button>
+          </div>
+          <WhitelistsTable
+            rows={whitelists}
+            onToggle={toggleWhitelist}
+            onEdit={(row) => setWlDialog({ row })}
+            onDelete={deleteWhitelist}
+          />
+        </TabsPanel>
       </Tabs>
 
+      {wlDialog ? (
+        <WhitelistDialog
+          key={wlDialog.row?.id ?? "new"}
+          open
+          onOpenChange={(open) => !open && setWlDialog(null)}
+          whitelist={wlDialog.row}
+          onSubmit={saveWhitelist}
+        />
+      ) : null}
       {banOpen ? (
         <BanDialog
           key={`${banSeed.value}:${banSeed.scope}`}

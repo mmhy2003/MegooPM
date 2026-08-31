@@ -114,6 +114,11 @@ export type {
   DecisionScope,
   DecisionType,
   ListParams,
+  Whitelist,
+  WhitelistCreate,
+  WhitelistUpdate,
+  WhitelistPreview,
+  WhitelistApplyStatus,
 } from "@/lib/api/resources/crowdsec";
 
 export { users, USER_ROLES, USER_ROLE_LABELS } from "@/lib/api/resources/users";

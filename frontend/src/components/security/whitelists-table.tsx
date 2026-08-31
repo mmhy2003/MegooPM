@@ -1,0 +1,93 @@
+"use client";
+
+import { Pencil, Trash2 } from "lucide-react";
+
+import { EnabledToggle } from "@/components/hosts/enabled-toggle";
+import { Button } from "@/components/ui/button";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import type { Whitelist } from "@/lib/api";
+
+/** "1 IP, 2 CIDRs" — a one-entry whitelist is the common case, so plurals matter. */
+function coverage(row: Whitelist): string {
+  const parts: string[] = [];
+  if (row.ips.length) parts.push(`${row.ips.length} IP${row.ips.length === 1 ? "" : "s"}`);
+  if (row.cidrs.length)
+    parts.push(`${row.cidrs.length} CIDR${row.cidrs.length === 1 ? "" : "s"}`);
+  return parts.join(", ");
+}
+
+export function WhitelistsTable({
+  rows,
+  onToggle,
+  onEdit,
+  onDelete,
+}: {
+  rows: Whitelist[];
+  onToggle: (row: Whitelist, next: boolean) => Promise<void>;
+  onEdit: (row: Whitelist) => void;
+  onDelete: (row: Whitelist) => void;
+}) {
+  if (rows.length === 0) {
+    return (
+      <p className="text-muted-foreground rounded-lg border border-dashed p-8 text-center text-sm">
+        No whitelists yet. Add one to stop CrowdSec acting on traffic from an
+        address you trust.
+      </p>
+    );
+  }
+
+  return (
+    <Table>
+      <TableHeader>
+        <TableRow>
+          <TableHead>Name</TableHead>
+          <TableHead>Reason</TableHead>
+          <TableHead>Covers</TableHead>
+          <TableHead>Enabled</TableHead>
+          <TableHead className="w-24" />
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {rows.map((row) => (
+          <TableRow key={row.id}>
+            <TableCell className="font-medium">{row.name}</TableCell>
+            <TableCell className="text-muted-foreground">{row.reason}</TableCell>
+            <TableCell>{coverage(row)}</TableCell>
+            <TableCell>
+              <EnabledToggle
+                checked={row.enabled}
+                name={row.name}
+                onToggle={(next) => onToggle(row, next)}
+              />
+            </TableCell>
+            <TableCell className="text-right">
+              <Button
+                size="icon"
+                variant="ghost"
+                aria-label={`Edit ${row.name}`}
+                onClick={() => onEdit(row)}
+              >
+                <Pencil className="size-4" />
+              </Button>
+              <Button
+                size="icon"
+                variant="ghost"
+                aria-label={`Delete ${row.name}`}
+                onClick={() => onDelete(row)}
+              >
+                <Trash2 className="size-4" />
+              </Button>
+            </TableCell>
+          </TableRow>
+        ))}
+      </TableBody>
+    </Table>
+  );
+}

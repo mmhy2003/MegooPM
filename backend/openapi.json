@@ -3947,10 +3947,9 @@
         "type": "object"
       },
       "WhitelistRead": {
-        "description": "A stored whitelist.",
+        "description": "A stored whitelist.\n\nThe inherited fields are redeclared without defaults so the generated\nOpenAPI marks them required. On a *response* they are always present, and\nleaving them optional pushes needless null-handling into every consumer.",
         "properties": {
           "cidrs": {
-            "description": "CIDR ranges to exempt",
             "items": {
               "type": "string"
             },
@@ -3963,14 +3962,10 @@
             "type": "string"
           },
           "description": {
-            "default": "",
-            "description": "Free-text note",
             "title": "Description",
             "type": "string"
           },
           "enabled": {
-            "default": true,
-            "description": "Disabled whitelists are not rendered",
             "title": "Enabled",
             "type": "boolean"
           },
@@ -3979,7 +3974,6 @@
             "type": "integer"
           },
           "ips": {
-            "description": "Exact IP addresses to exempt",
             "items": {
               "type": "string"
             },
@@ -4008,6 +4002,10 @@
         "required": [
           "name",
           "reason",
+          "description",
+          "ips",
+          "cidrs",
+          "enabled",
           "id",
           "created_at",
           "updated_at"

@@ -3168,37 +3168,27 @@ export interface components {
         /**
          * WhitelistRead
          * @description A stored whitelist.
+         *
+         *     The inherited fields are redeclared without defaults so the generated
+         *     OpenAPI marks them required. On a *response* they are always present, and
+         *     leaving them optional pushes needless null-handling into every consumer.
          */
         WhitelistRead: {
-            /**
-             * Cidrs
-             * @description CIDR ranges to exempt
-             */
-            cidrs?: string[];
+            /** Cidrs */
+            cidrs: string[];
             /**
              * Created At
              * Format: date-time
              */
             created_at: string;
-            /**
-             * Description
-             * @description Free-text note
-             * @default
-             */
+            /** Description */
             description: string;
-            /**
-             * Enabled
-             * @description Disabled whitelists are not rendered
-             * @default true
-             */
+            /** Enabled */
             enabled: boolean;
             /** Id */
             id: number;
-            /**
-             * Ips
-             * @description Exact IP addresses to exempt
-             */
-            ips?: string[];
+            /** Ips */
+            ips: string[];
             /**
              * Name
              * @description Operator-facing name

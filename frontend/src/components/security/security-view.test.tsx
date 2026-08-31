@@ -49,6 +49,13 @@ describe("SecurityView", () => {
     vi.spyOn(crowdsec, "health").mockResolvedValue(healthOk as never);
     vi.spyOn(crowdsec, "listDecisions").mockResolvedValue(decisionList(120) as never);
     vi.spyOn(crowdsec, "listAlerts").mockResolvedValue(emptyAlerts as never);
+    vi.spyOn(crowdsec, "listWhitelists").mockResolvedValue([] as never);
+    vi.spyOn(crowdsec, "whitelistStatus").mockResolvedValue({
+      ok: true,
+      error: null,
+      applied_at: null,
+      reload_configured: true,
+    } as never);
     vi.spyOn(crowdsec, "deleteDecision").mockResolvedValue({ deleted: 1 } as never);
     try {
       window.sessionStorage.clear();
@@ -144,6 +151,13 @@ describe("SecurityView dashboard tab", () => {
     vi.spyOn(crowdsec, "health").mockResolvedValue(healthOk as never);
     vi.spyOn(crowdsec, "listDecisions").mockResolvedValue(decisionList(120) as never);
     vi.spyOn(crowdsec, "listAlerts").mockResolvedValue(emptyAlerts as never);
+    vi.spyOn(crowdsec, "listWhitelists").mockResolvedValue([] as never);
+    vi.spyOn(crowdsec, "whitelistStatus").mockResolvedValue({
+      ok: true,
+      error: null,
+      applied_at: null,
+      reload_configured: true,
+    } as never);
   });
   afterEach(() => {
     cleanup();
@@ -158,8 +172,29 @@ describe("SecurityView dashboard tab", () => {
       "Dashboard",
       "Active decisions",
       "Recent alerts",
+      "Whitelists",
     ]);
     expect(tabs[0]).toHaveAttribute("aria-selected", "true");
+  });
+
+  it("renders the whitelist table under its own tab", async () => {
+    const user = userEvent.setup();
+    render(<SecurityView />);
+
+    await user.click(await screen.findByRole("tab", { name: /Whitelists/ }));
+
+    // The empty state, not a blank panel: an operator who has never added a
+    // whitelist should be told what the tab is for.
+    expect(await screen.findByText(/No whitelists yet/i)).toBeInTheDocument();
+  });
+
+  it("hides the whitelist banner while applies are healthy", async () => {
+    const user = userEvent.setup();
+    render(<SecurityView />);
+
+    await user.click(await screen.findByRole("tab", { name: /Whitelists/ }));
+
+    expect(screen.queryByText(/CROWDSEC_CONTROL_NODE_ID/)).not.toBeInTheDocument();
   });
 
   it("shows the metrics under Dashboard, not under the list tabs", async () => {

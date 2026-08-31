@@ -19,6 +19,11 @@ export type DecisionList = Schemas["DecisionList"];
 export type Alert = Schemas["Alert"];
 export type AlertList = Schemas["AlertList"];
 export type AlertSource = Schemas["AlertSource"];
+export type Whitelist = Schemas["WhitelistRead"];
+export type WhitelistCreate = Schemas["WhitelistCreate"];
+export type WhitelistUpdate = Schemas["WhitelistUpdate"];
+export type WhitelistPreview = Schemas["WhitelistPreview"];
+export type WhitelistApplyStatus = Schemas["WhitelistApplyStatus"];
 
 /** The scope a manual decision applies to — a single IP or a CIDR range. */
 export type DecisionScope = DecisionCreate["scope"];
@@ -96,4 +101,34 @@ export const crowdsec = {
   /** A page of recent alerts, newest first. */
   listAlerts: (params?: ListParams) =>
     api.get<AlertList>(`${BASE}/alerts`, { query: listQuery(params) }),
+
+  // --- whitelists ---
+  //
+  // Whitelists are rendered into a parser file the CrowdSec container reads,
+  // which is applied by a task on the control-plane node. Every mutation
+  // returns as soon as the row is stored, so `whitelistStatus` is what says
+  // whether the change actually reached CrowdSec.
+  /** Every whitelist, enabled or not, oldest first. */
+  listWhitelists: () => api.get<Whitelist[]>(`${BASE}/whitelists`),
+  /** Create a whitelist and queue the apply. */
+  createWhitelist: (body: WhitelistCreate) =>
+    api.post<Whitelist>(`${BASE}/whitelists`, body),
+  /** Replace a whitelist and queue the apply. */
+  updateWhitelist: (id: number, body: WhitelistUpdate) =>
+    api.patch<Whitelist>(`${BASE}/whitelists/${id}`, body),
+  /** Delete a whitelist and queue the apply. */
+  deleteWhitelist: (id: number) => api.delete<void>(`${BASE}/whitelists/${id}`),
+  /**
+   * The exact YAML this whitelist would contribute to the parser file.
+   *
+   * Rendered server-side on purpose: a second renderer in TypeScript would
+   * drift from the bytes that actually reach CrowdSec, and being those bytes
+   * is the preview's whole value.
+   */
+  previewWhitelist: (body: WhitelistCreate) =>
+    api.post<WhitelistPreview>(`${BASE}/whitelists/preview`, body),
+  /** Whether the last apply reached CrowdSec, and whether reloads are wired. */
+  whitelistStatus: () => api.get<WhitelistApplyStatus>(`${BASE}/whitelists/status`),
+  /** Re-run the apply — the retry path after a failed reload. */
+  applyWhitelists: () => api.post<{ queued: boolean }>(`${BASE}/whitelists/apply`, {}),
 } as const;

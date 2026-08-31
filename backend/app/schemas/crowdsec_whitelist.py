@@ -54,11 +54,20 @@ class WhitelistUpdate(WhitelistBase):
 
 
 class WhitelistRead(WhitelistBase):
-    """A stored whitelist."""
+    """A stored whitelist.
+
+    The inherited fields are redeclared without defaults so the generated
+    OpenAPI marks them required. On a *response* they are always present, and
+    leaving them optional pushes needless null-handling into every consumer.
+    """
 
     model_config = ConfigDict(from_attributes=True)
 
     id: int
+    description: str
+    ips: list[str]
+    cidrs: list[str]
+    enabled: bool
     created_at: datetime
     updated_at: datetime
 
