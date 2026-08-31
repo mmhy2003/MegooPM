@@ -319,3 +319,34 @@ def test_ip_hash_is_refused_in_the_stream_context() -> None:
     )
     with pytest.raises(ValueError, match="ip_hash"):
         render_stream_config(DesiredState(stream_upstreams=(pool,)))
+
+
+# --- a proxy host may forward to a literal backend --------------------------
+
+
+def test_host_target_renders_a_literal_backend() -> None:
+    host = ProxyHostSpec(
+        id=1, domain_names=("a.example.com",), forward_host="10.0.0.1", forward_port=8080
+    )
+    out = render_config(DesiredState(proxy_hosts=(host,)))["megoopm-proxy-1.conf"]
+    assert "proxy_pass http://10.0.0.1:8080;" in out
+    # No pool is referenced, so no upstream block should exist for this host.
+    assert "megoopm_upstream_" not in out
+
+
+def test_pool_target_is_unchanged() -> None:
+    host = ProxyHostSpec(id=1, domain_names=("a.example.com",), upstream_id=1)
+    out = render_config(DesiredState(proxy_hosts=(host,), http_upstreams=(_pool(),)))
+    assert "proxy_pass http://megoopm_upstream_1;" in out["megoopm-proxy-1.conf"]
+
+
+def test_host_target_honours_the_forward_scheme() -> None:
+    host = ProxyHostSpec(
+        id=1,
+        domain_names=("a.example.com",),
+        forward_host="10.0.0.1",
+        forward_port=8443,
+        forward_scheme="https",
+    )
+    out = render_config(DesiredState(proxy_hosts=(host,)))["megoopm-proxy-1.conf"]
+    assert "proxy_pass https://10.0.0.1:8443;" in out

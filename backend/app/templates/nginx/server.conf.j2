@@ -5,9 +5,9 @@
      redirects to HTTPS (ssl_forced) or serves the proxy directly.
 
    Shared fragments live in macros so the proxy body is defined once. #}
-{%- macro proxy_block(path, scheme, pool, modifier="") %}
+{%- macro proxy_block(path, scheme, target, modifier="") %}
     location {{ modifier }}{{ path }} {
-        proxy_pass {{ scheme }}://{{ pool }};
+        proxy_pass {{ scheme }}://{{ target }};
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -24,7 +24,7 @@
     }
 {%- endmacro -%}
 {%- macro proxy_location() %}
-{{- proxy_block("/", host.forward_scheme, pool_name) }}
+{{- proxy_block("/", host.forward_scheme, target) }}
 {%- for loc in host.locations %}
 
     # Extra route: ^~ makes the longest prefix win over the cache-assets regex.
@@ -33,7 +33,7 @@
 {%- if host.caching_enabled %}
 
     location ~* \.(?:jpg|jpeg|gif|png|ico|css|js|woff2?|svg)$ {
-        proxy_pass {{ host.forward_scheme }}://{{ pool_name }};
+        proxy_pass {{ host.forward_scheme }}://{{ target }};
         proxy_set_header Host $host;
         expires 1d;
         add_header Cache-Control "public";

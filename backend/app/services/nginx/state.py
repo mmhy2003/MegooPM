@@ -106,11 +106,18 @@ class LocationSpec:
 
 @dataclass(frozen=True, slots=True)
 class ProxyHostSpec:
-    """A reverse-proxy vhost rendered as a ``server {}`` block."""
+    """A reverse-proxy vhost rendered as a ``server {}`` block.
+
+    Forwards to either an upstream pool or a single ``forward_host``/
+    ``forward_port`` — exactly one, which a DB check constraint guarantees.
+    ``forward_scheme`` applies to both.
+    """
 
     id: int
     domain_names: tuple[str, ...]
-    upstream_id: int
+    upstream_id: int | None = None
+    forward_host: str | None = None
+    forward_port: int | None = None
     forward_scheme: str = "http"
     certificate: CertificateSpec | None = None
     access_list: AccessListSpec | None = None

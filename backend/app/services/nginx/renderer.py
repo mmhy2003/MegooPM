@@ -24,6 +24,7 @@ from app.services.nginx.state import (
     AccessListSpec,
     DeadHostSpec,
     DesiredState,
+    LocationSpec,
     ProxyHostSpec,
     RedirectionHostSpec,
     StreamSpec,
@@ -105,11 +106,23 @@ def _render_upstream(
     )
 
 
+def _target(spec: ProxyHostSpec | LocationSpec) -> str:
+    """The ``proxy_pass`` destination: a pool name, or a literal ``host:port``.
+
+    The template's ``proxy_block`` macro never inspects this — it only
+    interpolates it after the scheme — so both shapes flow through one path and
+    the template needs no branch of its own.
+    """
+    if spec.upstream_id is not None:
+        return pool_name(spec.upstream_id)
+    return f"{spec.forward_host}:{spec.forward_port}"
+
+
 def _render_proxy_host(host: ProxyHostSpec) -> str:
     access_list = host.access_list
     return _env().get_template("server.conf.j2").render(
         host=host,
-        pool_name=pool_name(host.upstream_id),
+        target=_target(host),
         # Pool name per extra location's upstream id (root pool is ``pool_name``).
         location_pools={loc.upstream_id: pool_name(loc.upstream_id) for loc in host.locations},
         server_names=" ".join(host.domain_names),
