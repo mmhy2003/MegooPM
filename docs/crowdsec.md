@@ -226,6 +226,117 @@ Environment (see `.env.example`, all optional):
   set they seed the DB, otherwise the backend self-registers its own machine.
   Only for a machine created on *this* LAPI.
 
+## Whitelists (UI-authored)
+
+The Security page has a **Whitelists** tab where an operator names a set of IPs
+and CIDR ranges that CrowdSec should ignore — the answer to an internal backend
+tripping an AppSec rule and getting banned.
+
+These are **parser whitelists**: the event is dropped in the parsing pipeline,
+so no alert and no decision is ever created. That is a deliberate choice over
+suppressing enforcement in the nginx bouncer, which would leave the Security
+page showing bans that are not being enforced.
+
+### How a whitelist reaches CrowdSec
+
+1. Rows in `crowdsec_whitelists` render into **one multi-document YAML file** at
+   `/data/crowdsec/whitelists/megoopm.yaml` (`CROWDSEC_WHITELIST_PATH`), ordered
+   by id so the output is byte-stable.
+2. The CrowdSec container reads it through a **single-file** bind mount at
+   `/etc/crowdsec/parsers/s02-enrich/99-megoopm-whitelist.yaml`.
+3. A Celery task on the control-plane node restarts the container so it
+   re-reads its parsers, then polls LAPI until it answers.
+
+CrowdSec has no reload endpoint and LAPI exposes no route for parser
+configuration, so restarting the container is the only channel available. That
+is why the socket is involved at all.
+
+### Things that will bite you
+
+**The mount is a file, not a directory.** `s02-enrich/` already contains
+hub-installed parsers — verified against v1.6.4, it holds `geoip-enrich.yaml`,
+`dateparse-enrich.yaml` and `whitelists.yaml` as symlinks into
+`/etc/crowdsec/hub/`. Mounting a directory over it would mask all of them and
+silently break enrichment.
+
+**The file must exist before the container starts.** Docker creates a
+*directory* when a bind-mount source is missing, and CrowdSec then dies trying
+to parse it. `data-init` seeds a placeholder for exactly this reason; that seed
+is also what makes whitelists load at boot.
+
+**The file is written in place, never replaced.** The container resolves the
+mount to an inode when it starts, so a write-temp-then-rename would leave it
+reading the old content for the rest of its life with no error in any log. See
+the comment on `write_whitelist_file` — this is the opposite of the atomic-write
+habit that is correct everywhere else in this codebase, and there is a test
+asserting the inode does not change.
+
+**A malformed file takes the whole edge down.** Measured on v1.6.4: a broken
+whitelist fails at *hub index scan*, before parsers even load —
+`failed to read Hub index: ... failed to parse ... yaml: line 3` — and CrowdSec
+never comes up. AppSec is then unreachable and the bouncer runs
+`APPSEC_FAILURE_ACTION=deny`, so every `crowdsec_enabled` host denies every
+request until someone intervenes.
+
+That is why the apply validates before writing, keeps the previous bytes, and
+**restores them and restarts again** if LAPI does not answer within
+`CROWDSEC_RELOAD_HEALTH_TIMEOUT_SECONDS`. Rollback is part of the feature.
+
+**Applying restarts CrowdSec, which briefly denies traffic.** For the few
+seconds the container is down, AppSec is unreachable and the bouncer fails
+closed on every protected host. This is why an unchanged render performs no
+restart at all: the apply compares both the content digest and the bytes on
+disk, and does nothing when neither has moved.
+
+### Multi-document rendering
+
+One file holds one YAML document per whitelist, `---` separated. Verified on
+v1.6.4: the engine logs `Loaded 2 parser nodes` for a two-whitelist file, so
+both are live. Note that `cscli parsers list` shows only **one row per file**,
+naming the first document — that is a display detail, not a sign the rest were
+ignored.
+
+Names render as `megoopm/wl-<slug>`. CrowdSec requires parser names to be
+unique across everything it loads, so the API returns 409 when two names
+slugify to the same value rather than letting the container fail to start.
+
+Scalars are emitted as JSON strings (JSON being a subset of YAML), so a reason
+containing `:` or `#` cannot break the file.
+
+### Configuration
+
+- `CROWDSEC_CONTROL_NODE_ID` — the node whose worker holds the docker socket and
+  runs the CrowdSec container. **Leave blank to disable reloads**: whitelists
+  then save but the Security page reports them as not applied, rather than
+  implying they are in force.
+- `CROWDSEC_CONTAINER_NAME` — container the reload restarts (default
+  `megoopm-crowdsec-1`). Check with `docker ps --format '{{.Names}}'`.
+- `CROWDSEC_WHITELIST_PATH` — rendered file (default
+  `/data/crowdsec/whitelists/megoopm.yaml`).
+- `CROWDSEC_RELOAD_HEALTH_TIMEOUT_SECONDS` — how long to wait for LAPI after a
+  restart before rolling back (default 60).
+- `DOCKER_SOCKET_PATH` — default `/var/run/docker.sock`.
+
+The socket is mounted on the **worker** service only, never on `backend`. It is
+root-equivalent on the host, and `backend` is the process taking internet
+traffic.
+
+### Verifying on a live stack
+
+```bash
+# The file CrowdSec actually sees
+docker compose exec crowdsec cat /etc/crowdsec/parsers/s02-enrich/99-megoopm-whitelist.yaml
+
+# One row per file, named after the first document
+docker compose exec crowdsec cscli parsers list | grep megoopm
+
+# The authoritative check — how many nodes the engine loaded
+docker compose logs crowdsec | grep "99-megoopm-whitelist"
+```
+
+Then save a whitelist unchanged and confirm the container's uptime does **not**
+reset (`docker ps`): a no-op save must not restart CrowdSec.
+
 ## Verifying (QA / live stack)
 
 The Lua enforcement and image build require the full stack; they cannot be
