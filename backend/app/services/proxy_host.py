@@ -90,7 +90,9 @@ async def create_proxy_host(db: AsyncSession, values: dict[str, Any]) -> ProxyHo
     Raises :class:`InvalidReferenceError` if the target pool, a location's pool,
     or an optional certificate/access list does not exist.
     """
-    await _assert_pools_usable(db, {values["upstream_id"]}, what="upstream")
+    # No pool to check when the target is a single backend.
+    if values.get("upstream_id") is not None:
+        await _assert_pools_usable(db, {values["upstream_id"]}, what="upstream")
     locations = values.get("locations") or []
     await _check_location_pools(db, locations)
 

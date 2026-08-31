@@ -2077,6 +2077,34 @@
             "title": "Enabled",
             "type": "boolean"
           },
+          "forward_host": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Single backend host; null when forwarding to a pool",
+            "title": "Forward Host"
+          },
+          "forward_port": {
+            "anyOf": [
+              {
+                "maximum": 65535.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Single backend port; null when forwarding to a pool",
+            "title": "Forward Port"
+          },
           "forward_scheme": {
             "$ref": "#/components/schemas/HttpScheme",
             "default": "http",
@@ -2115,14 +2143,20 @@
             "type": "boolean"
           },
           "upstream_id": {
-            "description": "The upstream pool to forward matched traffic to",
-            "title": "Upstream Id",
-            "type": "integer"
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Pool to forward matched traffic to; null when using a host",
+            "title": "Upstream Id"
           }
         },
         "required": [
-          "domain_names",
-          "upstream_id"
+          "domain_names"
         ],
         "title": "ProxyHostCreate",
         "type": "object"
@@ -2267,6 +2301,34 @@
             "title": "Enabled",
             "type": "boolean"
           },
+          "forward_host": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Single backend host; null when forwarding to a pool",
+            "title": "Forward Host"
+          },
+          "forward_port": {
+            "anyOf": [
+              {
+                "maximum": 65535.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Single backend port; null when forwarding to a pool",
+            "title": "Forward Port"
+          },
           "forward_scheme": {
             "$ref": "#/components/schemas/HttpScheme",
             "default": "http",
@@ -2313,14 +2375,20 @@
             "type": "string"
           },
           "upstream_id": {
-            "description": "The upstream pool to forward matched traffic to",
-            "title": "Upstream Id",
-            "type": "integer"
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Pool to forward matched traffic to; null when using a host",
+            "title": "Upstream Id"
           }
         },
         "required": [
           "domain_names",
-          "upstream_id",
           "id",
           "created_at",
           "updated_at"
@@ -2444,6 +2512,32 @@
               }
             ],
             "title": "Enabled"
+          },
+          "forward_host": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Forward Host"
+          },
+          "forward_port": {
+            "anyOf": [
+              {
+                "maximum": 65535.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Forward Port"
           },
           "forward_scheme": {
             "anyOf": [

@@ -2099,6 +2099,16 @@ export interface components {
              */
             enabled: boolean;
             /**
+             * Forward Host
+             * @description Single backend host; null when forwarding to a pool
+             */
+            forward_host?: string | null;
+            /**
+             * Forward Port
+             * @description Single backend port; null when forwarding to a pool
+             */
+            forward_port?: number | null;
+            /**
              * @description Scheme used to reach the upstream (http/https)
              * @default http
              */
@@ -2134,9 +2144,9 @@ export interface components {
             ssl_forced: boolean;
             /**
              * Upstream Id
-             * @description The upstream pool to forward matched traffic to
+             * @description Pool to forward matched traffic to; null when using a host
              */
-            upstream_id: number;
+            upstream_id?: number | null;
         };
         /**
          * ProxyHostLocationIn
@@ -2250,6 +2260,16 @@ export interface components {
              */
             enabled: boolean;
             /**
+             * Forward Host
+             * @description Single backend host; null when forwarding to a pool
+             */
+            forward_host?: string | null;
+            /**
+             * Forward Port
+             * @description Single backend port; null when forwarding to a pool
+             */
+            forward_port?: number | null;
+            /**
              * @description Scheme used to reach the upstream (http/https)
              * @default http
              */
@@ -2289,9 +2309,9 @@ export interface components {
             updated_at: string;
             /**
              * Upstream Id
-             * @description The upstream pool to forward matched traffic to
+             * @description Pool to forward matched traffic to; null when using a host
              */
-            upstream_id: number;
+            upstream_id?: number | null;
         };
         /**
          * ProxyHostUpdate
@@ -2318,6 +2338,10 @@ export interface components {
             domain_names?: string[] | null;
             /** Enabled */
             enabled?: boolean | null;
+            /** Forward Host */
+            forward_host?: string | null;
+            /** Forward Port */
+            forward_port?: number | null;
             forward_scheme?: components["schemas"]["HttpScheme"] | null;
             /** Hsts Enabled */
             hsts_enabled?: boolean | null;

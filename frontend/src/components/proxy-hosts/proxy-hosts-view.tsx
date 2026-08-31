@@ -178,7 +178,8 @@ export function ProxyHostsView() {
                 </TableRow>
               ) : (
                 hosts.map((host) => {
-                  const pool = poolsById.get(host.upstream_id);
+                  const pool =
+                    host.upstream_id != null ? poolsById.get(host.upstream_id) : undefined;
                   const list =
                     host.access_list_id != null
                       ? listsById.get(host.access_list_id)

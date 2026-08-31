@@ -1,7 +1,8 @@
 """Pydantic schemas for proxy hosts.
 
 A :class:`~app.models.proxy_host.ProxyHost` terminates a set of domain names and
-forwards matching traffic to an upstream pool (``upstream_id``). These schemas
+forwards matching traffic to an upstream pool (``upstream_id``) or to a single
+``forward_host``/``forward_port`` — exactly one. These schemas
 form the versioned API contract the frontend consumes; ``domain_names`` are
 normalised (trimmed, lower-cased, de-duplicated) so the rendered ``server_name``
 is stable regardless of how the client capitalises them.
@@ -12,7 +13,7 @@ from __future__ import annotations
 import re
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from app.models.enums import HttpScheme
 
@@ -99,7 +100,21 @@ class ProxyHostBase(BaseModel):
     domain_names: list[str] = Field(
         min_length=1, description="Domains this host answers for (server_name)"
     )
-    upstream_id: int = Field(description="The upstream pool to forward matched traffic to")
+    upstream_id: int | None = Field(
+        default=None, description="Pool to forward matched traffic to; null when using a host"
+    )
+    forward_host: str | None = Field(
+        default=None,
+        min_length=1,
+        max_length=255,
+        description="Single backend host; null when forwarding to a pool",
+    )
+    forward_port: int | None = Field(
+        default=None,
+        ge=1,
+        le=65535,
+        description="Single backend port; null when forwarding to a pool",
+    )
     forward_scheme: HttpScheme = Field(
         default=HttpScheme.http, description="Scheme used to reach the upstream (http/https)"
     )
@@ -134,6 +149,19 @@ class ProxyHostBase(BaseModel):
         description="Extra path-prefixed routes to other pools (rendered as location ^~ <path>)",
     )
 
+    @model_validator(mode="after")
+    def _require_exactly_one_target(self) -> ProxyHostBase:
+        """Mirrors the DB constraint so the API answers 422, not a 500.
+
+        A host without a port is deliberately not a target: without this it
+        would slip through and fail at the constraint instead, which reports the
+        problem far from the field that caused it.
+        """
+        host_target = self.forward_host is not None and self.forward_port is not None
+        if host_target == (self.upstream_id is not None):
+            raise ValueError("Set either a forward host and port, or an upstream pool.")
+        return self
+
     @field_validator("domain_names")
     @classmethod
     def _validate_domains(cls, value: list[str]) -> list[str]:
@@ -154,6 +182,8 @@ class ProxyHostUpdate(BaseModel):
 
     domain_names: list[str] | None = Field(default=None, min_length=1)
     upstream_id: int | None = None
+    forward_host: str | None = Field(default=None, min_length=1, max_length=255)
+    forward_port: int | None = Field(default=None, ge=1, le=65535)
     forward_scheme: HttpScheme | None = None
     certificate_id: int | None = None
     access_list_id: int | None = None

@@ -15,11 +15,13 @@ import pytest
 from app.core.config import settings
 from app.db.base import Base
 from app.models.proxy_host import ProxyHost
+from app.schemas.proxy_host import ProxyHostCreate
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.pool import NullPool
 
+# Only the DB-backed tests below are async; the schema tests are pure.
 pytestmark = pytest.mark.asyncio
 
 
@@ -89,3 +91,32 @@ async def test_accepts_a_host_target(pg_session: AsyncSession) -> None:
 async def test_port_range_still_enforced_on_a_host_target(pg_session: AsyncSession) -> None:
     with pytest.raises(IntegrityError):
         await _add(pg_session, forward_host="h", forward_port=70000)
+
+
+# --- schema: exactly one target, before the database has to say so ----------
+
+
+def _body(**kw) -> ProxyHostCreate:
+    return ProxyHostCreate(domain_names=["a.example.com"], **kw)
+
+
+def test_schema_rejects_both_targets() -> None:
+    with pytest.raises(ValueError, match="either a forward host"):
+        _body(upstream_id=1, forward_host="h", forward_port=8080)
+
+
+def test_schema_rejects_neither_target() -> None:
+    with pytest.raises(ValueError, match="either a forward host"):
+        _body()
+
+
+def test_schema_rejects_a_half_specified_host_body() -> None:
+    with pytest.raises(ValueError, match="either a forward host"):
+        _body(forward_host="h")
+
+
+def test_schema_accepts_either_target() -> None:
+    assert _body(upstream_id=1).upstream_id == 1
+    body = _body(forward_host="10.0.0.1", forward_port=8080)
+    assert (body.forward_host, body.forward_port) == ("10.0.0.1", 8080)
+    assert body.upstream_id is None
