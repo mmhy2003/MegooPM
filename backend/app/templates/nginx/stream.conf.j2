@@ -8,7 +8,7 @@
    - udp_forwarding -> `listen <port> udp;` (UDP cannot terminate TLS).
    At least one protocol is always enabled (DB check constraint). #}
 # Managed by MegooPM — do not edit by hand.
-# stream id={{ stream.id }} — {{ stream.incoming_port }} -> {{ stream.forward_host }}:{{ stream.forward_port }}
+# stream id={{ stream.id }} — {{ stream.incoming_port }} -> {% if stream.upstream_id %}pool {{ pool_name }}{% else %}{{ stream.forward_host }}:{{ stream.forward_port }}{% endif %}
 server {
 {%- if stream.tcp_forwarding %}
     listen {{ stream.incoming_port }}{% if stream.certificate %} ssl{% endif %};
@@ -22,5 +22,9 @@ server {
     ssl_certificate_key {{ stream.certificate.privkey_path }};
 {%- endif %}
 
+{%- if stream.upstream_id %}
+    proxy_pass {{ pool_name }};
+{%- else %}
     proxy_pass {{ stream.forward_host }}:{{ stream.forward_port }};
+{%- endif %}
 }

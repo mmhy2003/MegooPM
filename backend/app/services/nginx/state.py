@@ -170,15 +170,17 @@ class StreamSpec:
     """A raw TCP/UDP forward rendered inside the top-level ``stream {}`` context.
 
     A single stream may forward TCP, UDP, or both from ``incoming_port`` to
-    ``forward_host:forward_port``. At least one protocol is always enabled (a DB
-    check constraint guarantees it). When a certificate is present, the TCP
-    listener terminates TLS (``listen ... ssl``); UDP cannot.
+    either ``forward_host:forward_port`` or an upstream pool — exactly one, which
+    a DB check constraint guarantees. At least one protocol is always enabled
+    (another constraint). When a certificate is present, the TCP listener
+    terminates TLS (``listen ... ssl``); UDP cannot.
     """
 
     id: int
     incoming_port: int
-    forward_host: str
-    forward_port: int
+    forward_host: str | None = None
+    forward_port: int | None = None
+    upstream_id: int | None = None
     tcp_forwarding: bool = True
     udp_forwarding: bool = False
     certificate: CertificateSpec | None = None

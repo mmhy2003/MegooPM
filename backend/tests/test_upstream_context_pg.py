@@ -156,3 +156,44 @@ async def test_narrowing_context_is_blocked_by_a_live_stream(pg_session: AsyncSe
             pg_session, pool.id, {"context": UpstreamContext.http}
         )
     assert "1 stream(s)" in str(err.value)
+
+
+# --- loader: a stream with nothing to forward to is dropped, not fatal ------
+
+
+async def test_stream_with_an_empty_pool_is_skipped(pg_session: AsyncSession) -> None:
+    """Emitting a server block naming a pool with no servers fails nginx -t.
+
+    Dropping the one broken stream is strictly better than rolling back the
+    whole apply for every managed object.
+    """
+    from app.services.nginx.loader import load_desired_state
+
+    pool = await _pool(pg_session, "empty", UpstreamContext.stream)
+    await stream_service.create_stream(
+        pg_session, {"incoming_port": 15440, "upstream_id": pool.id}
+    )
+
+    state = await load_desired_state(pg_session)
+
+    assert state.streams == ()
+    assert state.stream_upstreams == ()
+
+
+async def test_stream_with_a_usable_pool_is_included(pg_session: AsyncSession) -> None:
+    from app.models.upstream import UpstreamBackend
+    from app.services.nginx.loader import load_desired_state
+
+    pool = await _pool(pg_session, "usable", UpstreamContext.stream)
+    pg_session.add(UpstreamBackend(upstream_id=pool.id, host="10.0.0.1", port=5432))
+    await pg_session.flush()
+    await stream_service.create_stream(
+        pg_session, {"incoming_port": 15441, "upstream_id": pool.id}
+    )
+
+    state = await load_desired_state(pg_session)
+
+    assert [s.upstream_id for s in state.streams] == [pool.id]
+    assert [p.id for p in state.stream_upstreams] == [pool.id]
+    # Stream pools must not leak into the http{} set.
+    assert state.http_upstreams == ()

@@ -143,7 +143,12 @@ def _render_dead_host(host: DeadHostSpec) -> str:
 
 
 def _render_stream(stream: StreamSpec) -> str:
-    return _env().get_template("stream.conf.j2").render(stream=stream)
+    return _env().get_template("stream.conf.j2").render(
+        stream=stream,
+        # StrictUndefined means the template cannot reference an absent name, so
+        # this is always passed even on the host:port branch that ignores it.
+        pool_name=pool_name(stream.upstream_id) if stream.upstream_id else "",
+    )
 
 
 def render_config(state: DesiredState) -> dict[str, str]:

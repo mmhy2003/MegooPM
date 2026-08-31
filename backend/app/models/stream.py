@@ -12,6 +12,7 @@ from app.models.mixins import IdMixin, TimestampMixin
 
 if TYPE_CHECKING:
     from app.models.certificate import Certificate
+    from app.models.upstream import Upstream
 
 
 class Stream(IdMixin, TimestampMixin, Base):
@@ -64,6 +65,7 @@ class Stream(IdMixin, TimestampMixin, Base):
     enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="true")
 
     certificate: Mapped[Certificate | None] = relationship()
+    upstream: Mapped[Upstream | None] = relationship()
 
 
 __all__ = ["Stream"]

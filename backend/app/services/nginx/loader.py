@@ -197,7 +197,7 @@ async def load_desired_state(
 
     redirection_specs = await _load_redirection_hosts(session, certs_dir)
     dead_specs = await _load_dead_hosts(session, certs_dir)
-    stream_specs = await _load_streams(session, certs_dir)
+    stream_specs, stream_upstream_specs = await _load_streams(session, certs_dir)
 
     return DesiredState(
         proxy_hosts=tuple(host_specs),
@@ -205,6 +205,7 @@ async def load_desired_state(
         redirection_hosts=redirection_specs,
         dead_hosts=dead_specs,
         streams=stream_specs,
+        stream_upstreams=stream_upstream_specs,
     )
 
 
@@ -269,30 +270,57 @@ async def _load_dead_hosts(session: AsyncSession, certs_dir: str) -> tuple[DeadH
     )
 
 
-async def _load_streams(session: AsyncSession, certs_dir: str) -> tuple[StreamSpec, ...]:
+async def _load_streams(
+    session: AsyncSession, certs_dir: str
+) -> tuple[tuple[StreamSpec, ...], tuple[UpstreamSpec, ...]]:
+    """Enabled streams plus the pools they reference, for the stream context.
+
+    A stream whose pool is disabled or has no usable backend is skipped, exactly
+    as a proxy host with an empty pool is: emitting a ``server`` block that names
+    a non-existent ``upstream`` fails ``nginx -t`` and rolls back the whole
+    apply, so dropping the one broken object is strictly better.
+    """
     stmt = (
         select(Stream)
         .where(Stream.enabled.is_(True))
-        .options(selectinload(Stream.certificate))
+        .options(
+            selectinload(Stream.certificate),
+            selectinload(Stream.upstream).selectinload(Upstream.backends),
+        )
         .order_by(Stream.id)
     )
     rows = (await session.scalars(stmt)).all()
-    return tuple(
-        StreamSpec(
-            id=s.id,
-            incoming_port=s.incoming_port,
-            forward_host=s.forward_host,
-            forward_port=s.forward_port,
-            tcp_forwarding=s.tcp_forwarding,
-            udp_forwarding=s.udp_forwarding,
-            certificate=(
-                _certificate_spec(s.certificate, certs_dir)
-                if s.certificate is not None
-                else None
-            ),
+
+    pools: dict[int, UpstreamSpec] = {}
+    specs: list[StreamSpec] = []
+    for s in rows:
+        if s.upstream_id is not None:
+            pool = s.upstream
+            if pool is None or not pool.enabled:
+                continue  # nothing healthy to forward to
+            if pool.id not in pools:
+                pools[pool.id] = _upstream_spec(pool)
+            if not pools[pool.id].backends:
+                continue  # empty pool → skip the stream, not the whole apply
+        specs.append(
+            StreamSpec(
+                id=s.id,
+                incoming_port=s.incoming_port,
+                forward_host=s.forward_host,
+                forward_port=s.forward_port,
+                upstream_id=s.upstream_id,
+                tcp_forwarding=s.tcp_forwarding,
+                udp_forwarding=s.udp_forwarding,
+                certificate=(
+                    _certificate_spec(s.certificate, certs_dir)
+                    if s.certificate is not None
+                    else None
+                ),
+            )
         )
-        for s in rows
-    )
+    # Only pools an *included* stream actually references, in id order.
+    referenced = {sp.upstream_id for sp in specs if sp.upstream_id is not None}
+    return tuple(specs), tuple(pools[i] for i in sorted(referenced))
 
 
 def load_desired_state_sync(

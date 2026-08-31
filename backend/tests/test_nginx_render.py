@@ -7,6 +7,7 @@ exploit blocking, caching, advanced config — with no database or filesystem.
 
 from __future__ import annotations
 
+import pytest
 from app.services.nginx import render_config
 from app.services.nginx.state import (
     BackendSpec,
@@ -276,3 +277,45 @@ def test_a_shared_pool_renders_into_both_directories() -> None:
 
     assert "megoopm-upstream-7.conf" in render_config(state)
     assert "megoopm-upstream-7.conf" in render_stream_config(state)
+
+
+def test_pooled_stream_proxies_to_the_pool() -> None:
+    from app.services.nginx import render_stream_config
+    from app.services.nginx.state import StreamSpec
+
+    pool = UpstreamSpec(id=9, name="db", backends=(BackendSpec(host="10.0.0.9", port=5432),))
+    stream = StreamSpec(id=1, incoming_port=5432, upstream_id=9, tcp_forwarding=True)
+
+    files = render_stream_config(DesiredState(streams=(stream,), stream_upstreams=(pool,)))
+
+    assert "proxy_pass megoopm_upstream_9;" in files["megoopm-stream-1.conf"]
+    assert "upstream megoopm_upstream_9 {" in files["megoopm-upstream-9.conf"]
+
+
+def test_host_target_stream_is_unchanged() -> None:
+    from app.services.nginx import render_stream_config
+    from app.services.nginx.state import StreamSpec
+
+    stream = StreamSpec(
+        id=1,
+        incoming_port=5432,
+        forward_host="db.internal",
+        forward_port=5432,
+        tcp_forwarding=True,
+    )
+
+    files = render_stream_config(DesiredState(streams=(stream,)))
+
+    assert "proxy_pass db.internal:5432;" in files["megoopm-stream-1.conf"]
+
+
+def test_ip_hash_is_refused_in_the_stream_context() -> None:
+    """Validation should make this unreachable; a hand-edited row must not
+    silently emit a directive that breaks nginx -t on every node."""
+    from app.services.nginx import render_stream_config
+
+    pool = UpstreamSpec(
+        id=3, name="bad", lb_method="ip_hash", backends=(BackendSpec(host="10.0.0.3", port=1),)
+    )
+    with pytest.raises(ValueError, match="ip_hash"):
+        render_stream_config(DesiredState(stream_upstreams=(pool,)))
