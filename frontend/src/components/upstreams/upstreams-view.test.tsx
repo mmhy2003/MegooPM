@@ -59,3 +59,31 @@ describe("UpstreamsView", () => {
     expect(toast.error).toHaveBeenCalled();
   });
 });
+
+describe("UpstreamsView context column", () => {
+  afterEach(() => {
+    cleanup();
+    vi.restoreAllMocks();
+  });
+
+  it("shows each pool's context", async () => {
+    vi.spyOn(upstreams, "list").mockResolvedValue([
+      makePool({ id: 1, name: "web", context: "http" }),
+      makePool({ id: 2, name: "db", context: "stream" }),
+      makePool({ id: 3, name: "shared", context: "both" }),
+    ]);
+    render(<UpstreamsView />);
+
+    expect(await screen.findByText("HTTP")).toBeInTheDocument();
+    expect(screen.getByText("Streams")).toBeInTheDocument();
+    expect(screen.getByText("Both")).toBeInTheDocument();
+  });
+
+  it("heads the column", async () => {
+    vi.spyOn(upstreams, "list").mockResolvedValue([makePool()]);
+    render(<UpstreamsView />);
+    expect(
+      await screen.findByRole("columnheader", { name: "Context" }),
+    ).toBeInTheDocument();
+  });
+});

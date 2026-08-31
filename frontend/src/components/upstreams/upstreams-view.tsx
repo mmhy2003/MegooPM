@@ -5,7 +5,12 @@ import { toast } from "sonner";
 import { useCallback, useEffect, useState } from "react";
 import { Pencil, Plus, Server, Trash2 } from "lucide-react";
 
-import { LB_METHOD_LABELS, upstreams, type Upstream } from "@/lib/api";
+import {
+  LB_METHOD_LABELS,
+  upstreams,
+  type Upstream,
+  type UpstreamContext,
+} from "@/lib/api";
 import { describeError } from "@/components/proxy-hosts/lib";
 import { ConfirmDeleteDialog } from "@/components/proxy-hosts/confirm-delete-dialog";
 import { UpstreamDialog } from "@/components/upstreams/upstream-dialog";
@@ -21,6 +26,18 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+
+/** Table-width context names.
+ *
+ * Deliberately not the dialog's CONTEXT_LABELS: those are written to teach
+ * someone choosing a value ("HTTP only (proxy hosts)") and are far too long to
+ * scan down a column. Two maps for two jobs beats one that does neither well.
+ */
+const CONTEXT_SHORT_LABELS: Record<UpstreamContext, string> = {
+  http: "HTTP",
+  stream: "Streams",
+  both: "Both",
+};
 
 function LoadingRows({ cols }: { cols: number }) {
   return (
@@ -128,6 +145,7 @@ export function UpstreamsView() {
               <TableRow>
                 <TableHead>Name</TableHead>
                 <TableHead>LB method</TableHead>
+                <TableHead>Context</TableHead>
                 <TableHead>Backends</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="w-24 text-right">Actions</TableHead>
@@ -135,10 +153,10 @@ export function UpstreamsView() {
             </TableHeader>
             <TableBody>
               {loading ? (
-                <LoadingRows cols={5} />
+                <LoadingRows cols={6} />
               ) : pools.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="py-10 text-center text-muted-foreground">
+                  <TableCell colSpan={6} className="py-10 text-center text-muted-foreground">
                     No upstream pools yet. Create one to define a load-balanced backend set.
                   </TableCell>
                 </TableRow>
@@ -160,6 +178,13 @@ export function UpstreamsView() {
                       </TableCell>
                       <TableCell>
                         <Badge variant="secondary">{LB_METHOD_LABELS[pool.lb_method]}</Badge>
+                      </TableCell>
+                      <TableCell>
+                        {/* outline, not secondary: a different kind of fact
+                            from the method badge sitting beside it. */}
+                        <Badge variant="outline">
+                          {CONTEXT_SHORT_LABELS[pool.context]}
+                        </Badge>
                       </TableCell>
                       <TableCell>
                         <span className="tabular-nums">
