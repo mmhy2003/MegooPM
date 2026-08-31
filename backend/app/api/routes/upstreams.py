@@ -132,7 +132,7 @@ async def delete_upstream(
     except upstream_service.UpstreamInUseError:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="Upstream is still referenced by one or more proxy hosts",
+            detail="Upstream is still referenced by one or more proxy hosts or streams",
         ) from None
     await after_config_write(
         db,

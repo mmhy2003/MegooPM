@@ -11,6 +11,7 @@ from pathlib import Path
 
 import pytest
 from app.models.stream import Stream
+from app.schemas.stream import StreamCreate
 from sqlalchemy import create_engine
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -58,3 +59,34 @@ def test_port_range_still_enforced_when_a_host_is_given(engine) -> None:
     with Session(engine) as s, pytest.raises(IntegrityError):
         s.add(Stream(incoming_port=3, forward_host="h", forward_port=70000))
         s.commit()
+
+
+# --- schema: exactly one target (rule 6) ------------------------------------
+
+
+def test_schema_rejects_both_targets() -> None:
+    with pytest.raises(ValueError, match="either a forward host"):
+        StreamCreate(incoming_port=1, forward_host="h", forward_port=2, upstream_id=3)
+
+
+def test_schema_rejects_neither_target() -> None:
+    with pytest.raises(ValueError, match="either a forward host"):
+        StreamCreate(incoming_port=1)
+
+
+def test_schema_rejects_a_half_specified_host() -> None:
+    """A host without a port is not a target; it must not slip through as one."""
+    with pytest.raises(ValueError, match="either a forward host"):
+        StreamCreate(incoming_port=1, forward_host="h")
+
+
+def test_schema_accepts_a_pool() -> None:
+    body = StreamCreate(incoming_port=1, upstream_id=3)
+    assert body.upstream_id == 3
+    assert body.forward_host is None
+
+
+def test_schema_accepts_a_host_and_port() -> None:
+    body = StreamCreate(incoming_port=1, forward_host="db.internal", forward_port=5432)
+    assert body.upstream_id is None
+    assert (body.forward_host, body.forward_port) == ("db.internal", 5432)

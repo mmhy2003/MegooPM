@@ -2965,18 +2965,32 @@
             "type": "boolean"
           },
           "forward_host": {
-            "description": "Backend host traffic is forwarded to",
-            "maxLength": 255,
-            "minLength": 1,
-            "title": "Forward Host",
-            "type": "string"
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Backend host traffic is forwarded to; null when using a pool",
+            "title": "Forward Host"
           },
           "forward_port": {
-            "description": "Backend port traffic is forwarded to",
-            "maximum": 65535.0,
-            "minimum": 1.0,
-            "title": "Forward Port",
-            "type": "integer"
+            "anyOf": [
+              {
+                "maximum": 65535.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Backend port traffic is forwarded to; null when using a pool",
+            "title": "Forward Port"
           },
           "incoming_port": {
             "description": "Port nginx listens on for this stream",
@@ -2996,12 +3010,22 @@
             "description": "Forward UDP on the incoming port",
             "title": "Udp Forwarding",
             "type": "boolean"
+          },
+          "upstream_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Upstream pool to forward to, for weighted balancing and failover. Mutually exclusive with forward_host/forward_port.",
+            "title": "Upstream Id"
           }
         },
         "required": [
-          "incoming_port",
-          "forward_host",
-          "forward_port"
+          "incoming_port"
         ],
         "title": "StreamCreate",
         "type": "object"
@@ -3033,18 +3057,32 @@
             "type": "boolean"
           },
           "forward_host": {
-            "description": "Backend host traffic is forwarded to",
-            "maxLength": 255,
-            "minLength": 1,
-            "title": "Forward Host",
-            "type": "string"
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Backend host traffic is forwarded to; null when using a pool",
+            "title": "Forward Host"
           },
           "forward_port": {
-            "description": "Backend port traffic is forwarded to",
-            "maximum": 65535.0,
-            "minimum": 1.0,
-            "title": "Forward Port",
-            "type": "integer"
+            "anyOf": [
+              {
+                "maximum": 65535.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Backend port traffic is forwarded to; null when using a pool",
+            "title": "Forward Port"
           },
           "id": {
             "title": "Id",
@@ -3073,12 +3111,22 @@
             "format": "date-time",
             "title": "Updated At",
             "type": "string"
+          },
+          "upstream_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Upstream pool to forward to, for weighted balancing and failover. Mutually exclusive with forward_host/forward_port.",
+            "title": "Upstream Id"
           }
         },
         "required": [
           "incoming_port",
-          "forward_host",
-          "forward_port",
           "id",
           "created_at",
           "updated_at"
@@ -3171,6 +3219,17 @@
               }
             ],
             "title": "Udp Forwarding"
+          },
+          "upstream_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Upstream Id"
           }
         },
         "title": "StreamUpdate",

@@ -20,7 +20,10 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.models.enums import UpstreamContext
 from app.models.stream import Stream
+from app.models.upstream import Upstream
+from app.services import upstream as upstream_service
 
 
 class StreamNotFoundError(Exception):
@@ -51,6 +54,23 @@ async def list_streams(db: AsyncSession) -> list[Stream]:
     return list(result.scalars().all())
 
 
+async def _assert_pool_usable(db: AsyncSession, upstream_id: int) -> None:
+    """The pool must exist and be attachable in the stream context.
+
+    An http-only pool is never rendered into ``stream {}``, so a stream naming
+    it would emit a ``server`` block referencing an ``upstream`` that does not
+    exist there — an ``nginx -t`` failure that rolls back the whole apply.
+    Reported as :class:`InvalidReferenceError`, which the routes answer 422 for.
+    """
+    pool = await db.get(Upstream, upstream_id)
+    if pool is None:
+        raise InvalidReferenceError(f"upstream {upstream_id} does not exist")
+    try:
+        upstream_service.assert_usable_in(pool, UpstreamContext.stream)
+    except upstream_service.InvalidPoolConfigError as exc:
+        raise InvalidReferenceError(str(exc)) from None
+
+
 async def create_stream(db: AsyncSession, values: dict[str, Any]) -> Stream:
     """Create a stream.
 
@@ -59,6 +79,8 @@ async def create_stream(db: AsyncSession, values: dict[str, Any]) -> Stream:
     """
     if await _port_owner(db, values["incoming_port"]) is not None:
         raise PortConflictError(f"incoming_port {values['incoming_port']} is already in use")
+    if values.get("upstream_id") is not None:
+        await _assert_pool_usable(db, values["upstream_id"])
 
     stream = Stream(**values)
     db.add(stream)
@@ -87,6 +109,9 @@ async def update_stream(db: AsyncSession, stream_id: int, changes: dict[str, Any
         owner = await _port_owner(db, new_port)
         if owner is not None and owner != stream_id:
             raise PortConflictError(f"incoming_port {new_port} is already in use")
+
+    if changes.get("upstream_id") is not None:
+        await _assert_pool_usable(db, changes["upstream_id"])
 
     for field, value in changes.items():
         setattr(stream, field, value)

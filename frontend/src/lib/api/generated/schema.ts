@@ -2583,14 +2583,14 @@ export interface components {
             enabled: boolean;
             /**
              * Forward Host
-             * @description Backend host traffic is forwarded to
+             * @description Backend host traffic is forwarded to; null when using a pool
              */
-            forward_host: string;
+            forward_host?: string | null;
             /**
              * Forward Port
-             * @description Backend port traffic is forwarded to
+             * @description Backend port traffic is forwarded to; null when using a pool
              */
-            forward_port: number;
+            forward_port?: number | null;
             /**
              * Incoming Port
              * @description Port nginx listens on for this stream
@@ -2608,6 +2608,11 @@ export interface components {
              * @default false
              */
             udp_forwarding: boolean;
+            /**
+             * Upstream Id
+             * @description Upstream pool to forward to, for weighted balancing and failover. Mutually exclusive with forward_host/forward_port.
+             */
+            upstream_id?: number | null;
         };
         /**
          * StreamRead
@@ -2632,14 +2637,14 @@ export interface components {
             enabled: boolean;
             /**
              * Forward Host
-             * @description Backend host traffic is forwarded to
+             * @description Backend host traffic is forwarded to; null when using a pool
              */
-            forward_host: string;
+            forward_host?: string | null;
             /**
              * Forward Port
-             * @description Backend port traffic is forwarded to
+             * @description Backend port traffic is forwarded to; null when using a pool
              */
-            forward_port: number;
+            forward_port?: number | null;
             /** Id */
             id: number;
             /**
@@ -2664,6 +2669,11 @@ export interface components {
              * Format: date-time
              */
             updated_at: string;
+            /**
+             * Upstream Id
+             * @description Upstream pool to forward to, for weighted balancing and failover. Mutually exclusive with forward_host/forward_port.
+             */
+            upstream_id?: number | null;
         };
         /**
          * StreamUpdate
@@ -2688,6 +2698,8 @@ export interface components {
             tcp_forwarding?: boolean | null;
             /** Udp Forwarding */
             udp_forwarding?: boolean | null;
+            /** Upstream Id */
+            upstream_id?: number | null;
         };
         /**
          * TaskEnqueued

@@ -51,8 +51,8 @@ function stateFromStream(stream: Stream | null | undefined): FormState {
   }
   return {
     incomingPort: String(stream.incoming_port),
-    forwardHost: stream.forward_host,
-    forwardPort: String(stream.forward_port),
+    forwardHost: stream.forward_host ?? "",
+    forwardPort: stream.forward_port == null ? "" : String(stream.forward_port),
     tcpForwarding: stream.tcp_forwarding,
     udpForwarding: stream.udp_forwarding,
     certificateId: valueFromCertificateId(stream.certificate_id),

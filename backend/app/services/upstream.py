@@ -22,6 +22,7 @@ from sqlalchemy.orm import selectinload
 
 from app.models.enums import LoadBalanceMethod, UpstreamContext
 from app.models.proxy_host import ProxyHost, ProxyHostLocation
+from app.models.stream import Stream
 from app.models.upstream import Upstream, UpstreamBackend
 
 
@@ -38,7 +39,7 @@ class DuplicateBackendError(Exception):
 
 
 class UpstreamInUseError(Exception):
-    """Raised when deleting a pool still referenced by a proxy host."""
+    """Raised when deleting a pool still referenced by a proxy host or stream."""
 
 
 class InvalidPoolConfigError(Exception):
@@ -108,11 +109,7 @@ def assert_context_change_allowed(
 
 
 async def reference_counts(db: AsyncSession, upstream_id: int) -> dict[str, int]:
-    """How many objects point at this pool, split by nginx context.
-
-    ``streams`` is always 0 until streams can reference a pool; the key exists
-    now so callers do not have to change shape later.
-    """
+    """How many objects point at this pool, split by nginx context."""
     hosts = await db.scalar(
         select(func.count())
         .select_from(ProxyHost)
@@ -123,7 +120,13 @@ async def reference_counts(db: AsyncSession, upstream_id: int) -> dict[str, int]
         .select_from(ProxyHostLocation)
         .where(ProxyHostLocation.upstream_id == upstream_id)
     )
-    return {"proxy_hosts": int(hosts or 0) + int(locations or 0), "streams": 0}
+    streams = await db.scalar(
+        select(func.count()).select_from(Stream).where(Stream.upstream_id == upstream_id)
+    )
+    return {
+        "proxy_hosts": int(hosts or 0) + int(locations or 0),
+        "streams": int(streams or 0),
+    }
 
 
 async def get_upstream(db: AsyncSession, upstream_id: int) -> Upstream | None:
@@ -221,7 +224,8 @@ async def delete_upstream(db: AsyncSession, upstream_id: int) -> None:
     """Delete a pool (cascading to its backends).
 
     Raises :class:`UpstreamNotFoundError` if missing, or
-    :class:`UpstreamInUseError` if a proxy host still references it (RESTRICT).
+    :class:`UpstreamInUseError` if a proxy host or stream still references it
+    (both hold RESTRICT foreign keys).
     """
     pool = await get_upstream(db, upstream_id)
     if pool is None:

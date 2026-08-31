@@ -18,6 +18,7 @@ from app.db.base import Base
 from app.models.enums import UpstreamContext
 from app.models.upstream import Upstream
 from app.services import proxy_host as proxy_host_service
+from app.services import stream as stream_service
 from app.services import upstream as upstream_service
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.pool import NullPool
@@ -107,3 +108,51 @@ async def test_narrowing_context_is_allowed_when_unreferenced(
         pg_session, pool.id, {"context": UpstreamContext.stream}
     )
     assert updated.context is UpstreamContext.stream
+
+
+# --- rule 3: a stream may only attach a stream-capable pool -----------------
+
+
+async def test_stream_cannot_attach_an_http_only_pool(pg_session: AsyncSession) -> None:
+    """An http-only pool never renders into stream{}, so the stream would break."""
+    pool = await _pool(pg_session, "web-pool", UpstreamContext.http)
+
+    with pytest.raises(stream_service.InvalidReferenceError) as err:
+        await stream_service.create_stream(
+            pg_session, {"incoming_port": 15432, "upstream_id": pool.id}
+        )
+    assert "web-pool" in str(err.value)
+
+
+@pytest.mark.parametrize("context", [UpstreamContext.stream, UpstreamContext.both])
+async def test_stream_accepts_stream_capable_pools(
+    pg_session: AsyncSession, context: UpstreamContext
+) -> None:
+    pool = await _pool(pg_session, f"s-{context.value}", context)
+
+    stream = await stream_service.create_stream(
+        pg_session, {"incoming_port": 15433, "upstream_id": pool.id}
+    )
+    assert stream.upstream_id == pool.id
+    assert stream.forward_host is None
+
+
+async def test_stream_rejects_a_missing_pool(pg_session: AsyncSession) -> None:
+    with pytest.raises(stream_service.InvalidReferenceError, match="does not exist"):
+        await stream_service.create_stream(
+            pg_session, {"incoming_port": 15434, "upstream_id": 999999}
+        )
+
+
+async def test_narrowing_context_is_blocked_by_a_live_stream(pg_session: AsyncSession) -> None:
+    """Rule 5's streams half — the count must include streams, not just hosts."""
+    pool = await _pool(pg_session, "shared-stream", UpstreamContext.both)
+    await stream_service.create_stream(
+        pg_session, {"incoming_port": 15435, "upstream_id": pool.id}
+    )
+
+    with pytest.raises(upstream_service.InvalidPoolConfigError) as err:
+        await upstream_service.update_upstream(
+            pg_session, pool.id, {"context": UpstreamContext.http}
+        )
+    assert "1 stream(s)" in str(err.value)
