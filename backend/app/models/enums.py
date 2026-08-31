@@ -20,6 +20,21 @@ class LoadBalanceMethod(enum.StrEnum):
     random = "random"
 
 
+class WhitelistKind(enum.StrEnum):
+    """What a CrowdSec whitelist matches on.
+
+    The two kinds render different YAML and carry different risk.
+    ``ip_cidr`` is fully validated before it is written — a bad address is a
+    422 and never reaches disk. ``expression`` is CrowdSec's ``expr`` language
+    and can only be checked by CrowdSec itself: a expression that does not
+    compile is fatal at startup, so a typo is caught by the apply's rollback
+    rather than by validation. See ``docs/crowdsec.md``.
+    """
+
+    ip_cidr = "ip_cidr"
+    expression = "expression"
+
+
 class UpstreamContext(enum.StrEnum):
     """Which nginx context a pool may be rendered into.
 
@@ -92,6 +107,7 @@ class AuditAction(enum.StrEnum):
 
 __all__ = [
     "LoadBalanceMethod",
+    "WhitelistKind",
     "CertificateProvider",
     "CertificateStatus",
     "HttpScheme",

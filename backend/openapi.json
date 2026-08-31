@@ -3902,6 +3902,26 @@
             "title": "Enabled",
             "type": "boolean"
           },
+          "expressions": {
+            "description": "CrowdSec expr expressions. Compiled by CrowdSec, not here — one that does not compile stops CrowdSec starting and is caught by the apply's rollback",
+            "items": {
+              "type": "string"
+            },
+            "title": "Expressions",
+            "type": "array"
+          },
+          "filter": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Optional expr filter scoping which events the expressions are evaluated against (expression whitelists only)",
+            "title": "Filter"
+          },
           "ips": {
             "description": "Exact IP addresses to exempt",
             "items": {
@@ -3909,6 +3929,11 @@
             },
             "title": "Ips",
             "type": "array"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/WhitelistKind",
+            "default": "ip_cidr",
+            "description": "What this whitelist matches on: addresses, or an expr expression"
           },
           "name": {
             "description": "Operator-facing name",
@@ -3930,6 +3955,15 @@
         ],
         "title": "WhitelistCreate",
         "type": "object"
+      },
+      "WhitelistKind": {
+        "description": "What a CrowdSec whitelist matches on.\n\nThe two kinds render different YAML and carry different risk.\n``ip_cidr`` is fully validated before it is written — a bad address is a\n422 and never reaches disk. ``expression`` is CrowdSec's ``expr`` language\nand can only be checked by CrowdSec itself: a expression that does not\ncompile is fatal at startup, so a typo is caught by the apply's rollback\nrather than by validation. See ``docs/crowdsec.md``.",
+        "enum": [
+          "ip_cidr",
+          "expression"
+        ],
+        "title": "WhitelistKind",
+        "type": "string"
       },
       "WhitelistPreview": {
         "description": "The YAML a given whitelist would contribute to the parser file.",
@@ -3969,6 +4003,25 @@
             "title": "Enabled",
             "type": "boolean"
           },
+          "expressions": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Expressions",
+            "type": "array"
+          },
+          "filter": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Optional expr filter scoping which events the expressions are evaluated against (expression whitelists only)",
+            "title": "Filter"
+          },
           "id": {
             "title": "Id",
             "type": "integer"
@@ -3979,6 +4032,9 @@
             },
             "title": "Ips",
             "type": "array"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/WhitelistKind"
           },
           "name": {
             "description": "Operator-facing name",
@@ -4001,10 +4057,12 @@
         },
         "required": [
           "name",
+          "kind",
           "reason",
           "description",
           "ips",
           "cidrs",
+          "expressions",
           "enabled",
           "id",
           "created_at",
@@ -4036,6 +4094,26 @@
             "title": "Enabled",
             "type": "boolean"
           },
+          "expressions": {
+            "description": "CrowdSec expr expressions. Compiled by CrowdSec, not here — one that does not compile stops CrowdSec starting and is caught by the apply's rollback",
+            "items": {
+              "type": "string"
+            },
+            "title": "Expressions",
+            "type": "array"
+          },
+          "filter": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Optional expr filter scoping which events the expressions are evaluated against (expression whitelists only)",
+            "title": "Filter"
+          },
           "ips": {
             "description": "Exact IP addresses to exempt",
             "items": {
@@ -4043,6 +4121,11 @@
             },
             "title": "Ips",
             "type": "array"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/WhitelistKind",
+            "default": "ip_cidr",
+            "description": "What this whitelist matches on: addresses, or an expr expression"
           },
           "name": {
             "description": "Operator-facing name",

@@ -113,6 +113,7 @@ async def member_auth(pg_conn, client: AsyncClient) -> dict[str, str]:
 def _body(**over) -> dict:
     body = {
         "name": "Internal Backends",
+        "kind": "ip_cidr",
         "reason": "internal backends trip appsec generic rules",
         "description": "",
         "ips": ["10.10.0.14"],
@@ -243,3 +244,80 @@ async def test_non_admin_cannot_list_whitelists(client, member_auth) -> None:
 
 async def test_anonymous_cannot_list_whitelists(client) -> None:
     assert (await client.get(BASE)).status_code == 401
+
+
+# --- expression whitelists -------------------------------------------------
+
+
+def _expr_body(**over) -> dict:
+    body = {
+        "name": "Health checks",
+        "kind": "expression",
+        "reason": "GET /health",
+        "description": "",
+        "ips": [],
+        "cidrs": [],
+        "filter": "evt.Meta.service == 'http'",
+        "expressions": ["evt.Meta.http_path == '/health'"],
+        "enabled": True,
+    }
+    body.update(over)
+    return body
+
+
+async def test_creates_an_expression_whitelist(client, auth) -> None:
+    resp = await client.post(BASE, headers=auth, json=_expr_body())
+    assert resp.status_code == 201, resp.text
+    body = resp.json()
+    assert body["kind"] == "expression"
+    assert body["expressions"] == ["evt.Meta.http_path == '/health'"]
+
+
+async def test_an_expression_whitelist_needs_an_expression(client, auth) -> None:
+    resp = await client.post(BASE, headers=auth, json=_expr_body(expressions=[]))
+    assert resp.status_code == 422
+    assert "at least one expression" in resp.text
+
+
+async def test_a_blank_expression_is_rejected(client, auth) -> None:
+    resp = await client.post(BASE, headers=auth, json=_expr_body(expressions=["   "]))
+    assert resp.status_code == 422
+
+
+async def test_an_expression_whitelist_refuses_ips(client, auth) -> None:
+    # Silently dropping them would be worse: CrowdSec evaluates every key it
+    # finds, so an `ip:` the operator thinks is inert would widen the whitelist.
+    resp = await client.post(BASE, headers=auth, json=_expr_body(ips=["10.0.0.1"]))
+    assert resp.status_code == 422
+    assert "cannot carry IPs" in resp.text
+
+
+async def test_an_ip_whitelist_refuses_expressions(client, auth) -> None:
+    resp = await client.post(
+        BASE, headers=auth, json=_body(expressions=["evt.Meta.x == 'y'"])
+    )
+    assert resp.status_code == 422
+    assert "cannot carry expressions" in resp.text
+
+
+async def test_an_ip_whitelist_refuses_a_filter(client, auth) -> None:
+    resp = await client.post(BASE, headers=auth, json=_body(filter="evt.Meta.x == 'y'"))
+    assert resp.status_code == 422
+
+
+async def test_preview_renders_an_expression_whitelist(client, auth) -> None:
+    resp = await client.post(f"{BASE}/preview", headers=auth, json=_expr_body())
+    assert resp.status_code == 200
+    body = resp.json()["yaml"]
+    assert "filter: \"evt.Meta.service == 'http'\"" in body
+    assert "expression:" in body
+    # Readable, not HTML-escaped into unicode escapes.
+    assert chr(92) + "u00" not in body
+
+
+async def test_defaults_to_the_ip_kind_when_unspecified(client, auth) -> None:
+    body = _body()
+    body.pop("kind", None)
+    resp = await client.post(BASE, headers=auth, json=body)
+    assert resp.status_code == 201
+    assert resp.json()["kind"] == "ip_cidr"

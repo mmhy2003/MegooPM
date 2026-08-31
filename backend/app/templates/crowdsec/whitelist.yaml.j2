@@ -1,30 +1,45 @@
 {#- Renders every enabled MegooPM whitelist as one multi-document parser file.
 
     CrowdSec reads `---`-separated documents in a single parser file as separate
-    nodes. Scalars go through `tojson` because JSON is a subset of YAML: it
-    quotes and escapes correctly whatever the operator typed, so a reason
-    containing `:` or `#` cannot break the file — and a parser file CrowdSec
-    cannot load stops it starting, which with APPSEC_FAILURE_ACTION=deny means
-    every protected host fails closed.
+    nodes (verified on v1.6.4: a two-whitelist file logs "Loaded 2 parser
+    nodes"). Scalars go through `tojson` because JSON is a subset of YAML: it
+    quotes and escapes correctly whatever the operator typed, so a reason or an
+    expression containing `:` or `#` cannot break the file — and a parser file
+    CrowdSec cannot load stops it starting, which with APPSEC_FAILURE_ACTION=deny
+    means every protected host fails closed.
+
+    Each document renders only its own kind's keys. That is not cosmetic:
+    CrowdSec evaluates every key it finds, so an `ip:` list left on an
+    expression whitelist would silently widen it.
 
     Whitespace is controlled so identical input renders byte-identical output;
     the digest of this file decides whether CrowdSec is restarted at all. -#}
 # Managed by MegooPM — do not edit by hand.
 {% for doc in docs %}---
-name: {{ ("megoopm/wl-" ~ doc.slug) | tojson }}
-description: {{ doc.description | tojson }}
+name: {{ ("megoopm/wl-" ~ doc.slug) | yamlstr }}
+description: {{ doc.description | yamlstr }}
+{%- if doc.is_expression and doc.filter %}
+filter: {{ doc.filter | yamlstr }}
+{%- endif %}
 whitelist:
-  reason: {{ doc.reason | tojson }}
+  reason: {{ doc.reason | yamlstr }}
+{%- if doc.is_expression %}
+  expression:
+{%- for expression in doc.expressions %}
+    - {{ expression | yamlstr }}
+{%- endfor %}
+{%- else %}
 {%- if doc.ips %}
   ip:
 {%- for ip in doc.ips %}
-    - {{ ip | tojson }}
+    - {{ ip | yamlstr }}
 {%- endfor %}
 {%- endif %}
 {%- if doc.cidrs %}
   cidr:
 {%- for cidr in doc.cidrs %}
-    - {{ cidr | tojson }}
+    - {{ cidr | yamlstr }}
 {%- endfor %}
+{%- endif %}
 {%- endif %}
 {% endfor -%}

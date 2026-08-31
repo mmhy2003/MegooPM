@@ -3139,10 +3139,25 @@ export interface components {
              */
             enabled: boolean;
             /**
+             * Expressions
+             * @description CrowdSec expr expressions. Compiled by CrowdSec, not here — one that does not compile stops CrowdSec starting and is caught by the apply's rollback
+             */
+            expressions?: string[];
+            /**
+             * Filter
+             * @description Optional expr filter scoping which events the expressions are evaluated against (expression whitelists only)
+             */
+            filter?: string | null;
+            /**
              * Ips
              * @description Exact IP addresses to exempt
              */
             ips?: string[];
+            /**
+             * @description What this whitelist matches on: addresses, or an expr expression
+             * @default ip_cidr
+             */
+            kind: components["schemas"]["WhitelistKind"];
             /**
              * Name
              * @description Operator-facing name
@@ -3154,6 +3169,19 @@ export interface components {
              */
             reason: string;
         };
+        /**
+         * WhitelistKind
+         * @description What a CrowdSec whitelist matches on.
+         *
+         *     The two kinds render different YAML and carry different risk.
+         *     ``ip_cidr`` is fully validated before it is written — a bad address is a
+         *     422 and never reaches disk. ``expression`` is CrowdSec's ``expr`` language
+         *     and can only be checked by CrowdSec itself: a expression that does not
+         *     compile is fatal at startup, so a typo is caught by the apply's rollback
+         *     rather than by validation. See ``docs/crowdsec.md``.
+         * @enum {string}
+         */
+        WhitelistKind: "ip_cidr" | "expression";
         /**
          * WhitelistPreview
          * @description The YAML a given whitelist would contribute to the parser file.
@@ -3185,10 +3213,18 @@ export interface components {
             description: string;
             /** Enabled */
             enabled: boolean;
+            /** Expressions */
+            expressions: string[];
+            /**
+             * Filter
+             * @description Optional expr filter scoping which events the expressions are evaluated against (expression whitelists only)
+             */
+            filter?: string | null;
             /** Id */
             id: number;
             /** Ips */
             ips: string[];
+            kind: components["schemas"]["WhitelistKind"];
             /**
              * Name
              * @description Operator-facing name
@@ -3228,10 +3264,25 @@ export interface components {
              */
             enabled: boolean;
             /**
+             * Expressions
+             * @description CrowdSec expr expressions. Compiled by CrowdSec, not here — one that does not compile stops CrowdSec starting and is caught by the apply's rollback
+             */
+            expressions?: string[];
+            /**
+             * Filter
+             * @description Optional expr filter scoping which events the expressions are evaluated against (expression whitelists only)
+             */
+            filter?: string | null;
+            /**
              * Ips
              * @description Exact IP addresses to exempt
              */
             ips?: string[];
+            /**
+             * @description What this whitelist matches on: addresses, or an expr expression
+             * @default ip_cidr
+             */
+            kind: components["schemas"]["WhitelistKind"];
             /**
              * Name
              * @description Operator-facing name

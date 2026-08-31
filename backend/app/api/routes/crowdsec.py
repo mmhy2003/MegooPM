@@ -285,7 +285,7 @@ async def create_whitelist(
         action=AuditAction.create,
         object_type="crowdsec_whitelist",
         object_id=row.id,
-        meta={"name": row.name, "ips": row.ips, "cidrs": row.cidrs},
+        meta={"name": row.name, "kind": str(row.kind)},
     )
     await db.commit()
     await db.refresh(row)
@@ -352,6 +352,9 @@ async def preview_whitelist(_: AdminUser, payload: WhitelistCreate) -> Whitelist
         description=payload.description,
         ips=payload.ips,
         cidrs=payload.cidrs,
+        kind=str(payload.kind),
+        filter=payload.filter,
+        expressions=payload.expressions,
     )
     try:
         return WhitelistPreview(yaml=render_whitelists([doc]))

@@ -324,10 +324,13 @@ export function SecurityView() {
     async (row: Whitelist, next: boolean) => {
       await crowdsec.updateWhitelist(row.id, {
         name: row.name,
+        kind: row.kind,
         reason: row.reason,
         description: row.description,
         ips: row.ips,
         cidrs: row.cidrs,
+        filter: row.filter,
+        expressions: row.expressions,
         enabled: next,
       });
       await loadWhitelists();

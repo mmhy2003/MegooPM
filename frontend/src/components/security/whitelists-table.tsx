@@ -12,10 +12,15 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import type { Whitelist } from "@/lib/api";
+import { Badge } from "@/components/ui/badge";
+import { WHITELIST_KIND_LABELS, type Whitelist } from "@/lib/api";
 
 /** "1 IP, 2 CIDRs" — a one-entry whitelist is the common case, so plurals matter. */
 function coverage(row: Whitelist): string {
+  if (row.kind === "expression") {
+    const n = row.expressions.length;
+    return `${n} expression${n === 1 ? "" : "s"}`;
+  }
   const parts: string[] = [];
   if (row.ips.length) parts.push(`${row.ips.length} IP${row.ips.length === 1 ? "" : "s"}`);
   if (row.cidrs.length)
@@ -48,6 +53,7 @@ export function WhitelistsTable({
       <TableHeader>
         <TableRow>
           <TableHead>Name</TableHead>
+          <TableHead>Kind</TableHead>
           <TableHead>Reason</TableHead>
           <TableHead>Covers</TableHead>
           <TableHead>Enabled</TableHead>
@@ -58,6 +64,11 @@ export function WhitelistsTable({
         {rows.map((row) => (
           <TableRow key={row.id}>
             <TableCell className="font-medium">{row.name}</TableCell>
+            <TableCell>
+              <Badge variant={row.kind === "expression" ? "outline" : "secondary"}>
+                {WHITELIST_KIND_LABELS[row.kind]}
+              </Badge>
+            </TableCell>
             <TableCell className="text-muted-foreground">{row.reason}</TableCell>
             <TableCell>{coverage(row)}</TableCell>
             <TableCell>

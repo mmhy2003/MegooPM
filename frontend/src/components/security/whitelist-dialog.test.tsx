@@ -115,3 +115,94 @@ describe("WhitelistDialog", () => {
     await waitFor(() => expect(previewWhitelist).not.toHaveBeenCalled());
   });
 });
+
+describe("WhitelistDialog — expression kind", () => {
+  async function switchToExpression(user: ReturnType<typeof userEvent.setup>) {
+    await user.click(screen.getByLabelText("Kind"));
+    await user.click(await screen.findByRole("option", { name: "Expression" }));
+  }
+
+  it("swaps the address fields for expression fields", async () => {
+    const user = userEvent.setup();
+    open();
+
+    expect(screen.getByLabelText("IP addresses")).toBeInTheDocument();
+    await switchToExpression(user);
+
+    expect(screen.getByLabelText("Expressions")).toBeInTheDocument();
+    expect(screen.getByLabelText("Filter (optional)")).toBeInTheDocument();
+    // Sending both kinds' fields would be worse than useless: CrowdSec
+    // evaluates every key it finds.
+    expect(screen.queryByLabelText("IP addresses")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("CIDR ranges")).not.toBeInTheDocument();
+  });
+
+  it("warns that an expression cannot be validated before saving", async () => {
+    const user = userEvent.setup();
+    open();
+    await switchToExpression(user);
+    expect(screen.getByText(/compiled by CrowdSec, not here/i)).toBeInTheDocument();
+  });
+
+  it("refuses to save with no expression", async () => {
+    const user = userEvent.setup();
+    const onSubmit = open();
+    await switchToExpression(user);
+
+    await user.type(screen.getByLabelText("Name"), "Health");
+    await user.type(screen.getByLabelText("Reason"), "health checks");
+    await user.click(screen.getByRole("button", { name: "Save" }));
+
+    expect(await screen.findByText(/at least one expression/i)).toBeInTheDocument();
+    expect(onSubmit).not.toHaveBeenCalled();
+  });
+
+  it("sends the expression fields and empties the address fields", async () => {
+    const user = userEvent.setup();
+    const onSubmit = open();
+    await switchToExpression(user);
+
+    await user.type(screen.getByLabelText("Name"), "Health");
+    await user.type(screen.getByLabelText("Reason"), "health checks");
+    await user.type(screen.getByLabelText("Filter (optional)"), "evt.Meta.service == 'http'");
+    await user.type(
+      screen.getByLabelText("Expressions"),
+      "evt.Meta.http_path == '/health'{enter}evt.Meta.http_verb == 'GET'",
+    );
+    await user.click(screen.getByRole("button", { name: "Save" }));
+
+    await waitFor(() =>
+      expect(onSubmit).toHaveBeenCalledWith({
+        name: "Health",
+        kind: "expression",
+        reason: "health checks",
+        description: "",
+        enabled: true,
+        ips: [],
+        cidrs: [],
+        filter: "evt.Meta.service == 'http'",
+        expressions: [
+          "evt.Meta.http_path == '/health'",
+          "evt.Meta.http_verb == 'GET'",
+        ],
+      }),
+    );
+  });
+
+  it("sends a null filter when none was typed", async () => {
+    const user = userEvent.setup();
+    const onSubmit = open();
+    await switchToExpression(user);
+
+    await user.type(screen.getByLabelText("Name"), "Health");
+    await user.type(screen.getByLabelText("Reason"), "health checks");
+    await user.type(screen.getByLabelText("Expressions"), "evt.Meta.http_path == '/health'");
+    await user.click(screen.getByRole("button", { name: "Save" }));
+
+    // An absent filter means "every event"; sending "" would be a filter that
+    // matches nothing.
+    await waitFor(() =>
+      expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ filter: null })),
+    );
+  });
+});

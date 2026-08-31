@@ -14,20 +14,45 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from sqlalchemy import Boolean, CheckConstraint, DateTime, Integer, String, Text, true
+from sqlalchemy import (
+    Boolean,
+    CheckConstraint,
+    DateTime,
+    Enum,
+    Integer,
+    String,
+    Text,
+    true,
+)
 from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
+from app.models.enums import WhitelistKind
 from app.models.mixins import IdMixin, TimestampMixin
 
 
 class CrowdSecWhitelist(IdMixin, TimestampMixin, Base):
-    """One whitelist document: a reason plus the IPs and CIDRs it exempts."""
+    """One whitelist document.
+
+    ``kind`` decides which fields are meaningful and what gets rendered: an
+    ``ip_cidr`` whitelist exempts addresses, an ``expression`` one exempts
+    whatever its expr expressions match. Both render into the same parser file.
+    """
 
     __tablename__ = "crowdsec_whitelists"
 
     name: Mapped[str] = mapped_column(String(255), nullable=False, unique=True)
+    kind: Mapped[WhitelistKind] = mapped_column(
+        Enum(
+            WhitelistKind,
+            name="whitelist_kind",
+            values_callable=lambda e: [m.value for m in e],
+        ),
+        nullable=False,
+        default=WhitelistKind.ip_cidr,
+        server_default=WhitelistKind.ip_cidr.value,
+    )
     reason: Mapped[str] = mapped_column(Text, nullable=False)
     description: Mapped[str] = mapped_column(
         Text, nullable=False, default="", server_default=""
@@ -38,6 +63,12 @@ class CrowdSecWhitelist(IdMixin, TimestampMixin, Base):
     cidrs: Mapped[list[str]] = mapped_column(
         ARRAY(Text), nullable=False, default=list, server_default="{}"
     )
+    # Optional top-level `filter:` scoping which events an expression whitelist
+    # is evaluated against. Meaningless for an ip_cidr whitelist.
+    filter: Mapped[str | None] = mapped_column(Text, nullable=True)
+    expressions: Mapped[list[str]] = mapped_column(
+        ARRAY(Text), nullable=False, default=list, server_default="{}"
+    )
     enabled: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=True, server_default=true()
     )
@@ -45,7 +76,11 @@ class CrowdSecWhitelist(IdMixin, TimestampMixin, Base):
     __table_args__ = (
         # A whitelist matching nothing is always a mistake, and an empty
         # `whitelist:` block would render without complaint.
-        CheckConstraint("cardinality(ips) + cardinality(cidrs) > 0", name="not_empty"),
+        CheckConstraint(
+            "(kind = 'ip_cidr' AND cardinality(ips) + cardinality(cidrs) > 0)"
+            " OR (kind = 'expression' AND cardinality(expressions) > 0)",
+            name="not_empty",
+        ),
     )
 
 

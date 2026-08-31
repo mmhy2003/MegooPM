@@ -232,6 +232,15 @@ The Security page has a **Whitelists** tab where an operator names a set of IPs
 and CIDR ranges that CrowdSec should ignore — the answer to an internal backend
 tripping an AppSec rule and getting banned.
 
+A whitelist is one of two **kinds**:
+
+- **IP / CIDR** — exempt specific addresses or ranges. Fully validated before
+  anything is written: a bad address is a 422 and never reaches disk.
+- **Expression** — a CrowdSec `expr` expression, with an optional top-level
+  `filter:` scoping which events it runs against. Use it for false positives
+  that are not about *who* is calling but *what* they called, e.g. a health
+  check tripping an AppSec rule.
+
 These are **parser whitelists**: the event is dropped in the parsing pipeline,
 so no alert and no decision is ever created. That is a deliberate choice over
 suppressing enforcement in the nginx bouncer, which would leave the Security
@@ -282,6 +291,22 @@ That is why the apply validates before writing, keeps the previous bytes, and
 **restores them and restarts again** if LAPI does not answer within
 `CROWDSEC_RELOAD_HEALTH_TIMEOUT_SECONDS`. Rollback is part of the feature.
 
+**An expression cannot be validated before you save it.** CrowdSec compiles
+`expr` itself and there is no offline compiler to call from the backend, so the
+first time a typo is caught is when CrowdSec refuses to start. Measured on
+v1.6.4:
+
+```
+level=fatal msg="crowdsec init: while loading parsers: failed to compile node
+'megoopm/wl-broken-expr' in '/etc/crowdsec/parsers/s02-enrich/99-megoopm-whitelist.yaml'
+: unable to compile whitelist expression '...' : unexpected token Operator("==") (1:22)"
+```
+
+The rollback catches it — LAPI never answers, the previous file goes back — so
+the cost is one restart cycle, not an outage. But it *is* a real restart cycle
+triggered from a form, which is why the dialog says so plainly. IP/CIDR
+whitelists carry no such risk.
+
 **Applying restarts CrowdSec, which briefly denies traffic.** For the few
 seconds the container is down, AppSec is unreachable and the bouncer fails
 closed on every protected host. This is why an unchanged render performs no
@@ -290,9 +315,9 @@ disk, and does nothing when neither has moved.
 
 ### Multi-document rendering
 
-One file holds one YAML document per whitelist, `---` separated. Verified on
-v1.6.4: the engine logs `Loaded 2 parser nodes` for a two-whitelist file, so
-both are live. Note that `cscli parsers list` shows only **one row per file**,
+One file holds one YAML document per whitelist, `---` separated, regardless of
+kind. Verified on v1.6.4: a file with one IP/CIDR and two expression whitelists
+logs `Loaded 3 parser nodes`, so all of them are live. Note that `cscli parsers list` shows only **one row per file**,
 naming the first document — that is a display detail, not a sign the rest were
 ignored.
 
@@ -300,8 +325,16 @@ Names render as `megoopm/wl-<slug>`. CrowdSec requires parser names to be
 unique across everything it loads, so the API returns 409 when two names
 slugify to the same value rather than letting the container fail to start.
 
+Each document renders only its own kind's keys. That is not cosmetic: CrowdSec
+evaluates every key it finds, so an `ip:` list left on an expression whitelist
+would silently widen it. The API rejects a payload carrying the other kind's
+fields rather than dropping them.
+
 Scalars are emitted as JSON strings (JSON being a subset of YAML), so a reason
-containing `:` or `#` cannot break the file.
+or an expression containing `:` or `#` cannot break the file. Note this uses a
+local `yamlstr` filter, **not** Jinja's `tojson` — that one is HTML-safe and
+escapes every `'` and `&` into `'` / `&`, which YAML decodes back
+correctly but renders an expression unreadable in the dialog's preview.
 
 ### Configuration
 

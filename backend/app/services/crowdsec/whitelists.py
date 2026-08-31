@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import hashlib
 import ipaddress
+import json
 import re
 from collections.abc import Sequence
 from dataclasses import dataclass
@@ -68,31 +69,82 @@ def validate_entries(ips: Sequence[str], cidrs: Sequence[str]) -> None:
             ) from exc
 
 
+def validate_expressions(expressions: Sequence[str]) -> None:
+    """Reject what we *can* check about expressions, which is not much.
+
+    CrowdSec compiles ``expr`` expressions itself and there is no offline
+    compiler to call from here, so a syntactically wrong expression is only
+    discovered when CrowdSec refuses to start — measured on v1.6.4:
+
+        level=fatal msg="crowdsec init: while loading parsers: failed to
+        compile node ... unable to compile whitelist expression ..."
+
+    The apply's rollback is what makes that survivable. All this can do is stop
+    the two cases that are certainly wrong before paying a restart for them.
+    """
+    if not expressions:
+        raise WhitelistValidationError(
+            "An expression whitelist needs at least one expression."
+        )
+    for expression in expressions:
+        if not expression.strip():
+            raise WhitelistValidationError(
+                "An expression cannot be empty — CrowdSec fails to compile it."
+            )
+
+
 @dataclass(frozen=True, slots=True)
 class WhitelistDoc:
-    """One whitelist, decoupled from the ORM so the renderer needs no database."""
+    """One whitelist, decoupled from the ORM so the renderer needs no database.
+
+    ``kind`` selects which fields are rendered: ``ip_cidr`` emits ``ip:``/
+    ``cidr:``, ``expression`` emits an optional top-level ``filter:`` plus
+    ``expression:``. Rendering the other kind's keys would not be inert —
+    CrowdSec evaluates every key it finds.
+    """
 
     name: str
     reason: str
     description: str
-    ips: tuple[str, ...] | list[str]
-    cidrs: tuple[str, ...] | list[str]
+    ips: tuple[str, ...] | list[str] = ()
+    cidrs: tuple[str, ...] | list[str] = ()
+    kind: str = "ip_cidr"
+    filter: str | None = None
+    expressions: tuple[str, ...] | list[str] = ()
 
     @property
     def slug(self) -> str:
         return slugify(self.name)
 
+    @property
+    def is_expression(self) -> bool:
+        return self.kind == "expression"
+
+
+def _yaml_str(value: str) -> str:
+    """Quote a scalar as a JSON string, which YAML accepts verbatim.
+
+    Not Jinja's ``tojson``: that one is HTML-safe, so it escapes ``'`` and
+    ``&`` into ``\u0027`` / ``\u0026``. YAML decodes those back correctly, but
+    expressions are full of both — ``evt.Meta.x == 'a' && ...`` came out as
+    ``evt.Meta.x == \u0027a\u0027 \u0026\u0026 ...``, which is unreadable in
+    the dialog's preview and in the file an operator may have to debug.
+    """
+    return json.dumps(value)
+
 
 @lru_cache(maxsize=1)
 def _env() -> Environment:
     """Build the Jinja environment once and cache it."""
-    return Environment(
+    env = Environment(
         loader=FileSystemLoader(str(TEMPLATES_DIR)),
         undefined=StrictUndefined,  # fail loudly on a typo'd template variable
         keep_trailing_newline=True,
         trim_blocks=False,
         lstrip_blocks=False,
     )
+    env.filters["yamlstr"] = _yaml_str
+    return env
 
 
 def render_whitelists(docs: Sequence[WhitelistDoc]) -> str:
@@ -102,8 +154,16 @@ def render_whitelists(docs: Sequence[WhitelistDoc]) -> str:
     starting, so an invalid entry must never reach the file.
     """
     for doc in docs:
-        validate_entries(doc.ips, doc.cidrs)
         slugify(doc.name)
+        if doc.is_expression:
+            validate_expressions(doc.expressions)
+        else:
+            validate_entries(doc.ips, doc.cidrs)
+            if not doc.ips and not doc.cidrs:
+                raise WhitelistValidationError(
+                    f"Whitelist {doc.name!r} needs at least one IP address or "
+                    "CIDR range."
+                )
     return _env().get_template("whitelist.yaml.j2").render(docs=docs)
 
 
@@ -146,5 +206,6 @@ __all__ = [
     "render_whitelists",
     "slugify",
     "validate_entries",
+    "validate_expressions",
     "write_whitelist_file",
 ]

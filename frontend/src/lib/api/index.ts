@@ -102,6 +102,8 @@ export {
   DECISION_DURATIONS,
   DEFAULT_PAGE_SIZE,
   PAGE_SIZE_OPTIONS,
+  WHITELIST_KINDS,
+  WHITELIST_KIND_LABELS,
 } from "@/lib/api/resources/crowdsec";
 export type {
   CrowdSecHealth,
@@ -119,6 +121,7 @@ export type {
   WhitelistUpdate,
   WhitelistPreview,
   WhitelistApplyStatus,
+  WhitelistKind,
 } from "@/lib/api/resources/crowdsec";
 
 export { users, USER_ROLES, USER_ROLE_LABELS } from "@/lib/api/resources/users";

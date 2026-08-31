@@ -131,6 +131,9 @@ def _load_docs(conn: Connection) -> list[WhitelistDoc]:
             description=row.description,
             ips=list(row.ips),
             cidrs=list(row.cidrs),
+            kind=str(row.kind),
+            filter=row.filter,
+            expressions=list(row.expressions),
         )
         for row in rows
     ]

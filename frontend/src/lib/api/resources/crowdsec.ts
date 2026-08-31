@@ -24,6 +24,22 @@ export type WhitelistCreate = Schemas["WhitelistCreate"];
 export type WhitelistUpdate = Schemas["WhitelistUpdate"];
 export type WhitelistPreview = Schemas["WhitelistPreview"];
 export type WhitelistApplyStatus = Schemas["WhitelistApplyStatus"];
+export type WhitelistKind = Schemas["WhitelistKind"];
+
+/**
+ * What a whitelist matches on.
+ *
+ * The two kinds carry different risk. `ip_cidr` is fully validated before
+ * anything is written. `expression` is CrowdSec's expr language, which only
+ * CrowdSec can compile — a bad one stops it starting and is caught by the
+ * apply's rollback rather than by validation.
+ */
+export const WHITELIST_KINDS: readonly WhitelistKind[] = ["ip_cidr", "expression"] as const;
+
+export const WHITELIST_KIND_LABELS: Record<WhitelistKind, string> = {
+  ip_cidr: "IP / CIDR",
+  expression: "Expression",
+};
 
 /** The scope a manual decision applies to — a single IP or a CIDR range. */
 export type DecisionScope = DecisionCreate["scope"];

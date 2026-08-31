@@ -8,13 +8,28 @@ import type { Whitelist } from "@/lib/api";
 const ROW: Whitelist = {
   id: 1,
   name: "Internal Backends",
+  kind: "ip_cidr",
   reason: "internal backends trip appsec generic rules",
   description: "",
   ips: ["10.10.0.14"],
   cidrs: ["10.10.0.0/24"],
+  filter: null,
+  expressions: [],
   enabled: true,
   created_at: "2026-08-31T00:00:00Z",
   updated_at: "2026-08-31T00:00:00Z",
+};
+
+const EXPR_ROW: Whitelist = {
+  ...ROW,
+  id: 2,
+  name: "Health checks",
+  kind: "expression",
+  reason: "GET /health",
+  ips: [],
+  cidrs: [],
+  filter: "evt.Meta.service == 'http'",
+  expressions: ["evt.Meta.http_path == '/health'"],
 };
 
 afterEach(cleanup);
@@ -61,6 +76,33 @@ describe("WhitelistsTable", () => {
     await user.click(screen.getByRole("button", { name: "Delete Internal Backends" }));
     expect(onEdit).toHaveBeenCalledWith(ROW);
     expect(onDelete).toHaveBeenCalledWith(ROW);
+  });
+
+  it("labels each row with its kind", () => {
+    render(
+      <WhitelistsTable
+        rows={[ROW, EXPR_ROW]}
+        onToggle={async () => {}}
+        onEdit={() => {}}
+        onDelete={() => {}}
+      />,
+    );
+    expect(screen.getByText("IP / CIDR")).toBeInTheDocument();
+    expect(screen.getByText("Expression")).toBeInTheDocument();
+  });
+
+  it("summarises an expression whitelist by its expressions, not addresses", () => {
+    // An expression row has no ips/cidrs at all, so the IP/CIDR summary would
+    // render as an empty cell.
+    render(
+      <WhitelistsTable
+        rows={[EXPR_ROW]}
+        onToggle={async () => {}}
+        onEdit={() => {}}
+        onDelete={() => {}}
+      />,
+    );
+    expect(screen.getByText("1 expression")).toBeInTheDocument();
   });
 
   it("tells the operator what an empty list means", () => {

@@ -8,6 +8,7 @@ container reading stale content forever).
 
 from __future__ import annotations
 
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -169,3 +170,93 @@ def test_write_creates_the_file_when_absent(tmp_path: Path) -> None:
 
 def test_read_of_a_missing_file_is_empty(tmp_path: Path) -> None:
     assert read_whitelist_file(tmp_path / "absent.yaml") == ""
+
+
+# --- expression whitelists -------------------------------------------------
+
+EXPR = WhitelistDoc(
+    name="Health checks",
+    reason="GET /health",
+    description="",
+    kind="expression",
+    filter="evt.Meta.service == 'http'",
+    expressions=["evt.Meta.http_verb == 'GET' && evt.Meta.http_path == '/health'"],
+)
+
+
+def test_renders_an_expression_whitelist() -> None:
+    doc = next(d for d in yaml.safe_load_all(render_whitelists([EXPR])) if d)
+    assert doc["name"] == "megoopm/wl-health-checks"
+    assert doc["filter"] == "evt.Meta.service == 'http'"
+    assert doc["whitelist"]["expression"] == [
+        "evt.Meta.http_verb == 'GET' && evt.Meta.http_path == '/health'"
+    ]
+    # ip/cidr keys would be meaningless here and CrowdSec would evaluate them.
+    assert "ip" not in doc["whitelist"]
+    assert "cidr" not in doc["whitelist"]
+
+
+def test_expression_filter_is_optional() -> None:
+    doc = next(
+        d
+        for d in yaml.safe_load_all(
+            render_whitelists([replace(EXPR, filter=None)])
+        )
+        if d
+    )
+    # An absent filter means "evaluate against every event", which is what
+    # CrowdSec does when the key is missing. Rendering `filter: null` would not
+    # be the same thing.
+    assert "filter" not in doc
+
+
+def test_an_expression_containing_quotes_survives_the_round_trip() -> None:
+    tricky = replace(EXPR, filter=None, expressions=["evt.Meta.x == \"a: b #c\""])
+    doc = next(d for d in yaml.safe_load_all(render_whitelists([tricky])) if d)
+    assert doc["whitelist"]["expression"] == ['evt.Meta.x == "a: b #c"']
+
+
+def test_ip_and_expression_whitelists_share_one_file() -> None:
+    docs = [d for d in yaml.safe_load_all(render_whitelists([DOC, EXPR])) if d]
+    assert [d["name"] for d in docs] == [
+        "megoopm/wl-internal-backends",
+        "megoopm/wl-health-checks",
+    ]
+
+
+def test_an_ip_kind_never_renders_expression_keys() -> None:
+    doc = next(d for d in yaml.safe_load_all(render_whitelists([DOC])) if d)
+    assert "filter" not in doc
+    assert "expression" not in doc["whitelist"]
+
+
+def test_expression_render_is_byte_stable() -> None:
+    assert render_whitelists([EXPR]) == render_whitelists([EXPR])
+
+
+def test_an_expression_kind_with_no_expressions_is_rejected() -> None:
+    with pytest.raises(WhitelistValidationError, match="at least one expression"):
+        render_whitelists([replace(EXPR, expressions=[])])
+
+
+def test_an_ip_kind_with_no_addresses_is_rejected() -> None:
+    with pytest.raises(WhitelistValidationError, match="at least one IP address"):
+        render_whitelists([replace(DOC, ips=[], cidrs=[])])
+
+
+def test_a_blank_expression_is_rejected() -> None:
+    # CrowdSec compiles every entry; an empty string is a compile error, and a
+    # compile error is fatal at startup.
+    with pytest.raises(WhitelistValidationError, match="empty"):
+        render_whitelists([replace(EXPR, expressions=["  "])])
+
+
+def test_expressions_render_readably_not_html_escaped() -> None:
+    # Jinja's `tojson` is HTML-safe: it escapes apostrophes and ampersands
+    # into numeric unicode escapes. YAML decodes those back, so the file
+    # still *works* - but the dialog shows this text to an operator, and an
+    # expression full of quotes and `&&` rendered that way reads as garbage.
+    raw = render_whitelists([EXPR])
+    assert "evt.Meta.http_verb == 'GET' && evt.Meta.http_path == '/health'" in raw
+    # chr(92) is a backslash; spelling it avoids escaping it in this source.
+    assert chr(92) + "u00" not in raw
