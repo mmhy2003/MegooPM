@@ -43,7 +43,7 @@ def _state() -> DesiredState:
     pool = UpstreamSpec(id=1, name="p", backends=(BackendSpec(host="10.0.0.1", port=80),))
     return DesiredState(
         proxy_hosts=(ProxyHostSpec(id=1, domain_names=("a.example.com",), upstream_id=1),),
-        upstreams=(pool,),
+        http_upstreams=(pool,),
     )
 
 
@@ -78,7 +78,7 @@ def test_invalid_config_is_rejected_and_rolled_back(tmp_path: Path) -> None:
     # Now apply a *different* state under a controller whose `nginx -t` fails.
     changed = DesiredState(
         proxy_hosts=(ProxyHostSpec(id=2, domain_names=("b.example.com",), upstream_id=1),),
-        upstreams=_state().upstreams,
+        http_upstreams=_state().http_upstreams,
     )
     ctrl = FakeController(test_ok=False)
     result = apply_config(changed, confd_dir=tmp_path, controller=ctrl)
@@ -95,7 +95,7 @@ def test_reload_failure_rolls_back_to_previous(tmp_path: Path) -> None:
 
     changed = DesiredState(
         proxy_hosts=(ProxyHostSpec(id=1, domain_names=("c.example.com",), upstream_id=1),),
-        upstreams=_state().upstreams,
+        http_upstreams=_state().http_upstreams,
     )
     ctrl = FakeController(test_ok=True, reload_ok=False)
     result = apply_config(changed, confd_dir=tmp_path, controller=ctrl)

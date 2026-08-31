@@ -19,7 +19,7 @@ def _pool() -> UpstreamSpec:
 
 
 def _render(host: ProxyHostSpec) -> str:
-    out = render_config(DesiredState(proxy_hosts=(host,), upstreams=(_pool(),)))
+    out = render_config(DesiredState(proxy_hosts=(host,), http_upstreams=(_pool(),)))
     return out["megoopm-proxy-1.conf"]
 
 

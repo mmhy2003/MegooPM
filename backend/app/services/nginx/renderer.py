@@ -42,6 +42,20 @@ _LB_DIRECTIVES = {
     "random": "random;",
 }
 
+# ip_hash exists only in http{}. Pool validation keeps it off stream-capable
+# pools, so reaching the lookup miss below means a row was edited outside the
+# API — fail loudly rather than emit config that breaks nginx -t on every node.
+_STREAM_LB_DIRECTIVES = {k: v for k, v in _LB_DIRECTIVES.items() if k != "ip_hash"}
+
+
+def _stream_directives(upstream: UpstreamSpec) -> dict[str, str]:
+    if upstream.lb_method not in _STREAM_LB_DIRECTIVES:
+        raise ValueError(
+            f"pool {upstream.name!r} uses {upstream.lb_method}, which nginx's "
+            "stream module does not support"
+        )
+    return _STREAM_LB_DIRECTIVES
+
 
 @lru_cache(maxsize=1)
 def _env() -> Environment:
@@ -80,8 +94,10 @@ def _render_htpasswd(access_list: AccessListSpec) -> str:
     return "".join(f"{line}\n" for line in lines)
 
 
-def _render_upstream(upstream: UpstreamSpec) -> str:
-    directive = _LB_DIRECTIVES.get(upstream.lb_method, "")
+def _render_upstream(
+    upstream: UpstreamSpec, directives: dict[str, str] | None = None
+) -> str:
+    directive = (directives or _LB_DIRECTIVES).get(upstream.lb_method, "")
     return _env().get_template("upstream.conf.j2").render(
         upstream=upstream,
         pool_name=pool_name(upstream.id),
@@ -143,7 +159,7 @@ def render_config(state: DesiredState) -> dict[str, str]:
     keys are returned in sorted order.
     """
     files: dict[str, str] = {}
-    for upstream in state.upstreams:
+    for upstream in state.http_upstreams:
         files[f"megoopm-upstream-{upstream.id}.conf"] = _render_upstream(upstream)
     for host in state.proxy_hosts:
         files[f"megoopm-proxy-{host.id}.conf"] = _render_proxy_host(host)
@@ -167,6 +183,10 @@ def render_stream_config(state: DesiredState) -> dict[str, str]:
     Deterministic and sorted, mirroring :func:`render_config`.
     """
     files: dict[str, str] = {}
+    for upstream in state.stream_upstreams:
+        files[f"megoopm-upstream-{upstream.id}.conf"] = _render_upstream(
+            upstream, _stream_directives(upstream)
+        )
     for stream in state.streams:
         files[f"megoopm-stream-{stream.id}.conf"] = _render_stream(stream)
     return {name: files[name] for name in sorted(files)}

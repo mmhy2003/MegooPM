@@ -42,7 +42,7 @@ def _state() -> DesiredState:
     pool = UpstreamSpec(id=1, name="p", backends=(BackendSpec(host="10.0.0.1", port=80),))
     return DesiredState(
         proxy_hosts=(ProxyHostSpec(id=1, domain_names=("a.example.com",), upstream_id=1),),
-        upstreams=(pool,),
+        http_upstreams=(pool,),
         dead_hosts=(DeadHostSpec(id=1, domain_names=("dead.example.com",)),),
         streams=(StreamSpec(id=1, incoming_port=5432, forward_host="10.0.0.5", forward_port=5432),),
     )
@@ -74,7 +74,7 @@ def test_stream_only_change_triggers_reload(tmp_path: Path) -> None:
     # Change only the stream's forward target: http files identical, stream differs.
     changed = DesiredState(
         proxy_hosts=_state().proxy_hosts,
-        upstreams=_state().upstreams,
+        http_upstreams=_state().http_upstreams,
         dead_hosts=_state().dead_hosts,
         streams=(StreamSpec(id=1, incoming_port=5432, forward_host="10.0.0.9", forward_port=5432),),
     )

@@ -39,7 +39,7 @@ def _host(access_list: AccessListSpec | None, id_: int = 1, upstream_id: int = 1
 
 def test_basic_auth_emits_htpasswd_and_directives() -> None:
     al = AccessListSpec(id=7, name="Ops", auth_users=(AuthUserSpec("alice", _HASH),))
-    files = render_config(DesiredState(proxy_hosts=(_host(al),), upstreams=(_pool(),)))
+    files = render_config(DesiredState(proxy_hosts=(_host(al),), http_upstreams=(_pool(),)))
 
     # A sidecar htpasswd file (not a .conf, so nginx never parses it as config).
     assert "megoopm-access-7.htpasswd" in files
@@ -58,7 +58,7 @@ def test_allow_deny_rules_render_in_order() -> None:
         name="ip-only",
         client_rules=(ClientRuleSpec("allow", "10.0.0.0/8"), ClientRuleSpec("deny", "all")),
     )
-    files = render_config(DesiredState(proxy_hosts=(_host(al),), upstreams=(_pool(),)))
+    files = render_config(DesiredState(proxy_hosts=(_host(al),), http_upstreams=(_pool(),)))
     conf = files["megoopm-proxy-1.conf"]
     assert "allow 10.0.0.0/8;" in conf
     assert "deny all;" in conf
@@ -80,7 +80,7 @@ def test_satisfy_reflects_flag_when_both_gates_present() -> None:
         client_rules=(ClientRuleSpec("allow", "192.168.0.0/16"),),
     )
     conf = render_config(
-        DesiredState(proxy_hosts=(_host(both),), upstreams=(_pool(),))
+        DesiredState(proxy_hosts=(_host(both),), http_upstreams=(_pool(),))
     )["megoopm-proxy-1.conf"]
     assert "satisfy any;" in conf
 
@@ -92,7 +92,7 @@ def test_satisfy_reflects_flag_when_both_gates_present() -> None:
         client_rules=(ClientRuleSpec("allow", "192.168.0.0/16"),),
     )
     conf2 = render_config(
-        DesiredState(proxy_hosts=(_host(allq),), upstreams=(_pool(),))
+        DesiredState(proxy_hosts=(_host(allq),), http_upstreams=(_pool(),))
     )["megoopm-proxy-1.conf"]
     assert "satisfy all;" in conf2
 
@@ -100,7 +100,7 @@ def test_satisfy_reflects_flag_when_both_gates_present() -> None:
 def test_authorization_header_stripped_unless_pass_auth() -> None:
     strip = AccessListSpec(id=1, name="a", auth_users=(AuthUserSpec("u", _HASH),))
     conf = render_config(
-        DesiredState(proxy_hosts=(_host(strip),), upstreams=(_pool(),))
+        DesiredState(proxy_hosts=(_host(strip),), http_upstreams=(_pool(),))
     )["megoopm-proxy-1.conf"]
     assert 'proxy_set_header Authorization "";' in conf
 
@@ -108,7 +108,7 @@ def test_authorization_header_stripped_unless_pass_auth() -> None:
         id=1, name="a", pass_auth=True, auth_users=(AuthUserSpec("u", _HASH),)
     )
     conf2 = render_config(
-        DesiredState(proxy_hosts=(_host(forward),), upstreams=(_pool(),))
+        DesiredState(proxy_hosts=(_host(forward),), http_upstreams=(_pool(),))
     )["megoopm-proxy-1.conf"]
     assert 'proxy_set_header Authorization "";' not in conf2
 
@@ -121,7 +121,7 @@ def test_acme_challenge_bypasses_access_control() -> None:
         client_rules=(ClientRuleSpec("deny", "all"),),
     )
     conf = render_config(
-        DesiredState(proxy_hosts=(_host(al),), upstreams=(_pool(),))
+        DesiredState(proxy_hosts=(_host(al),), http_upstreams=(_pool(),))
     )["megoopm-proxy-1.conf"]
     start = conf.index("acme-challenge/ {")
     challenge = conf[start : conf.index("}", start)]
@@ -133,7 +133,7 @@ def test_shared_access_list_emits_one_htpasswd() -> None:
     al = AccessListSpec(id=9, name="shared", auth_users=(AuthUserSpec("u", _HASH),))
     state = DesiredState(
         proxy_hosts=(_host(al, id_=1, upstream_id=1), _host(al, id_=2, upstream_id=2)),
-        upstreams=(_pool(1), _pool(2)),
+        http_upstreams=(_pool(1), _pool(2)),
     )
     files = render_config(state)
     # Both hosts reference the same single htpasswd file.
@@ -144,7 +144,7 @@ def test_shared_access_list_emits_one_htpasswd() -> None:
 
 def test_no_access_list_renders_no_auth() -> None:
     conf = render_config(
-        DesiredState(proxy_hosts=(_host(None),), upstreams=(_pool(),))
+        DesiredState(proxy_hosts=(_host(None),), http_upstreams=(_pool(),))
     )["megoopm-proxy-1.conf"]
     assert "auth_basic" not in conf
     assert "satisfy" not in conf

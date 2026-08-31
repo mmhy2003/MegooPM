@@ -49,7 +49,7 @@ def _state() -> DesiredState:
     pool = UpstreamSpec(id=1, name="p", backends=(BackendSpec(host="10.0.0.1", port=80),))
     return DesiredState(
         proxy_hosts=(ProxyHostSpec(id=1, domain_names=("x.example.com",), upstream_id=1),),
-        upstreams=(pool,),
+        http_upstreams=(pool,),
     )
 
 

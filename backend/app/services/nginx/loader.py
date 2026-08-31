@@ -190,6 +190,7 @@ async def load_desired_state(
         )
 
     # Only emit pools actually referenced by an included host, in id order.
+    # These render into http{}; stream-referenced pools are collected separately.
     referenced = {h.upstream_id for h in host_specs}
     referenced |= {loc.upstream_id for h in host_specs for loc in h.locations}
     upstream_specs = tuple(upstreams[i] for i in sorted(referenced))
@@ -200,7 +201,7 @@ async def load_desired_state(
 
     return DesiredState(
         proxy_hosts=tuple(host_specs),
-        upstreams=upstream_specs,
+        http_upstreams=upstream_specs,
         redirection_hosts=redirection_specs,
         dead_hosts=dead_specs,
         streams=stream_specs,

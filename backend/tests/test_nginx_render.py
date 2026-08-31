@@ -36,7 +36,7 @@ def _host(**kw) -> ProxyHostSpec:
 
 
 def test_filenames_are_stable_per_object() -> None:
-    state = DesiredState(proxy_hosts=(_host(),), upstreams=(_pool(),))
+    state = DesiredState(proxy_hosts=(_host(),), http_upstreams=(_pool(),))
     files = render_config(state)
     assert set(files) == {"megoopm-upstream-1.conf", "megoopm-proxy-1.conf"}
 
@@ -49,7 +49,7 @@ def test_upstream_lists_backends_with_tuning() -> None:
             BackendSpec(host="10.0.0.3", port=8080, down=True),
         )
     )
-    out = render_config(DesiredState(upstreams=(pool,), proxy_hosts=(_host(),)))
+    out = render_config(DesiredState(http_upstreams=(pool,), proxy_hosts=(_host(),)))
     up = out["megoopm-upstream-1.conf"]
     assert "upstream megoopm_upstream_1 {" in up
     assert "server 10.0.0.1:8080 weight=5 max_fails=3 fail_timeout=20s;" in up
@@ -60,7 +60,7 @@ def test_upstream_lists_backends_with_tuning() -> None:
 def test_lb_method_directives() -> None:
     def directive(method: str) -> str:
         out = render_config(
-            DesiredState(upstreams=(_pool(lb_method=method),), proxy_hosts=(_host(),))
+            DesiredState(http_upstreams=(_pool(lb_method=method),), proxy_hosts=(_host(),))
         )
         return out["megoopm-upstream-1.conf"]
 
@@ -74,7 +74,7 @@ def test_lb_method_directives() -> None:
 
 
 def test_plain_http_host_proxies_to_pool() -> None:
-    out = render_config(DesiredState(proxy_hosts=(_host(),), upstreams=(_pool(),)))
+    out = render_config(DesiredState(proxy_hosts=(_host(),), http_upstreams=(_pool(),)))
     server = out["megoopm-proxy-1.conf"]
     assert "listen 80;" in server
     assert "server_name example.com www.example.com;" in server
@@ -96,7 +96,7 @@ def test_tls_host_emits_https_server_and_redirect() -> None:
         hsts_enabled=True,
         hsts_subdomains=True,
     )
-    out = render_config(DesiredState(proxy_hosts=(host,), upstreams=(_pool(),)))
+    out = render_config(DesiredState(proxy_hosts=(host,), http_upstreams=(_pool(),)))
     server = out["megoopm-proxy-1.conf"]
     assert "listen 443 ssl http2;" in server
     assert "ssl_certificate /etc/nginx/certs/7/fullchain.pem;" in server
@@ -114,7 +114,7 @@ def test_websocket_and_exploit_and_cache_flags() -> None:
         caching_enabled=True,
     )
     server = render_config(
-        DesiredState(proxy_hosts=(host,), upstreams=(_pool(),))
+        DesiredState(proxy_hosts=(host,), http_upstreams=(_pool(),))
     )["megoopm-proxy-1.conf"]
     assert "proxy_set_header Upgrade $http_upgrade;" in server
     assert "proxy_set_header Connection $connection_upgrade;" in server
@@ -124,14 +124,14 @@ def test_websocket_and_exploit_and_cache_flags() -> None:
 
 def test_crowdsec_bouncer_renders_per_host() -> None:
     off = render_config(
-        DesiredState(proxy_hosts=(_host(),), upstreams=(_pool(),))
+        DesiredState(proxy_hosts=(_host(),), http_upstreams=(_pool(),))
     )["megoopm-proxy-1.conf"]
     # Disabled by default: no bouncer directives leak into the config.
     assert "access_by_lua_file" not in off
     assert "megoopm_crowdsec_appsec" not in off
 
     on = render_config(
-        DesiredState(proxy_hosts=(_host(crowdsec_enabled=True),), upstreams=(_pool(),))
+        DesiredState(proxy_hosts=(_host(crowdsec_enabled=True),), http_upstreams=(_pool(),))
     )["megoopm-proxy-1.conf"]
     assert "access_by_lua_file /etc/nginx/lua/megoopm_crowdsec.lua;" in on
     # Bouncer on, AppSec off.
@@ -141,7 +141,7 @@ def test_crowdsec_bouncer_renders_per_host() -> None:
 def test_crowdsec_appsec_toggle_renders() -> None:
     host = _host(crowdsec_enabled=True, crowdsec_appsec_enabled=True)
     server = render_config(
-        DesiredState(proxy_hosts=(host,), upstreams=(_pool(),))
+        DesiredState(proxy_hosts=(host,), http_upstreams=(_pool(),))
     )["megoopm-proxy-1.conf"]
     # The per-host flag still renders the `$megoopm_crowdsec_appsec` marker, but
     # AppSec enforcement is global (see docs/crowdsec.md, MEG-32/D3): the marker
@@ -155,7 +155,7 @@ def test_crowdsec_appsec_requires_bouncer() -> None:
     # AppSec on but bouncer off → nothing renders (AppSec is meaningless alone).
     host = _host(crowdsec_enabled=False, crowdsec_appsec_enabled=True)
     server = render_config(
-        DesiredState(proxy_hosts=(host,), upstreams=(_pool(),))
+        DesiredState(proxy_hosts=(host,), http_upstreams=(_pool(),))
     )["megoopm-proxy-1.conf"]
     assert "megoopm_crowdsec_appsec" not in server
     assert "access_by_lua_file" not in server
@@ -169,7 +169,7 @@ def test_crowdsec_applies_to_tls_and_redirect_servers() -> None:
     )
     host = _host(certificate=cert, ssl_forced=True, crowdsec_enabled=True)
     server = render_config(
-        DesiredState(proxy_hosts=(host,), upstreams=(_pool(),))
+        DesiredState(proxy_hosts=(host,), http_upstreams=(_pool(),))
     )["megoopm-proxy-1.conf"]
     # Both the :80 redirect server and the :443 server enforce the bouncer, so
     # a banned IP is blocked even before the HTTPS redirect.
@@ -179,13 +179,13 @@ def test_crowdsec_applies_to_tls_and_redirect_servers() -> None:
 def test_advanced_config_is_injected() -> None:
     host = _host(advanced_config="client_max_body_size 50m;")
     server = render_config(
-        DesiredState(proxy_hosts=(host,), upstreams=(_pool(),))
+        DesiredState(proxy_hosts=(host,), http_upstreams=(_pool(),))
     )["megoopm-proxy-1.conf"]
     assert "client_max_body_size 50m;" in server
 
 
 def test_render_is_deterministic() -> None:
-    state = DesiredState(proxy_hosts=(_host(),), upstreams=(_pool(),))
+    state = DesiredState(proxy_hosts=(_host(),), http_upstreams=(_pool(),))
     assert render_config(state) == render_config(state)
 
 
@@ -195,7 +195,7 @@ def test_extra_locations_render_prefix_blocks_per_pool() -> None:
         allow_websocket_upgrade=True,
         locations=(LocationSpec(path="/api/", upstream_id=2, forward_scheme="https"),),
     )
-    out = render_config(DesiredState(proxy_hosts=(host,), upstreams=(_pool(), api_pool)))
+    out = render_config(DesiredState(proxy_hosts=(host,), http_upstreams=(_pool(), api_pool)))
     server = out["megoopm-proxy-1.conf"]
     # Root keeps its plain prefix location; the extra one uses ^~ so it beats the
     # cache-assets regex location for paths under it.
@@ -220,7 +220,7 @@ def test_extra_locations_appear_in_both_servers_of_a_tls_host() -> None:
         ssl_forced=False,
         locations=(LocationSpec(path="/ws", upstream_id=2),),
     )
-    out = render_config(DesiredState(proxy_hosts=(host,), upstreams=(_pool(), _pool(id=2))))
+    out = render_config(DesiredState(proxy_hosts=(host,), http_upstreams=(_pool(), _pool(id=2))))
     server = out["megoopm-proxy-1.conf"]
     assert server.count("location ^~ /ws {") == 2  # :80 and :443 servers
     assert server.count("proxy_pass http://megoopm_upstream_2;") == 2
@@ -228,7 +228,51 @@ def test_extra_locations_appear_in_both_servers_of_a_tls_host() -> None:
 
 def test_cache_location_is_unchanged_with_extra_locations() -> None:
     host = _host(caching_enabled=True, locations=(LocationSpec(path="/api/", upstream_id=2),))
-    out = render_config(DesiredState(proxy_hosts=(host,), upstreams=(_pool(), _pool(id=2))))
+    out = render_config(DesiredState(proxy_hosts=(host,), http_upstreams=(_pool(), _pool(id=2))))
     server = out["megoopm-proxy-1.conf"]
     assert server.count("expires 1d;") == 1
     assert "location ^~ /api/ {" in server
+
+
+# --- pools render into the context they belong to ---------------------------
+
+
+def test_stream_pools_render_into_the_stream_directory() -> None:
+    """A pool for a stream must not be emitted into http{}, nor vice versa.
+
+    nginx upstream blocks are context-local: one defined in http{} is invisible
+    to stream{}. Splitting the field means render_config cannot emit a
+    stream-only pool by accident.
+    """
+    from app.services.nginx import render_stream_config
+
+    pool = UpstreamSpec(id=9, name="db", backends=(BackendSpec(host="10.0.0.9", port=5432),))
+    state = DesiredState(stream_upstreams=(pool,))
+
+    http_files = render_config(state)
+    stream_files = render_stream_config(state)
+
+    assert "megoopm-upstream-9.conf" not in http_files
+    assert "megoopm-upstream-9.conf" in stream_files
+    assert "upstream megoopm_upstream_9 {" in stream_files["megoopm-upstream-9.conf"]
+
+
+def test_http_pools_stay_out_of_the_stream_directory() -> None:
+    from app.services.nginx import render_stream_config
+
+    pool = UpstreamSpec(id=4, name="web", backends=(BackendSpec(host="10.0.0.4", port=8080),))
+    state = DesiredState(http_upstreams=(pool,))
+
+    assert "megoopm-upstream-4.conf" in render_config(state)
+    assert "megoopm-upstream-4.conf" not in render_stream_config(state)
+
+
+def test_a_shared_pool_renders_into_both_directories() -> None:
+    """Separate namespaces, so the same nginx name in each is not a collision."""
+    from app.services.nginx import render_stream_config
+
+    pool = UpstreamSpec(id=7, name="shared", backends=(BackendSpec(host="10.0.0.7", port=99),))
+    state = DesiredState(http_upstreams=(pool,), stream_upstreams=(pool,))
+
+    assert "megoopm-upstream-7.conf" in render_config(state)
+    assert "megoopm-upstream-7.conf" in render_stream_config(state)

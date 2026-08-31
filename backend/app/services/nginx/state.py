@@ -188,8 +188,16 @@ class StreamSpec:
 class DesiredState:
     """The complete set of managed objects a render pass should emit.
 
-    ``upstreams`` should contain exactly the pools referenced by ``proxy_hosts``;
-    the loader guarantees this so no orphan ``upstream`` blocks are written.
+    Pools are split by nginx context because ``upstream`` blocks are
+    context-local: one defined in ``http {}`` is invisible to ``stream {}``.
+    Two fields rather than one make it impossible for ``render_config`` to emit
+    a stream-only pool into ``http {}``. A pool used by both appears in both
+    tuples and is rendered into both directories under the same nginx name —
+    separate namespaces, not a collision.
+
+    Each tuple should contain exactly the pools referenced by the objects that
+    render alongside it; the loader guarantees this so no orphan ``upstream``
+    blocks are written.
 
     ``proxy_hosts``, ``redirection_hosts`` and ``dead_hosts`` render into the
     HTTP ``conf.d`` directory; ``streams`` render into a separate directory that
@@ -198,7 +206,8 @@ class DesiredState:
     """
 
     proxy_hosts: tuple[ProxyHostSpec, ...] = field(default_factory=tuple)
-    upstreams: tuple[UpstreamSpec, ...] = field(default_factory=tuple)
+    http_upstreams: tuple[UpstreamSpec, ...] = field(default_factory=tuple)
+    stream_upstreams: tuple[UpstreamSpec, ...] = field(default_factory=tuple)
     redirection_hosts: tuple[RedirectionHostSpec, ...] = field(default_factory=tuple)
     dead_hosts: tuple[DeadHostSpec, ...] = field(default_factory=tuple)
     streams: tuple[StreamSpec, ...] = field(default_factory=tuple)
