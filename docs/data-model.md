@@ -49,11 +49,11 @@ implicitly-created enum types), so a downgrade/re-upgrade cycle is clean.
 | From → To | On delete | Rationale |
 | --- | --- | --- |
 | `upstream_backends.upstream_id` → `upstreams.id` | **CASCADE** | Backends have no meaning without their pool. |
-| `proxy_hosts.upstream_id` → `upstreams.id` | **RESTRICT** | A pool in use by a proxy host cannot be deleted. |
+| `proxy_hosts.upstream_id` → `upstreams.id` | **RESTRICT** | A pool in use by a proxy host cannot be deleted. Nullable: the host may target a single backend instead. |
 | `proxy_hosts.certificate_id` → `certificates.id` | **SET NULL** | Removing a cert must not delete the host. |
 | `proxy_hosts.access_list_id` → `access_lists.id` | **SET NULL** | Removing a policy must not delete the host. |
 | `proxy_host_locations.proxy_host_id` → `proxy_hosts.id` | **CASCADE** | Locations belong to their host. |
-| `proxy_host_locations.upstream_id` → `upstreams.id` | **RESTRICT** | A pool used by a location cannot be deleted. |
+| `proxy_host_locations.upstream_id` → `upstreams.id` | **RESTRICT** | A pool used by a location cannot be deleted. Nullable, as above. |
 | `redirection_hosts.certificate_id` → `certificates.id` | **SET NULL** | As above. |
 | `dead_hosts.certificate_id` → `certificates.id` | **SET NULL** | As above. |
 | `streams.certificate_id` → `certificates.id` | **SET NULL** | As above. |
@@ -73,6 +73,9 @@ of the referenced row.
   (`forward_port` may be NULL); at least one of `tcp_forwarding`/`udp_forwarding`
   must be true; and exactly one target — either `forward_host` + `forward_port`,
   or `upstream_id`, never both and never neither.
+- `proxy_hosts` and `proxy_host_locations`: exactly one forward target —
+  either `forward_host` + `forward_port`, or `upstream_id`, never both and
+  never neither; `forward_port` in 1–65535 when set.
 - `redirection_hosts`: `forward_http_code` in 300–308.
 
 ## Conventions

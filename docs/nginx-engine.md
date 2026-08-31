@@ -42,6 +42,9 @@ One file per object, named by id so updates rewrite in place (never duplicate):
   stream-capable pool cannot use it. The renderer raises rather than emitting
   it, since an invalid directive fails `nginx -t` and rolls back the apply for
   every managed object.
+  A `server` block's `proxy_pass` targets either a pool name or a literal
+  `host:port` — the root route and each location choose independently.
+
 - `megoopm-proxy-{id}.conf` — the `server {}` block(s): plain `:80`, or a `:443`
   TLS server (+ `:80` redirect when `ssl_forced`) when a certificate is set.
   Honours HSTS, HTTP/2, websocket upgrade, exploit blocking, asset caching and

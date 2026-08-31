@@ -1,9 +1,14 @@
 """Upstream pools and their backends.
 
-The defining feature of MegooPM over stock Nginx Proxy Manager: a proxy host
-forwards to an :class:`Upstream` *pool* which fans out across N
-:class:`UpstreamBackend` servers under a chosen load-balancing method, rather
-than a single forward host/port.
+MegooPM's answer to stock Nginx Proxy Manager's single forward host: a pool fans
+out across N :class:`UpstreamBackend` servers under a chosen load-balancing
+method, with per-backend weight, failure thresholds and backup servers.
+
+Pools are the default and the richer option, not a requirement — a proxy host,
+location or stream may forward to one backend directly when that is all it
+needs. A pool also declares a :class:`~app.models.enums.UpstreamContext` saying
+whether it may back HTTP hosts, TCP/UDP streams, or both, because nginx
+``upstream`` blocks are context-local.
 """
 
 from __future__ import annotations
