@@ -273,6 +273,23 @@ silently break enrichment.
 to parse it. `data-init` seeds a placeholder for exactly this reason; that seed
 is also what makes whitelists load at boot.
 
+Seeding is only half of it — the **ordering** is the other half. `crowdsec`
+declares `depends_on: data-init` so it cannot be created before the file
+exists. Without that they race, and Docker wins:
+
+```
+data-init-1  | sh: can't create /data/crowdsec/whitelists/megoopm.yaml: Is a directory
+data-init-1  | data-init: cannot prepare /data (SHARED_DATA_PATH) for uid 1000
+```
+
+If a stack ever reaches that state, the bogus path is an empty directory:
+
+```bash
+docker compose -f docker-compose.ha.yml down
+rmdir "$SHARED_DATA_PATH/crowdsec/whitelists/megoopm.yaml"
+docker compose -f docker-compose.ha.yml up -d
+```
+
 **The file is written in place, never replaced.** The container resolves the
 mount to an inode when it starts, so a write-temp-then-rename would leave it
 reading the old content for the rest of its life with no error in any log. See

@@ -168,3 +168,19 @@ def test_env_examples_ship_a_blank_control_node(env_file: str) -> None:
             assert line.strip() == "CROWDSEC_CONTROL_NODE_ID="
             return
     raise AssertionError(f"CROWDSEC_CONTROL_NODE_ID missing from {env_file}")
+
+
+@pytest.mark.parametrize("compose_file", ["docker-compose.yml", "docker-compose.ha.yml"])
+def test_crowdsec_waits_for_the_seed(compose_file: str) -> None:
+    """CrowdSec must not start before data-init has created the file.
+
+    The whitelist mount is a bind mount of a FILE. Docker creates a DIRECTORY at
+    the source when it is missing, and CrowdSec then refuses to start — which is
+    exactly what happened in production: `data-init` came up second and hit
+    "can't create /data/crowdsec/whitelists/megoopm.yaml: Is a directory".
+
+    Seeding the file is only half the fix; the ordering is the other half.
+    """
+    depends = _services(compose_file)["crowdsec"].get("depends_on", {})
+    assert "data-init" in depends, f"crowdsec does not wait for data-init in {compose_file}"
+    assert depends["data-init"]["condition"] == "service_completed_successfully"

@@ -213,6 +213,13 @@ services:
 
   crowdsec:
     profiles: ["control-plane"]
+    depends_on:
+      # The whitelist mount below is a bind mount of a FILE. Docker creates a
+      # DIRECTORY at the source when it does not exist, and CrowdSec then
+      # refuses to start — so this must not come up before data-init has
+      # seeded the file.
+      data-init:
+        condition: service_completed_successfully
     image: crowdsecurity/crowdsec:v1.6.4
     restart: unless-stopped
     environment:
