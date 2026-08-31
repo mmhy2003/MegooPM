@@ -134,13 +134,18 @@ async def load_desired_state(
     host_specs: list[ProxyHostSpec] = []
 
     for host in hosts:
-        pool = host.upstream
-        if pool is None or not pool.enabled:
-            continue  # nothing healthy to forward to
-        if pool.id not in upstreams:
-            upstreams[pool.id] = _upstream_spec(pool)
-        if not upstreams[pool.id].backends:
-            continue  # empty pool → skip host rather than emit an invalid block
+        # Only a pool-targeted host can be unrenderable for pool reasons. A host
+        # forwarding to a literal backend has no pool by design, so running
+        # these checks against it would drop it from the config entirely — the
+        # site would stop being served with nothing reporting an error.
+        if host.upstream_id is not None:
+            pool = host.upstream
+            if pool is None or not pool.enabled:
+                continue  # nothing healthy to forward to
+            if pool.id not in upstreams:
+                upstreams[pool.id] = _upstream_spec(pool)
+            if not upstreams[pool.id].backends:
+                continue  # empty pool → skip host rather than emit an invalid block
 
         certificate = (
             _certificate_spec(host.certificate, certs_dir)
@@ -167,7 +172,12 @@ async def load_desired_state(
             ProxyHostSpec(
                 id=host.id,
                 domain_names=tuple(host.domain_names),
-                upstream_id=pool.id,
+                # From the row, not the loop's `pool`: that is only bound on the
+                # pool-targeted branch and would otherwise leak the previous
+                # iteration's value into a host-targeted row.
+                upstream_id=host.upstream_id,
+                forward_host=host.forward_host,
+                forward_port=host.forward_port,
                 forward_scheme=str(host.forward_scheme),
                 certificate=certificate,
                 access_list=(
@@ -191,7 +201,7 @@ async def load_desired_state(
 
     # Only emit pools actually referenced by an included host, in id order.
     # These render into http{}; stream-referenced pools are collected separately.
-    referenced = {h.upstream_id for h in host_specs}
+    referenced = {h.upstream_id for h in host_specs if h.upstream_id is not None}
     referenced |= {loc.upstream_id for h in host_specs for loc in h.locations}
     upstream_specs = tuple(upstreams[i] for i in sorted(referenced))
 
