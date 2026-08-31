@@ -84,6 +84,9 @@ export const TOGGLE_KEYS = [
 ] as const;
 export type ToggleKey = (typeof TOGGLE_KEYS)[number];
 
+/** A forward target is either a pool or a single backend, never both. */
+export type TargetMode = "host" | "pool";
+
 export interface LocationRow {
   /** Stable React key; `loc-<id>` for stored rows, `loc-new-<n>` for new ones. */
   key: string;
@@ -93,11 +96,26 @@ export interface LocationRow {
   scheme: HttpScheme;
 }
 
+/** A port string as a number, or null when it is not a valid port.
+ *
+ * Duplicated from the streams module rather than imported: proxy-hosts should
+ * not depend on streams for four lines, and a shared module for one helper is
+ * more indirection than it earns.
+ */
+export function parsePort(input: string): number | null {
+  const n = Number.parseInt(input.trim(), 10);
+  return Number.isInteger(n) && n >= 1 && n <= 65535 ? n : null;
+}
+
 export interface ProxyHostFormState {
   domains: string[];
   accessListId: string;
   enabled: boolean;
+  /** Which kind of target the root route forwards to. Exactly one is sent. */
+  rootTargetMode: TargetMode;
   rootUpstreamId: string;
+  rootForwardHost: string;
+  rootForwardPort: string;
   rootScheme: HttpScheme;
   locations: LocationRow[];
   certificateId: string;
@@ -128,7 +146,11 @@ export function stateFromHost(host: ProxyHost | null | undefined): ProxyHostForm
       domains: [],
       accessListId: NO_ACCESS_LIST,
       enabled: true,
+      // Pools stay the path of least resistance for a new host.
+      rootTargetMode: "pool",
       rootUpstreamId: "",
+      rootForwardHost: "",
+      rootForwardPort: "",
       rootScheme: "http",
       locations: [],
       certificateId: NO_CERTIFICATE,
@@ -140,7 +162,10 @@ export function stateFromHost(host: ProxyHost | null | undefined): ProxyHostForm
     domains: [...host.domain_names],
     accessListId: host.access_list_id ? String(host.access_list_id) : NO_ACCESS_LIST,
     enabled: host.enabled ?? true,
-    rootUpstreamId: String(host.upstream_id),
+    rootTargetMode: host.upstream_id != null ? "pool" : "host",
+    rootUpstreamId: host.upstream_id != null ? String(host.upstream_id) : "",
+    rootForwardHost: host.forward_host ?? "",
+    rootForwardPort: host.forward_port == null ? "" : String(host.forward_port),
     rootScheme: host.forward_scheme ?? "http",
     locations: (host.locations ?? []).map((l) => ({
       key: `loc-${l.id}`,
@@ -180,8 +205,15 @@ export function validateLocations(rows: LocationRow[]): FormError | null {
 
 export function validateForm(form: ProxyHostFormState): FormError | null {
   if (form.domains.length === 0) return { message: "Enter at least one domain name.", tab: null };
-  if (!form.rootUpstreamId)
-    return { message: "Select an upstream pool to forward to.", tab: "forwarding" };
+  if (form.rootTargetMode === "pool") {
+    if (!form.rootUpstreamId)
+      return { message: "Select an upstream pool to forward to.", tab: "forwarding" };
+  } else {
+    if (!form.rootForwardHost.trim())
+      return { message: "Enter a forward host.", tab: "forwarding" };
+    if (parsePort(form.rootForwardPort) === null)
+      return { message: "Forward port must be between 1 and 65535.", tab: "forwarding" };
+  }
   return validateLocations(form.locations);
 }
 
@@ -193,9 +225,15 @@ export function buildPayload(
   form: ProxyHostFormState,
   host: ProxyHost | null | undefined,
 ): ProxyHostCreate {
+  // Exactly one target reaches the API; the other side is explicitly nulled so
+  // switching an existing host's mode clears the old value rather than leaving
+  // both set for the check constraint to reject.
+  const rootPool = form.rootTargetMode === "pool";
   return {
     domain_names: form.domains,
-    upstream_id: Number.parseInt(form.rootUpstreamId, 10),
+    upstream_id: rootPool ? Number.parseInt(form.rootUpstreamId, 10) : null,
+    forward_host: rootPool ? null : form.rootForwardHost.trim(),
+    forward_port: rootPool ? null : parsePort(form.rootForwardPort),
     forward_scheme: form.rootScheme,
     certificate_id: idOrNull(form.certificateId, NO_CERTIFICATE),
     access_list_id: idOrNull(form.accessListId, NO_ACCESS_LIST),

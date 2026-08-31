@@ -157,3 +157,57 @@ describe("stateFromHost / buildPayload", () => {
     });
   });
 });
+
+describe("root forward target", () => {
+  it("defaults a new host to the pool target", () => {
+    expect(stateFromHost(null).rootTargetMode).toBe("pool");
+  });
+
+  it("opens on the mode the host actually uses", () => {
+    const state = stateFromHost(
+      makeHost({ upstream_id: null, forward_host: "10.0.0.1", forward_port: 8080 }),
+    );
+    expect(state.rootTargetMode).toBe("host");
+    expect(state.rootForwardHost).toBe("10.0.0.1");
+    expect(state.rootForwardPort).toBe("8080");
+  });
+
+  it("sends a pool target with the host side nulled", () => {
+    const out = buildPayload(
+      { ...stateFromHost(null), domains: ["a.example.com"], rootUpstreamId: "2" },
+      null,
+    );
+    expect(out.upstream_id).toBe(2);
+    expect(out.forward_host).toBeNull();
+    expect(out.forward_port).toBeNull();
+  });
+
+  it("sends a host target with the pool side nulled", () => {
+    const out = buildPayload(
+      {
+        ...stateFromHost(null),
+        domains: ["a.example.com"],
+        rootTargetMode: "host",
+        rootForwardHost: "10.0.0.1",
+        rootForwardPort: "8080",
+      },
+      null,
+    );
+    expect(out.upstream_id).toBeNull();
+    expect(out.forward_host).toBe("10.0.0.1");
+    expect(out.forward_port).toBe(8080);
+  });
+
+  it("requires a host and a valid port in host mode", () => {
+    const base = { ...stateFromHost(null), domains: ["a.example.com"], rootTargetMode: "host" as const };
+    expect(validateForm(base)?.message).toMatch(/forward host/i);
+    expect(
+      validateForm({ ...base, rootForwardHost: "10.0.0.1", rootForwardPort: "70000" })?.message,
+    ).toMatch(/65535/);
+  });
+
+  it("still requires a pool in pool mode", () => {
+    const form = { ...stateFromHost(null), domains: ["a.example.com"] };
+    expect(validateForm(form)?.message).toMatch(/pool/i);
+  });
+});
