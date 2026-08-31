@@ -167,6 +167,11 @@ class Settings(BaseSettings):
     # returned all of them in 0.03s while limit=1000 timed out every time. A
     # bigger install can raise this, but raise it carefully and measure.
     crowdsec_alert_fetch_cap: int = 200
+    # Rendered whitelist parser file on the shared volume. The CrowdSec
+    # container bind-mounts this single file into its parsers directory; see
+    # docs/crowdsec.md. Written in place, never replaced, because the mount is
+    # pinned to the inode the container saw at start.
+    crowdsec_whitelist_path: str = "/data/crowdsec/whitelists/megoopm.yaml"
 
     # --- High Availability (MEG-35) ---
     # Turn on cross-node coordination for multi-node deployments. When True the

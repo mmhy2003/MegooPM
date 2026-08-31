@@ -1,0 +1,30 @@
+{#- Renders every enabled MegooPM whitelist as one multi-document parser file.
+
+    CrowdSec reads `---`-separated documents in a single parser file as separate
+    nodes. Scalars go through `tojson` because JSON is a subset of YAML: it
+    quotes and escapes correctly whatever the operator typed, so a reason
+    containing `:` or `#` cannot break the file — and a parser file CrowdSec
+    cannot load stops it starting, which with APPSEC_FAILURE_ACTION=deny means
+    every protected host fails closed.
+
+    Whitespace is controlled so identical input renders byte-identical output;
+    the digest of this file decides whether CrowdSec is restarted at all. -#}
+# Managed by MegooPM — do not edit by hand.
+{% for doc in docs %}---
+name: {{ ("megoopm/wl-" ~ doc.slug) | tojson }}
+description: {{ doc.description | tojson }}
+whitelist:
+  reason: {{ doc.reason | tojson }}
+{%- if doc.ips %}
+  ip:
+{%- for ip in doc.ips %}
+    - {{ ip | tojson }}
+{%- endfor %}
+{%- endif %}
+{%- if doc.cidrs %}
+  cidr:
+{%- for cidr in doc.cidrs %}
+    - {{ cidr | tojson }}
+{%- endfor %}
+{%- endif %}
+{% endfor -%}
