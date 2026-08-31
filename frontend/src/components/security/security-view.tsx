@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import {
   CircleCheck,
+  LayoutDashboard,
   Plus,
   ShieldAlert,
   ShieldX,
@@ -309,18 +310,15 @@ export function SecurityView() {
         </Button>
       </div>
 
+      {/* Deliberately outside the tabs: this explains why the lists below are
+          failing, so it must not hide behind a tab the operator is not on. */}
       <HealthBanner health={health} />
 
-      <SecurityMetrics
-        decisions={decisions}
-        alerts={alerts}
-        decisionsTotal={decTotal}
-        alertsTotal={alertTotal}
-        nowMs={nowMs}
-      />
-
-      <Tabs defaultValue="decisions">
+      <Tabs defaultValue="dashboard">
         <TabsList>
+          <TabsTab value="dashboard">
+            <LayoutDashboard /> Dashboard
+          </TabsTab>
           <TabsTab value="decisions">
             <ShieldX /> Active decisions
           </TabsTab>
@@ -328,6 +326,17 @@ export function SecurityView() {
             <TriangleAlert /> Recent alerts
           </TabsTab>
         </TabsList>
+
+        {/* ---- Dashboard ---- */}
+        <TabsPanel value="dashboard" className="space-y-3">
+          <SecurityMetrics
+            decisions={decisions}
+            alerts={alerts}
+            decisionsTotal={decTotal}
+            alertsTotal={alertTotal}
+            nowMs={nowMs}
+          />
+        </TabsPanel>
 
         {/* ---- Decisions ---- */}
         <TabsPanel value="decisions" className="space-y-3">

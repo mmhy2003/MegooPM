@@ -83,6 +83,8 @@ describe("SecurityView", () => {
     const user = userEvent.setup();
     render(<SecurityView />);
 
+    // Dashboard is the default tab now, so open the decisions list first.
+    await user.click(await screen.findByRole("tab", { name: /Active decisions/ }));
     const panel = await screen.findByRole("tabpanel");
     await waitFor(() => expect(crowdsec.listDecisions).toHaveBeenCalled());
 
@@ -121,6 +123,8 @@ describe("SecurityView", () => {
   it("re-fetches after an unban is confirmed", async () => {
     const user = userEvent.setup();
     render(<SecurityView />);
+    // Dashboard is the default tab now, so open the decisions list first.
+    await user.click(await screen.findByRole("tab", { name: /Active decisions/ }));
     const panel = await screen.findByRole("tabpanel");
     await waitFor(() => expect(crowdsec.listDecisions).toHaveBeenCalled());
     const callsBefore = vi.mocked(crowdsec.listDecisions).mock.calls.length;
@@ -132,5 +136,55 @@ describe("SecurityView", () => {
     await waitFor(() =>
       expect(vi.mocked(crowdsec.listDecisions).mock.calls.length).toBeGreaterThan(callsBefore),
     );
+  });
+});
+
+describe("SecurityView dashboard tab", () => {
+  beforeEach(() => {
+    vi.spyOn(crowdsec, "health").mockResolvedValue(healthOk as never);
+    vi.spyOn(crowdsec, "listDecisions").mockResolvedValue(decisionList(120) as never);
+    vi.spyOn(crowdsec, "listAlerts").mockResolvedValue(emptyAlerts as never);
+  });
+  afterEach(() => {
+    cleanup();
+    vi.restoreAllMocks();
+  });
+
+  it("puts Dashboard first and selects it by default", async () => {
+    render(<SecurityView />);
+
+    const tabs = await screen.findAllByRole("tab");
+    expect(tabs.map((t) => t.textContent?.trim())).toEqual([
+      "Dashboard",
+      "Active decisions",
+      "Recent alerts",
+    ]);
+    expect(tabs[0]).toHaveAttribute("aria-selected", "true");
+  });
+
+  it("shows the metrics under Dashboard, not under the list tabs", async () => {
+    const user = userEvent.setup();
+    render(<SecurityView />);
+
+    expect(await screen.findByText("Alerts over time")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("tab", { name: /Active decisions/ }));
+    expect(screen.queryByText("Alerts over time")).not.toBeInTheDocument();
+  });
+
+  it("keeps the LAPI status visible from every tab", async () => {
+    const user = userEvent.setup();
+    vi.spyOn(crowdsec, "health").mockResolvedValue({
+      ...healthOk,
+      reachable: false,
+      detail: "boom",
+    } as never);
+    render(<SecurityView />);
+
+    // The banner explains why the lists below are failing, so it must not hide
+    // behind a tab the operator is not on.
+    expect(await screen.findByText("LAPI unreachable")).toBeInTheDocument();
+    await user.click(screen.getByRole("tab", { name: /Recent alerts/ }));
+    expect(screen.getByText("LAPI unreachable")).toBeInTheDocument();
   });
 });
