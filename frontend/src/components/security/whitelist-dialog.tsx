@@ -223,7 +223,9 @@ export function WhitelistDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      {/* Tallest dialog in the app: kind, four fields, two textareas and the
+          rendered-YAML preview. Same max-height + scroll the other dialogs use. */}
+      <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{whitelist ? "Edit whitelist" : "Add whitelist"}</DialogTitle>
         </DialogHeader>
