@@ -9,13 +9,13 @@ shipped by Alembic migration `0003_core_domain`.
 
 | Table | Purpose |
 | --- | --- |
-| `upstreams` | A named pool of backends with a load-balancing method. |
+| `upstreams` | A named pool of backends with a load-balancing method and a `context` (`http` / `stream` / `both`) saying where it may be attached. |
 | `upstream_backends` | N `server` entries per pool (the differentiator). |
 | `proxy_hosts` | Reverse-proxy entry points; forward to one upstream pool. |
 | `proxy_host_locations` | Extra `location ^~ <path>` routes of a proxy host to other pools. |
 | `redirection_hosts` | Issue HTTP redirects for a set of domains. |
 | `dead_hosts` | Park domains and always return 404. |
-| `streams` | Raw TCP/UDP port forwarding. |
+| `streams` | Raw TCP/UDP port forwarding, to a single host:port or an upstream pool. |
 | `certificates` | Managed/uploaded TLS certs (letsencrypt/custom/self_signed). |
 | `access_lists` | Reusable authorization policy for proxy hosts. |
 | `access_list_auth` | Basic-auth users (hashed) within an access list. |
@@ -57,6 +57,7 @@ implicitly-created enum types), so a downgrade/re-upgrade cycle is clean.
 | `redirection_hosts.certificate_id` → `certificates.id` | **SET NULL** | As above. |
 | `dead_hosts.certificate_id` → `certificates.id` | **SET NULL** | As above. |
 | `streams.certificate_id` → `certificates.id` | **SET NULL** | As above. |
+| `streams.upstream_id` → `upstreams.id` | **RESTRICT** | A pool in use by a stream cannot be deleted. |
 | `access_list_auth.access_list_id` → `access_lists.id` | **CASCADE** | Auth users belong to their list. |
 | `access_list_clients.access_list_id` → `access_lists.id` | **CASCADE** | Client rules belong to their list. |
 
@@ -68,8 +69,10 @@ of the referenced row.
 - `upstream_backends`: unique `(upstream_id, host, port)`; `port` in 1–65535;
   `weight`, `max_fails`, `fail_timeout_seconds` ≥ 0.
 - `access_list_auth`: unique `(access_list_id, username)`.
-- `streams`: `incoming_port` unique; `incoming_port`/`forward_port` in 1–65535;
-  at least one of `tcp_forwarding`/`udp_forwarding` must be true.
+- `streams`: `incoming_port` unique; `incoming_port`/`forward_port` in 1–65535
+  (`forward_port` may be NULL); at least one of `tcp_forwarding`/`udp_forwarding`
+  must be true; and exactly one target — either `forward_host` + `forward_port`,
+  or `upstream_id`, never both and never neither.
 - `redirection_hosts`: `forward_http_code` in 300–308.
 
 ## Conventions

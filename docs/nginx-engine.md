@@ -31,6 +31,17 @@ One file per object, named by id so updates rewrite in place (never duplicate):
 
 - `megoopm-upstream-{id}.conf` — an `upstream {}` block (load-balancing method,
   per-backend `weight` / `max_fails` / `fail_timeout` / `backup` / `down`).
+  Written into the HTTP `conf.d` when a proxy host references the pool, into
+  `conf.d/stream/` when a stream does, and into **both** for a pool whose
+  context is `both`. `upstream` blocks are context-local — one defined in
+  `http {}` is invisible to `stream {}` — so the same name existing in each is
+  what a shared pool means, not a collision.
+
+  A pool's `context` (`http` / `stream` / `both`) decides which of those apply,
+  and constrains its method: `ip_hash` exists only in `http`, so a
+  stream-capable pool cannot use it. The renderer raises rather than emitting
+  it, since an invalid directive fails `nginx -t` and rolls back the apply for
+  every managed object.
 - `megoopm-proxy-{id}.conf` — the `server {}` block(s): plain `:80`, or a `:443`
   TLS server (+ `:80` redirect when `ssl_forced`) when a certificate is set.
   Honours HSTS, HTTP/2, websocket upgrade, exploit blocking, asset caching and
