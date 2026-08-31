@@ -20,6 +20,21 @@ class LoadBalanceMethod(enum.StrEnum):
     random = "random"
 
 
+class UpstreamContext(enum.StrEnum):
+    """Which nginx context a pool may be rendered into.
+
+    ``upstream`` blocks are context-local: one defined in ``http {}`` is
+    invisible to ``stream {}``, so a pool has to declare where it may be
+    attached. This also constrains its load-balancing method — ``ip_hash``
+    exists only in ``http``, and using it on a stream pool is a hard
+    ``nginx -t`` failure rather than a degraded fallback.
+    """
+
+    http = "http"
+    stream = "stream"
+    both = "both"
+
+
 class CertificateProvider(enum.StrEnum):
     """How a certificate is obtained/managed."""
 

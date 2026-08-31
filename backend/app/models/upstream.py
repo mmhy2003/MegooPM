@@ -23,7 +23,7 @@ from sqlalchemy import (
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
-from app.models.enums import LoadBalanceMethod
+from app.models.enums import LoadBalanceMethod, UpstreamContext
 from app.models.mixins import IdMixin, TimestampMixin
 
 if TYPE_CHECKING:
@@ -46,6 +46,18 @@ class Upstream(IdMixin, TimestampMixin, Base):
         nullable=False,
         default=LoadBalanceMethod.round_robin,
         server_default=LoadBalanceMethod.round_robin.value,
+    )
+    # Where this pool may be attached. Constrains lb_method too: ip_hash is an
+    # http-only directive, so a stream-capable pool cannot use it.
+    context: Mapped[UpstreamContext] = mapped_column(
+        Enum(
+            UpstreamContext,
+            name="upstream_context",
+            values_callable=lambda e: [m.value for m in e],
+        ),
+        nullable=False,
+        default=UpstreamContext.http,
+        server_default=UpstreamContext.http.value,
     )
     enabled: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=True, server_default="true"
