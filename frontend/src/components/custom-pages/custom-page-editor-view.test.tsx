@@ -405,4 +405,57 @@ describe("CustomPageEditorView — change summary", () => {
     await user.click(screen.getByRole("button", { name: "Revert AI edit" }));
     expect(screen.queryByText(/1 change/i)).not.toBeInTheDocument();
   });
+
+  it("dismisses the change list so it stops covering the editor", async () => {
+    const user = userEvent.setup();
+    render(<CustomPageEditorView pageId={7} />);
+    await waitFor(() => expect(screen.getByLabelText("HTML")).toHaveValue(HTML));
+
+    await ask(user, "rename the heading");
+    await screen.findByText(/1 change/i);
+
+    await user.click(screen.getByRole("button", { name: "Dismiss changes" }));
+
+    expect(screen.queryByText(/1 change/i)).not.toBeInTheDocument();
+    const exact = { normalizer: (text: string) => text };
+    expect(screen.queryByText("    <h1>New</h1>", exact)).not.toBeInTheDocument();
+  });
+
+  it("keeps the edit and the ability to revert it after dismissing", async () => {
+    // Dismissing means "I have read this", not "undo this". Losing the undo by
+    // reading the summary would make reviewing an edit cost you the escape
+    // hatch for it.
+    const user = userEvent.setup();
+    render(<CustomPageEditorView pageId={7} />);
+    await waitFor(() => expect(screen.getByLabelText("HTML")).toHaveValue(HTML));
+
+    await ask(user, "rename the heading");
+    await screen.findByText(/1 change/i);
+
+    await user.click(screen.getByRole("button", { name: "Dismiss changes" }));
+
+    // The edit itself is untouched...
+    expect(screen.getByLabelText("HTML")).toHaveValue(AI_DOC);
+    // ...and the way back is still offered.
+    expect(
+      screen.getByRole("button", { name: "Revert AI edit" }),
+    ).toBeInTheDocument();
+  });
+
+  it("shows the summary again after the next edit", async () => {
+    // Dismissing hides one result, it does not turn the summary off.
+    const user = userEvent.setup();
+    render(<CustomPageEditorView pageId={7} />);
+    await waitFor(() => expect(screen.getByLabelText("HTML")).toHaveValue(HTML));
+
+    await ask(user, "rename the heading");
+    await screen.findByText(/1 change/i);
+    await user.click(screen.getByRole("button", { name: "Dismiss changes" }));
+
+    // The prompt bar is already open, so ask() would close it: drive it directly.
+    await user.type(await screen.findByLabelText("Instruction"), " again");
+    await user.click(screen.getByRole("button", { name: "Generate" }));
+
+    expect(await screen.findByText(/1 change/i)).toBeInTheDocument();
+  });
 });

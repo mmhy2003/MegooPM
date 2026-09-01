@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, ImagePlus, Loader2, Sparkles, Undo2 } from "lucide-react";
+import { ArrowLeft, ImagePlus, Loader2, Sparkles, Undo2, X } from "lucide-react";
 import { toast } from "sonner";
 
 import {
@@ -327,35 +327,51 @@ export function CustomPageEditorView({ pageId }: { pageId: number | null }) {
       ) : null}
 
       {lastEdit ? (
-        <section className="space-y-2 rounded-xl border p-3 text-sm">
-          {lastEdit.mode === "tools" ? (
-            <p className="font-medium">
-              {lastEdit.changes.length} change
-              {lastEdit.changes.length === 1 ? "" : "s"} applied
-            </p>
-          ) : (
-            <p className="font-medium">Rewrote the whole page</p>
-          )}
+        <section className="shrink-0 space-y-2 rounded-xl border p-3 text-sm">
+          <div className="flex items-center gap-2">
+            {lastEdit.mode === "tools" ? (
+              <p className="font-medium">
+                {lastEdit.changes.length} change
+                {lastEdit.changes.length === 1 ? "" : "s"} applied
+              </p>
+            ) : (
+              <p className="font-medium">Rewrote the whole page</p>
+            )}
+            {/* Hides the summary only. The edit stands and `htmlBeforeAi` is
+                untouched, so "Revert AI edit" survives reading this. */}
+            <Button
+              variant="ghost"
+              size="sm"
+              className="ms-auto"
+              onClick={() => setLastEdit(null)}
+            >
+              <X /> Dismiss changes
+            </Button>
+          </div>
           {lastEdit.truncated ? (
             <p className="text-xs text-warning">
               The model stopped early after reaching its step limit — check the
               result before saving.
             </p>
           ) : null}
-          {lastEdit.changes.map((change) => (
-            <div key={`${change.start}-${change.end}`} className="space-y-0.5">
-              <p className="text-xs text-muted-foreground">
-                line {change.start}
-                {change.end !== change.start ? `–${change.end}` : ""}
-              </p>
-              <pre className="overflow-x-auto rounded bg-destructive/10 p-1.5 font-mono text-xs">
-                {change.before}
-              </pre>
-              <pre className="overflow-x-auto rounded bg-success/10 p-1.5 font-mono text-xs">
-                {change.after}
-              </pre>
-            </div>
-          ))}
+          {/* Capped: the page is a fixed-height column, so an unbounded list
+              would take its height straight out of the editor below. */}
+          <div className="max-h-56 space-y-2 overflow-y-auto">
+            {lastEdit.changes.map((change) => (
+              <div key={`${change.start}-${change.end}`} className="space-y-0.5">
+                <p className="text-xs text-muted-foreground">
+                  line {change.start}
+                  {change.end !== change.start ? `–${change.end}` : ""}
+                </p>
+                <pre className="overflow-x-auto rounded bg-destructive/10 p-1.5 font-mono text-xs">
+                  {change.before}
+                </pre>
+                <pre className="overflow-x-auto rounded bg-success/10 p-1.5 font-mono text-xs">
+                  {change.after}
+                </pre>
+              </div>
+            ))}
+          </div>
         </section>
       ) : null}
 
