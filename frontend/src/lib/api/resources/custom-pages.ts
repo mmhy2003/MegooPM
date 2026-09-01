@@ -11,12 +11,15 @@
  * schema (see {@link module:lib/api/types}).
  */
 import { api } from "@/lib/api/client";
+import type { ApiRequestOptions } from "@/lib/api/client";
 import type { Schemas } from "@/lib/api/types";
 
 export type CustomPage = Schemas["CustomPageRead"];
 export type CustomPageSummary = Schemas["CustomPageSummary"];
 export type CustomPageCreate = Schemas["CustomPageCreate"];
 export type CustomPageUpdate = Schemas["CustomPageUpdate"];
+export type PageAssistRequest = Schemas["PageAssistRequest"];
+export type PageAssistResponse = Schemas["PageAssistResponse"];
 
 const BASE = "/api/v1/custom-pages";
 
@@ -30,4 +33,15 @@ export const customPages = {
   update: (id: number, body: CustomPageUpdate) =>
     api.patch<CustomPage>(`${BASE}/${id}`, body),
   remove: (id: number) => api.delete<void>(`${BASE}/${id}`),
+
+  /**
+   * Write or revise a page with the configured model. Stateless — pass the
+   * document, get one back — so it works on a page that has never been saved.
+   *
+   * `html` must be **elided**: swap embedded images for placeholders with
+   * `elideImages` first, or a page with one screenshot in it costs ~70k tokens
+   * and is rejected at 200 KB. Pass `{ signal }` to make Cancel work.
+   */
+  assist: (body: PageAssistRequest, options?: ApiRequestOptions) =>
+    api.post<PageAssistResponse>(`${BASE}/assist`, body, options),
 } as const;

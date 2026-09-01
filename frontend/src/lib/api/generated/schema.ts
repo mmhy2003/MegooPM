@@ -581,6 +581,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/custom-pages/assist": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Assist Custom Page
+         * @description Write or revise a page with the configured model. Admin-only.
+         *
+         *     Stateless: it takes the document rather than a page id, so it works on a
+         *     page that has never been saved.
+         *
+         *     ``html`` arrives already elided and the response is re-hydrated in the
+         *     browser, which is why nothing here knows about images.
+         *
+         *     A provider failure is **502**, not 422: the request was well-formed and the
+         *     client can do nothing about it, so blurring it into the 4xx that mean
+         *     "you sent something invalid" would lose that distinction in the logs. This
+         *     is the opposite of the settings probe, which reports a provider failure as
+         *     200 with ``ok: false`` — there, reporting on the connection *is* the job.
+         */
+        post: operations["assist_custom_page_api_v1_custom_pages_assist_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/custom-pages/{page_id}": {
         parameters: {
             query?: never;
@@ -2510,6 +2542,33 @@ export interface components {
         NginxConfigPreview: {
             /** Files */
             files?: components["schemas"]["NginxConfigFile"][];
+        };
+        /**
+         * PageAssistRequest
+         * @description An instruction plus the document to work on.
+         *
+         *     ``html`` arrives **already elided** — the browser has swapped every embedded
+         *     image for a ``MEGOOPM_IMAGE_n`` placeholder, because sending the base64
+         *     would cost ~70k tokens per screenshot and move megabytes over the wire. The
+         *     size cap is enforcement for a client that skipped its own check; it is not
+         *     the primary guard.
+         */
+        PageAssistRequest: {
+            /**
+             * Html
+             * @default
+             */
+            html: string;
+            /** Instruction */
+            instruction: string;
+        };
+        /**
+         * PageAssistResponse
+         * @description The cleaned document. Placeholders are restored by the browser.
+         */
+        PageAssistResponse: {
+            /** Html */
+            html: string;
         };
         /**
          * PasswordChange
@@ -4756,6 +4815,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CustomPageRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    assist_custom_page_api_v1_custom_pages_assist_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PageAssistRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PageAssistResponse"];
                 };
             };
             /** @description Validation Error */

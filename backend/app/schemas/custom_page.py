@@ -17,6 +17,8 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, Field, computed_field, field_validator
 
+from app.services.page_assist import MAX_ASSIST_HTML_BYTES, MAX_INSTRUCTION_CHARS
+
 MAX_HTML_BYTES = 2 * 1024 * 1024
 
 
@@ -126,6 +128,46 @@ class CustomPageRead(BaseModel):
         return _encoded_size(self.html)
 
 
+class PageAssistRequest(BaseModel):
+    """An instruction plus the document to work on.
+
+    ``html`` arrives **already elided** — the browser has swapped every embedded
+    image for a ``MEGOOPM_IMAGE_n`` placeholder, because sending the base64
+    would cost ~70k tokens per screenshot and move megabytes over the wire. The
+    size cap is enforcement for a client that skipped its own check; it is not
+    the primary guard.
+    """
+
+    instruction: str = Field(min_length=1, max_length=MAX_INSTRUCTION_CHARS)
+    html: str = Field(default="")
+
+    @field_validator("instruction")
+    @classmethod
+    def _clean_instruction(cls, value: str) -> str:
+        stripped = value.strip()
+        if not stripped:
+            raise ValueError("instruction must not be empty")
+        return stripped
+
+    @field_validator("html")
+    @classmethod
+    def _check_size(cls, value: str) -> str:
+        encoded = len(value.encode("utf-8"))
+        if encoded > MAX_ASSIST_HTML_BYTES:
+            raise ValueError(
+                f"html is {encoded} bytes; the maximum for AI editing is "
+                f"{MAX_ASSIST_HTML_BYTES}. Embedded images should be replaced "
+                "with placeholders before sending."
+            )
+        return value
+
+
+class PageAssistResponse(BaseModel):
+    """The cleaned document. Placeholders are restored by the browser."""
+
+    html: str
+
+
 __all__ = [
     "MAX_HTML_BYTES",
     "CustomPageBase",
@@ -133,4 +175,6 @@ __all__ = [
     "CustomPageRead",
     "CustomPageSummary",
     "CustomPageUpdate",
+    "PageAssistRequest",
+    "PageAssistResponse",
 ]

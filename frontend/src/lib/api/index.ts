@@ -77,6 +77,8 @@ export type {
   CustomPageSummary,
   CustomPageCreate,
   CustomPageUpdate,
+  PageAssistRequest,
+  PageAssistResponse,
 } from "@/lib/api/resources/custom-pages";
 
 export { instanceSettings } from "@/lib/api/resources/settings";

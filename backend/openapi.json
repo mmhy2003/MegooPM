@@ -2418,6 +2418,41 @@
         "title": "NginxConfigPreview",
         "type": "object"
       },
+      "PageAssistRequest": {
+        "description": "An instruction plus the document to work on.\n\n``html`` arrives **already elided** — the browser has swapped every embedded\nimage for a ``MEGOOPM_IMAGE_n`` placeholder, because sending the base64\nwould cost ~70k tokens per screenshot and move megabytes over the wire. The\nsize cap is enforcement for a client that skipped its own check; it is not\nthe primary guard.",
+        "properties": {
+          "html": {
+            "default": "",
+            "title": "Html",
+            "type": "string"
+          },
+          "instruction": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Instruction",
+            "type": "string"
+          }
+        },
+        "required": [
+          "instruction"
+        ],
+        "title": "PageAssistRequest",
+        "type": "object"
+      },
+      "PageAssistResponse": {
+        "description": "The cleaned document. Placeholders are restored by the browser.",
+        "properties": {
+          "html": {
+            "title": "Html",
+            "type": "string"
+          }
+        },
+        "required": [
+          "html"
+        ],
+        "title": "PageAssistResponse",
+        "type": "object"
+      },
       "PasswordChange": {
         "description": "Self-service password change. The signed-in session is the only proof\nrequired — the current password is deliberately not re-verified.",
         "properties": {
@@ -6364,6 +6399,53 @@
           }
         ],
         "summary": "Create Custom Page",
+        "tags": [
+          "custom-pages"
+        ]
+      }
+    },
+    "/api/v1/custom-pages/assist": {
+      "post": {
+        "description": "Write or revise a page with the configured model. Admin-only.\n\nStateless: it takes the document rather than a page id, so it works on a\npage that has never been saved.\n\n``html`` arrives already elided and the response is re-hydrated in the\nbrowser, which is why nothing here knows about images.\n\nA provider failure is **502**, not 422: the request was well-formed and the\nclient can do nothing about it, so blurring it into the 4xx that mean\n\"you sent something invalid\" would lose that distinction in the logs. This\nis the opposite of the settings probe, which reports a provider failure as\n200 with ``ok: false`` — there, reporting on the connection *is* the job.",
+        "operationId": "assist_custom_page_api_v1_custom_pages_assist_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PageAssistRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageAssistResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Assist Custom Page",
         "tags": [
           "custom-pages"
         ]

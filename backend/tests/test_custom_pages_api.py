@@ -338,3 +338,146 @@ async def test_editing_the_page_the_default_site_uses_enqueues_one_reload(
     assert resp.status_code == 200, resp.text
     assert len(calls) == 1
     assert resp.headers["X-Config-Reload-Task"] == "test-reload-task"
+
+
+# --- AI assistance ---------------------------------------------------------
+
+ASSIST_DOC = "<!doctype html>\n<html><body><h1>done</h1></body></html>"
+
+
+async def _enable_llm(client: AsyncClient, auth) -> None:
+    resp = await client.patch(
+        "/api/v1/settings/llm",
+        headers=auth,
+        json={
+            "llm_enabled": True,
+            "llm_model": "gpt-4o",
+            "llm_api_key": "sk-EXAMPLE-not-a-real-credential-1",
+        },
+    )
+    assert resp.status_code == 200, resp.text
+
+
+@pytest.fixture
+def stub_assist(monkeypatch):
+    """Replace the model round trip; these tests are about the route."""
+    import app.api.routes.custom_pages as routes
+
+    seen: list[dict] = []
+
+    async def _assist(config, *, instruction, html, timeout=120.0):
+        seen.append({"config": config, "instruction": instruction, "html": html})
+        return ASSIST_DOC
+
+    monkeypatch.setattr(routes, "assist_page", _assist)
+    return seen
+
+
+async def test_assist_returns_a_document(client: AsyncClient, auth, stub_assist) -> None:
+    await _enable_llm(client, auth)
+    resp = await client.post(
+        "/api/v1/custom-pages/assist",
+        headers=auth,
+        json={"instruction": "make it blue", "html": "<p>x</p>"},
+    )
+    assert resp.status_code == 200, resp.text
+    assert resp.json() == {"html": ASSIST_DOC}
+    assert stub_assist[0]["instruction"] == "make it blue"
+    assert stub_assist[0]["html"] == "<p>x</p>"
+    assert stub_assist[0]["config"].model == "gpt-4o"
+
+
+async def test_assist_works_with_no_document(client: AsyncClient, auth, stub_assist) -> None:
+    """Generating from nothing is the same endpoint."""
+    await _enable_llm(client, auth)
+    resp = await client.post(
+        "/api/v1/custom-pages/assist",
+        headers=auth,
+        json={"instruction": "a 503 maintenance page"},
+    )
+    assert resp.status_code == 200, resp.text
+    assert stub_assist[0]["html"] == ""
+
+
+async def test_assist_is_refused_while_llm_is_off(client: AsyncClient, auth) -> None:
+    """Unlike the settings probe, this is feature code and the flag gates it."""
+    resp = await client.post(
+        "/api/v1/custom-pages/assist",
+        headers=auth,
+        json={"instruction": "make it blue", "html": "<p>x</p>"},
+    )
+    assert resp.status_code == 422, resp.text
+    assert "settings" in resp.text.lower()
+
+
+async def test_assist_rejects_an_empty_instruction(client: AsyncClient, auth) -> None:
+    await _enable_llm(client, auth)
+    for instruction in ("", "   "):
+        resp = await client.post(
+            "/api/v1/custom-pages/assist",
+            headers=auth,
+            json={"instruction": instruction, "html": "<p>x</p>"},
+        )
+        assert resp.status_code == 422, resp.text
+
+
+async def test_assist_rejects_an_overlong_instruction(client: AsyncClient, auth) -> None:
+    """An unbounded field is an unmetered path into a paid API."""
+    await _enable_llm(client, auth)
+    resp = await client.post(
+        "/api/v1/custom-pages/assist",
+        headers=auth,
+        json={"instruction": "x" * 2001, "html": "<p>x</p>"},
+    )
+    assert resp.status_code == 422, resp.text
+
+
+async def test_assist_rejects_an_un_elided_document(client: AsyncClient, auth) -> None:
+    """The client elides before sending; this catches one that did not."""
+    await _enable_llm(client, auth)
+    resp = await client.post(
+        "/api/v1/custom-pages/assist",
+        headers=auth,
+        json={"instruction": "tidy", "html": "x" * (200 * 1024 + 1)},
+    )
+    assert resp.status_code == 422, resp.text
+
+
+async def test_a_provider_failure_is_502_not_422(client: AsyncClient, auth, monkeypatch) -> None:
+    """The request was fine and the client can do nothing about it; the
+    upstream failed. 422 would blur that in the logs."""
+    import app.api.routes.custom_pages as routes
+    from app.services.llm import LlmError
+
+    async def _boom(config, *, instruction, html, timeout=120.0):
+        raise LlmError("provider said no")
+
+    monkeypatch.setattr(routes, "assist_page", _boom)
+
+    await _enable_llm(client, auth)
+    resp = await client.post(
+        "/api/v1/custom-pages/assist",
+        headers=auth,
+        json={"instruction": "make it blue", "html": "<p>x</p>"},
+    )
+    assert resp.status_code == 502, resp.text
+    assert "provider said no" in resp.text
+
+
+async def test_assist_does_not_record_the_document(client: AsyncClient, auth, stub_assist) -> None:
+    """The audit log keeps the instruction and a size, never the page."""
+    await _enable_llm(client, auth)
+    await client.post(
+        "/api/v1/custom-pages/assist",
+        headers=auth,
+        json={"instruction": "make it blue", "html": "<p>secret marker</p>"},
+    )
+    entries = await client.get("/api/v1/audit-log", headers=auth)
+    assert entries.status_code == 200, entries.text
+    assert "secret marker" not in entries.text
+    assert "make it blue" in entries.text
+
+
+async def test_assist_requires_authentication(client: AsyncClient) -> None:
+    resp = await client.post("/api/v1/custom-pages/assist", json={"instruction": "x", "html": ""})
+    assert resp.status_code == 401

@@ -27,9 +27,14 @@ from app.schemas.custom_page import (
     CustomPageRead,
     CustomPageSummary,
     CustomPageUpdate,
+    PageAssistRequest,
+    PageAssistResponse,
 )
 from app.services import custom_page as custom_page_service
+from app.services import instance_settings as settings_service
 from app.services.audit import record_audit
+from app.services.llm import LlmError, LlmNotConfiguredError
+from app.services.page_assist import assist_page
 
 router = APIRouter(tags=["custom-pages"])
 
@@ -75,6 +80,55 @@ async def create_custom_page(
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=_DUPLICATE_NAME) from None
     await _audit(db, actor=admin.email, action=AuditAction.create, page_id=page.id, name=page.name)
     return CustomPageRead.model_validate(page)
+
+
+@router.post("/assist", response_model=PageAssistResponse)
+async def assist_custom_page(
+    body: PageAssistRequest, admin: AdminUser, db: SessionDep
+) -> PageAssistResponse:
+    """Write or revise a page with the configured model. Admin-only.
+
+    Stateless: it takes the document rather than a page id, so it works on a
+    page that has never been saved.
+
+    ``html`` arrives already elided and the response is re-hydrated in the
+    browser, which is why nothing here knows about images.
+
+    A provider failure is **502**, not 422: the request was well-formed and the
+    client can do nothing about it, so blurring it into the 4xx that mean
+    "you sent something invalid" would lose that distinction in the logs. This
+    is the opposite of the settings probe, which reports a provider failure as
+    200 with ``ok: false`` — there, reporting on the connection *is* the job.
+    """
+    row = await settings_service.get_instance_settings(db)
+    if not row.llm_enabled:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Enable LLM features in Settings before using AI editing",
+        )
+
+    config = settings_service.llm_config_from_row(row)
+    try:
+        html = await assist_page(config, instruction=body.instruction, html=body.html)
+    except LlmNotConfiguredError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
+        ) from None
+    except LlmError as exc:
+        # Already scrubbed of credentials by app/services/llm.py.
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc)) from None
+
+    await _audit(
+        db,
+        actor=admin.email,
+        action=AuditAction.update,
+        page_id=None,
+        # The instruction and a size — never the document, which is the
+        # operator's content and can be megabytes.
+        instruction=body.instruction[:200],
+        result_bytes=len(html.encode("utf-8")),
+    )
+    return PageAssistResponse(html=html)
 
 
 @router.get("/{page_id}", response_model=CustomPageRead)
