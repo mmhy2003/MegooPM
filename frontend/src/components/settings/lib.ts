@@ -8,7 +8,13 @@
  * backend is the authority, and its redirect-URL rules are deliberately
  * stricter (it rejects characters that could escape an nginx directive).
  */
-import type { DefaultSiteMode, InstanceSettings, InstanceSettingsUpdate } from "@/lib/api";
+import type {
+  DefaultSiteMode,
+  DefaultSiteUpdate,
+  InstanceSettings,
+  LlmSettingsUpdate,
+  LlmTestRequest,
+} from "@/lib/api";
 
 export { describeError } from "@/components/proxy-hosts/lib";
 
@@ -74,10 +80,78 @@ export function validateSettingsForm(state: SettingsFormState): string | null {
  * `null`. The backend clears them anyway, but sending stale values would make
  * the request describe a configuration nobody asked for.
  */
-export function buildDefaultSitePayload(state: SettingsFormState): InstanceSettingsUpdate {
+export function buildDefaultSitePayload(state: SettingsFormState): DefaultSiteUpdate {
   return {
     default_site_mode: state.mode,
     default_site_redirect_url: state.mode === "redirect" ? state.redirectUrl.trim() : null,
     default_site_page_id: state.mode === "custom_page" ? state.pageId : null,
   };
+}
+
+/* -------------------------------------------------------------------------- */
+/* LLM integration                                                             */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * The key is the awkward field: it is never returned, so the form cannot show
+ * it. `keyIsSet` is what the server says is stored; `apiKey` is what the
+ * operator has typed *now*; `keyCleared` records an explicit "remove it", which
+ * is the only way to tell clearing apart from simply not retyping.
+ */
+export type LlmFormState = {
+  enabled: boolean;
+  model: string;
+  apiBase: string;
+  apiKey: string;
+  keyIsSet: boolean;
+  keyCleared?: boolean;
+};
+
+export function emptyLlmState(): LlmFormState {
+  return { enabled: false, model: "", apiBase: "", apiKey: "", keyIsSet: false };
+}
+
+export function llmStateFromSettings(settings: InstanceSettings): LlmFormState {
+  return {
+    enabled: settings.llm_enabled,
+    model: settings.llm_model ?? "",
+    apiBase: settings.llm_api_base ?? "",
+    // Never prefilled — the API does not return it.
+    apiKey: "",
+    keyIsSet: settings.llm_api_key_set,
+  };
+}
+
+/** The first problem blocking a save, or `null` when the form is ready. */
+export function validateLlmForm(state: LlmFormState): string | null {
+  if (!state.enabled) return null;
+  if (!state.model.trim()) return "Enter a model to enable LLM features.";
+  // Deliberately no key check: Ollama, LM Studio and vLLM need none.
+  return null;
+}
+
+export function buildLlmPayload(state: LlmFormState): LlmSettingsUpdate {
+  const payload: LlmSettingsUpdate = {
+    llm_enabled: state.enabled,
+    llm_model: state.model.trim() || null,
+    llm_api_base: state.apiBase.trim() || null,
+  };
+  // Three states, and the difference matters: omitted keeps the stored key, a
+  // string replaces it, an explicit null clears it. Sending "" on every save
+  // would wipe a working key the operator never touched.
+  if (state.apiKey.trim()) {
+    payload.llm_api_key = state.apiKey.trim();
+  } else if (state.keyCleared) {
+    payload.llm_api_key = null;
+  }
+  return payload;
+}
+
+/** Only what the form holds; the server fills the rest from the stored row. */
+export function buildLlmTestPayload(state: LlmFormState): LlmTestRequest {
+  const payload: LlmTestRequest = {};
+  if (state.model.trim()) payload.model = state.model.trim();
+  if (state.apiBase.trim()) payload.api_base = state.apiBase.trim();
+  if (state.apiKey.trim()) payload.api_key = state.apiKey.trim();
+  return payload;
 }

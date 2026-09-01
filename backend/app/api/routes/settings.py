@@ -12,6 +12,10 @@ Only the default-site group renders into nginx, so only its write goes through
 followed by a regenerate-and-reload, with the task id in
 ``X-Config-Reload-Task``. The LLM group is audited with
 :func:`~app.services.audit.record_audit` and enqueues no reload.
+
+``app.services.llm`` is imported here at module scope, which is safe: that
+module does not import ``litellm`` until one of its functions runs, so nothing
+here pays the 3.49s the package costs to load.
 """
 
 from __future__ import annotations
@@ -25,9 +29,12 @@ from app.schemas.instance_settings import (
     InstanceSettingsRead,
     InstanceSettingsUpdate,
     LlmSettingsUpdate,
+    LlmTestRequest,
+    LlmTestResult,
 )
 from app.services import instance_settings as settings_service
 from app.services.audit import record_audit
+from app.services.llm import LlmConfig, check_connection
 
 router = APIRouter(tags=["settings"])
 
@@ -98,6 +105,46 @@ async def update_llm_settings(
     )
     await db.commit()
     return InstanceSettingsRead.from_row(row)
+
+
+@router.post("/llm/test", response_model=LlmTestResult)
+async def test_llm_connection(
+    body: LlmTestRequest, _admin: AdminUser, db: SessionDep
+) -> LlmTestResult:
+    """Probe the LLM configuration end to end. Admin-only.
+
+    Overrides in the body win over the stored row, so a key can be checked
+    before it is saved.
+
+    This deliberately ignores ``llm_enabled``. That flag stops *feature* code
+    running when the operator has switched the integration off; requiring it
+    here would invert the order an operator actually works in — configure,
+    prove it works, then enable.
+
+    A failed probe returns **200 with ``ok: false``**, not a 4xx or 5xx: the API
+    call succeeded, the upstream did not. An error status would make a working
+    endpoint indistinguishable from a broken one in logs and monitoring.
+    """
+    row = await settings_service.get_instance_settings(db)
+    stored = settings_service.llm_config_from_row(row)
+    config = LlmConfig(
+        model=body.model or stored.model,
+        api_key=body.api_key or stored.api_key,
+        api_base=body.api_base or stored.api_base,
+    )
+    if not config.model:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Set a model before testing the connection",
+        )
+    result = await check_connection(config)
+    return LlmTestResult(
+        ok=result.ok,
+        model=result.model,
+        reply=result.reply,
+        error=result.error,
+        latency_ms=result.latency_ms,
+    )
 
 
 __all__ = ["router"]

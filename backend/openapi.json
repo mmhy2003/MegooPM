@@ -2277,6 +2277,80 @@
         "title": "LlmSettingsUpdate",
         "type": "object"
       },
+      "LlmTestRequest": {
+        "description": "Optional overrides for the probe, so a key can be checked before saving.",
+        "properties": {
+          "api_base": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Api Base"
+          },
+          "api_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Api Key"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model"
+          }
+        },
+        "title": "LlmTestRequest",
+        "type": "object"
+      },
+      "LlmTestResult": {
+        "description": "The probe's outcome. ``ok: false`` still returns HTTP 200 — see the route.",
+        "properties": {
+          "error": {
+            "default": "",
+            "title": "Error",
+            "type": "string"
+          },
+          "latency_ms": {
+            "default": 0,
+            "title": "Latency Ms",
+            "type": "integer"
+          },
+          "model": {
+            "title": "Model",
+            "type": "string"
+          },
+          "ok": {
+            "title": "Ok",
+            "type": "boolean"
+          },
+          "reply": {
+            "default": "",
+            "title": "Reply",
+            "type": "string"
+          }
+        },
+        "required": [
+          "ok",
+          "model"
+        ],
+        "title": "LlmTestResult",
+        "type": "object"
+      },
       "LoadBalanceMethod": {
         "description": "nginx ``upstream`` load-balancing strategies for a backend pool.",
         "enum": [
@@ -7527,6 +7601,53 @@
           }
         ],
         "summary": "Update Llm Settings",
+        "tags": [
+          "settings"
+        ]
+      }
+    },
+    "/api/v1/settings/llm/test": {
+      "post": {
+        "description": "Probe the LLM configuration end to end. Admin-only.\n\nOverrides in the body win over the stored row, so a key can be checked\nbefore it is saved.\n\nThis deliberately ignores ``llm_enabled``. That flag stops *feature* code\nrunning when the operator has switched the integration off; requiring it\nhere would invert the order an operator actually works in — configure,\nprove it works, then enable.\n\nA failed probe returns **200 with ``ok: false``**, not a 4xx or 5xx: the API\ncall succeeded, the upstream did not. An error status would make a working\nendpoint indistinguishable from a broken one in logs and monitoring.",
+        "operationId": "test_llm_connection_api_v1_settings_llm_test_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LlmTestRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LlmTestResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Test Llm Connection",
         "tags": [
           "settings"
         ]

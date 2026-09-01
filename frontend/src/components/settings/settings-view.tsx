@@ -88,7 +88,7 @@ export function SettingsView() {
     setError(null);
     setSaving(true);
     try {
-      const updated = await instanceSettings.update(buildDefaultSitePayload(form));
+      const updated = await instanceSettings.updateDefaultSite(buildDefaultSitePayload(form));
       setSaved(stateFromSettings(updated));
       setForm(stateFromSettings(updated));
       toast.success("Default site saved");

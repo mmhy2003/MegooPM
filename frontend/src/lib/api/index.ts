@@ -82,8 +82,11 @@ export type {
 export { instanceSettings } from "@/lib/api/resources/settings";
 export type {
   InstanceSettings,
-  InstanceSettingsUpdate,
+  DefaultSiteUpdate,
   DefaultSiteMode,
+  LlmSettingsUpdate,
+  LlmTestRequest,
+  LlmTestResult,
 } from "@/lib/api/resources/settings";
 
 export { streams } from "@/lib/api/resources/streams";

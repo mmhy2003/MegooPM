@@ -420,3 +420,94 @@ async def test_llm_endpoints_require_authentication(client: AsyncClient) -> None
     assert (
         await client.patch("/api/v1/settings/llm", json={"llm_enabled": False})
     ).status_code == 401
+
+
+# --- The probe -------------------------------------------------------------
+
+
+@pytest.fixture
+def stub_probe(monkeypatch):
+    """Replace the LLM round trip; these tests are about the route, not litellm."""
+    import app.api.routes.settings as settings_routes
+    from app.services.llm import LlmCheckResult
+
+    seen: list = []
+
+    async def _check(config, *, timeout=30.0):
+        seen.append(config)
+        return LlmCheckResult(ok=True, model=config.model, reply="OK", latency_ms=7)
+
+    monkeypatch.setattr(settings_routes, "check_connection", _check)
+    return seen
+
+
+async def test_probe_uses_the_stored_config(client: AsyncClient, auth, stub_probe) -> None:
+    await _enable_llm(client, auth, llm_api_base="https://gw.example.com")
+    resp = await client.post("/api/v1/settings/llm/test", headers=auth, json={})
+    assert resp.status_code == 200, resp.text
+    assert resp.json() == {
+        "ok": True,
+        "model": "gpt-4o",
+        "reply": "OK",
+        "error": "",
+        "latency_ms": 7,
+    }
+    assert stub_probe[0].model == "gpt-4o"
+    assert stub_probe[0].api_key == LLM_KEY
+    assert stub_probe[0].api_base == "https://gw.example.com"
+
+
+async def test_probe_accepts_overrides_so_a_key_can_be_checked_before_saving(
+    client: AsyncClient, auth, stub_probe
+) -> None:
+    await _enable_llm(client, auth)
+    resp = await client.post(
+        "/api/v1/settings/llm/test",
+        headers=auth,
+        json={"model": "gpt-4o-mini", "api_key": "sk-unsaved-value-abcdefghijkl"},
+    )
+    assert resp.status_code == 200, resp.text
+    assert stub_probe[0].model == "gpt-4o-mini"
+    assert stub_probe[0].api_key == "sk-unsaved-value-abcdefghijkl"
+
+
+async def test_probe_works_while_the_feature_is_switched_off(
+    client: AsyncClient, auth, stub_probe
+) -> None:
+    """Configure, prove it works, then switch on — not the other way round."""
+    await client.patch(
+        "/api/v1/settings/llm",
+        headers=auth,
+        json={"llm_enabled": False, "llm_model": "gpt-4o", "llm_api_key": LLM_KEY},
+    )
+    resp = await client.post("/api/v1/settings/llm/test", headers=auth, json={})
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["ok"] is True
+
+
+async def test_probe_without_a_model_is_422(client: AsyncClient, auth) -> None:
+    """With no model there is nothing to probe."""
+    resp = await client.post("/api/v1/settings/llm/test", headers=auth, json={})
+    assert resp.status_code == 422, resp.text
+
+
+async def test_a_failed_probe_is_200_with_ok_false(client: AsyncClient, auth, monkeypatch) -> None:
+    """The API call succeeded; the upstream did not. An error status would make
+    a working endpoint indistinguishable from a broken one in monitoring."""
+    import app.api.routes.settings as settings_routes
+    from app.services.llm import LlmCheckResult
+
+    async def _check(config, *, timeout=30.0):
+        return LlmCheckResult(ok=False, model=config.model, error="401 unauthorized")
+
+    monkeypatch.setattr(settings_routes, "check_connection", _check)
+
+    await _enable_llm(client, auth)
+    resp = await client.post("/api/v1/settings/llm/test", headers=auth, json={})
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["ok"] is False
+    assert resp.json()["error"] == "401 unauthorized"
+
+
+async def test_probe_requires_authentication(client: AsyncClient) -> None:
+    assert (await client.post("/api/v1/settings/llm/test", json={})).status_code == 401

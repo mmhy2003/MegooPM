@@ -20,6 +20,10 @@ function makeSettings(overrides: Partial<InstanceSettings> = {}): InstanceSettin
     default_site_mode: "not_found",
     default_site_redirect_url: null,
     default_site_page_id: null,
+    llm_enabled: false,
+    llm_model: null,
+    llm_api_base: null,
+    llm_api_key_set: false,
     updated_at: STAMPS.updated_at,
     ...overrides,
   };
@@ -37,7 +41,7 @@ describe("SettingsView", () => {
   beforeEach(() => {
     push.mockClear();
     vi.spyOn(instanceSettings, "get").mockResolvedValue(makeSettings());
-    vi.spyOn(instanceSettings, "update").mockResolvedValue(makeSettings());
+    vi.spyOn(instanceSettings, "updateDefaultSite").mockResolvedValue(makeSettings());
     vi.spyOn(customPages, "list").mockResolvedValue([PAGE]);
   });
   afterEach(() => {
@@ -88,8 +92,8 @@ describe("SettingsView", () => {
     await user.click(await screen.findByRole("radio", { name: /No response/i }));
     await user.click(screen.getByRole("button", { name: "Save changes" }));
 
-    await waitFor(() => expect(instanceSettings.update).toHaveBeenCalledTimes(1));
-    expect(instanceSettings.update).toHaveBeenCalledWith({
+    await waitFor(() => expect(instanceSettings.updateDefaultSite).toHaveBeenCalledTimes(1));
+    expect(instanceSettings.updateDefaultSite).toHaveBeenCalledWith({
       default_site_mode: "no_response",
       default_site_redirect_url: null,
       default_site_page_id: null,
@@ -103,8 +107,8 @@ describe("SettingsView", () => {
     await user.type(screen.getByLabelText("Redirect to"), "https://example.com");
     await user.click(screen.getByRole("button", { name: "Save changes" }));
 
-    await waitFor(() => expect(instanceSettings.update).toHaveBeenCalledTimes(1));
-    expect(vi.mocked(instanceSettings.update).mock.calls[0][0]).toMatchObject({
+    await waitFor(() => expect(instanceSettings.updateDefaultSite).toHaveBeenCalledTimes(1));
+    expect(vi.mocked(instanceSettings.updateDefaultSite).mock.calls[0][0]).toMatchObject({
       default_site_mode: "redirect",
       default_site_redirect_url: "https://example.com",
     });
@@ -117,7 +121,7 @@ describe("SettingsView", () => {
     await user.click(screen.getByRole("button", { name: "Save changes" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent("Enter the URL to redirect to.");
-    expect(instanceSettings.update).not.toHaveBeenCalled();
+    expect(instanceSettings.updateDefaultSite).not.toHaveBeenCalled();
   });
 
   it("points at Custom Pages when there are none to choose", async () => {

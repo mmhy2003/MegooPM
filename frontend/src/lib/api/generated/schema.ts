@@ -910,6 +910,22 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/settings/default-site": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
         /**
          * Update Settings
          * @description Set the default site. Admin-only.
@@ -917,7 +933,63 @@ export interface paths {
          *     ``default_site_mode`` is required; the columns the chosen mode does not use
          *     are cleared, so the stored row always describes exactly one configuration.
          */
-        patch: operations["update_settings_api_v1_settings_patch"];
+        patch: operations["update_settings_api_v1_settings_default_site_patch"];
+        trace?: never;
+    };
+    "/api/v1/settings/llm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Update Llm Settings
+         * @description Configure the LLM integration. Admin-only.
+         *
+         *     ``exclude_unset`` is load-bearing: it is what tells the service the
+         *     difference between "the client did not send a key" and "the client cleared
+         *     the key".
+         */
+        patch: operations["update_llm_settings_api_v1_settings_llm_patch"];
+        trace?: never;
+    };
+    "/api/v1/settings/llm/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Test Llm Connection
+         * @description Probe the LLM configuration end to end. Admin-only.
+         *
+         *     Overrides in the body win over the stored row, so a key can be checked
+         *     before it is saved.
+         *
+         *     This deliberately ignores ``llm_enabled``. That flag stops *feature* code
+         *     running when the operator has switched the integration off; requiring it
+         *     here would invert the order an operator actually works in — configure,
+         *     prove it works, then enable.
+         *
+         *     A failed probe returns **200 with ``ok: false``**, not a 4xx or 5xx: the API
+         *     call succeeded, the upstream did not. An error status would make a working
+         *     endpoint indistinguishable from a broken one in logs and monitoring.
+         */
+        post: operations["test_llm_connection_api_v1_settings_llm_test_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/v1/streams": {
@@ -2270,6 +2342,10 @@ export interface components {
         /**
          * InstanceSettingsRead
          * @description Public representation of the settings singleton.
+         *
+         *     The LLM API key is deliberately absent. ``llm_api_key_set`` says whether one
+         *     is stored; the value itself is never returned by any endpoint, so a
+         *     compromised browser session cannot read it back out.
          */
         InstanceSettingsRead: {
             default_site_mode: components["schemas"]["DefaultSiteMode"];
@@ -2277,6 +2353,14 @@ export interface components {
             default_site_page_id: number | null;
             /** Default Site Redirect Url */
             default_site_redirect_url: string | null;
+            /** Llm Api Base */
+            llm_api_base: string | null;
+            /** Llm Api Key Set */
+            llm_api_key_set: boolean;
+            /** Llm Enabled */
+            llm_enabled: boolean;
+            /** Llm Model */
+            llm_model: string | null;
             /**
              * Updated At
              * Format: date-time
@@ -2325,6 +2409,67 @@ export interface components {
             domain_names: string[];
             /** Name */
             name: string;
+        };
+        /**
+         * LlmSettingsUpdate
+         * @description Set the LLM integration. Carries the whole group; the key is the exception.
+         *
+         *     ``llm_enabled`` is required for the same reason ``default_site_mode`` is on
+         *     its sibling: "enabled needs a model" cannot be checked against a payload
+         *     that omits it, and a schema never sees the stored row.
+         *
+         *     ``llm_api_key`` is the one field that cannot work that way — it is never
+         *     returned, so a client has nothing to send back. Absent keeps the stored key;
+         *     a string replaces it; an explicit ``null`` clears it. The three states are
+         *     distinguished with ``model_fields_set``, which is why the service is handed
+         *     ``model_dump(exclude_unset=True)``.
+         */
+        LlmSettingsUpdate: {
+            /** Llm Api Base */
+            llm_api_base?: string | null;
+            /** Llm Api Key */
+            llm_api_key?: string | null;
+            /** Llm Enabled */
+            llm_enabled: boolean;
+            /** Llm Model */
+            llm_model?: string | null;
+        };
+        /**
+         * LlmTestRequest
+         * @description Optional overrides for the probe, so a key can be checked before saving.
+         */
+        LlmTestRequest: {
+            /** Api Base */
+            api_base?: string | null;
+            /** Api Key */
+            api_key?: string | null;
+            /** Model */
+            model?: string | null;
+        };
+        /**
+         * LlmTestResult
+         * @description The probe's outcome. ``ok: false`` still returns HTTP 200 — see the route.
+         */
+        LlmTestResult: {
+            /**
+             * Error
+             * @default
+             */
+            error: string;
+            /**
+             * Latency Ms
+             * @default 0
+             */
+            latency_ms: number;
+            /** Model */
+            model: string;
+            /** Ok */
+            ok: boolean;
+            /**
+             * Reply
+             * @default
+             */
+            reply: string;
         };
         /**
          * LoadBalanceMethod
@@ -5395,7 +5540,7 @@ export interface operations {
             };
         };
     };
-    update_settings_api_v1_settings_patch: {
+    update_settings_api_v1_settings_default_site_patch: {
         parameters: {
             query?: never;
             header?: never;
@@ -5415,6 +5560,72 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["InstanceSettingsRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_llm_settings_api_v1_settings_llm_patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LlmSettingsUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InstanceSettingsRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    test_llm_connection_api_v1_settings_llm_test_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LlmTestRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LlmTestResult"];
                 };
             };
             /** @description Validation Error */
