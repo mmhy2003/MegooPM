@@ -20,6 +20,8 @@ shipped by Alembic migration `0003_core_domain`.
 | `access_lists` | Reusable authorization policy for proxy hosts. |
 | `access_list_auth` | Basic-auth users (hashed) within an access list. |
 | `access_list_clients` | IP/CIDR allow/deny rules within an access list. |
+| `custom_pages` | Named HTML documents authored in the app; images embedded as base64 `data:` URIs, so a page has no side-car assets. |
+| `instance_settings` | Instance-wide settings. Exactly one row (`id=1`), seeded by its migration so readers never handle "no row yet". Holds the default site. |
 | `audit_log` | Append-only record of domain mutations. |
 
 ## The upstream-pool relationship (differentiator)
@@ -40,6 +42,7 @@ NPM forwards to a single host/port — MegooPM forwards to a load-balanced pool.
 - `redirect_scheme`: `auto`, `http`, `https`
 - `access_list_directive`: `allow`, `deny`
 - `audit_action`: `create`, `update`, `delete`, `enable`, `disable`
+- `default_site_mode`: `congratulations`, `not_found`, `no_response`, `redirect`, `custom_page`
 
 The migration drops these types explicitly on downgrade (Alembic does not drop
 implicitly-created enum types), so a downgrade/re-upgrade cycle is clean.
@@ -60,6 +63,7 @@ implicitly-created enum types), so a downgrade/re-upgrade cycle is clean.
 | `streams.upstream_id` → `upstreams.id` | **RESTRICT** | A pool in use by a stream cannot be deleted. |
 | `access_list_auth.access_list_id` → `access_lists.id` | **CASCADE** | Auth users belong to their list. |
 | `access_list_clients.access_list_id` → `access_lists.id` | **CASCADE** | Client rules belong to their list. |
+| `instance_settings.default_site_page_id` → `custom_pages.id` | **RESTRICT** | Deliberately unlike the `SET NULL` rows above. Detaching a guard from one host is visible and recoverable; silently changing what *every* unmatched visitor sees is neither, so the delete is refused (409) instead. |
 
 `audit_log.object_id` is a loose reference (no FK) so history survives deletion
 of the referenced row.
@@ -77,11 +81,17 @@ of the referenced row.
   either `forward_host` + `forward_port`, or `upstream_id`, never both and
   never neither; `forward_port` in 1–65535 when set.
 - `redirection_hosts`: `forward_http_code` in 300–308.
+- `custom_pages`: `name` unique.
+- `instance_settings`: `default_site_mode = 'redirect'` requires
+  `default_site_redirect_url`; `= 'custom_page'` requires `default_site_page_id`.
+  A half-configured row would render nginx config that says nothing, so the
+  database refuses it as well as the API.
 
 ## Conventions
 
 Every table has a `BigInteger` surrogate `id` and `created_at`/`updated_at`
-timestamps (`audit_log` is append-only: `created_at` only). Constraint and index
+timestamps (`audit_log` is append-only: `created_at` only; `instance_settings`
+is a singleton whose `id` is a non-autoincrement `Integer` always equal to 1). Constraint and index
 names follow the naming convention in `app/db/base.py`.
 
 ## Verification

@@ -1,0 +1,66 @@
+"""Instance-wide settings — a single row the whole deployment shares.
+
+One row, always ``id=1``, seeded by the migration so readers never handle "no
+row yet" (the same shape as ``crowdsec_whitelist_apply``). Settings are typed
+columns rather than a key/value blob: this codebase is typed end to end, and a
+JSON value would push validation into hand-written per-key code and cost the
+frontend its generated types.
+
+Today it holds one setting — the default site, i.e. what nginx returns for a
+request matching no configured host.
+"""
+
+from __future__ import annotations
+
+from sqlalchemy import BigInteger, CheckConstraint, Enum, ForeignKey, Integer, Text
+from sqlalchemy.orm import Mapped, mapped_column
+
+from app.db.base import Base
+from app.models.enums import DefaultSiteMode
+from app.models.mixins import TimestampMixin
+
+
+class InstanceSettings(TimestampMixin, Base):
+    """The singleton settings row."""
+
+    __tablename__ = "instance_settings"
+    __table_args__ = (
+        # A half-configured row renders nginx config that says nothing, so the
+        # database refuses it as well as the API. Bare names: the metadata
+        # naming convention adds the ck_%(table_name)s_ prefix.
+        CheckConstraint(
+            "default_site_mode <> 'redirect' OR default_site_redirect_url IS NOT NULL",
+            name="redirect_needs_url",
+        ),
+        CheckConstraint(
+            "default_site_mode <> 'custom_page' OR default_site_page_id IS NOT NULL",
+            name="custom_page_needs_page",
+        ),
+    )
+
+    # Not autoincrement: there is exactly one row and its id is always 1.
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=False, default=1)
+
+    default_site_mode: Mapped[DefaultSiteMode] = mapped_column(
+        Enum(
+            DefaultSiteMode,
+            name="default_site_mode",
+            values_callable=lambda e: [m.value for m in e],
+        ),
+        nullable=False,
+        default=DefaultSiteMode.not_found,
+        server_default=DefaultSiteMode.not_found.value,
+    )
+    default_site_redirect_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # RESTRICT, not SET NULL: silently changing what every unmatched visitor
+    # sees is worse than refusing the delete. (Contrast proxy_hosts.access_list_id,
+    # where detaching one host's guard is visible and recoverable.)
+    default_site_page_id: Mapped[int | None] = mapped_column(
+        BigInteger,
+        ForeignKey("custom_pages.id", ondelete="RESTRICT"),
+        nullable=True,
+        index=True,
+    )
+
+
+__all__ = ["InstanceSettings"]

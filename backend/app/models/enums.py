@@ -95,6 +95,16 @@ class AccessListDirective(enum.StrEnum):
     deny = "deny"
 
 
+class DefaultSiteMode(enum.StrEnum):
+    """What nginx returns for a request matching no configured host."""
+
+    congratulations = "congratulations"
+    not_found = "not_found"
+    no_response = "no_response"
+    redirect = "redirect"
+    custom_page = "custom_page"
+
+
 class AuditAction(enum.StrEnum):
     """The mutation an audit-log row records."""
 
@@ -113,5 +123,6 @@ __all__ = [
     "HttpScheme",
     "RedirectScheme",
     "AccessListDirective",
+    "DefaultSiteMode",
     "AuditAction",
 ]
