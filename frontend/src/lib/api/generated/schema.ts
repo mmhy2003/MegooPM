@@ -557,6 +557,58 @@ export interface paths {
         patch: operations["update_whitelist_api_v1_crowdsec_whitelists__whitelist_id__patch"];
         trace?: never;
     };
+    "/api/v1/custom-pages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Custom Pages
+         * @description List every page, without their documents. Admin-only.
+         */
+        get: operations["list_custom_pages_api_v1_custom_pages_get"];
+        put?: never;
+        /**
+         * Create Custom Page
+         * @description Create a page. Admin-only.
+         */
+        post: operations["create_custom_page_api_v1_custom_pages_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/custom-pages/{page_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Custom Page
+         * @description Fetch one page including its document. Admin-only.
+         */
+        get: operations["get_custom_page_api_v1_custom_pages__page_id__get"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete Custom Page
+         * @description Delete a page. Admin-only.
+         */
+        delete: operations["delete_custom_page_api_v1_custom_pages__page_id__delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Update Custom Page
+         * @description Update a page's name, description and/or document. Admin-only.
+         */
+        patch: operations["update_custom_page_api_v1_custom_pages__page_id__patch"];
+        trace?: never;
+    };
     "/api/v1/dead-hosts": {
         parameters: {
             query?: never;
@@ -1755,6 +1807,93 @@ export interface components {
              * @description Matching private key in PEM format
              */
             private_key_pem: string;
+        };
+        /**
+         * CustomPageCreate
+         * @description Payload to create a page. ``html`` may be empty and filled in later.
+         */
+        CustomPageCreate: {
+            /**
+             * Description
+             * @default
+             */
+            description: string;
+            /**
+             * Html
+             * @description The full HTML document
+             * @default
+             */
+            html: string;
+            /**
+             * Name
+             * @description Human-readable name
+             */
+            name: string;
+        };
+        /**
+         * CustomPageRead
+         * @description Detail representation: the full document, for the editor.
+         */
+        CustomPageRead: {
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Description */
+            description: string;
+            /** Html */
+            html: string;
+            /** Id */
+            id: number;
+            /** Name */
+            name: string;
+            /**
+             * Size Bytes
+             * @description Matches the summary's field so both views report the same weight.
+             */
+            readonly size_bytes: number;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /**
+         * CustomPageSummary
+         * @description Index representation: a byte count in place of the document itself.
+         */
+        CustomPageSummary: {
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Description */
+            description: string;
+            /** Id */
+            id: number;
+            /** Name */
+            name: string;
+            /** Size Bytes */
+            size_bytes: number;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /**
+         * CustomPageUpdate
+         * @description Partial update; omitted fields are left as they are.
+         */
+        CustomPageUpdate: {
+            /** Description */
+            description?: string | null;
+            /** Html */
+            html?: string | null;
+            /** Name */
+            name?: string | null;
         };
         /**
          * DeadHostCreate
@@ -4353,6 +4492,154 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["WhitelistRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_custom_pages_api_v1_custom_pages_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CustomPageSummary"][];
+                };
+            };
+        };
+    };
+    create_custom_page_api_v1_custom_pages_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CustomPageCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CustomPageRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_custom_page_api_v1_custom_pages__page_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                page_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CustomPageRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_custom_page_api_v1_custom_pages__page_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                page_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_custom_page_api_v1_custom_pages__page_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                page_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CustomPageUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CustomPageRead"];
                 };
             };
             /** @description Validation Error */

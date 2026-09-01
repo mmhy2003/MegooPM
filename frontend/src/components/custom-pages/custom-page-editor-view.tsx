@@ -1,0 +1,283 @@
+"use client";
+
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
+import { ArrowLeft, ImagePlus, Loader2 } from "lucide-react";
+import { toast } from "sonner";
+
+import { customPages, type CustomPage } from "@/lib/api";
+import {
+  MAX_PAGE_BYTES,
+  STARTER_HTML,
+  describeError,
+  describeImageSize,
+  formatBytes,
+  htmlByteLength,
+  imgTagFor,
+  isOverPageCap,
+} from "@/components/custom-pages/lib";
+import { HtmlEditor, type HtmlEditorHandle } from "@/components/custom-pages/html-editor";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Skeleton } from "@/components/ui/skeleton";
+
+type Form = { name: string; description: string; html: string };
+
+const NEW_FORM: Form = { name: "", description: "", html: STARTER_HTML };
+
+function formFrom(page: CustomPage): Form {
+  return { name: page.name, description: page.description, html: page.html };
+}
+
+/**
+ * Author one custom page: metadata, an HTML editor, and a live preview.
+ *
+ * `pageId` of `null` is create mode — nothing is fetched and the document
+ * starts from {@link STARTER_HTML}. Saving a new page routes to its own editor
+ * so a second save updates rather than creating a duplicate.
+ */
+export function CustomPageEditorView({ pageId }: { pageId: number | null }) {
+  const router = useRouter();
+  const editor = useRef<HtmlEditorHandle>(null);
+  const fileInput = useRef<HTMLInputElement>(null);
+
+  const [form, setForm] = useState<Form>(NEW_FORM);
+  // The last saved state, so "dirty" is a comparison rather than a flag that
+  // can drift out of sync with what the server actually holds.
+  const [saved, setSaved] = useState<Form>(NEW_FORM);
+  const [loading, setLoading] = useState(pageId !== null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  const load = useCallback(async () => {
+    if (pageId === null) return;
+    setLoading(true);
+    try {
+      const page = await customPages.get(pageId);
+      setForm(formFrom(page));
+      setSaved(formFrom(page));
+      setLoadError(null);
+    } catch (err) {
+      setLoadError(describeError(err).message);
+    } finally {
+      setLoading(false);
+    }
+  }, [pageId]);
+
+  // The IIFE keeps the effect callback itself synchronous; `load` awaits before
+  // any setState, so nothing updates state synchronously in the effect body.
+  useEffect(() => {
+    void (async () => {
+      await load();
+    })();
+  }, [load]);
+
+  const bytes = htmlByteLength(form.html);
+  const overCap = isOverPageCap(form.html);
+  const dirty =
+    form.name !== saved.name ||
+    form.description !== saved.description ||
+    form.html !== saved.html;
+
+  function patch(changes: Partial<Form>) {
+    setForm((current) => ({ ...current, ...changes }));
+  }
+
+  async function handleSave() {
+    if (!form.name.trim()) {
+      setError("Enter a name for the page.");
+      return;
+    }
+    if (overCap) {
+      setError(
+        `The document is ${formatBytes(bytes)}; the maximum is ${formatBytes(MAX_PAGE_BYTES)}.`,
+      );
+      return;
+    }
+    setError(null);
+    setSaving(true);
+    try {
+      const body = {
+        name: form.name.trim(),
+        description: form.description,
+        html: form.html,
+      };
+      if (pageId === null) {
+        const created = await customPages.create(body);
+        toast.success("Page created");
+        // Move onto the page's own route so the next save is an update.
+        router.push(`/custom-pages/${created.id}`);
+      } else {
+        const updated = await customPages.update(pageId, body);
+        setSaved(formFrom(updated));
+        toast.success("Page saved");
+      }
+    } catch (err) {
+      // 409 → the name is taken; 422 → the document exceeds the cap.
+      const described = describeError(err);
+      setError(described.message);
+      toast.error(described.message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function handlePickImage(file: File | undefined) {
+    if (!file) return;
+    const warning = describeImageSize(file.size);
+    if (warning) toast.warning(warning);
+
+    const reader = new FileReader();
+    reader.onerror = () => toast.error("Couldn't read that file.");
+    reader.onload = () => {
+      const dataUri = typeof reader.result === "string" ? reader.result : "";
+      if (!dataUri) return;
+      // Inserted straight into the document: a page carries its own images, so
+      // there is nothing to upload and nothing to clean up on delete.
+      editor.current?.insertAtCursor(imgTagFor(file.name, dataUri));
+    };
+    reader.readAsDataURL(file);
+  }
+
+  if (loadError) {
+    return (
+      <div className="mx-auto flex max-w-6xl flex-col items-start gap-3 rounded-xl border border-destructive/30 bg-destructive/5 p-4">
+        <p className="text-sm text-destructive" role="alert">
+          Couldn&apos;t load this page: {loadError}
+        </p>
+        <Button variant="outline" size="sm" onClick={() => void load()}>
+          Retry
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mx-auto flex h-[calc(100dvh-7rem)] max-w-7xl flex-col gap-4">
+      <div className="flex flex-wrap items-end gap-3">
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          aria-label="Back to custom pages"
+          onClick={() => router.push("/custom-pages")}
+        >
+          <ArrowLeft />
+        </Button>
+        <div className="w-56 space-y-1.5">
+          <Label htmlFor="cp-name">Name</Label>
+          <Input
+            id="cp-name"
+            value={form.name}
+            onChange={(e) => patch({ name: e.target.value })}
+            placeholder="Access denied"
+            disabled={saving || loading}
+          />
+        </div>
+        <div className="min-w-56 flex-1 space-y-1.5">
+          <Label htmlFor="cp-description">Description</Label>
+          <Input
+            id="cp-description"
+            value={form.description}
+            onChange={(e) => patch({ description: e.target.value })}
+            placeholder="What this page is for"
+            disabled={saving || loading}
+          />
+        </div>
+        <Button onClick={handleSave} disabled={saving || loading || (pageId !== null && !dirty)}>
+          {saving ? <Loader2 className="animate-spin" /> : null}
+          {pageId === null ? "Create page" : "Save"}
+        </Button>
+      </div>
+
+      {error ? (
+        <p role="alert" className="text-sm text-destructive">
+          {error}
+        </p>
+      ) : null}
+
+      <div className="grid min-h-0 flex-1 gap-4 lg:grid-cols-2">
+        <section className="flex min-h-0 flex-col rounded-xl border">
+          <div className="flex items-center gap-2 border-b px-3 py-2">
+            <span className="text-sm font-medium">HTML</span>
+            <span
+              className={`text-xs tabular-nums ${
+                overCap ? "text-destructive" : "text-muted-foreground"
+              }`}
+            >
+              {formatBytes(bytes)}
+            </span>
+            <div className="flex-1" />
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={saving || loading}
+              onClick={() => fileInput.current?.click()}
+            >
+              <ImagePlus /> Insert image
+            </Button>
+            <input
+              ref={fileInput}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              aria-label="Image file"
+              onChange={(e) => {
+                handlePickImage(e.target.files?.[0]);
+                // Reset so picking the same file twice fires again.
+                e.target.value = "";
+              }}
+            />
+          </div>
+          <div className="min-h-0 flex-1">
+            {loading ? (
+              <div className="space-y-2 p-3">
+                <Skeleton className="h-4 w-3/4" />
+                <Skeleton className="h-4 w-1/2" />
+                <Skeleton className="h-4 w-2/3" />
+              </div>
+            ) : (
+              <HtmlEditor
+                value={form.html}
+                onChange={(html) => patch({ html })}
+                readOnly={saving}
+                handleRef={editor}
+              />
+            )}
+          </div>
+        </section>
+
+        <section className="flex min-h-0 flex-col rounded-xl border">
+          <div className="border-b px-3 py-2 text-sm font-medium">Preview</div>
+          <PagePreview html={form.html} />
+        </section>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Live preview of the document.
+ *
+ * `sandbox="allow-scripts"` without `allow-same-origin` puts the frame on an
+ * opaque origin: scripts in the page still run, so the preview is faithful, but
+ * they can never reach into the admin app's DOM, storage or cookies.
+ */
+function PagePreview({ html }: { html: string }) {
+  const [debounced, setDebounced] = useState(html);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setDebounced(html), 250);
+    return () => clearTimeout(timer);
+  }, [html]);
+
+  return (
+    <iframe
+      title="Page preview"
+      sandbox="allow-scripts"
+      srcDoc={debounced}
+      className="min-h-0 flex-1 rounded-b-xl bg-white"
+    />
+  );
+}

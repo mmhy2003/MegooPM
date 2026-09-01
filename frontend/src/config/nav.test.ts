@@ -13,6 +13,7 @@ describe("primaryNav", () => {
       "Streams",
       "Redirection Hosts",
       "404 Hosts",
+      "Custom Pages",
       "Security",
       "Users",
       "Settings",

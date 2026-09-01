@@ -7,6 +7,7 @@ import {
   Settings,
   ArrowRightLeft,
   Ban,
+  FileCode2,
   ShieldAlert,
   Users,
   type LucideIcon,
@@ -68,6 +69,12 @@ export const primaryNav: NavItem[] = [
     href: "/dead-hosts",
     icon: Ban,
     description: "Park domains and return a 404 for every request.",
+  },
+  {
+    title: "Custom Pages",
+    href: "/custom-pages",
+    icon: FileCode2,
+    description: "HTML pages you author here and reference elsewhere.",
   },
   {
     title: "Security",

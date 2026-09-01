@@ -71,6 +71,14 @@ export type {
   AccessListDirective,
 } from "@/lib/api/resources/access-lists";
 
+export { customPages, MAX_PAGE_BYTES } from "@/lib/api/resources/custom-pages";
+export type {
+  CustomPage,
+  CustomPageSummary,
+  CustomPageCreate,
+  CustomPageUpdate,
+} from "@/lib/api/resources/custom-pages";
+
 export { streams } from "@/lib/api/resources/streams";
 export type { Stream, StreamCreate, StreamUpdate } from "@/lib/api/resources/streams";
 

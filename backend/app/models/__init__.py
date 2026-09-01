@@ -22,6 +22,7 @@ from app.models.crowdsec_whitelist import (  # noqa: F401
     CrowdSecWhitelist,
     CrowdSecWhitelistApply,
 )
+from app.models.custom_page import CustomPage  # noqa: F401
 from app.models.dead_host import DeadHost  # noqa: F401
 from app.models.dns_credential import DnsProviderCredential  # noqa: F401
 from app.models.proxy_host import ProxyHost, ProxyHostLocation  # noqa: F401
@@ -43,6 +44,7 @@ __all__ = [
     "CrowdSecCredential",
     "CrowdSecWhitelist",
     "CrowdSecWhitelistApply",
+    "CustomPage",
     "DeadHost",
     "DnsProviderCredential",
     "ProxyHost",

@@ -1231,6 +1231,167 @@
         "title": "CustomCertificateCreate",
         "type": "object"
       },
+      "CustomPageCreate": {
+        "description": "Payload to create a page. ``html`` may be empty and filled in later.",
+        "properties": {
+          "description": {
+            "default": "",
+            "maxLength": 1000,
+            "title": "Description",
+            "type": "string"
+          },
+          "html": {
+            "default": "",
+            "description": "The full HTML document",
+            "title": "Html",
+            "type": "string"
+          },
+          "name": {
+            "description": "Human-readable name",
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "CustomPageCreate",
+        "type": "object"
+      },
+      "CustomPageRead": {
+        "description": "Detail representation: the full document, for the editor.",
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "description": {
+            "title": "Description",
+            "type": "string"
+          },
+          "html": {
+            "title": "Html",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "size_bytes": {
+            "description": "Matches the summary's field so both views report the same weight.",
+            "readOnly": true,
+            "title": "Size Bytes",
+            "type": "integer"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "description",
+          "html",
+          "created_at",
+          "updated_at",
+          "size_bytes"
+        ],
+        "title": "CustomPageRead",
+        "type": "object"
+      },
+      "CustomPageSummary": {
+        "description": "Index representation: a byte count in place of the document itself.",
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "description": {
+            "title": "Description",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "size_bytes": {
+            "title": "Size Bytes",
+            "type": "integer"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "description",
+          "size_bytes",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "CustomPageSummary",
+        "type": "object"
+      },
+      "CustomPageUpdate": {
+        "description": "Partial update; omitted fields are left as they are.",
+        "properties": {
+          "description": {
+            "anyOf": [
+              {
+                "maxLength": 1000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "html": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Html"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          }
+        },
+        "title": "CustomPageUpdate",
+        "type": "object"
+      },
       "DeadHostCreate": {
         "description": "Payload to create a dead host.",
         "properties": {
@@ -5882,6 +6043,225 @@
         "summary": "Update Whitelist",
         "tags": [
           "crowdsec"
+        ]
+      }
+    },
+    "/api/v1/custom-pages": {
+      "get": {
+        "description": "List every page, without their documents. Admin-only.",
+        "operationId": "list_custom_pages_api_v1_custom_pages_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/CustomPageSummary"
+                  },
+                  "title": "Response List Custom Pages Api V1 Custom Pages Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "List Custom Pages",
+        "tags": [
+          "custom-pages"
+        ]
+      },
+      "post": {
+        "description": "Create a page. Admin-only.",
+        "operationId": "create_custom_page_api_v1_custom_pages_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CustomPageCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomPageRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Create Custom Page",
+        "tags": [
+          "custom-pages"
+        ]
+      }
+    },
+    "/api/v1/custom-pages/{page_id}": {
+      "delete": {
+        "description": "Delete a page. Admin-only.",
+        "operationId": "delete_custom_page_api_v1_custom_pages__page_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "page_id",
+            "required": true,
+            "schema": {
+              "title": "Page Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Delete Custom Page",
+        "tags": [
+          "custom-pages"
+        ]
+      },
+      "get": {
+        "description": "Fetch one page including its document. Admin-only.",
+        "operationId": "get_custom_page_api_v1_custom_pages__page_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "page_id",
+            "required": true,
+            "schema": {
+              "title": "Page Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomPageRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Get Custom Page",
+        "tags": [
+          "custom-pages"
+        ]
+      },
+      "patch": {
+        "description": "Update a page's name, description and/or document. Admin-only.",
+        "operationId": "update_custom_page_api_v1_custom_pages__page_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "page_id",
+            "required": true,
+            "schema": {
+              "title": "Page Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CustomPageUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomPageRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Update Custom Page",
+        "tags": [
+          "custom-pages"
         ]
       }
     },
