@@ -53,6 +53,16 @@ describe("LlmCard", () => {
     expect(screen.getByText(/a key is stored/i)).toBeInTheDocument();
   });
 
+  it("says the model needs a provider prefix, and what to use for a custom base", () => {
+    // Without this an operator points api_base at an OpenAI-compatible endpoint,
+    // enters the provider's bare model name, and gets litellm's
+    // "LLM Provider NOT provided" with nothing on screen explaining it.
+    renderCard();
+    expect(screen.getByText(/provider prefix is always required/i)).toBeInTheDocument();
+    expect(screen.getByText("openai/gpt-4o")).toBeInTheDocument();
+    expect(screen.getByText(/openai-compatible endpoint/i)).toBeInTheDocument();
+  });
+
   it("says when no key is stored", () => {
     renderCard();
     expect(screen.getByText(/no key stored/i)).toBeInTheDocument();

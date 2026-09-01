@@ -116,8 +116,8 @@ export function LlmCard({
           disabled={saving}
         />
         <p className="text-xs text-muted-foreground">
-          The provider is part of the name — <code>anthropic/claude-sonnet-4</code>,{" "}
-          <code>ollama/llama3</code>.
+          A provider prefix is always required — <code>openai/gpt-4o</code>,{" "}
+          <code>anthropic/claude-sonnet-4</code>, <code>ollama/llama3</code>.
         </p>
       </div>
 
@@ -160,6 +160,12 @@ export function LlmCard({
           placeholder="optional — e.g. http://localhost:11434"
           disabled={saving}
         />
+        <p className="text-xs text-muted-foreground">
+          Pointing at an OpenAI-compatible endpoint — MiniMax, Groq, Together,
+          OpenRouter, vLLM? Prefix the model with <code>openai/</code>. It is
+          stripped before the request, so the provider still receives the bare
+          model name.
+        </p>
       </div>
 
       {error ? (

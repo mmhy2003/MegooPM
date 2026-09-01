@@ -227,9 +227,9 @@ A second card on the Settings page, below Default site:
 │                                                  │
 │  [  ] Enable LLM features                        │
 │                                                  │
-│  Model      [ gpt-4o                          ]  │
-│             Provider is part of the name, e.g.   │
-│             anthropic/claude-sonnet-4            │
+│  Model      [ openai/gpt-4o                   ]  │
+│             A provider prefix is always          │
+│             required: openai/…, anthropic/…      │
 │                                                  │
 │  API key    [ ••••••••••  (set)               ]  │
 │             Leave blank for a local model that   │
@@ -251,6 +251,20 @@ key is an explicit action, not something that happens by leaving a field blank.
 
 Form logic lives in the existing `components/settings/lib.ts` beside the
 default-site helpers, so the branching stays testable without mounting the card.
+
+### The model string always carries a provider prefix
+
+litellm cannot infer a provider from a bare model name, and answers
+`BadRequestError: LLM Provider NOT provided`. For any OpenAI-compatible endpoint
+reached through `api_base` — MiniMax, Groq, Together, OpenRouter, vLLM, LM
+Studio — the string is `openai/<their model name>`; litellm strips the prefix
+before the request, so the provider still receives the bare name.
+
+An operator hit exactly this: `MiniMax-M3` with `https://api.minimax.io/v1`.
+The Model field's helper text named only providers litellm knows natively
+(`anthropic/…`, `ollama/…`), so nothing on screen covered the case where the
+API base field is filled in — which is the case that most needs it. Both fields
+now say so.
 
 ## Testing
 
