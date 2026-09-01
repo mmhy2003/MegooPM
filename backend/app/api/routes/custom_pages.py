@@ -3,21 +3,25 @@
 A custom page is a named, self-contained HTML document authored in the app —
 images embedded as base64 ``data:`` URIs, so there are no side-car assets.
 
-Unlike every other resource in this API, these writes do **not** enqueue an
-nginx reload: nothing in the rendered configuration references a page yet, so
-there is nothing to converge and no ``X-Config-Reload-Task`` header to return.
-They are still audited, via :func:`~app.services.audit.record_audit` directly
-rather than :func:`~app.api.routes._config_writes.after_config_write`. When a
-binding does land (a CrowdSec ban page, a catch-all for unmatched hosts), this
-router switches to the shared helper like the others.
+Most writes here do **not** enqueue an nginx reload: a page nothing references
+changes no rendered configuration, so they are audited via
+:func:`~app.services.audit.record_audit` directly. The exception is the page the
+default site points at — editing that one must converge, or the change would sit
+in the database until an unrelated edit happened to trigger a reload, at which
+point it would appear with no apparent cause. Deleting that page is refused
+outright by the ``RESTRICT`` foreign key, so a delete that succeeds never needs
+a reload.
 """
 
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, Response, status
+from sqlalchemy.exc import IntegrityError
 
 from app.api.deps import AdminUser, SessionDep
+from app.api.routes._config_writes import after_config_write
 from app.models.enums import AuditAction
+from app.models.instance_settings import InstanceSettings
 from app.schemas.custom_page import (
     CustomPageCreate,
     CustomPageRead,
@@ -45,6 +49,12 @@ async def _audit(
         meta=dict(meta),
     )
     await db.commit()
+
+
+async def _is_default_site(db: SessionDep, page_id: int) -> bool:
+    """Whether the default site currently serves this page."""
+    row = await db.get(InstanceSettings, 1)
+    return row is not None and row.default_site_page_id == page_id
 
 
 @router.get("", response_model=list[CustomPageSummary])
@@ -78,7 +88,11 @@ async def get_custom_page(page_id: int, _admin: AdminUser, db: SessionDep) -> Cu
 
 @router.patch("/{page_id}", response_model=CustomPageRead)
 async def update_custom_page(
-    page_id: int, body: CustomPageUpdate, admin: AdminUser, db: SessionDep
+    page_id: int,
+    body: CustomPageUpdate,
+    admin: AdminUser,
+    db: SessionDep,
+    response: Response,
 ) -> CustomPageRead:
     """Update a page's name, description and/or document. Admin-only."""
     changes = body.model_dump(exclude_unset=True)
@@ -90,9 +104,25 @@ async def update_custom_page(
         ) from None
     except custom_page_service.DuplicateNameError:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=_DUPLICATE_NAME) from None
-    await _audit(
-        db, actor=admin.email, action=AuditAction.update, page_id=page.id, changed=sorted(changes)
-    )
+    if await _is_default_site(db, page.id):
+        # This page is being served right now; converge it.
+        await after_config_write(
+            db,
+            response,
+            actor=admin,
+            action=AuditAction.update,
+            object_type="custom_page",
+            object_id=page.id,
+            meta={"changed": sorted(changes), "default_site": True},
+        )
+    else:
+        await _audit(
+            db,
+            actor=admin.email,
+            action=AuditAction.update,
+            page_id=page.id,
+            changed=sorted(changes),
+        )
     return CustomPageRead.model_validate(page)
 
 
@@ -104,6 +134,16 @@ async def delete_custom_page(page_id: int, admin: AdminUser, db: SessionDep) -> 
     except custom_page_service.CustomPageNotFoundError:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Custom page not found"
+        ) from None
+    except IntegrityError:
+        # The only FK to custom_pages is instance_settings.default_site_page_id,
+        # declared RESTRICT precisely so this delete fails instead of silently
+        # changing what every unmatched visitor sees. The rollback matters: a
+        # poisoned session would fail the audit write that follows too.
+        await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="This page is in use by the Default site.",
         ) from None
     await _audit(db, actor=admin.email, action=AuditAction.delete, page_id=page_id)
 

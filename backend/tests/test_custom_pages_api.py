@@ -222,8 +222,10 @@ async def test_html_defaults_to_empty(client: AsyncClient, auth) -> None:
 # --- Side effects ----------------------------------------------------------
 
 
-async def test_writes_do_not_touch_nginx(client: AsyncClient, auth, monkeypatch) -> None:
-    """No config references a page yet, so nothing here may enqueue a reload."""
+async def test_writes_for_an_unreferenced_page_do_not_touch_nginx(
+    client: AsyncClient, auth, monkeypatch
+) -> None:
+    """A page nothing serves changes no rendered config, so no reload is due."""
     calls = 0
 
     def _counting_reload() -> TaskEnqueued:
@@ -264,3 +266,75 @@ async def test_endpoints_require_authentication(client: AsyncClient) -> None:
     assert (
         await client.post("/api/v1/custom-pages", json={"name": "x", "html": ""})
     ).status_code == 401
+
+
+# --- Coupling to the default site ------------------------------------------
+
+
+async def _point_default_site_at(client: AsyncClient, auth, page_id: int) -> None:
+    resp = await client.patch(
+        "/api/v1/settings",
+        headers=auth,
+        json={"default_site_mode": "custom_page", "default_site_page_id": page_id},
+    )
+    assert resp.status_code == 200, resp.text
+
+
+def _counting_reload_into(box: list[int]):
+    def _reload() -> TaskEnqueued:
+        box.append(1)
+        return TaskEnqueued(task_id="test-reload-task", status="PENDING")
+
+    return _reload
+
+
+async def test_deleting_a_page_the_default_site_uses_is_refused(client: AsyncClient, auth) -> None:
+    """Silently changing what every unmatched visitor sees is worse than a 409."""
+    page = await _create(client, auth)
+    await _point_default_site_at(client, auth, page["id"])
+
+    resp = await client.delete(f"/api/v1/custom-pages/{page['id']}", headers=auth)
+    assert resp.status_code == 409, resp.text
+    assert "default site" in resp.text.lower()
+
+    # Still there.
+    assert (await client.get(f"/api/v1/custom-pages/{page['id']}", headers=auth)).status_code == 200
+
+
+async def test_deleting_an_unreferenced_page_still_works(client: AsyncClient, auth) -> None:
+    page = await _create(client, auth)
+    assert (
+        await client.delete(f"/api/v1/custom-pages/{page['id']}", headers=auth)
+    ).status_code == 204
+
+
+async def test_editing_an_unreferenced_page_enqueues_no_reload(
+    client: AsyncClient, auth, monkeypatch
+) -> None:
+    page = await _create(client, auth)
+    calls: list[int] = []
+    monkeypatch.setattr(config_writes, "enqueue_nginx_reload", _counting_reload_into(calls))
+
+    resp = await client.patch(
+        f"/api/v1/custom-pages/{page['id']}", headers=auth, json={"html": "<p>x</p>"}
+    )
+    assert resp.status_code == 200, resp.text
+    assert calls == []
+
+
+async def test_editing_the_page_the_default_site_uses_enqueues_one_reload(
+    client: AsyncClient, auth, monkeypatch
+) -> None:
+    """Otherwise the edit lands in the database and never reaches the visitor."""
+    page = await _create(client, auth)
+    await _point_default_site_at(client, auth, page["id"])
+
+    calls: list[int] = []
+    monkeypatch.setattr(config_writes, "enqueue_nginx_reload", _counting_reload_into(calls))
+
+    resp = await client.patch(
+        f"/api/v1/custom-pages/{page['id']}", headers=auth, json={"html": "<p>new</p>"}
+    )
+    assert resp.status_code == 200, resp.text
+    assert len(calls) == 1
+    assert resp.headers["X-Config-Reload-Task"] == "test-reload-task"
