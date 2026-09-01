@@ -273,7 +273,7 @@ async def test_endpoints_require_authentication(client: AsyncClient) -> None:
 
 async def _point_default_site_at(client: AsyncClient, auth, page_id: int) -> None:
     resp = await client.patch(
-        "/api/v1/settings",
+        "/api/v1/settings/default-site",
         headers=auth,
         json={"default_site_mode": "custom_page", "default_site_page_id": page_id},
     )

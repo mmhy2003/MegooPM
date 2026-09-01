@@ -17,8 +17,10 @@ from typing import Any
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.crypto import decrypt_secret, encrypt_secret
 from app.models.enums import DefaultSiteMode
 from app.models.instance_settings import InstanceSettings
+from app.services.llm import LlmConfig
 
 SETTINGS_ID = 1
 
@@ -61,9 +63,43 @@ async def update_default_site(db: AsyncSession, changes: dict[str, Any]) -> Inst
     return row
 
 
+async def update_llm_settings(db: AsyncSession, changes: dict[str, Any]) -> InstanceSettings:
+    """Apply an LLM settings payload, encrypting the key on the way in.
+
+    ``changes`` must come from ``model_dump(exclude_unset=True)``: the presence
+    or absence of ``llm_api_key`` is the signal for keep-vs-replace-vs-clear,
+    and a plain dump would flatten "absent" into ``None`` and silently wipe a
+    working key on every save.
+    """
+    row = await get_instance_settings(db)
+
+    row.llm_enabled = changes["llm_enabled"]
+    row.llm_model = changes.get("llm_model")
+    row.llm_api_base = changes.get("llm_api_base")
+
+    if "llm_api_key" in changes:
+        key = changes["llm_api_key"]
+        row.llm_api_key_enc = encrypt_secret(key) if key else None
+
+    await db.commit()
+    await db.refresh(row)
+    return row
+
+
+def llm_config_from_row(row: InstanceSettings) -> LlmConfig:
+    """Decrypt the stored key into a config the LLM service can use."""
+    return LlmConfig(
+        model=row.llm_model or "",
+        api_key=decrypt_secret(row.llm_api_key_enc) if row.llm_api_key_enc else None,
+        api_base=row.llm_api_base,
+    )
+
+
 __all__ = [
     "SETTINGS_ID",
     "UnknownCustomPageError",
     "get_instance_settings",
+    "llm_config_from_row",
     "update_default_site",
+    "update_llm_settings",
 ]

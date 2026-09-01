@@ -2062,7 +2062,7 @@
         "type": "string"
       },
       "InstanceSettingsRead": {
-        "description": "Public representation of the settings singleton.",
+        "description": "Public representation of the settings singleton.\n\nThe LLM API key is deliberately absent. ``llm_api_key_set`` says whether one\nis stored; the value itself is never returned by any endpoint, so a\ncompromised browser session cannot read it back out.",
         "properties": {
           "default_site_mode": {
             "$ref": "#/components/schemas/DefaultSiteMode"
@@ -2089,6 +2089,36 @@
             ],
             "title": "Default Site Redirect Url"
           },
+          "llm_api_base": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Llm Api Base"
+          },
+          "llm_api_key_set": {
+            "title": "Llm Api Key Set",
+            "type": "boolean"
+          },
+          "llm_enabled": {
+            "title": "Llm Enabled",
+            "type": "boolean"
+          },
+          "llm_model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Llm Model"
+          },
           "updated_at": {
             "format": "date-time",
             "title": "Updated At",
@@ -2099,6 +2129,10 @@
           "default_site_mode",
           "default_site_redirect_url",
           "default_site_page_id",
+          "llm_enabled",
+          "llm_model",
+          "llm_api_base",
+          "llm_api_key_set",
           "updated_at"
         ],
         "title": "InstanceSettingsRead",
@@ -2194,6 +2228,53 @@
           "domain_names"
         ],
         "title": "LetsEncryptCertificateCreate",
+        "type": "object"
+      },
+      "LlmSettingsUpdate": {
+        "description": "Set the LLM integration. Carries the whole group; the key is the exception.\n\n``llm_enabled`` is required for the same reason ``default_site_mode`` is on\nits sibling: \"enabled needs a model\" cannot be checked against a payload\nthat omits it, and a schema never sees the stored row.\n\n``llm_api_key`` is the one field that cannot work that way — it is never\nreturned, so a client has nothing to send back. Absent keeps the stored key;\na string replaces it; an explicit ``null`` clears it. The three states are\ndistinguished with ``model_fields_set``, which is why the service is handed\n``model_dump(exclude_unset=True)``.",
+        "properties": {
+          "llm_api_base": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Llm Api Base"
+          },
+          "llm_api_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Llm Api Key"
+          },
+          "llm_enabled": {
+            "title": "Llm Enabled",
+            "type": "boolean"
+          },
+          "llm_model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Llm Model"
+          }
+        },
+        "required": [
+          "llm_enabled"
+        ],
+        "title": "LlmSettingsUpdate",
         "type": "object"
       },
       "LoadBalanceMethod": {
@@ -7355,10 +7436,12 @@
         "tags": [
           "settings"
         ]
-      },
+      }
+    },
+    "/api/v1/settings/default-site": {
       "patch": {
         "description": "Set the default site. Admin-only.\n\n``default_site_mode`` is required; the columns the chosen mode does not use\nare cleared, so the stored row always describes exactly one configuration.",
-        "operationId": "update_settings_api_v1_settings_patch",
+        "operationId": "update_settings_api_v1_settings_default_site_patch",
         "requestBody": {
           "content": {
             "application/json": {
@@ -7397,6 +7480,53 @@
           }
         ],
         "summary": "Update Settings",
+        "tags": [
+          "settings"
+        ]
+      }
+    },
+    "/api/v1/settings/llm": {
+      "patch": {
+        "description": "Configure the LLM integration. Admin-only.\n\n``exclude_unset`` is load-bearing: it is what tells the service the\ndifference between \"the client did not send a key\" and \"the client cleared\nthe key\".",
+        "operationId": "update_llm_settings_api_v1_settings_llm_patch",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LlmSettingsUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InstanceSettingsRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Update Llm Settings",
         "tags": [
           "settings"
         ]

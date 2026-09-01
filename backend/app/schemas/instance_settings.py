@@ -15,6 +15,7 @@ whole card.
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Any
 from urllib.parse import urlsplit
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
@@ -55,14 +56,42 @@ def validate_redirect_url(value: str) -> str:
 
 
 class InstanceSettingsRead(BaseModel):
-    """Public representation of the settings singleton."""
+    """Public representation of the settings singleton.
+
+    The LLM API key is deliberately absent. ``llm_api_key_set`` says whether one
+    is stored; the value itself is never returned by any endpoint, so a
+    compromised browser session cannot read it back out.
+    """
 
     model_config = ConfigDict(from_attributes=True)
 
     default_site_mode: DefaultSiteMode
     default_site_redirect_url: str | None
     default_site_page_id: int | None
+    llm_enabled: bool
+    llm_model: str | None
+    llm_api_base: str | None
+    llm_api_key_set: bool
     updated_at: datetime
+
+    @classmethod
+    def from_row(cls, row: Any) -> InstanceSettingsRead:
+        """Build from an ORM row, deriving ``llm_api_key_set`` without the key.
+
+        A classmethod rather than ``model_validate`` so there is exactly one way
+        to build this, and no path where a caller hands over the raw row and the
+        ciphertext leaks into a response.
+        """
+        return cls(
+            default_site_mode=row.default_site_mode,
+            default_site_redirect_url=row.default_site_redirect_url,
+            default_site_page_id=row.default_site_page_id,
+            llm_enabled=row.llm_enabled,
+            llm_model=row.llm_model,
+            llm_api_base=row.llm_api_base,
+            llm_api_key_set=row.llm_api_key_enc is not None,
+            updated_at=row.updated_at,
+        )
 
 
 class InstanceSettingsUpdate(BaseModel):
@@ -97,8 +126,64 @@ class InstanceSettingsUpdate(BaseModel):
         return self
 
 
+class LlmSettingsUpdate(BaseModel):
+    """Set the LLM integration. Carries the whole group; the key is the exception.
+
+    ``llm_enabled`` is required for the same reason ``default_site_mode`` is on
+    its sibling: "enabled needs a model" cannot be checked against a payload
+    that omits it, and a schema never sees the stored row.
+
+    ``llm_api_key`` is the one field that cannot work that way — it is never
+    returned, so a client has nothing to send back. Absent keeps the stored key;
+    a string replaces it; an explicit ``null`` clears it. The three states are
+    distinguished with ``model_fields_set``, which is why the service is handed
+    ``model_dump(exclude_unset=True)``.
+    """
+
+    llm_enabled: bool
+    llm_model: str | None = None
+    llm_api_base: str | None = None
+    llm_api_key: str | None = None
+
+    @field_validator("llm_model", "llm_api_base", "llm_api_key")
+    @classmethod
+    def _blank_to_none(cls, value: str | None) -> str | None:
+        """An empty input box means "not set", not "the empty string"."""
+        if value is None:
+            return None
+        stripped = value.strip()
+        return stripped or None
+
+    @model_validator(mode="after")
+    def _enabled_needs_a_model(self) -> LlmSettingsUpdate:
+        if self.llm_enabled and not self.llm_model:
+            raise ValueError("llm_model is required when llm_enabled is true")
+        return self
+
+
+class LlmTestRequest(BaseModel):
+    """Optional overrides for the probe, so a key can be checked before saving."""
+
+    model: str | None = None
+    api_base: str | None = None
+    api_key: str | None = None
+
+
+class LlmTestResult(BaseModel):
+    """The probe's outcome. ``ok: false`` still returns HTTP 200 — see the route."""
+
+    ok: bool
+    model: str
+    reply: str = ""
+    error: str = ""
+    latency_ms: int = 0
+
+
 __all__ = [
     "InstanceSettingsRead",
     "InstanceSettingsUpdate",
+    "LlmSettingsUpdate",
+    "LlmTestRequest",
+    "LlmTestResult",
     "validate_redirect_url",
 ]

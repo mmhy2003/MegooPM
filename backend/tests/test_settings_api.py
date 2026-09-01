@@ -152,14 +152,16 @@ async def test_get_returns_the_seeded_default(client: AsyncClient, auth) -> None
 
 @pytest.mark.parametrize("mode", ["congratulations", "not_found", "no_response"])
 async def test_simple_modes_round_trip(client: AsyncClient, auth, mode: str) -> None:
-    resp = await client.patch("/api/v1/settings", headers=auth, json={"default_site_mode": mode})
+    resp = await client.patch(
+        "/api/v1/settings/default-site", headers=auth, json={"default_site_mode": mode}
+    )
     assert resp.status_code == 200, resp.text
     assert resp.json()["default_site_mode"] == mode
 
 
 async def test_redirect_mode_round_trips(client: AsyncClient, auth) -> None:
     resp = await client.patch(
-        "/api/v1/settings",
+        "/api/v1/settings/default-site",
         headers=auth,
         json={
             "default_site_mode": "redirect",
@@ -173,7 +175,7 @@ async def test_redirect_mode_round_trips(client: AsyncClient, auth) -> None:
 async def test_custom_page_mode_round_trips(client: AsyncClient, auth) -> None:
     page_id = await _make_page(client, auth)
     resp = await client.patch(
-        "/api/v1/settings",
+        "/api/v1/settings/default-site",
         headers=auth,
         json={"default_site_mode": "custom_page", "default_site_page_id": page_id},
     )
@@ -184,7 +186,7 @@ async def test_custom_page_mode_round_trips(client: AsyncClient, auth) -> None:
 async def test_switching_mode_clears_the_previous_mode_field(client: AsyncClient, auth) -> None:
     """A stale URL would reappear in the form if the operator switched back."""
     await client.patch(
-        "/api/v1/settings",
+        "/api/v1/settings/default-site",
         headers=auth,
         json={
             "default_site_mode": "redirect",
@@ -192,7 +194,7 @@ async def test_switching_mode_clears_the_previous_mode_field(client: AsyncClient
         },
     )
     resp = await client.patch(
-        "/api/v1/settings", headers=auth, json={"default_site_mode": "not_found"}
+        "/api/v1/settings/default-site", headers=auth, json={"default_site_mode": "not_found"}
     )
     assert resp.status_code == 200, resp.text
     assert resp.json()["default_site_redirect_url"] is None
@@ -204,13 +206,13 @@ async def test_incoherent_payloads_are_rejected(client: AsyncClient, auth) -> No
         {"default_site_mode": "custom_page"},
         {"default_site_mode": "redirect", "default_site_redirect_url": "not-a-url"},
     ):
-        resp = await client.patch("/api/v1/settings", headers=auth, json=body)
+        resp = await client.patch("/api/v1/settings/default-site", headers=auth, json=body)
         assert resp.status_code == 422, (body, resp.text)
 
 
 async def test_unknown_page_is_rejected(client: AsyncClient, auth) -> None:
     resp = await client.patch(
-        "/api/v1/settings",
+        "/api/v1/settings/default-site",
         headers=auth,
         json={"default_site_mode": "custom_page", "default_site_page_id": 9999},
     )
@@ -228,7 +230,7 @@ async def test_a_write_enqueues_exactly_one_reload(client: AsyncClient, auth, mo
     monkeypatch.setattr(config_writes, "enqueue_nginx_reload", _counting_reload)
 
     resp = await client.patch(
-        "/api/v1/settings", headers=auth, json={"default_site_mode": "no_response"}
+        "/api/v1/settings/default-site", headers=auth, json={"default_site_mode": "no_response"}
     )
     assert resp.status_code == 200, resp.text
     assert resp.headers["X-Config-Reload-Task"] == "test-reload-task"
@@ -238,7 +240,7 @@ async def test_a_write_enqueues_exactly_one_reload(client: AsyncClient, auth, mo
 async def test_endpoints_require_authentication(client: AsyncClient) -> None:
     assert (await client.get("/api/v1/settings")).status_code == 401
     assert (
-        await client.patch("/api/v1/settings", json={"default_site_mode": "not_found"})
+        await client.patch("/api/v1/settings/default-site", json={"default_site_mode": "not_found"})
     ).status_code == 401
 
 
@@ -251,7 +253,7 @@ async def test_the_default_site_renders_the_referenced_page(
 
     page_id = await _make_page(client, auth, name="Rendered")
     await client.patch(
-        "/api/v1/settings",
+        "/api/v1/settings/default-site",
         headers=auth,
         json={"default_site_mode": "custom_page", "default_site_page_id": page_id},
     )
@@ -299,3 +301,122 @@ async def test_a_key_may_be_absent_when_enabled(pg_conn) -> None:
     )
     result = await pg_conn.execute(text("SELECT llm_model FROM instance_settings WHERE id = 1"))
     assert result.scalar_one() == "ollama/llama3"
+
+
+# --- LLM settings ----------------------------------------------------------
+
+LLM_KEY = "sk-EXAMPLE-not-a-real-credential-1"
+
+
+async def _enable_llm(client: AsyncClient, auth, **overrides) -> dict:
+    body = {"llm_enabled": True, "llm_model": "gpt-4o", "llm_api_key": LLM_KEY} | overrides
+    resp = await client.patch("/api/v1/settings/llm", headers=auth, json=body)
+    assert resp.status_code == 200, resp.text
+    return resp.json()
+
+
+async def test_default_site_moved_to_its_own_path(client: AsyncClient, auth) -> None:
+    """The bare PATCH is gone: one route per settings group."""
+    resp = await client.patch(
+        "/api/v1/settings", headers=auth, json={"default_site_mode": "not_found"}
+    )
+    assert resp.status_code in (404, 405), resp.text
+
+
+async def test_llm_settings_round_trip(client: AsyncClient, auth) -> None:
+    body = await _enable_llm(client, auth, llm_api_base="https://gw.example.com")
+    assert body["llm_enabled"] is True
+    assert body["llm_model"] == "gpt-4o"
+    assert body["llm_api_base"] == "https://gw.example.com"
+
+
+async def test_the_key_is_never_returned(client: AsyncClient, auth) -> None:
+    """A compromised browser session must not be able to read it back out."""
+    resp = await client.patch(
+        "/api/v1/settings/llm",
+        headers=auth,
+        json={"llm_enabled": True, "llm_model": "gpt-4o", "llm_api_key": LLM_KEY},
+    )
+    assert resp.status_code == 200, resp.text
+    # Asserted against the raw body, not the parsed dict, so the key cannot hide
+    # in a field nobody thought to check.
+    assert LLM_KEY not in resp.text
+    body = resp.json()
+    assert body["llm_api_key_set"] is True
+    assert "llm_api_key" not in body
+    assert "llm_api_key_enc" not in body
+
+    fetched = await client.get("/api/v1/settings", headers=auth)
+    assert LLM_KEY not in fetched.text
+    assert fetched.json()["llm_api_key_set"] is True
+
+
+async def test_omitting_the_key_keeps_the_stored_one(client: AsyncClient, auth) -> None:
+    """A client editing settings has no key to send back."""
+    await _enable_llm(client, auth)
+    resp = await client.patch(
+        "/api/v1/settings/llm",
+        headers=auth,
+        json={"llm_enabled": True, "llm_model": "gpt-4o-mini"},
+    )
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["llm_api_key_set"] is True
+    assert resp.json()["llm_model"] == "gpt-4o-mini"
+
+
+async def test_an_explicit_null_clears_the_key(client: AsyncClient, auth) -> None:
+    await _enable_llm(client, auth)
+    resp = await client.patch(
+        "/api/v1/settings/llm",
+        headers=auth,
+        json={"llm_enabled": True, "llm_model": "gpt-4o", "llm_api_key": None},
+    )
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["llm_api_key_set"] is False
+
+
+async def test_enabling_without_a_model_is_422(client: AsyncClient, auth) -> None:
+    resp = await client.patch("/api/v1/settings/llm", headers=auth, json={"llm_enabled": True})
+    assert resp.status_code == 422, resp.text
+
+
+async def test_a_keyless_local_model_is_allowed(client: AsyncClient, auth) -> None:
+    """Ollama and friends need no key; demanding one locks them out."""
+    resp = await client.patch(
+        "/api/v1/settings/llm",
+        headers=auth,
+        json={
+            "llm_enabled": True,
+            "llm_model": "ollama/llama3",
+            "llm_api_base": "http://localhost:11434",
+        },
+    )
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["llm_api_key_set"] is False
+
+
+async def test_the_audit_entry_carries_no_key_material(client: AsyncClient, auth) -> None:
+    await _enable_llm(client, auth)
+    entries = await client.get("/api/v1/audit-log", headers=auth)
+    assert entries.status_code == 200, entries.text
+    assert LLM_KEY not in entries.text
+
+
+async def test_llm_writes_do_not_touch_nginx(client: AsyncClient, auth, monkeypatch) -> None:
+    """No rendered configuration references any of this."""
+    calls = 0
+
+    def _counting_reload() -> TaskEnqueued:
+        nonlocal calls
+        calls += 1
+        return TaskEnqueued(task_id="test-reload-task", status="PENDING")
+
+    monkeypatch.setattr(config_writes, "enqueue_nginx_reload", _counting_reload)
+    await _enable_llm(client, auth)
+    assert calls == 0
+
+
+async def test_llm_endpoints_require_authentication(client: AsyncClient) -> None:
+    assert (
+        await client.patch("/api/v1/settings/llm", json={"llm_enabled": False})
+    ).status_code == 401
