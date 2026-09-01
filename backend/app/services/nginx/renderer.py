@@ -211,8 +211,45 @@ def render_stream_config(state: DesiredState) -> dict[str, str]:
     return {name: files[name] for name in sorted(files)}
 
 
+DEFAULT_SITE_CONF = "megoopm-default.conf"
+DEFAULT_SITE_HTML = "megoopm-default.html"
+
+# The two modes that answer with a document rather than a status code.
+_DOCUMENT_MODES = frozenset({"congratulations", "custom_page"})
+
+
+def render_default_site(state: DesiredState) -> dict[str, str]:
+    """Render the default-site files to a ``{filename: contents}`` mapping.
+
+    These are written to a directory the base config includes from *inside* its
+    ``default_server`` block, so the ``.conf`` holds a bare ``location``, not a
+    server block. An empty mapping is meaningful: with no file present nginx
+    matches no location and answers 404, which is what the base config used to
+    hardcode.
+    """
+    site = state.default_site
+    if site is None:
+        return {}
+
+    files = {
+        DEFAULT_SITE_CONF: _env()
+        .get_template("default_site.conf.j2")
+        .render(site=site, default_dir=settings.nginx_default_dir)
+    }
+    if site.mode in _DOCUMENT_MODES:
+        files[DEFAULT_SITE_HTML] = (
+            _env().get_template("congratulations.html.j2").render()
+            if site.mode == "congratulations"
+            else site.html
+        )
+    return {name: files[name] for name in sorted(files)}
+
+
 __all__ = [
+    "DEFAULT_SITE_CONF",
+    "DEFAULT_SITE_HTML",
     "render_config",
+    "render_default_site",
     "render_stream_config",
     "pool_name",
     "htpasswd_filename",

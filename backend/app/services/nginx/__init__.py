@@ -18,7 +18,11 @@ from app.services.nginx.controller import (
 )
 from app.services.nginx.engine import ApplyResult, apply_config
 from app.services.nginx.loader import load_desired_state, load_desired_state_sync
-from app.services.nginx.renderer import render_config, render_stream_config
+from app.services.nginx.renderer import (
+    render_config,
+    render_default_site,
+    render_stream_config,
+)
 from app.services.nginx.state import (
     BackendSpec,
     CertificateSpec,
@@ -57,5 +61,6 @@ __all__ = [
     "load_desired_state",
     "load_desired_state_sync",
     "render_config",
+    "render_default_site",
     "render_stream_config",
 ]

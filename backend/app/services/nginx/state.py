@@ -199,6 +199,22 @@ class StreamSpec:
 
 
 @dataclass(frozen=True, slots=True)
+class DefaultSiteSpec:
+    """What nginx answers for a request matching no configured host.
+
+    ``html`` is already resolved: the loader reads the referenced custom page's
+    document and puts it here, so the renderer never reaches into the database
+    and the whole mode matrix stays unit-testable without one.
+    """
+
+    # One of DefaultSiteMode's values, as a plain string — specs stay free of
+    # ORM enums so they remain trivially constructible in tests.
+    mode: str
+    redirect_url: str = ""
+    html: str = ""
+
+
+@dataclass(frozen=True, slots=True)
 class DesiredState:
     """The complete set of managed objects a render pass should emit.
 
@@ -217,6 +233,10 @@ class DesiredState:
     HTTP ``conf.d`` directory; ``streams`` render into a separate directory that
     the base config includes from the top-level ``stream {}`` context (TCP/UDP
     forwarding cannot live inside ``http {}``).
+
+    ``default_site`` renders into a third directory the base config includes
+    from *inside* its ``default_server`` block; ``None`` means no file is
+    written and nginx falls back to its own no-location-match 404.
     """
 
     proxy_hosts: tuple[ProxyHostSpec, ...] = field(default_factory=tuple)
@@ -225,6 +245,7 @@ class DesiredState:
     redirection_hosts: tuple[RedirectionHostSpec, ...] = field(default_factory=tuple)
     dead_hosts: tuple[DeadHostSpec, ...] = field(default_factory=tuple)
     streams: tuple[StreamSpec, ...] = field(default_factory=tuple)
+    default_site: DefaultSiteSpec | None = None
 
 
 __all__ = [
@@ -238,6 +259,7 @@ __all__ = [
     "RedirectionHostSpec",
     "DeadHostSpec",
     "StreamSpec",
+    "DefaultSiteSpec",
     "DesiredState",
     "LocationSpec",
 ]

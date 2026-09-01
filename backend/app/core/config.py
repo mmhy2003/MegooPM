@@ -84,6 +84,12 @@ class Settings(BaseSettings):
     # it up, so stream forwards stay out of http{}. Defaults to
     # ``{nginx_confd_dir}/stream``.
     nginx_stream_dir: str | None = None
+    # Default-site files (a `location` fragment plus an optional HTML document)
+    # the base config includes from inside its default_server block. A SIBLING
+    # of conf.d, not a child: a child invites a future glob change to sweep
+    # these bare `location` blocks into http{}, where they are a syntax error.
+    # Defaults to ``{shared_data_dir}/nginx/default``.
+    nginx_default_dir: str | None = None
     # Where TLS material lives on the shared certs volume; server blocks
     # reference ``{nginx_certs_dir}/{cert_id}/fullchain.pem`` and privkey.pem.
     # Defaults to ``{shared_data_dir}/certs``.
@@ -253,6 +259,8 @@ class Settings(BaseSettings):
             self.nginx_confd_dir = f"{root}/nginx/conf.d"
         if self.nginx_stream_dir is None:
             self.nginx_stream_dir = f"{self.nginx_confd_dir.rstrip('/')}/stream"
+        if self.nginx_default_dir is None:
+            self.nginx_default_dir = f"{root}/nginx/default"
         if self.nginx_certs_dir is None:
             self.nginx_certs_dir = f"{root}/certs"
         if self.acme_http_challenge_dir is None:

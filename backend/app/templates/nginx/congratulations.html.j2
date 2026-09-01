@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>MegooPM</title>
+    <style>
+      /*
+       * MegooPM default site. Palette lifted from frontend/src/app/globals.css,
+       * which is the single source of truth for the design system.
+       *
+       * Every oklch() is preceded by a hex fallback: this page is reachable by
+       * anything that resolves to the proxy, including browsers predating oklch
+       * (Chrome 111 / Safari 15.4 / Firefox 113, 2023). Old browsers take the
+       * hex and ignore the oklch that follows; new ones take the oklch. The
+       * hex values are approximations — the oklch values are authoritative.
+       *
+       * No external requests at all: no webfont link, no CDN, no images. This
+       * is what a visitor sees when nothing is configured, so it must not need
+       * the network to render.
+       */
+
+      /* Light — "daylight city". */
+      :root {
+        --bg: #f3f6f8;
+        --bg: oklch(0.975 0.01 220);
+        --fg: #272040;
+        --fg: oklch(0.22 0.05 290);
+        --card: #ffffff;
+        --card: oklch(1 0 0);
+        --primary: #00778f;
+        --primary: oklch(0.5 0.14 205);
+        --muted: #6a6b85;
+        --muted: oklch(0.48 0.05 260);
+        --accent: #ab0069;
+        --accent: oklch(0.45 0.22 340);
+        --border: #cbd7de;
+        --border: oklch(0.86 0.04 210);
+        --grid: rgba(0, 119, 143, 0.06);
+        --glow: none;
+      }
+
+      /*
+       * Dark — "neon noir". A standalone page has no next-themes and no toggle,
+       * so the visitor's OS preference is the only signal available.
+       */
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #15121e;
+          --bg: oklch(0.15 0.03 285);
+          --fg: #e8f2f4;
+          --fg: oklch(0.95 0.02 200);
+          --card: #1c1829;
+          --card: oklch(0.19 0.035 285);
+          --primary: #4fdcef;
+          --primary: oklch(0.85 0.16 195);
+          --muted: #9fb2bc;
+          --muted: oklch(0.72 0.04 215);
+          --accent: #ff77c9;
+          --accent: oklch(0.88 0.17 340);
+          --border: #2b3f49;
+          --border: oklch(0.85 0.16 195 / 18%);
+          --grid: rgba(79, 220, 239, 0.05);
+          --glow: 0 0 24px rgba(79, 220, 239, 0.35);
+        }
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        padding: 1.5rem;
+        background-color: var(--bg);
+        /* Faint scanline grid — the cyberpunk cue, done in CSS so the page
+           stays a single dependency-free file. */
+        background-image: linear-gradient(var(--grid) 1px, transparent 1px),
+          linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+        background-size: 48px 48px;
+        color: var(--fg);
+        font: 16px/1.6 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+      }
+
+      main {
+        width: 100%;
+        max-width: 30rem;
+        padding: 2.5rem 2rem;
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        background: var(--card);
+        box-shadow: var(--glow);
+        text-align: center;
+      }
+
+      .wordmark {
+        margin: 0 0 1.75rem;
+        font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+        font-size: 0.8125rem;
+        font-weight: 600;
+        letter-spacing: 0.22em;
+        text-transform: uppercase;
+        color: var(--primary);
+      }
+
+      h1 {
+        margin: 0 0 0.75rem;
+        font-size: 1.5rem;
+        line-height: 1.25;
+        font-weight: 650;
+        letter-spacing: -0.01em;
+      }
+
+      .rule {
+        width: 3rem;
+        height: 2px;
+        margin: 1.5rem auto;
+        border-radius: 2px;
+        background: var(--accent);
+      }
+
+      p {
+        margin: 0 0 0.75rem;
+        color: var(--muted);
+        font-size: 0.9375rem;
+      }
+
+      p:last-child {
+        margin-bottom: 0;
+      }
+
+      code {
+        font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+        font-size: 0.875em;
+        color: var(--fg);
+      }
+
+      @media (prefers-reduced-motion: no-preference) {
+        main {
+          animation: rise 0.4s ease-out;
+        }
+        @keyframes rise {
+          from {
+            opacity: 0;
+            transform: translateY(6px);
+          }
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <p class="wordmark">MegooPM</p>
+      <h1>You&rsquo;ve reached the proxy</h1>
+      <div class="rule"></div>
+      <p>
+        This request didn&rsquo;t match any configured host, so MegooPM answered
+        with its default site.
+      </p>
+      <p>
+        If you were expecting a site here, add a proxy host for this domain in
+        the admin panel &mdash; or change what this page shows under
+        <code>Settings &rsaquo; Default site</code>.
+      </p>
+    </main>
+  </body>
+</html>
