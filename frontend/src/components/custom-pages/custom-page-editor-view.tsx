@@ -278,11 +278,7 @@ export function CustomPageEditorView({ pageId }: { pageId: number | null }) {
   }
 
   return (
-    // min-h, not h: on a tall window this fills the viewport exactly as a
-    // fixed height would, but on a short one the content is allowed to exceed
-    // it so the page scrolls, instead of compressing the panes toward zero
-    // with no way to reach them.
-    <div className="mx-auto flex min-h-[calc(100dvh-7rem)] max-w-7xl flex-col gap-4">
+    <div className="mx-auto flex h-[calc(100dvh-7rem)] max-w-7xl flex-col gap-4">
       <div className="flex flex-wrap items-end gap-3">
         <Button
           variant="ghost"
@@ -339,7 +335,7 @@ export function CustomPageEditorView({ pageId }: { pageId: number | null }) {
         />
       ) : null}
 
-      <div className="grid min-h-[24rem] flex-1 gap-4 lg:grid-cols-2">
+      <div className="grid min-h-0 flex-1 gap-4 lg:grid-cols-2">
         <Tabs
           value={pane}
           onValueChange={(value) => setPane(value as string)}
