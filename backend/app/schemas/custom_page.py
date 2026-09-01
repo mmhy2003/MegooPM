@@ -162,10 +162,30 @@ class PageAssistRequest(BaseModel):
         return value
 
 
+class PageEditChange(BaseModel):
+    """One line range the model replaced, so the operator can read what moved."""
+
+    start: int
+    end: int
+    before: str
+    after: str
+
+
 class PageAssistResponse(BaseModel):
-    """The cleaned document. Placeholders are restored by the browser."""
+    """The cleaned document, and how it was produced.
+
+    ``mode`` distinguishes a targeted edit (``tools``) from a page written from
+    nothing (``generate``) and from a whole-document regeneration used because
+    the tool path was unavailable (``rewrite``). Without that a fallback would
+    look to the operator like an edit that changed nothing.
+
+    Placeholders are restored by the browser, so ``html`` is still elided here.
+    """
 
     html: str
+    mode: str
+    truncated: bool = False
+    changes: list[PageEditChange] = Field(default_factory=list)
 
 
 __all__ = [
@@ -176,5 +196,6 @@ __all__ = [
     "CustomPageSummary",
     "CustomPageUpdate",
     "PageAssistRequest",
+    "PageEditChange",
     "PageAssistResponse",
 ]

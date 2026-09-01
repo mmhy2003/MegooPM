@@ -362,12 +362,19 @@ async def _enable_llm(client: AsyncClient, auth) -> None:
 def stub_assist(monkeypatch):
     """Replace the model round trip; these tests are about the route."""
     import app.api.routes.custom_pages as routes
+    from app.services.page_assist import AssistResult
+    from app.services.page_tools import StagedEdit
 
     seen: list[dict] = []
 
-    async def _assist(config, *, instruction, html, timeout=120.0):
+    async def _assist(config, *, instruction, html, timeout=240.0):
         seen.append({"config": config, "instruction": instruction, "html": html})
-        return ASSIST_DOC
+        return AssistResult(
+            html=ASSIST_DOC,
+            mode="tools",
+            truncated=False,
+            changes=(StagedEdit(start=4, end=4, before="<h1>Old</h1>", after="<h1>New</h1>"),),
+        )
 
     monkeypatch.setattr(routes, "assist_page", _assist)
     return seen
@@ -381,7 +388,7 @@ async def test_assist_returns_a_document(client: AsyncClient, auth, stub_assist)
         json={"instruction": "make it blue", "html": "<p>x</p>"},
     )
     assert resp.status_code == 200, resp.text
-    assert resp.json() == {"html": ASSIST_DOC}
+    assert resp.json()["html"] == ASSIST_DOC
     assert stub_assist[0]["instruction"] == "make it blue"
     assert stub_assist[0]["html"] == "<p>x</p>"
     assert stub_assist[0]["config"].model == "gpt-4o"
@@ -449,7 +456,7 @@ async def test_a_provider_failure_is_502_not_422(client: AsyncClient, auth, monk
     import app.api.routes.custom_pages as routes
     from app.services.llm import LlmError
 
-    async def _boom(config, *, instruction, html, timeout=120.0):
+    async def _boom(config, *, instruction, html, timeout=240.0):
         raise LlmError("provider said no")
 
     monkeypatch.setattr(routes, "assist_page", _boom)
@@ -481,3 +488,41 @@ async def test_assist_does_not_record_the_document(client: AsyncClient, auth, st
 async def test_assist_requires_authentication(client: AsyncClient) -> None:
     resp = await client.post("/api/v1/custom-pages/assist", json={"instruction": "x", "html": ""})
     assert resp.status_code == 401
+
+
+async def test_assist_reports_what_changed(client: AsyncClient, auth, stub_assist) -> None:
+    await _enable_llm(client, auth)
+    resp = await client.post(
+        "/api/v1/custom-pages/assist",
+        headers=auth,
+        json={"instruction": "rename the heading", "html": "<p>x</p>"},
+    )
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["html"] == ASSIST_DOC
+    assert body["mode"] == "tools"
+    assert body["truncated"] is False
+    assert body["changes"] == [
+        {"start": 4, "end": 4, "before": "<h1>Old</h1>", "after": "<h1>New</h1>"}
+    ]
+
+
+async def test_assist_reports_a_fallback_rewrite(client: AsyncClient, auth, monkeypatch) -> None:
+    """A rewrite must not look like an edit that changed nothing."""
+    import app.api.routes.custom_pages as routes
+    from app.services.page_assist import AssistResult
+
+    async def _assist(config, *, instruction, html, timeout=240.0):
+        return AssistResult(html=ASSIST_DOC, mode="rewrite")
+
+    monkeypatch.setattr(routes, "assist_page", _assist)
+
+    await _enable_llm(client, auth)
+    resp = await client.post(
+        "/api/v1/custom-pages/assist",
+        headers=auth,
+        json={"instruction": "edit", "html": "<p>x</p>"},
+    )
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["mode"] == "rewrite"
+    assert resp.json()["changes"] == []

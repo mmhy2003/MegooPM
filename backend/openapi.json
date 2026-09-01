@@ -2440,17 +2440,63 @@
         "type": "object"
       },
       "PageAssistResponse": {
-        "description": "The cleaned document. Placeholders are restored by the browser.",
+        "description": "The cleaned document, and how it was produced.\n\n``mode`` distinguishes a targeted edit (``tools``) from a page written from\nnothing (``generate``) and from a whole-document regeneration used because\nthe tool path was unavailable (``rewrite``). Without that a fallback would\nlook to the operator like an edit that changed nothing.\n\nPlaceholders are restored by the browser, so ``html`` is still elided here.",
         "properties": {
+          "changes": {
+            "items": {
+              "$ref": "#/components/schemas/PageEditChange"
+            },
+            "title": "Changes",
+            "type": "array"
+          },
           "html": {
             "title": "Html",
             "type": "string"
+          },
+          "mode": {
+            "title": "Mode",
+            "type": "string"
+          },
+          "truncated": {
+            "default": false,
+            "title": "Truncated",
+            "type": "boolean"
           }
         },
         "required": [
-          "html"
+          "html",
+          "mode"
         ],
         "title": "PageAssistResponse",
+        "type": "object"
+      },
+      "PageEditChange": {
+        "description": "One line range the model replaced, so the operator can read what moved.",
+        "properties": {
+          "after": {
+            "title": "After",
+            "type": "string"
+          },
+          "before": {
+            "title": "Before",
+            "type": "string"
+          },
+          "end": {
+            "title": "End",
+            "type": "integer"
+          },
+          "start": {
+            "title": "Start",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "start",
+          "end",
+          "before",
+          "after"
+        ],
+        "title": "PageEditChange",
         "type": "object"
       },
       "PasswordChange": {

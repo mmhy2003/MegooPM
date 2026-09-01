@@ -29,6 +29,7 @@ from app.schemas.custom_page import (
     CustomPageUpdate,
     PageAssistRequest,
     PageAssistResponse,
+    PageEditChange,
 )
 from app.services import custom_page as custom_page_service
 from app.services import instance_settings as settings_service
@@ -109,7 +110,7 @@ async def assist_custom_page(
 
     config = settings_service.llm_config_from_row(row)
     try:
-        html = await assist_page(config, instruction=body.instruction, html=body.html)
+        result = await assist_page(config, instruction=body.instruction, html=body.html)
     except LlmNotConfiguredError as exc:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
@@ -126,9 +127,19 @@ async def assist_custom_page(
         # The instruction and a size — never the document, which is the
         # operator's content and can be megabytes.
         instruction=body.instruction[:200],
-        result_bytes=len(html.encode("utf-8")),
+        result_bytes=len(result.html.encode("utf-8")),
+        mode=result.mode,
+        edits=len(result.changes),
     )
-    return PageAssistResponse(html=html)
+    return PageAssistResponse(
+        html=result.html,
+        mode=result.mode,
+        truncated=result.truncated,
+        changes=[
+            PageEditChange(start=c.start, end=c.end, before=c.before, after=c.after)
+            for c in result.changes
+        ],
+    )
 
 
 @router.get("/{page_id}", response_model=CustomPageRead)
