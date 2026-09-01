@@ -120,3 +120,102 @@ export function dataUriSummary(dataUri: string): string {
 }
 
 export { MAX_PAGE_BYTES };
+
+/* -------------------------------------------------------------------------- */
+/* The image round trip                                                        */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * The most an elided document may be before it is sent to a model. 2 MiB of
+ * pure markup is unusual but possible, and there is no point paying for it.
+ * The backend enforces the same number — this copy exists only so the operator
+ * gets a sentence instead of a 422.
+ */
+export const MAX_ASSIST_BYTES = 200 * 1024;
+
+/** Matches a whole data URI and captures its mime type. */
+const DATA_URI_WITH_MIME = /data:([\w.+-]+\/[\w.+-]+);base64,[A-Za-z0-9+/=]+/g;
+
+/** Matches a placeholder the model handed back, capturing its 1-based index. */
+const PLACEHOLDER_URI = /data:[\w.+-]+\/[\w.+-]+;base64,MEGOOPM_IMAGE_(\d+)/g;
+
+export type ElidedDocument = {
+  /** The document with every data URI replaced by a placeholder. */
+  html: string;
+  /** The originals, in order; index `i` backs `MEGOOPM_IMAGE_{i + 1}`. */
+  images: string[];
+};
+
+export type RestoredDocument = {
+  html: string;
+  /** Notes for the operator about images the model dropped or invented. */
+  warnings: string[];
+};
+
+/**
+ * Swap every embedded image for a placeholder before sending to a model.
+ *
+ * Base64 runs about a token per three characters, so one 200 KB screenshot
+ * inside a page costs roughly 70k tokens of context for a blob the model cannot
+ * read. The placeholder deliberately stays a *well-formed* data URI, mime type
+ * and all: a model shown a malformed `src` attribute tends to repair it, while
+ * one shown a URI it simply does not understand leaves it alone.
+ */
+export function elideImages(html: string): ElidedDocument {
+  const images: string[] = [];
+  const elided = html.replace(DATA_URI_WITH_MIME, (match, mime: string) => {
+    images.push(match);
+    return `data:${mime};base64,MEGOOPM_IMAGE_${images.length}`;
+  });
+  return { html: elided, images };
+}
+
+/** "1 image" / "2 images", so the notes below read like English. */
+function countImages(n: number): string {
+  return n === 1 ? "1 image" : `${n} images`;
+}
+
+/**
+ * Put the real images back, and report what the model did with them.
+ *
+ * A *missing* placeholder means the model removed that image — legitimate, the
+ * instruction may have asked for exactly that — so the result stands and the
+ * operator is told how many went.
+ *
+ * A placeholder that was never sent is left in place on purpose. Stripping the
+ * surrounding `<img>` would be a silent structural edit nobody asked for; a
+ * broken image in the live preview is immediately visible and immediately
+ * fixable.
+ */
+export function restoreImages(html: string, images: string[]): RestoredDocument {
+  const seen = new Set<number>();
+  let unknown = 0;
+
+  const restored = html.replace(PLACEHOLDER_URI, (match, index: string) => {
+    const position = Number(index);
+    const original = images[position - 1];
+    if (original === undefined) {
+      unknown += 1;
+      return match;
+    }
+    seen.add(position);
+    return original;
+  });
+
+  const warnings: string[] = [];
+  const dropped = images.length - seen.size;
+  if (dropped > 0) {
+    warnings.push(
+      `${countImages(dropped)} ${dropped === 1 ? "was" : "were"} removed from the page.`,
+    );
+  }
+  if (unknown > 0) {
+    warnings.push(`The result referenced ${countImages(unknown)} that isn't in your page.`);
+  }
+  return { html: restored, warnings };
+}
+
+/** Whether an elided document is too large to send. */
+export function isOverAssistCap(html: string): boolean {
+  return htmlByteLength(html) > MAX_ASSIST_BYTES;
+}
