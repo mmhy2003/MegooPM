@@ -24,7 +24,7 @@ vi.mock("@/components/custom-pages/html-editor", () => ({
       };
     }
     return (
-      <textarea aria-label="HTML" value={value} onChange={(e) => onChange(e.target.value)} />
+      <textarea aria-label="HTML source" value={value} onChange={(e) => onChange(e.target.value)} />
     );
   },
 }));
@@ -86,7 +86,7 @@ describe("CustomPageEditorView", () => {
 
   it("starts a new page from a usable document rather than a blank editor", async () => {
     render(<CustomPageEditorView pageId={null} />);
-    const editor = (await screen.findByLabelText("HTML")) as HTMLTextAreaElement;
+    const editor = (await screen.findByLabelText("HTML source")) as HTMLTextAreaElement;
     expect(editor.value).toContain("<!doctype html>");
     expect(editor.value).toContain("</html>");
     expect(customPages.get).not.toHaveBeenCalled();
@@ -96,7 +96,7 @@ describe("CustomPageEditorView", () => {
     render(<CustomPageEditorView pageId={7} />);
     await waitFor(() => expect(screen.getByLabelText("Name")).toHaveValue("Access denied"));
     expect(screen.getByLabelText("Description")).toHaveValue("Shown to banned clients");
-    expect(screen.getByLabelText("HTML")).toHaveValue(HTML);
+    expect(screen.getByLabelText("HTML source")).toHaveValue(HTML);
   });
 
   it("creates the page and routes to its editor", async () => {
@@ -123,8 +123,8 @@ describe("CustomPageEditorView", () => {
   it("saves an edit and stays put", async () => {
     const user = userEvent.setup();
     render(<CustomPageEditorView pageId={7} />);
-    await waitFor(() => expect(screen.getByLabelText("HTML")).toHaveValue(HTML));
-    await user.type(screen.getByLabelText("HTML"), "!");
+    await waitFor(() => expect(screen.getByLabelText("HTML source")).toHaveValue(HTML));
+    await user.type(screen.getByLabelText("HTML source"), "!");
     await user.click(screen.getByRole("button", { name: "Save" }));
 
     await waitFor(() => expect(customPages.update).toHaveBeenCalledTimes(1));
@@ -135,18 +135,18 @@ describe("CustomPageEditorView", () => {
   it("keeps Save disabled until something changes", async () => {
     const user = userEvent.setup();
     render(<CustomPageEditorView pageId={7} />);
-    await waitFor(() => expect(screen.getByLabelText("HTML")).toHaveValue(HTML));
+    await waitFor(() => expect(screen.getByLabelText("HTML source")).toHaveValue(HTML));
     expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
-    await user.type(screen.getByLabelText("HTML"), "!");
+    await user.type(screen.getByLabelText("HTML source"), "!");
     expect(screen.getByRole("button", { name: "Save" })).toBeEnabled();
   });
 
   it("shows the document's size as it grows", async () => {
     const user = userEvent.setup();
     render(<CustomPageEditorView pageId={7} />);
-    await waitFor(() => expect(screen.getByLabelText("HTML")).toHaveValue(HTML));
+    await waitFor(() => expect(screen.getByLabelText("HTML source")).toHaveValue(HTML));
     expect(screen.getByText(`${HTML.length} B`)).toBeInTheDocument();
-    await user.type(screen.getByLabelText("HTML"), "!!");
+    await user.type(screen.getByLabelText("HTML source"), "!!");
     expect(screen.getByText(`${HTML.length + 2} B`)).toBeInTheDocument();
   });
 
@@ -205,7 +205,7 @@ describe("CustomPageEditorView — AI", () => {
 
   it("keeps the bar out of the way until it is asked for", async () => {
     render(<CustomPageEditorView pageId={7} />);
-    await waitFor(() => expect(screen.getByLabelText("HTML")).toHaveValue(HTML));
+    await waitFor(() => expect(screen.getByLabelText("HTML source")).toHaveValue(HTML));
     // Default layout is unchanged for anyone not using the feature.
     expect(screen.queryByLabelText("Instruction")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Ask AI" })).toBeInTheDocument();
@@ -214,7 +214,7 @@ describe("CustomPageEditorView — AI", () => {
   it("sends the instruction and applies the result", async () => {
     const user = userEvent.setup();
     render(<CustomPageEditorView pageId={7} />);
-    await waitFor(() => expect(screen.getByLabelText("HTML")).toHaveValue(HTML));
+    await waitFor(() => expect(screen.getByLabelText("HTML source")).toHaveValue(HTML));
 
     await generate(user, "make it blue");
 
@@ -223,7 +223,7 @@ describe("CustomPageEditorView — AI", () => {
       instruction: "make it blue",
       html: HTML,
     });
-    await waitFor(() => expect(screen.getByLabelText("HTML")).toHaveValue(AI_DOC));
+    await waitFor(() => expect(screen.getByLabelText("HTML source")).toHaveValue(AI_DOC));
   });
 
   it("elides images before sending and restores them after", async () => {
@@ -238,7 +238,7 @@ describe("CustomPageEditorView — AI", () => {
 
     const user = userEvent.setup();
     render(<CustomPageEditorView pageId={7} />);
-    await waitFor(() => expect(screen.getByLabelText("HTML")).toHaveValue(withImage));
+    await waitFor(() => expect(screen.getByLabelText("HTML source")).toHaveValue(withImage));
 
     await generate(user, "add a heading");
 
@@ -249,7 +249,7 @@ describe("CustomPageEditorView — AI", () => {
     expect(sent).toContain("MEGOOPM_IMAGE_1");
     // ...and it comes back.
     await waitFor(() =>
-      expect(screen.getByLabelText("HTML")).toHaveValue(
+      expect(screen.getByLabelText("HTML source")).toHaveValue(
         `<body><h1>hi</h1><img src="${IMG}"></body>`,
       ),
     );
@@ -258,13 +258,13 @@ describe("CustomPageEditorView — AI", () => {
   it("reverts to the document from before the AI edit", async () => {
     const user = userEvent.setup();
     render(<CustomPageEditorView pageId={7} />);
-    await waitFor(() => expect(screen.getByLabelText("HTML")).toHaveValue(HTML));
+    await waitFor(() => expect(screen.getByLabelText("HTML source")).toHaveValue(HTML));
 
     await generate(user, "make it blue");
-    await waitFor(() => expect(screen.getByLabelText("HTML")).toHaveValue(AI_DOC));
+    await waitFor(() => expect(screen.getByLabelText("HTML source")).toHaveValue(AI_DOC));
 
     await user.click(screen.getByRole("button", { name: "Revert AI edit" }));
-    expect(screen.getByLabelText("HTML")).toHaveValue(HTML);
+    expect(screen.getByLabelText("HTML source")).toHaveValue(HTML);
     expect(
       screen.queryByRole("button", { name: "Revert AI edit" }),
     ).not.toBeInTheDocument();
@@ -272,7 +272,7 @@ describe("CustomPageEditorView — AI", () => {
 
   it("offers no revert until an AI edit has happened", async () => {
     render(<CustomPageEditorView pageId={7} />);
-    await waitFor(() => expect(screen.getByLabelText("HTML")).toHaveValue(HTML));
+    await waitFor(() => expect(screen.getByLabelText("HTML source")).toHaveValue(HTML));
     expect(
       screen.queryByRole("button", { name: "Revert AI edit" }),
     ).not.toBeInTheDocument();
@@ -282,12 +282,12 @@ describe("CustomPageEditorView — AI", () => {
     vi.mocked(customPages.assist).mockRejectedValueOnce(new Error("provider said no"));
     const user = userEvent.setup();
     render(<CustomPageEditorView pageId={7} />);
-    await waitFor(() => expect(screen.getByLabelText("HTML")).toHaveValue(HTML));
+    await waitFor(() => expect(screen.getByLabelText("HTML source")).toHaveValue(HTML));
 
     await generate(user, "make it blue");
 
     expect(await screen.findByRole("alert")).toHaveTextContent("provider said no");
-    expect(screen.getByLabelText("HTML")).toHaveValue(HTML);
+    expect(screen.getByLabelText("HTML source")).toHaveValue(HTML);
   });
 
   it("refuses to send a document that is too large even elided", async () => {
@@ -342,10 +342,17 @@ describe("CustomPageEditorView — change summary", () => {
     await user.click(screen.getByRole("button", { name: "Generate" }));
   }
 
+  it("offers no Changes tab before an AI edit", async () => {
+    render(<CustomPageEditorView pageId={7} />);
+    await waitFor(() => expect(screen.getByLabelText("HTML source")).toHaveValue(HTML));
+
+    expect(screen.queryByRole("tab", { name: /changes/i })).not.toBeInTheDocument();
+  });
+
   it("lists the lines the model changed", async () => {
     const user = userEvent.setup();
     render(<CustomPageEditorView pageId={7} />);
-    await waitFor(() => expect(screen.getByLabelText("HTML")).toHaveValue(HTML));
+    await waitFor(() => expect(screen.getByLabelText("HTML source")).toHaveValue(HTML));
 
     await ask(user, "rename the heading");
 
@@ -358,6 +365,65 @@ describe("CustomPageEditorView — change summary", () => {
     expect(screen.getByText("    <h1>New</h1>", exact)).toBeInTheDocument();
   });
 
+  it("opens the Changes tab so the result is not hidden behind the editor", async () => {
+    const user = userEvent.setup();
+    render(<CustomPageEditorView pageId={7} />);
+    await waitFor(() => expect(screen.getByLabelText("HTML source")).toHaveValue(HTML));
+
+    await ask(user, "rename the heading");
+
+    // aria-selected, not a base-ui data attribute: this is the contract a
+    // screen reader reads, and it does not move when the library renames one.
+    expect(
+      await screen.findByRole("tab", { name: /changes/i, selected: true }),
+    ).toBeInTheDocument();
+  });
+
+  it("counts the changes on the tab", async () => {
+    vi.mocked(customPages.assist).mockResolvedValue({
+      html: AI_DOC,
+      mode: "tools",
+      truncated: false,
+      changes: [
+        { start: 4, end: 4, before: "    <h1>Old</h1>", after: "    <h1>New</h1>" },
+        { start: 6, end: 6, before: "    <p>a</p>", after: "    <p>b</p>" },
+      ],
+    });
+    const user = userEvent.setup();
+    render(<CustomPageEditorView pageId={7} />);
+    await waitFor(() => expect(screen.getByLabelText("HTML source")).toHaveValue(HTML));
+
+    await ask(user, "rename things");
+
+    expect(await screen.findByRole("tab", { name: "Changes 2" })).toBeInTheDocument();
+  });
+
+  it("keeps the preview visible while the changes are on screen", async () => {
+    // The whole point of moving the diff into the pane: reviewing a change no
+    // longer costs you the preview of its effect.
+    const user = userEvent.setup();
+    render(<CustomPageEditorView pageId={7} />);
+    await waitFor(() => expect(screen.getByLabelText("HTML source")).toHaveValue(HTML));
+
+    await ask(user, "rename the heading");
+    await screen.findByText(/1 change/i);
+
+    expect(screen.getByTitle("Page preview")).toBeInTheDocument();
+  });
+
+  it("switches back to the editor on demand", async () => {
+    const user = userEvent.setup();
+    render(<CustomPageEditorView pageId={7} />);
+    await waitFor(() => expect(screen.getByLabelText("HTML source")).toHaveValue(HTML));
+
+    await ask(user, "rename the heading");
+    await screen.findByText(/1 change/i);
+
+    await user.click(screen.getByRole("tab", { name: "HTML" }));
+
+    expect(screen.getByLabelText("HTML source")).toHaveValue(AI_DOC);
+  });
+
   it("says the page was rewritten rather than showing an empty change list", async () => {
     // Otherwise a fallback looks like an edit that changed nothing.
     vi.mocked(customPages.assist).mockResolvedValue({
@@ -368,7 +434,7 @@ describe("CustomPageEditorView — change summary", () => {
     });
     const user = userEvent.setup();
     render(<CustomPageEditorView pageId={7} />);
-    await waitFor(() => expect(screen.getByLabelText("HTML")).toHaveValue(HTML));
+    await waitFor(() => expect(screen.getByLabelText("HTML source")).toHaveValue(HTML));
 
     await ask(user, "make it dark");
 
@@ -387,7 +453,7 @@ describe("CustomPageEditorView — change summary", () => {
     });
     const user = userEvent.setup();
     render(<CustomPageEditorView pageId={7} />);
-    await waitFor(() => expect(screen.getByLabelText("HTML")).toHaveValue(HTML));
+    await waitFor(() => expect(screen.getByLabelText("HTML source")).toHaveValue(HTML));
 
     await ask(user, "do a lot");
 
@@ -397,28 +463,27 @@ describe("CustomPageEditorView — change summary", () => {
   it("clears the change list on revert", async () => {
     const user = userEvent.setup();
     render(<CustomPageEditorView pageId={7} />);
-    await waitFor(() => expect(screen.getByLabelText("HTML")).toHaveValue(HTML));
+    await waitFor(() => expect(screen.getByLabelText("HTML source")).toHaveValue(HTML));
 
     await ask(user, "rename the heading");
     await screen.findByText(/1 change/i);
 
     await user.click(screen.getByRole("button", { name: "Revert AI edit" }));
-    expect(screen.queryByText(/1 change/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole("tab", { name: /changes/i })).not.toBeInTheDocument();
   });
 
-  it("dismisses the change list so it stops covering the editor", async () => {
+  it("dismisses the change list and returns to the editor", async () => {
     const user = userEvent.setup();
     render(<CustomPageEditorView pageId={7} />);
-    await waitFor(() => expect(screen.getByLabelText("HTML")).toHaveValue(HTML));
+    await waitFor(() => expect(screen.getByLabelText("HTML source")).toHaveValue(HTML));
 
     await ask(user, "rename the heading");
     await screen.findByText(/1 change/i);
 
     await user.click(screen.getByRole("button", { name: "Dismiss changes" }));
 
-    expect(screen.queryByText(/1 change/i)).not.toBeInTheDocument();
-    const exact = { normalizer: (text: string) => text };
-    expect(screen.queryByText("    <h1>New</h1>", exact)).not.toBeInTheDocument();
+    expect(screen.queryByRole("tab", { name: /changes/i })).not.toBeInTheDocument();
+    expect(screen.getByLabelText("HTML source")).toHaveValue(AI_DOC);
   });
 
   it("keeps the edit and the ability to revert it after dismissing", async () => {
@@ -427,7 +492,7 @@ describe("CustomPageEditorView — change summary", () => {
     // hatch for it.
     const user = userEvent.setup();
     render(<CustomPageEditorView pageId={7} />);
-    await waitFor(() => expect(screen.getByLabelText("HTML")).toHaveValue(HTML));
+    await waitFor(() => expect(screen.getByLabelText("HTML source")).toHaveValue(HTML));
 
     await ask(user, "rename the heading");
     await screen.findByText(/1 change/i);
@@ -435,7 +500,7 @@ describe("CustomPageEditorView — change summary", () => {
     await user.click(screen.getByRole("button", { name: "Dismiss changes" }));
 
     // The edit itself is untouched...
-    expect(screen.getByLabelText("HTML")).toHaveValue(AI_DOC);
+    expect(screen.getByLabelText("HTML source")).toHaveValue(AI_DOC);
     // ...and the way back is still offered.
     expect(
       screen.getByRole("button", { name: "Revert AI edit" }),
@@ -446,7 +511,7 @@ describe("CustomPageEditorView — change summary", () => {
     // Dismissing hides one result, it does not turn the summary off.
     const user = userEvent.setup();
     render(<CustomPageEditorView pageId={7} />);
-    await waitFor(() => expect(screen.getByLabelText("HTML")).toHaveValue(HTML));
+    await waitFor(() => expect(screen.getByLabelText("HTML source")).toHaveValue(HTML));
 
     await ask(user, "rename the heading");
     await screen.findByText(/1 change/i);

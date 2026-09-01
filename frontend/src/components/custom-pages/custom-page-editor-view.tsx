@@ -31,6 +31,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Tabs, TabsList, TabsPanel, TabsTab } from "@/components/ui/tabs";
 
 type Form = { name: string; description: string; html: string };
 
@@ -75,6 +76,10 @@ export function CustomPageEditorView({ pageId }: { pageId: number | null }) {
     truncated: boolean;
     changes: PageEditChange[];
   } | null>(null);
+  // Which tab the left pane shows. An AI edit switches to "changes" so the
+  // result is not hidden behind the editor; dismissing or reverting sends it
+  // back, because the tab it names no longer exists.
+  const [pane, setPane] = useState("html");
   const [assisting, setAssisting] = useState(false);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const assistAbort = useRef<AbortController | null>(null);
@@ -211,6 +216,8 @@ export function CustomPageEditorView({ pageId }: { pageId: number | null }) {
         truncated: result.truncated ?? false,
         changes: result.changes ?? [],
       });
+      // Show what changed without making the operator go looking for it.
+      setPane("changes");
       for (const warning of restored.warnings) toast.warning(warning);
       toast.success("Page updated");
     } catch (err) {
@@ -236,6 +243,8 @@ export function CustomPageEditorView({ pageId }: { pageId: number | null }) {
     patch({ html: htmlBeforeAi });
     setHtmlBeforeAi(null);
     setLastEdit(null);
+    // The Changes tab goes with it, so do not leave a dead tab selected.
+    setPane("html");
   }
 
   function handlePickImage(file: File | undefined) {
@@ -269,7 +278,11 @@ export function CustomPageEditorView({ pageId }: { pageId: number | null }) {
   }
 
   return (
-    <div className="mx-auto flex h-[calc(100dvh-7rem)] max-w-7xl flex-col gap-4">
+    // min-h, not h: on a tall window this fills the viewport exactly as a
+    // fixed height would, but on a short one the content is allowed to exceed
+    // it so the page scrolls, instead of compressing the panes toward zero
+    // with no way to reach them.
+    <div className="mx-auto flex min-h-[calc(100dvh-7rem)] max-w-7xl flex-col gap-4">
       <div className="flex flex-wrap items-end gap-3">
         <Button
           variant="ghost"
@@ -326,59 +339,23 @@ export function CustomPageEditorView({ pageId }: { pageId: number | null }) {
         />
       ) : null}
 
-      {lastEdit ? (
-        <section className="shrink-0 space-y-2 rounded-xl border p-3 text-sm">
-          <div className="flex items-center gap-2">
-            {lastEdit.mode === "tools" ? (
-              <p className="font-medium">
-                {lastEdit.changes.length} change
-                {lastEdit.changes.length === 1 ? "" : "s"} applied
-              </p>
-            ) : (
-              <p className="font-medium">Rewrote the whole page</p>
-            )}
-            {/* Hides the summary only. The edit stands and `htmlBeforeAi` is
-                untouched, so "Revert AI edit" survives reading this. */}
-            <Button
-              variant="ghost"
-              size="sm"
-              className="ms-auto"
-              onClick={() => setLastEdit(null)}
-            >
-              <X /> Dismiss changes
-            </Button>
-          </div>
-          {lastEdit.truncated ? (
-            <p className="text-xs text-warning">
-              The model stopped early after reaching its step limit — check the
-              result before saving.
-            </p>
-          ) : null}
-          {/* Capped: the page is a fixed-height column, so an unbounded list
-              would take its height straight out of the editor below. */}
-          <div className="max-h-56 space-y-2 overflow-y-auto">
-            {lastEdit.changes.map((change) => (
-              <div key={`${change.start}-${change.end}`} className="space-y-0.5">
-                <p className="text-xs text-muted-foreground">
-                  line {change.start}
-                  {change.end !== change.start ? `–${change.end}` : ""}
-                </p>
-                <pre className="overflow-x-auto rounded bg-destructive/10 p-1.5 font-mono text-xs">
-                  {change.before}
-                </pre>
-                <pre className="overflow-x-auto rounded bg-success/10 p-1.5 font-mono text-xs">
-                  {change.after}
-                </pre>
-              </div>
-            ))}
-          </div>
-        </section>
-      ) : null}
-
-      <div className="grid min-h-0 flex-1 gap-4 lg:grid-cols-2">
-        <section className="flex min-h-0 flex-col rounded-xl border">
+      <div className="grid min-h-[24rem] flex-1 gap-4 lg:grid-cols-2">
+        <Tabs
+          value={pane}
+          onValueChange={(value) => setPane(value as string)}
+          render={<section className="flex min-h-0 flex-col gap-0 rounded-xl border" />}
+        >
           <div className="flex items-center gap-2 border-b px-3 py-2">
-            <span className="text-sm font-medium">HTML</span>
+            <TabsList className="h-8 bg-transparent p-0">
+              <TabsTab value="html" className="h-7">
+                HTML
+              </TabsTab>
+              {lastEdit ? (
+                <TabsTab value="changes" className="h-7">
+                  Changes{lastEdit.changes.length ? ` ${lastEdit.changes.length}` : ""}
+                </TabsTab>
+              ) : null}
+            </TabsList>
             <span
               className={`text-xs tabular-nums ${
                 overCap ? "text-destructive" : "text-muted-foreground"
@@ -416,7 +393,10 @@ export function CustomPageEditorView({ pageId }: { pageId: number | null }) {
               }}
             />
           </div>
-          <div className="min-h-0 flex-1">
+          {/* keepMounted: switching to the diff must not tear down CodeMirror,
+              which would throw away the editor's undo history and scroll
+              position every time the AI made an edit. */}
+          <TabsPanel value="html" keepMounted className="min-h-0 flex-1">
             {loading ? (
               <div className="space-y-2 p-3">
                 <Skeleton className="h-4 w-3/4" />
@@ -431,8 +411,60 @@ export function CustomPageEditorView({ pageId }: { pageId: number | null }) {
                 handleRef={editor}
               />
             )}
-          </div>
-        </section>
+          </TabsPanel>
+          {lastEdit ? (
+            /* The diff lives in the pane rather than above it: a long change
+               list scrolls here instead of taking its height out of the editor
+               and the preview. */
+            <TabsPanel value="changes" className="min-h-0 flex-1 overflow-y-auto p-3">
+              <div className="flex items-center gap-2">
+                {lastEdit.mode === "tools" ? (
+                  <p className="text-sm font-medium">
+                    {lastEdit.changes.length} change
+                    {lastEdit.changes.length === 1 ? "" : "s"} applied
+                  </p>
+                ) : (
+                  <p className="text-sm font-medium">Rewrote the whole page</p>
+                )}
+                {/* Hides the summary only. The edit stands and `htmlBeforeAi`
+                    is untouched, so "Revert AI edit" survives reading this. */}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="ms-auto"
+                  onClick={() => {
+                    setLastEdit(null);
+                    setPane("html");
+                  }}
+                >
+                  <X /> Dismiss changes
+                </Button>
+              </div>
+              {lastEdit.truncated ? (
+                <p className="mt-2 text-xs text-warning">
+                  The model stopped early after reaching its step limit — check
+                  the result before saving.
+                </p>
+              ) : null}
+              <div className="mt-2 space-y-2">
+                {lastEdit.changes.map((change) => (
+                  <div key={`${change.start}-${change.end}`} className="space-y-0.5">
+                    <p className="text-xs text-muted-foreground">
+                      line {change.start}
+                      {change.end !== change.start ? `–${change.end}` : ""}
+                    </p>
+                    <pre className="overflow-x-auto rounded bg-destructive/10 p-1.5 font-mono text-xs">
+                      {change.before}
+                    </pre>
+                    <pre className="overflow-x-auto rounded bg-success/10 p-1.5 font-mono text-xs">
+                      {change.after}
+                    </pre>
+                  </div>
+                ))}
+              </div>
+            </TabsPanel>
+          ) : null}
+        </Tabs>
 
         <section className="flex min-h-0 flex-col rounded-xl border">
           <div className="border-b px-3 py-2 text-sm font-medium">Preview</div>
