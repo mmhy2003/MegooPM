@@ -90,7 +90,7 @@ describe("SettingsView", () => {
     const user = userEvent.setup();
     render(<SettingsView />);
     await user.click(await screen.findByRole("radio", { name: /No response/i }));
-    await user.click(screen.getByRole("button", { name: "Save changes" }));
+    await user.click(screen.getByRole("button", { name: "Save default site" }));
 
     await waitFor(() => expect(instanceSettings.updateDefaultSite).toHaveBeenCalledTimes(1));
     expect(instanceSettings.updateDefaultSite).toHaveBeenCalledWith({
@@ -105,7 +105,7 @@ describe("SettingsView", () => {
     render(<SettingsView />);
     await user.click(await screen.findByRole("radio", { name: /Redirect/i }));
     await user.type(screen.getByLabelText("Redirect to"), "https://example.com");
-    await user.click(screen.getByRole("button", { name: "Save changes" }));
+    await user.click(screen.getByRole("button", { name: "Save default site" }));
 
     await waitFor(() => expect(instanceSettings.updateDefaultSite).toHaveBeenCalledTimes(1));
     expect(vi.mocked(instanceSettings.updateDefaultSite).mock.calls[0][0]).toMatchObject({
@@ -118,7 +118,7 @@ describe("SettingsView", () => {
     const user = userEvent.setup();
     render(<SettingsView />);
     await user.click(await screen.findByRole("radio", { name: /Redirect/i }));
-    await user.click(screen.getByRole("button", { name: "Save changes" }));
+    await user.click(screen.getByRole("button", { name: "Save default site" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent("Enter the URL to redirect to.");
     expect(instanceSettings.updateDefaultSite).not.toHaveBeenCalled();
@@ -139,9 +139,9 @@ describe("SettingsView", () => {
     const user = userEvent.setup();
     render(<SettingsView />);
     await screen.findByRole("radio", { name: /404 page/i });
-    expect(screen.getByRole("button", { name: "Save changes" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Save default site" })).toBeDisabled();
     await user.click(screen.getByRole("radio", { name: /Redirect/i }));
-    expect(screen.getByRole("button", { name: "Save changes" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Save default site" })).toBeEnabled();
   });
 
   it("surfaces a load failure with a retry", async () => {

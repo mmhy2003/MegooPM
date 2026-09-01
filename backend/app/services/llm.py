@@ -146,6 +146,12 @@ async def check_connection(config: LlmConfig, *, timeout: float = 30.0) -> LlmCh
     A minimal completion is the only thing that proves the *whole* path —
     credentials, base URL, model name, and the provider actually answering.
     """
+    # Warm the import before starting the clock. litellm costs 3.49s to load
+    # and only the first call in a process pays it — but that call is usually
+    # this one, and folding it into the reported latency would tell an operator
+    # their local Ollama took three and a half seconds to answer.
+    _litellm()
+
     started = time.perf_counter()
     try:
         reply = await complete(

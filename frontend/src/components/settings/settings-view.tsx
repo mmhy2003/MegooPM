@@ -10,6 +10,7 @@ import {
   instanceSettings,
   type CustomPageSummary,
   type DefaultSiteMode,
+  type InstanceSettings,
 } from "@/lib/api";
 import {
   DEFAULT_SITE_MODES,
@@ -22,6 +23,7 @@ import {
   validateSettingsForm,
   type SettingsFormState,
 } from "@/components/settings/lib";
+import { LlmCard } from "@/components/settings/llm-card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -44,6 +46,9 @@ export function SettingsView() {
   const [form, setForm] = useState<SettingsFormState>(emptyFormState);
   const [saved, setSaved] = useState<SettingsFormState>(emptyFormState);
   const [pages, setPages] = useState<CustomPageSummary[]>([]);
+  // Kept whole so the LLM card can seed itself; the default-site form above
+  // works from its own flattened state.
+  const [row, setRow] = useState<InstanceSettings | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -57,6 +62,7 @@ export function SettingsView() {
       const [settings, list] = await Promise.all([instanceSettings.get(), customPages.list()]);
       setForm(stateFromSettings(settings));
       setSaved(stateFromSettings(settings));
+      setRow(settings);
       setPages(list);
       setLoadError(null);
     } catch (err) {
@@ -91,6 +97,7 @@ export function SettingsView() {
       const updated = await instanceSettings.updateDefaultSite(buildDefaultSitePayload(form));
       setSaved(stateFromSettings(updated));
       setForm(stateFromSettings(updated));
+      setRow(updated);
       toast.success("Default site saved");
     } catch (err) {
       // 422 → the backend's stricter URL rules, or an unknown page id.
@@ -230,12 +237,14 @@ export function SettingsView() {
 
             <div className="flex justify-end">
               <Button onClick={handleSave} disabled={saving || !dirty}>
-                {saving ? "Saving…" : "Save changes"}
+                {saving ? "Saving…" : "Save default site"}
               </Button>
             </div>
           </>
         )}
       </section>
+
+      {row ? <LlmCard settings={row} onSaved={setRow} /> : null}
     </div>
   );
 }
