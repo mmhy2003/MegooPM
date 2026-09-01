@@ -12,7 +12,7 @@ request matching no configured host.
 
 from __future__ import annotations
 
-from sqlalchemy import BigInteger, CheckConstraint, Enum, ForeignKey, Integer, Text
+from sqlalchemy import BigInteger, Boolean, CheckConstraint, Enum, ForeignKey, Integer, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
@@ -35,6 +35,10 @@ class InstanceSettings(TimestampMixin, Base):
         CheckConstraint(
             "default_site_mode <> 'custom_page' OR default_site_page_id IS NOT NULL",
             name="custom_page_needs_page",
+        ),
+        CheckConstraint(
+            "llm_enabled = false OR llm_model IS NOT NULL",
+            name="llm_needs_model",
         ),
     )
 
@@ -61,6 +65,23 @@ class InstanceSettings(TimestampMixin, Base):
         nullable=True,
         index=True,
     )
+
+    # --- LLM integration -----------------------------------------------
+    # Off by default: this opens outbound connections from a reverse proxy's
+    # admin backend to a third party, which must never start because an
+    # upgrade shipped.
+    llm_enabled: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default="false"
+    )
+    # litellm's model string, which already encodes the provider —
+    # "gpt-4o", "anthropic/claude-sonnet-4", "ollama/llama3".
+    llm_model: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Only needed when the endpoint is not the provider's default: a local
+    # runner, or a gateway.
+    llm_api_base: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Fernet token (app.core.crypto), never plaintext. Nullable on purpose:
+    # a local model legitimately needs no key.
+    llm_api_key_enc: Mapped[str | None] = mapped_column(Text, nullable=True)
 
 
 __all__ = ["InstanceSettings"]

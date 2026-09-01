@@ -21,7 +21,7 @@ shipped by Alembic migration `0003_core_domain`.
 | `access_list_auth` | Basic-auth users (hashed) within an access list. |
 | `access_list_clients` | IP/CIDR allow/deny rules within an access list. |
 | `custom_pages` | Named HTML documents authored in the app; images embedded as base64 `data:` URIs, so a page has no side-car assets. |
-| `instance_settings` | Instance-wide settings. Exactly one row (`id=1`), seeded by its migration so readers never handle "no row yet". Holds the default site. |
+| `instance_settings` | Instance-wide settings. Exactly one row (`id=1`), seeded by its migration so readers never handle "no row yet". Holds the default site and the LLM integration config. |
 | `audit_log` | Append-only record of domain mutations. |
 
 ## The upstream-pool relationship (differentiator)
@@ -86,6 +86,10 @@ of the referenced row.
   `default_site_redirect_url`; `= 'custom_page'` requires `default_site_page_id`.
   A half-configured row would render nginx config that says nothing, so the
   database refuses it as well as the API.
+  `llm_enabled = true` requires `llm_model`, for the same reason. No constraint
+  requires an API key — a local model (Ollama, LM Studio, vLLM) legitimately
+  has none, and demanding one would lock those deployments out. The key is a
+  Fernet token in `llm_api_key_enc`, never plaintext.
 
 ## Conventions
 

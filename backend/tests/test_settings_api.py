@@ -265,3 +265,37 @@ async def test_the_default_site_renders_the_referenced_page(
     assert state.default_site is not None
     assert state.default_site.mode == "custom_page"
     assert render_default_site(state)[DEFAULT_SITE_HTML] == CUSTOM_HTML
+
+
+# --- LLM integration columns -----------------------------------------------
+
+
+async def test_llm_is_off_on_a_fresh_instance(pg_conn) -> None:
+    """Enabling by upgrade would make the proxy call a third party unasked."""
+    result = await pg_conn.execute(
+        text("SELECT llm_enabled, llm_model, llm_api_key_enc FROM instance_settings WHERE id = 1")
+    )
+    row = result.one()
+    assert row.llm_enabled is False
+    assert row.llm_model is None
+    assert row.llm_api_key_enc is None
+
+
+async def test_enabling_llm_without_a_model_is_rejected_by_the_database(pg_conn) -> None:
+    """An enabled, modelless config is switched on and inert — worse than refused."""
+    with pytest.raises(IntegrityError):
+        await pg_conn.execute(
+            text("UPDATE instance_settings SET llm_enabled = true, llm_model = NULL WHERE id = 1")
+        )
+
+
+async def test_a_key_may_be_absent_when_enabled(pg_conn) -> None:
+    """Ollama, LM Studio and vLLM need no key; demanding one locks them out."""
+    await pg_conn.execute(
+        text(
+            "UPDATE instance_settings SET llm_enabled = true, llm_model = 'ollama/llama3', "
+            "llm_api_key_enc = NULL WHERE id = 1"
+        )
+    )
+    result = await pg_conn.execute(text("SELECT llm_model FROM instance_settings WHERE id = 1"))
+    assert result.scalar_one() == "ollama/llama3"
