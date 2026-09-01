@@ -20,6 +20,7 @@ export type CustomPageCreate = Schemas["CustomPageCreate"];
 export type CustomPageUpdate = Schemas["CustomPageUpdate"];
 export type PageAssistRequest = Schemas["PageAssistRequest"];
 export type PageAssistResponse = Schemas["PageAssistResponse"];
+export type PageEditChange = Schemas["PageEditChange"];
 
 const BASE = "/api/v1/custom-pages";
 

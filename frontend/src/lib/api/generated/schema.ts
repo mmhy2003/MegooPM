@@ -2564,11 +2564,41 @@ export interface components {
         };
         /**
          * PageAssistResponse
-         * @description The cleaned document. Placeholders are restored by the browser.
+         * @description The cleaned document, and how it was produced.
+         *
+         *     ``mode`` distinguishes a targeted edit (``tools``) from a page written from
+         *     nothing (``generate``) and from a whole-document regeneration used because
+         *     the tool path was unavailable (``rewrite``). Without that a fallback would
+         *     look to the operator like an edit that changed nothing.
+         *
+         *     Placeholders are restored by the browser, so ``html`` is still elided here.
          */
         PageAssistResponse: {
+            /** Changes */
+            changes?: components["schemas"]["PageEditChange"][];
             /** Html */
             html: string;
+            /** Mode */
+            mode: string;
+            /**
+             * Truncated
+             * @default false
+             */
+            truncated: boolean;
+        };
+        /**
+         * PageEditChange
+         * @description One line range the model replaced, so the operator can read what moved.
+         */
+        PageEditChange: {
+            /** After */
+            after: string;
+            /** Before */
+            before: string;
+            /** End */
+            end: number;
+            /** Start */
+            start: number;
         };
         /**
          * PasswordChange

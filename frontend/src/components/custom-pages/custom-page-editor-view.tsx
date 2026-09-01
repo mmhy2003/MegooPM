@@ -5,7 +5,12 @@ import { useRouter } from "next/navigation";
 import { ArrowLeft, ImagePlus, Loader2, Sparkles, Undo2 } from "lucide-react";
 import { toast } from "sonner";
 
-import { customPages, instanceSettings, type CustomPage } from "@/lib/api";
+import {
+  customPages,
+  instanceSettings,
+  type CustomPage,
+  type PageEditChange,
+} from "@/lib/api";
 import {
   MAX_ASSIST_BYTES,
   MAX_PAGE_BYTES,
@@ -63,6 +68,13 @@ export function CustomPageEditorView({ pageId }: { pageId: number | null }) {
   // The document as it was immediately before the last AI edit. `null` means
   // there is nothing to revert to.
   const [htmlBeforeAi, setHtmlBeforeAi] = useState<string | null>(null);
+  // What the last AI edit did, for the operator to read. `null` means no AI
+  // edit has happened since the last revert.
+  const [lastEdit, setLastEdit] = useState<{
+    mode: string;
+    truncated: boolean;
+    changes: PageEditChange[];
+  } | null>(null);
   const [assisting, setAssisting] = useState(false);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const assistAbort = useRef<AbortController | null>(null);
@@ -194,6 +206,11 @@ export function CustomPageEditorView({ pageId }: { pageId: number | null }) {
       const restored = restoreImages(result.html, images);
       setHtmlBeforeAi(form.html);
       patch({ html: restored.html });
+      setLastEdit({
+        mode: result.mode,
+        truncated: result.truncated ?? false,
+        changes: result.changes ?? [],
+      });
       for (const warning of restored.warnings) toast.warning(warning);
       toast.success("Page updated");
     } catch (err) {
@@ -218,6 +235,7 @@ export function CustomPageEditorView({ pageId }: { pageId: number | null }) {
     if (htmlBeforeAi === null) return;
     patch({ html: htmlBeforeAi });
     setHtmlBeforeAi(null);
+    setLastEdit(null);
   }
 
   function handlePickImage(file: File | undefined) {
@@ -306,6 +324,39 @@ export function CustomPageEditorView({ pageId }: { pageId: number | null }) {
           onSubmit={(instruction) => void handleAssist(instruction)}
           onCancel={handleCancelAssist}
         />
+      ) : null}
+
+      {lastEdit ? (
+        <section className="space-y-2 rounded-xl border p-3 text-sm">
+          {lastEdit.mode === "tools" ? (
+            <p className="font-medium">
+              {lastEdit.changes.length} change
+              {lastEdit.changes.length === 1 ? "" : "s"} applied
+            </p>
+          ) : (
+            <p className="font-medium">Rewrote the whole page</p>
+          )}
+          {lastEdit.truncated ? (
+            <p className="text-xs text-warning">
+              The model stopped early after reaching its step limit — check the
+              result before saving.
+            </p>
+          ) : null}
+          {lastEdit.changes.map((change) => (
+            <div key={`${change.start}-${change.end}`} className="space-y-0.5">
+              <p className="text-xs text-muted-foreground">
+                line {change.start}
+                {change.end !== change.start ? `–${change.end}` : ""}
+              </p>
+              <pre className="overflow-x-auto rounded bg-destructive/10 p-1.5 font-mono text-xs">
+                {change.before}
+              </pre>
+              <pre className="overflow-x-auto rounded bg-success/10 p-1.5 font-mono text-xs">
+                {change.after}
+              </pre>
+            </div>
+          ))}
+        </section>
       ) : null}
 
       <div className="grid min-h-0 flex-1 gap-4 lg:grid-cols-2">

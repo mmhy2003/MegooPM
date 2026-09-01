@@ -79,6 +79,7 @@ export type {
   CustomPageUpdate,
   PageAssistRequest,
   PageAssistResponse,
+  PageEditChange,
 } from "@/lib/api/resources/custom-pages";
 
 export { instanceSettings } from "@/lib/api/resources/settings";

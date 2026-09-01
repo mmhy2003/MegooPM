@@ -69,7 +69,14 @@ describe("CustomPageEditorView", () => {
     vi.spyOn(customPages, "get").mockResolvedValue(makePage());
     vi.spyOn(customPages, "create").mockResolvedValue(makePage());
     vi.spyOn(customPages, "update").mockResolvedValue(makePage());
-    vi.spyOn(customPages, "assist").mockResolvedValue({ html: AI_DOC });
+    vi.spyOn(customPages, "assist").mockResolvedValue({
+      html: AI_DOC,
+      mode: "tools",
+      truncated: false,
+      changes: [
+        { start: 4, end: 4, before: "    <h1>Old</h1>", after: "    <h1>New</h1>" },
+      ],
+    });
     vi.spyOn(instanceSettings, "get").mockResolvedValue(makeSettings(true));
   });
   afterEach(() => {
@@ -167,7 +174,14 @@ describe("CustomPageEditorView — AI", () => {
   beforeEach(() => {
     vi.spyOn(customPages, "get").mockResolvedValue(makePage());
     vi.spyOn(customPages, "update").mockResolvedValue(makePage());
-    vi.spyOn(customPages, "assist").mockResolvedValue({ html: AI_DOC });
+    vi.spyOn(customPages, "assist").mockResolvedValue({
+      html: AI_DOC,
+      mode: "tools",
+      truncated: false,
+      changes: [
+        { start: 4, end: 4, before: "    <h1>Old</h1>", after: "    <h1>New</h1>" },
+      ],
+    });
     vi.spyOn(instanceSettings, "get").mockResolvedValue(makeSettings(true));
   });
   afterEach(() => {
@@ -217,6 +231,9 @@ describe("CustomPageEditorView — AI", () => {
     vi.mocked(customPages.get).mockResolvedValue(makePage({ html: withImage }));
     vi.mocked(customPages.assist).mockResolvedValue({
       html: '<body><h1>hi</h1><img src="data:image/png;base64,MEGOOPM_IMAGE_1"></body>',
+      mode: "tools",
+      truncated: false,
+      changes: [],
     });
 
     const user = userEvent.setup();
@@ -293,5 +310,99 @@ describe("CustomPageEditorView — AI", () => {
 
     expect(await screen.findByText(/enable llm features/i)).toBeInTheDocument();
     expect(screen.queryByLabelText("Instruction")).not.toBeInTheDocument();
+  });
+});
+
+/* -------------------------------------------------------------------------- */
+/* What the AI edit changed                                                    */
+/* -------------------------------------------------------------------------- */
+
+describe("CustomPageEditorView — change summary", () => {
+  beforeEach(() => {
+    vi.spyOn(customPages, "get").mockResolvedValue(makePage());
+    vi.spyOn(customPages, "update").mockResolvedValue(makePage());
+    vi.spyOn(customPages, "assist").mockResolvedValue({
+      html: AI_DOC,
+      mode: "tools",
+      truncated: false,
+      changes: [
+        { start: 4, end: 4, before: "    <h1>Old</h1>", after: "    <h1>New</h1>" },
+      ],
+    });
+    vi.spyOn(instanceSettings, "get").mockResolvedValue(makeSettings(true));
+  });
+  afterEach(() => {
+    cleanup();
+    vi.restoreAllMocks();
+  });
+
+  async function ask(user: ReturnType<typeof userEvent.setup>, instruction: string) {
+    await user.click(await screen.findByRole("button", { name: "Ask AI" }));
+    await user.type(await screen.findByLabelText("Instruction"), instruction);
+    await user.click(screen.getByRole("button", { name: "Generate" }));
+  }
+
+  it("lists the lines the model changed", async () => {
+    const user = userEvent.setup();
+    render(<CustomPageEditorView pageId={7} />);
+    await waitFor(() => expect(screen.getByLabelText("HTML")).toHaveValue(HTML));
+
+    await ask(user, "rename the heading");
+
+    expect(await screen.findByText(/1 change/i)).toBeInTheDocument();
+    expect(screen.getByText(/line 4/i)).toBeInTheDocument();
+    // Indentation preserved: this is the real line the model replaced, and
+    // Testing Library collapses whitespace unless told not to.
+    const exact = { normalizer: (text: string) => text };
+    expect(screen.getByText("    <h1>Old</h1>", exact)).toBeInTheDocument();
+    expect(screen.getByText("    <h1>New</h1>", exact)).toBeInTheDocument();
+  });
+
+  it("says the page was rewritten rather than showing an empty change list", async () => {
+    // Otherwise a fallback looks like an edit that changed nothing.
+    vi.mocked(customPages.assist).mockResolvedValue({
+      html: AI_DOC,
+      mode: "rewrite",
+      truncated: false,
+      changes: [],
+    });
+    const user = userEvent.setup();
+    render(<CustomPageEditorView pageId={7} />);
+    await waitFor(() => expect(screen.getByLabelText("HTML")).toHaveValue(HTML));
+
+    await ask(user, "make it dark");
+
+    expect(await screen.findByText(/rewrote the whole page/i)).toBeInTheDocument();
+    expect(screen.queryByText(/1 change/i)).not.toBeInTheDocument();
+  });
+
+  it("warns when the model ran out of turns", async () => {
+    vi.mocked(customPages.assist).mockResolvedValue({
+      html: AI_DOC,
+      mode: "tools",
+      truncated: true,
+      changes: [
+        { start: 4, end: 4, before: "    <h1>Old</h1>", after: "    <h1>New</h1>" },
+      ],
+    });
+    const user = userEvent.setup();
+    render(<CustomPageEditorView pageId={7} />);
+    await waitFor(() => expect(screen.getByLabelText("HTML")).toHaveValue(HTML));
+
+    await ask(user, "do a lot");
+
+    expect(await screen.findByText(/stopped early/i)).toBeInTheDocument();
+  });
+
+  it("clears the change list on revert", async () => {
+    const user = userEvent.setup();
+    render(<CustomPageEditorView pageId={7} />);
+    await waitFor(() => expect(screen.getByLabelText("HTML")).toHaveValue(HTML));
+
+    await ask(user, "rename the heading");
+    await screen.findByText(/1 change/i);
+
+    await user.click(screen.getByRole("button", { name: "Revert AI edit" }));
+    expect(screen.queryByText(/1 change/i)).not.toBeInTheDocument();
   });
 });
