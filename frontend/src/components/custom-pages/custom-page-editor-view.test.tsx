@@ -29,10 +29,26 @@ vi.mock("@/components/custom-pages/html-editor", () => ({
   },
 }));
 
-import { customPages, type CustomPage } from "@/lib/api";
+import { customPages, instanceSettings, type CustomPage, type InstanceSettings } from "@/lib/api";
 import { CustomPageEditorView } from "@/components/custom-pages/custom-page-editor-view";
 
 const HTML = "<!doctype html>\n<html><body>hi</body></html>";
+
+const AI_DOC = "<!doctype html>\n<html><body><h1>AI wrote this</h1></body></html>";
+const IMG = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUg";
+
+function makeSettings(llmEnabled: boolean): InstanceSettings {
+  return {
+    default_site_mode: "not_found",
+    default_site_redirect_url: null,
+    default_site_page_id: null,
+    llm_enabled: llmEnabled,
+    llm_model: llmEnabled ? "gpt-4o" : null,
+    llm_api_base: null,
+    llm_api_key_set: llmEnabled,
+    updated_at: "2026-09-01T00:00:00Z",
+  };
+}
 
 function makePage(overrides: Partial<CustomPage> = {}): CustomPage {
   return {
@@ -53,6 +69,8 @@ describe("CustomPageEditorView", () => {
     vi.spyOn(customPages, "get").mockResolvedValue(makePage());
     vi.spyOn(customPages, "create").mockResolvedValue(makePage());
     vi.spyOn(customPages, "update").mockResolvedValue(makePage());
+    vi.spyOn(customPages, "assist").mockResolvedValue({ html: AI_DOC });
+    vi.spyOn(instanceSettings, "get").mockResolvedValue(makeSettings(true));
   });
   afterEach(() => {
     cleanup();
@@ -138,5 +156,142 @@ describe("CustomPageEditorView", () => {
     render(<CustomPageEditorView pageId={7} />);
     expect(await screen.findByRole("alert")).toHaveTextContent(/couldn't load/i);
     expect(screen.getByRole("button", { name: "Retry" })).toBeInTheDocument();
+  });
+});
+
+/* -------------------------------------------------------------------------- */
+/* AI assistance                                                               */
+/* -------------------------------------------------------------------------- */
+
+describe("CustomPageEditorView — AI", () => {
+  beforeEach(() => {
+    vi.spyOn(customPages, "get").mockResolvedValue(makePage());
+    vi.spyOn(customPages, "update").mockResolvedValue(makePage());
+    vi.spyOn(customPages, "assist").mockResolvedValue({ html: AI_DOC });
+    vi.spyOn(instanceSettings, "get").mockResolvedValue(makeSettings(true));
+  });
+  afterEach(() => {
+    cleanup();
+    vi.restoreAllMocks();
+  });
+
+  /** The bar lives behind a toggle so the default layout is unchanged. */
+  async function openAi(user: ReturnType<typeof userEvent.setup>) {
+    await user.click(await screen.findByRole("button", { name: "Ask AI" }));
+  }
+
+  async function generate(
+    user: ReturnType<typeof userEvent.setup>,
+    instruction: string,
+  ) {
+    await openAi(user);
+    await user.type(await screen.findByLabelText("Instruction"), instruction);
+    await user.click(screen.getByRole("button", { name: "Generate" }));
+  }
+
+  it("keeps the bar out of the way until it is asked for", async () => {
+    render(<CustomPageEditorView pageId={7} />);
+    await waitFor(() => expect(screen.getByLabelText("HTML")).toHaveValue(HTML));
+    // Default layout is unchanged for anyone not using the feature.
+    expect(screen.queryByLabelText("Instruction")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Ask AI" })).toBeInTheDocument();
+  });
+
+  it("sends the instruction and applies the result", async () => {
+    const user = userEvent.setup();
+    render(<CustomPageEditorView pageId={7} />);
+    await waitFor(() => expect(screen.getByLabelText("HTML")).toHaveValue(HTML));
+
+    await generate(user, "make it blue");
+
+    await waitFor(() => expect(customPages.assist).toHaveBeenCalledTimes(1));
+    expect(vi.mocked(customPages.assist).mock.calls[0][0]).toMatchObject({
+      instruction: "make it blue",
+      html: HTML,
+    });
+    await waitFor(() => expect(screen.getByLabelText("HTML")).toHaveValue(AI_DOC));
+  });
+
+  it("elides images before sending and restores them after", async () => {
+    const withImage = `<body><img src="${IMG}"></body>`;
+    vi.mocked(customPages.get).mockResolvedValue(makePage({ html: withImage }));
+    vi.mocked(customPages.assist).mockResolvedValue({
+      html: '<body><h1>hi</h1><img src="data:image/png;base64,MEGOOPM_IMAGE_1"></body>',
+    });
+
+    const user = userEvent.setup();
+    render(<CustomPageEditorView pageId={7} />);
+    await waitFor(() => expect(screen.getByLabelText("HTML")).toHaveValue(withImage));
+
+    await generate(user, "add a heading");
+
+    await waitFor(() => expect(customPages.assist).toHaveBeenCalledTimes(1));
+    // The base64 never leaves the browser.
+    const sent = vi.mocked(customPages.assist).mock.calls[0][0].html;
+    expect(sent).not.toContain("iVBORw0KGgo");
+    expect(sent).toContain("MEGOOPM_IMAGE_1");
+    // ...and it comes back.
+    await waitFor(() =>
+      expect(screen.getByLabelText("HTML")).toHaveValue(
+        `<body><h1>hi</h1><img src="${IMG}"></body>`,
+      ),
+    );
+  });
+
+  it("reverts to the document from before the AI edit", async () => {
+    const user = userEvent.setup();
+    render(<CustomPageEditorView pageId={7} />);
+    await waitFor(() => expect(screen.getByLabelText("HTML")).toHaveValue(HTML));
+
+    await generate(user, "make it blue");
+    await waitFor(() => expect(screen.getByLabelText("HTML")).toHaveValue(AI_DOC));
+
+    await user.click(screen.getByRole("button", { name: "Revert AI edit" }));
+    expect(screen.getByLabelText("HTML")).toHaveValue(HTML);
+    expect(
+      screen.queryByRole("button", { name: "Revert AI edit" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("offers no revert until an AI edit has happened", async () => {
+    render(<CustomPageEditorView pageId={7} />);
+    await waitFor(() => expect(screen.getByLabelText("HTML")).toHaveValue(HTML));
+    expect(
+      screen.queryByRole("button", { name: "Revert AI edit" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("leaves the document alone when the model call fails", async () => {
+    vi.mocked(customPages.assist).mockRejectedValueOnce(new Error("provider said no"));
+    const user = userEvent.setup();
+    render(<CustomPageEditorView pageId={7} />);
+    await waitFor(() => expect(screen.getByLabelText("HTML")).toHaveValue(HTML));
+
+    await generate(user, "make it blue");
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("provider said no");
+    expect(screen.getByLabelText("HTML")).toHaveValue(HTML);
+  });
+
+  it("refuses to send a document that is too large even elided", async () => {
+    vi.mocked(customPages.get).mockResolvedValue(
+      makePage({ html: "x".repeat(200 * 1024 + 1) }),
+    );
+    const user = userEvent.setup();
+    render(<CustomPageEditorView pageId={7} />);
+    await generate(user, "tidy it");
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(/too large/i);
+    expect(customPages.assist).not.toHaveBeenCalled();
+  });
+
+  it("points at Settings when LLM features are off", async () => {
+    vi.mocked(instanceSettings.get).mockResolvedValue(makeSettings(false));
+    const user = userEvent.setup();
+    render(<CustomPageEditorView pageId={7} />);
+    await openAi(user);
+
+    expect(await screen.findByText(/enable llm features/i)).toBeInTheDocument();
+    expect(screen.queryByLabelText("Instruction")).not.toBeInTheDocument();
   });
 });

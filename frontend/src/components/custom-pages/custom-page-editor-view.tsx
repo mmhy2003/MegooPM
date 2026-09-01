@@ -2,21 +2,26 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, ImagePlus, Loader2 } from "lucide-react";
+import { ArrowLeft, ImagePlus, Loader2, Sparkles, Undo2 } from "lucide-react";
 import { toast } from "sonner";
 
-import { customPages, type CustomPage } from "@/lib/api";
+import { customPages, instanceSettings, type CustomPage } from "@/lib/api";
 import {
+  MAX_ASSIST_BYTES,
   MAX_PAGE_BYTES,
   STARTER_HTML,
   describeError,
   describeImageSize,
+  elideImages,
   formatBytes,
   htmlByteLength,
   imgTagFor,
+  isOverAssistCap,
   isOverPageCap,
+  restoreImages,
 } from "@/components/custom-pages/lib";
 import { HtmlEditor, type HtmlEditorHandle } from "@/components/custom-pages/html-editor";
+import { AiPromptBar } from "@/components/custom-pages/ai-prompt-bar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -51,13 +56,29 @@ export function CustomPageEditorView({ pageId }: { pageId: number | null }) {
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
+  const [llmEnabled, setLlmEnabled] = useState(false);
+  // The bar is opt-in: the editor is already vertically tight, so the default
+  // layout stays exactly as it was for anyone not using AI.
+  const [promptOpen, setPromptOpen] = useState(false);
+  // The document as it was immediately before the last AI edit. `null` means
+  // there is nothing to revert to.
+  const [htmlBeforeAi, setHtmlBeforeAi] = useState<string | null>(null);
+  const [assisting, setAssisting] = useState(false);
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const assistAbort = useRef<AbortController | null>(null);
+
   const load = useCallback(async () => {
     if (pageId === null) return;
     setLoading(true);
     try {
-      const page = await customPages.get(pageId);
+      // A settings failure must not block editing, so it degrades to "off".
+      const [page, settings] = await Promise.all([
+        customPages.get(pageId),
+        instanceSettings.get().catch(() => null),
+      ]);
       setForm(formFrom(page));
       setSaved(formFrom(page));
+      setLlmEnabled(settings?.llm_enabled ?? false);
       setLoadError(null);
     } catch (err) {
       setLoadError(describeError(err).message);
@@ -73,6 +94,29 @@ export function CustomPageEditorView({ pageId }: { pageId: number | null }) {
       await load();
     })();
   }, [load]);
+
+  // Create mode returns from `load` before fetching anything, but the prompt
+  // bar still needs to know whether the feature is on.
+  useEffect(() => {
+    void (async () => {
+      if (pageId !== null) return;
+      const settings = await instanceSettings.get().catch(() => null);
+      setLlmEnabled(settings?.llm_enabled ?? false);
+    })();
+  }, [pageId]);
+
+  // Only the interval lives here. The reset to zero belongs with the state
+  // transition that causes it — doing it in the effect body is a synchronous
+  // setState during an effect, which cascades a render for no reason.
+  useEffect(() => {
+    if (!assisting) return;
+    const started = Date.now();
+    const timer = setInterval(
+      () => setElapsedSeconds(Math.floor((Date.now() - started) / 1000)),
+      1000,
+    );
+    return () => clearInterval(timer);
+  }, [assisting]);
 
   const bytes = htmlByteLength(form.html);
   const overCap = isOverPageCap(form.html);
@@ -122,6 +166,58 @@ export function CustomPageEditorView({ pageId }: { pageId: number | null }) {
     } finally {
       setSaving(false);
     }
+  }
+
+  async function handleAssist(instruction: string) {
+    // Swap embedded images for placeholders first: one 200 KB screenshot is
+    // ~70k tokens of base64 the model cannot read, and it never needs to leave
+    // the browser.
+    const { html: elided, images } = elideImages(form.html);
+    if (isOverAssistCap(elided)) {
+      setError(
+        `This page is too large for AI editing — ${formatBytes(htmlByteLength(elided))} ` +
+          `without its images, against a limit of ${formatBytes(MAX_ASSIST_BYTES)}.`,
+      );
+      return;
+    }
+
+    setError(null);
+    setElapsedSeconds(0);
+    setAssisting(true);
+    const controller = new AbortController();
+    assistAbort.current = controller;
+    try {
+      const result = await customPages.assist(
+        { instruction, html: elided },
+        { signal: controller.signal },
+      );
+      const restored = restoreImages(result.html, images);
+      setHtmlBeforeAi(form.html);
+      patch({ html: restored.html });
+      for (const warning of restored.warnings) toast.warning(warning);
+      toast.success("Page updated");
+    } catch (err) {
+      // An aborted request is the operator pressing Cancel, not a failure.
+      if (controller.signal.aborted) return;
+      const described = describeError(err);
+      setError(described.message);
+      toast.error(described.message);
+    } finally {
+      assistAbort.current = null;
+      setAssisting(false);
+    }
+  }
+
+  function handleCancelAssist() {
+    assistAbort.current?.abort();
+    assistAbort.current = null;
+    setAssisting(false);
+  }
+
+  function handleRevertAi() {
+    if (htmlBeforeAi === null) return;
+    patch({ html: htmlBeforeAi });
+    setHtmlBeforeAi(null);
   }
 
   function handlePickImage(file: File | undefined) {
@@ -185,6 +281,11 @@ export function CustomPageEditorView({ pageId }: { pageId: number | null }) {
             disabled={saving || loading}
           />
         </div>
+        {htmlBeforeAi !== null ? (
+          <Button variant="outline" onClick={handleRevertAi} disabled={saving || assisting}>
+            <Undo2 /> Revert AI edit
+          </Button>
+        ) : null}
         <Button onClick={handleSave} disabled={saving || loading || (pageId !== null && !dirty)}>
           {saving ? <Loader2 className="animate-spin" /> : null}
           {pageId === null ? "Create page" : "Save"}
@@ -195,6 +296,16 @@ export function CustomPageEditorView({ pageId }: { pageId: number | null }) {
         <p role="alert" className="text-sm text-destructive">
           {error}
         </p>
+      ) : null}
+
+      {promptOpen ? (
+        <AiPromptBar
+          enabled={llmEnabled}
+          busy={assisting}
+          elapsedSeconds={elapsedSeconds}
+          onSubmit={(instruction) => void handleAssist(instruction)}
+          onCancel={handleCancelAssist}
+        />
       ) : null}
 
       <div className="grid min-h-0 flex-1 gap-4 lg:grid-cols-2">
@@ -209,6 +320,14 @@ export function CustomPageEditorView({ pageId }: { pageId: number | null }) {
               {formatBytes(bytes)}
             </span>
             <div className="flex-1" />
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={saving || loading}
+              onClick={() => setPromptOpen((open) => !open)}
+            >
+              <Sparkles /> Ask AI
+            </Button>
             <Button
               variant="outline"
               size="sm"
