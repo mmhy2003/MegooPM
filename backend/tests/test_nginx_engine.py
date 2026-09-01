@@ -13,8 +13,10 @@ from pathlib import Path
 import pytest
 from app.services.nginx import apply_config, render_config
 from app.services.nginx.controller import CommandResult, ShellNginxController
+from app.services.nginx.renderer import DEFAULT_SITE_CONF, DEFAULT_SITE_HTML
 from app.services.nginx.state import (
     BackendSpec,
+    DefaultSiteSpec,
     DesiredState,
     ProxyHostSpec,
     UpstreamSpec,
@@ -141,3 +143,92 @@ def test_generated_config_passes_real_nginx_t(tmp_path: Path) -> None:
     )
     ctrl = ShellNginxController(test_command=f"nginx -t -c {main_conf}")
     assert ctrl.test().ok
+
+
+# --- Default site ----------------------------------------------------------
+
+
+def _state_with_default(site: DefaultSiteSpec) -> DesiredState:
+    """The module's usual proxy-host state, plus a default site."""
+    base = _state()
+    return DesiredState(
+        proxy_hosts=base.proxy_hosts,
+        http_upstreams=base.http_upstreams,
+        default_site=site,
+    )
+
+
+def test_apply_writes_the_default_site_to_its_own_directory(tmp_path: Path) -> None:
+    confd = tmp_path / "conf.d"
+    default_dir = tmp_path / "default"
+    controller = FakeController()
+
+    result = apply_config(
+        DesiredState(default_site=DefaultSiteSpec(mode="no_response")),
+        confd_dir=confd,
+        controller=controller,
+        default_dir=default_dir,
+    )
+
+    assert result.valid and result.changed
+    assert "return 444;" in (default_dir / DEFAULT_SITE_CONF).read_text()
+    # One validation covering every directory, not one per directory.
+    assert controller.tests == 1
+
+
+def test_apply_removes_the_html_when_the_mode_stops_needing_it(tmp_path: Path) -> None:
+    """A stale megoopm-default.html would be served by nothing but still sit there."""
+    confd = tmp_path / "conf.d"
+    default_dir = tmp_path / "default"
+
+    apply_config(
+        DesiredState(default_site=DefaultSiteSpec(mode="custom_page", html="<p>x</p>")),
+        confd_dir=confd,
+        controller=FakeController(),
+        default_dir=default_dir,
+    )
+    assert (default_dir / DEFAULT_SITE_HTML).exists()
+
+    apply_config(
+        DesiredState(default_site=DefaultSiteSpec(mode="not_found")),
+        confd_dir=confd,
+        controller=FakeController(),
+        default_dir=default_dir,
+    )
+    assert not (default_dir / DEFAULT_SITE_HTML).exists()
+
+
+def test_a_bad_default_site_rolls_back_the_other_directories(tmp_path: Path) -> None:
+    """All targets share one nginx -t, so none may half-apply."""
+    confd = tmp_path / "conf.d"
+    default_dir = tmp_path / "default"
+
+    apply_config(
+        DesiredState(default_site=DefaultSiteSpec(mode="not_found")),
+        confd_dir=confd,
+        controller=FakeController(),
+        default_dir=default_dir,
+    )
+    good = (default_dir / DEFAULT_SITE_CONF).read_text()
+
+    result = apply_config(
+        _state_with_default(DefaultSiteSpec(mode="no_response")),
+        confd_dir=confd,
+        controller=FakeController(test_ok=False),
+        default_dir=default_dir,
+    )
+    assert result.rolled_back and not result.valid
+    assert (default_dir / DEFAULT_SITE_CONF).read_text() == good
+    assert not list(confd.glob("megoopm-proxy-*.conf"))
+
+
+def test_apply_without_a_default_dir_touches_nothing_new(tmp_path: Path) -> None:
+    """Callers that do not opt in keep their current behaviour exactly."""
+    confd = tmp_path / "conf.d"
+    result = apply_config(
+        DesiredState(default_site=DefaultSiteSpec(mode="no_response")),
+        confd_dir=confd,
+        controller=FakeController(),
+    )
+    assert result.valid
+    assert not (tmp_path / "default").exists()

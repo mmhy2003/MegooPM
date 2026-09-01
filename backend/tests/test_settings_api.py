@@ -240,3 +240,28 @@ async def test_endpoints_require_authentication(client: AsyncClient) -> None:
     assert (
         await client.patch("/api/v1/settings", json={"default_site_mode": "not_found"})
     ).status_code == 401
+
+
+async def test_the_default_site_renders_the_referenced_page(
+    client: AsyncClient, auth, pg_conn
+) -> None:
+    """End to end: setting -> loader -> renderer, with the page's own HTML."""
+    from app.services.nginx.loader import load_desired_state
+    from app.services.nginx.renderer import DEFAULT_SITE_HTML, render_default_site
+
+    page_id = await _make_page(client, auth, name="Rendered")
+    await client.patch(
+        "/api/v1/settings",
+        headers=auth,
+        json={"default_site_mode": "custom_page", "default_site_page_id": page_id},
+    )
+
+    factory = async_sessionmaker(
+        bind=pg_conn, expire_on_commit=False, join_transaction_mode="create_savepoint"
+    )
+    async with factory() as session:
+        state = await load_desired_state(session)
+
+    assert state.default_site is not None
+    assert state.default_site.mode == "custom_page"
+    assert render_default_site(state)[DEFAULT_SITE_HTML] == CUSTOM_HTML

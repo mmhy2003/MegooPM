@@ -55,6 +55,24 @@ One file per object, named by id so updates rewrite in place (never duplicate):
   Host-wide options (websockets, forwarded headers, auth stripping) apply to
   every location; a location whose pool has no backends is omitted.
 
+- `megoopm-default.conf` — the **default site**: what nginx answers for a
+  request matching no configured host. Written into `NGINX_DEFAULT_DIR`, a
+  *sibling* of `conf.d` (not a child, so a future `conf.d/*.conf` glob change
+  can never sweep it into `http {}`, where it would be a syntax error). Unlike
+  every other generated file this is a bare `location`, not a `server` block:
+  the base config includes it from *inside* its `default_server`.
+
+  It holds `return 404` / `return 444` / `return 301 "<url>"`, or a
+  `root` + `try_files` pair serving `megoopm-default.html` — written alongside
+  it for the two modes that answer with a document (the bundled congratulations
+  page, or a Custom Page's HTML). Chosen under Settings; see
+  `docs/superpowers/specs/2026-09-01-default-site-design.md`.
+
+  With no file present the request falls through to the default server's
+  `root`, which points at a path that does not exist, so the answer is a plain
+  404. That `root` is load-bearing: without it OpenResty serves its own welcome
+  page instead.
+
 Only files beginning with `NGINX_MANAGED_PREFIX` (default `megoopm-`) are managed;
 hand-placed configs in `conf.d` are never touched. The websocket
 `map $http_upgrade $connection_upgrade` lives once in the base
@@ -92,6 +110,7 @@ renders the config for current DB state **without** writing or reloading.
 | Env | Default | Purpose |
 | --- | --- | --- |
 | `NGINX_CONFD_DIR` | `/etc/nginx/conf.d` | Where managed configs are written. |
+| `NGINX_DEFAULT_DIR` | `{data}/nginx/default` | Default-site fragment + document. |
 | `NGINX_CERTS_DIR` | `/etc/nginx/certs` | Cert path root referenced by server blocks. |
 | `NGINX_MANAGED_PREFIX` | `megoopm-` | Filename prefix that marks managed files. |
 | `NGINX_TEST_COMMAND` | `nginx -t` | Validation command. |

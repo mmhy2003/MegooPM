@@ -52,6 +52,7 @@ def _apply_single_host() -> dict:
         controller=build_controller(),
         managed_prefix=settings.nginx_managed_prefix,
         stream_dir=settings.nginx_stream_dir,
+        default_dir=settings.nginx_default_dir,
     )
     return result.as_dict()
 
@@ -73,6 +74,7 @@ def _apply_ha() -> dict:
                 controller=build_controller(),
                 managed_prefix=settings.nginx_managed_prefix,
                 stream_dir=settings.nginx_stream_dir,
+                default_dir=settings.nginx_default_dir,
                 lock=nullcontext(),  # the advisory lock already serialises us
             )
             version = (

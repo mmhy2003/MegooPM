@@ -87,10 +87,17 @@ server {
 }
 ```
 
-**With no file present, no location matches and nginx returns 404** — byte for
-byte today's behaviour. The fallback is nginx's own semantics, so there is no
-window in which a fresh install or a wiped volume serves something unintended,
-and `/healthz` never moves, so the container healthcheck is never at risk.
+**Corrected during implementation.** This design originally claimed that with
+no file present "nginx matches no location and returns 404". That is false: the
+request falls through to OpenResty's compiled-in `root` and is served its
+welcome page — a regression on the hardcoded `return 404`, and a needless
+disclosure of what is running. Verified against a real nginx, which is why the
+plan made that check a step rather than trusting the documentation.
+
+The block therefore also sets `root /var/empty/megoopm;` — a path that does not
+exist — so a fall-through is a plain 404. The managed `location` sets its own
+`root` when it serves a document, so the two never conflict. `/healthz` never
+moves, so the container healthcheck is never at risk.
 
 `/data/nginx/default/` is a **sibling** of `conf.d`, not a child: `include
 /data/nginx/conf.d/*.conf` is non-recursive but a child directory invites a

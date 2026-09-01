@@ -25,7 +25,10 @@ from sqlalchemy.pool import NullPool
 
 from app.core.config import settings
 from app.models.access_list import AccessList
+from app.models.custom_page import CustomPage
 from app.models.dead_host import DeadHost
+from app.models.enums import DefaultSiteMode
+from app.models.instance_settings import InstanceSettings
 from app.models.proxy_host import ProxyHost, ProxyHostLocation
 from app.models.redirection_host import RedirectionHost
 from app.models.stream import Stream
@@ -37,6 +40,7 @@ from app.services.nginx.state import (
     CertificateSpec,
     ClientRuleSpec,
     DeadHostSpec,
+    DefaultSiteSpec,
     DesiredState,
     LocationSpec,
     ProxyHostSpec,
@@ -218,6 +222,7 @@ async def load_desired_state(
     redirection_specs = await _load_redirection_hosts(session, certs_dir)
     dead_specs = await _load_dead_hosts(session, certs_dir)
     stream_specs, stream_upstream_specs = await _load_streams(session, certs_dir)
+    default_site = await _load_default_site(session)
 
     return DesiredState(
         proxy_hosts=tuple(host_specs),
@@ -226,6 +231,32 @@ async def load_desired_state(
         dead_hosts=dead_specs,
         streams=stream_specs,
         stream_upstreams=stream_upstream_specs,
+        default_site=default_site,
+    )
+
+
+async def _load_default_site(session: AsyncSession) -> DefaultSiteSpec | None:
+    """Read the default-site setting, resolving a referenced page into its HTML.
+
+    The page is dereferenced *here* so the renderer stays a pure function of
+    explicit data. ``None`` (no settings row at all) means no file is written
+    and nginx falls back to its own no-location-match 404.
+    """
+    row = await session.get(InstanceSettings, 1)
+    if row is None:
+        return None
+
+    html = ""
+    if row.default_site_mode is DefaultSiteMode.custom_page and row.default_site_page_id:
+        page = await session.get(CustomPage, row.default_site_page_id)
+        # The FK is RESTRICT, so a missing page means the row was edited outside
+        # the API. Render an empty document rather than dropping the whole config.
+        html = page.html if page is not None else ""
+
+    return DefaultSiteSpec(
+        mode=row.default_site_mode.value,
+        redirect_url=row.default_site_redirect_url or "",
+        html=html,
     )
 
 

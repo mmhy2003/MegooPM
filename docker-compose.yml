@@ -87,7 +87,7 @@ services:
     command:
       - sh
       - -c
-      - "mkdir -p /data/nginx/conf.d/stream /data/certs/_acme-challenge /data/crowdsec/whitelists && { [ -f /data/crowdsec/whitelists/megoopm.yaml ] || echo '# Managed by MegooPM - no whitelists defined.' > /data/crowdsec/whitelists/megoopm.yaml; } && chown -R 1000:1000 /data || { echo 'data-init: cannot prepare /data for uid 1000' >&2; exit 1; }"
+      - "mkdir -p /data/nginx/conf.d/stream /data/nginx/default /data/certs/_acme-challenge /data/crowdsec/whitelists && { [ -f /data/crowdsec/whitelists/megoopm.yaml ] || echo '# Managed by MegooPM - no whitelists defined.' > /data/crowdsec/whitelists/megoopm.yaml; } && chown -R 1000:1000 /data || { echo 'data-init: cannot prepare /data for uid 1000' >&2; exit 1; }"
     volumes:
       - app_data:/data
 

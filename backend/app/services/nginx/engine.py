@@ -28,7 +28,11 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from app.services.nginx.controller import NginxController
-from app.services.nginx.renderer import render_config, render_stream_config
+from app.services.nginx.renderer import (
+    render_config,
+    render_default_site,
+    render_stream_config,
+)
 from app.services.nginx.state import DesiredState
 
 DEFAULT_MANAGED_PREFIX = "megoopm-"
@@ -116,6 +120,7 @@ def apply_config(
     controller: NginxController,
     managed_prefix: str = DEFAULT_MANAGED_PREFIX,
     stream_dir: str | os.PathLike[str] | None = None,
+    default_dir: str | os.PathLike[str] | None = None,
     lock: AbstractContextManager[object] | None = None,
 ) -> ApplyResult:
     """Render ``state`` and reconcile nginx's config dirs to it (see module doc).
@@ -125,6 +130,12 @@ def apply_config(
     reconciled there too — both directories are written, validated with a single
     ``nginx -t``, and rolled back together, so a bad stream can never leave the
     HTTP config half-applied (or vice versa).
+
+    ``default_dir`` receives the default-site files (a bare ``location``
+    fragment the base config includes from inside its ``default_server`` block,
+    plus an HTML document for the two modes that answer with one). All given
+    directories are written, validated with a single ``nginx -t``, and rolled
+    back together.
 
     ``lock`` overrides the serialisation context manager. It defaults to a local
     ``flock`` on ``conf.d`` (correct within one host). In an HA deployment the
@@ -144,6 +155,10 @@ def apply_config(
         streamd = Path(stream_dir)
         streamd.mkdir(parents=True, exist_ok=True)
         targets.append((streamd, managed_prefix, render_stream_config(state)))
+    if default_dir is not None:
+        defaultd = Path(default_dir)
+        defaultd.mkdir(parents=True, exist_ok=True)
+        targets.append((defaultd, managed_prefix, render_default_site(state)))
 
     # Serialise the whole multi-dir apply. Default: a local flock on conf.d;
     # HA callers inject a cross-node lock instead.
