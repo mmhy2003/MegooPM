@@ -18,6 +18,7 @@ from app.services.llm import (
     LlmError,
     check_connection,
     complete,
+    complete_with_tools,
     scrub_secrets,
 )
 
@@ -37,6 +38,49 @@ class _Response:
         self.choices = [_Choice(content)]
 
 
+class _FnCall:
+    def __init__(self, name: str, arguments: str) -> None:
+        self.name = name
+        self.arguments = arguments
+
+
+class _ToolCall:
+    def __init__(self, call_id: str, name: str, arguments: str) -> None:
+        self.id = call_id
+        self.type = "function"
+        self.function = _FnCall(name, arguments)
+
+
+class _ToolMessage:
+    def __init__(self, calls) -> None:
+        self.content = None
+        self.tool_calls = calls
+
+    def model_dump(self) -> dict:
+        return {
+            "role": "assistant",
+            "content": None,
+            "tool_calls": [
+                {
+                    "id": c.id,
+                    "type": "function",
+                    "function": {"name": c.function.name, "arguments": c.function.arguments},
+                }
+                for c in self.tool_calls
+            ],
+        }
+
+
+class _ToolChoice:
+    def __init__(self, calls) -> None:
+        self.message = _ToolMessage(calls)
+
+
+class _ToolResponse:
+    def __init__(self, calls) -> None:
+        self.choices = [_ToolChoice(calls)]
+
+
 @pytest.fixture
 def fake_litellm(monkeypatch):
     """A stand-in litellm, with the defaults the real package actually ships."""
@@ -49,6 +93,9 @@ def fake_litellm(monkeypatch):
         module.calls.append(kwargs)
         if getattr(module, "raises", None) is not None:
             raise module.raises
+        canned = getattr(module, "response", None)
+        if canned is not None:
+            return canned
         return _Response(getattr(module, "reply", "OK"))
 
     module.acompletion = _acompletion
@@ -195,3 +242,78 @@ async def test_check_connection_caps_the_probe(fake_litellm) -> None:
     """The probe should cost a handful of tokens, not a paragraph."""
     await check_connection(LlmConfig(model="gpt-4o"))
     assert fake_litellm.calls[0]["max_tokens"] <= 16
+
+
+# --- complete_with_tools ---------------------------------------------------
+
+TOOLS = [
+    {
+        "type": "function",
+        "function": {
+            "name": "grep",
+            "description": "Search the document.",
+            "parameters": {
+                "type": "object",
+                "properties": {"pattern": {"type": "string"}},
+                "required": ["pattern"],
+            },
+        },
+    }
+]
+
+
+async def test_complete_with_tools_forwards_the_tool_definitions(fake_litellm) -> None:
+    await complete_with_tools(
+        LlmConfig(model="gpt-4o", api_key="sk-EXAMPLE-not-a-real-credential-1"),
+        messages=[{"role": "user", "content": "hi"}],
+        tools=TOOLS,
+    )
+    call = fake_litellm.calls[0]
+    assert call["tools"] == TOOLS
+    assert call["messages"] == [{"role": "user", "content": "hi"}]
+    assert call["api_key"] == "sk-EXAMPLE-not-a-real-credential-1"
+
+
+async def test_complete_with_tools_returns_plain_text_when_no_tool_is_called(
+    fake_litellm,
+) -> None:
+    fake_litellm.reply = "all done"
+    turn = await complete_with_tools(
+        LlmConfig(model="gpt-4o"), messages=[{"role": "user", "content": "hi"}], tools=TOOLS
+    )
+    assert turn.content == "all done"
+    assert turn.tool_calls == ()
+
+
+async def test_complete_with_tools_normalises_tool_calls(fake_litellm) -> None:
+    """The caller must never need a litellm object to keep a loop going."""
+    fake_litellm.response = _ToolResponse([_ToolCall("call_1", "grep", '{"pattern": "<h1"}')])
+    turn = await complete_with_tools(
+        LlmConfig(model="gpt-4o"), messages=[{"role": "user", "content": "hi"}], tools=TOOLS
+    )
+    assert len(turn.tool_calls) == 1
+    assert turn.tool_calls[0].id == "call_1"
+    assert turn.tool_calls[0].name == "grep"
+    assert turn.tool_calls[0].arguments == '{"pattern": "<h1"}'
+    # And the assistant turn comes back as a plain dict, ready to append.
+    assert turn.message["role"] == "assistant"
+    assert isinstance(turn.message, dict)
+
+
+async def test_complete_with_tools_disables_telemetry(fake_litellm) -> None:
+    await complete_with_tools(
+        LlmConfig(model="gpt-4o"), messages=[{"role": "user", "content": "hi"}], tools=TOOLS
+    )
+    assert fake_litellm.telemetry is False
+
+
+async def test_complete_with_tools_scrubs_provider_failures(fake_litellm) -> None:
+    key = "sk-EXAMPLE-not-a-real-credential-1"
+    fake_litellm.raises = RuntimeError(f"401 using {key}")
+    with pytest.raises(LlmError) as excinfo:
+        await complete_with_tools(
+            LlmConfig(model="gpt-4o", api_key=key),
+            messages=[{"role": "user", "content": "hi"}],
+            tools=TOOLS,
+        )
+    assert key not in str(excinfo.value)

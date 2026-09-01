@@ -55,6 +55,28 @@ class LlmCheckResult:
     latency_ms: int = 0
 
 
+@dataclass(frozen=True, slots=True)
+class ToolCall:
+    """One tool the model asked to run. ``arguments`` is raw JSON, unparsed."""
+
+    id: str
+    name: str
+    arguments: str
+
+
+@dataclass(frozen=True, slots=True)
+class LlmTurn:
+    """One assistant turn, normalised so callers never touch a litellm object.
+
+    ``message`` is the turn as a plain dict, ready to append back into the
+    conversation — a tool loop has to replay it verbatim on the next call.
+    """
+
+    content: str
+    tool_calls: tuple[ToolCall, ...]
+    message: dict
+
+
 # Key shapes worth catching even when the configured key is unknown — a
 # provider may echo a *different* credential than the one we sent. Deliberately
 # narrow: over-scrubbing turns a useful error into a row of asterisks, which is
@@ -140,6 +162,61 @@ async def complete(
     return (response.choices[0].message.content or "").strip()
 
 
+async def complete_with_tools(
+    config: LlmConfig,
+    *,
+    messages: list[dict],
+    tools: list[dict],
+    timeout: float = 60.0,
+) -> LlmTurn:
+    """One turn of a tool-calling conversation.
+
+    Takes and returns whole messages rather than a prompt, because a tool loop
+    has to carry the conversation forward. Everything litellm-shaped stops here:
+    the caller gets a :class:`LlmTurn` of plain data.
+
+    Raises :class:`LlmError` — already scrubbed — for anything the provider or
+    the transport does wrong, including refusing ``tools`` outright.
+    """
+    if not config.model:
+        raise LlmNotConfiguredError("No model configured")
+
+    litellm = _litellm()
+    try:
+        response = await litellm.acompletion(
+            model=config.model,
+            messages=messages,
+            tools=tools,
+            tool_choice="auto",
+            api_key=config.api_key or None,
+            api_base=config.api_base or None,
+            timeout=timeout,
+        )
+    except Exception as exc:  # noqa: BLE001 — every provider raises its own type
+        raise LlmError(scrub_secrets(str(exc), key=config.api_key)) from None
+
+    message = response.choices[0].message
+    raw_calls = getattr(message, "tool_calls", None) or ()
+    calls = tuple(
+        ToolCall(id=c.id, name=c.function.name, arguments=c.function.arguments) for c in raw_calls
+    )
+    # Rebuilt from the fields we need rather than serialised from the provider
+    # object. A provider's own dump can carry extras that the next request
+    # rejects, and this is the exact shape the chat API expects when a tool
+    # conversation replays the assistant turn.
+    replay: dict = {"role": "assistant", "content": message.content}
+    if calls:
+        replay["tool_calls"] = [
+            {
+                "id": c.id,
+                "type": "function",
+                "function": {"name": c.name, "arguments": c.arguments},
+            }
+            for c in calls
+        ]
+    return LlmTurn(content=(message.content or "").strip(), tool_calls=calls, message=replay)
+
+
 async def check_connection(config: LlmConfig, *, timeout: float = 30.0) -> LlmCheckResult:
     """Probe the configuration end to end and report, never raise.
 
@@ -180,7 +257,10 @@ __all__ = [
     "LlmConfig",
     "LlmError",
     "LlmNotConfiguredError",
+    "LlmTurn",
+    "ToolCall",
     "check_connection",
     "complete",
+    "complete_with_tools",
     "scrub_secrets",
 ]
