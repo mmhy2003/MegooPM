@@ -20,6 +20,7 @@ from app.models.user import UserRole
 from app.schemas.tasks import TaskEnqueued
 from app.services import user as user_service
 from httpx import ASGITransport, AsyncClient
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from sqlalchemy.pool import NullPool
 
@@ -329,3 +330,200 @@ async def test_attach_unknown_list_rejected(client: AsyncClient, auth) -> None:
 async def test_endpoints_require_authentication(client: AsyncClient) -> None:
     assert (await client.get("/api/v1/access-lists")).status_code == 401
     assert (await client.post("/api/v1/access-lists", json={"name": "x"})).status_code == 401
+
+
+# --- Collection replacement via PATCH --------------------------------------
+
+
+async def _stored_hashes(pg_conn, access_list_id: int) -> dict[str, str]:
+    """Read the persisted password hashes for a list, keyed by username.
+
+    The API never returns credential material, so preservation of an existing
+    hash can only be asserted against the database itself.
+    """
+    result = await pg_conn.execute(
+        text("SELECT username, password_hash FROM access_list_auth WHERE access_list_id = :id"),
+        {"id": access_list_id},
+    )
+    return {row.username: row.password_hash for row in result}
+
+
+async def _seeded_list(client: AsyncClient, auth) -> int:
+    resp = await client.post(
+        "/api/v1/access-lists",
+        headers=auth,
+        json={
+            "name": "seed",
+            "auth_users": [
+                {"username": "alice", "password": "alice-pw"},
+                {"username": "bob", "password": "bob-pw"},
+            ],
+            "clients": [{"address": "10.0.0.0/8", "directive": "allow"}],
+        },
+    )
+    assert resp.status_code == 201, resp.text
+    return resp.json()["id"]
+
+
+async def test_patch_auth_users_keeps_hash_when_password_omitted(
+    client: AsyncClient, auth, pg_conn
+) -> None:
+    al_id = await _seeded_list(client, auth)
+    before = await _stored_hashes(pg_conn, al_id)
+
+    resp = await client.patch(
+        f"/api/v1/access-lists/{al_id}",
+        headers=auth,
+        json={
+            "auth_users": [
+                {"username": "alice"},
+                {"username": "carol", "password": "carol-pw"},
+            ]
+        },
+    )
+    assert resp.status_code == 200, resp.text
+
+    after = await _stored_hashes(pg_conn, al_id)
+    # alice survives untouched, bob is dropped, carol is created.
+    assert set(after) == {"alice", "carol"}
+    assert after["alice"] == before["alice"]
+
+
+async def test_patch_auth_users_rehashes_when_password_given(
+    client: AsyncClient, auth, pg_conn
+) -> None:
+    al_id = await _seeded_list(client, auth)
+    before = await _stored_hashes(pg_conn, al_id)
+
+    resp = await client.patch(
+        f"/api/v1/access-lists/{al_id}",
+        headers=auth,
+        json={"auth_users": [{"username": "alice", "password": "brand-new"}]},
+    )
+    assert resp.status_code == 200, resp.text
+
+    after = await _stored_hashes(pg_conn, al_id)
+    assert set(after) == {"alice"}
+    assert after["alice"] != before["alice"]
+
+
+async def test_patch_new_auth_user_without_password_rejected(client: AsyncClient, auth) -> None:
+    al_id = await _seeded_list(client, auth)
+
+    resp = await client.patch(
+        f"/api/v1/access-lists/{al_id}",
+        headers=auth,
+        json={"auth_users": [{"username": "dave"}]},
+    )
+    assert resp.status_code == 422, resp.text
+    assert "dave" in resp.text
+
+
+async def test_patch_duplicate_username_rejected(client: AsyncClient, auth) -> None:
+    al_id = await _seeded_list(client, auth)
+
+    resp = await client.patch(
+        f"/api/v1/access-lists/{al_id}",
+        headers=auth,
+        json={
+            "auth_users": [
+                {"username": "alice"},
+                {"username": "alice", "password": "other"},
+            ]
+        },
+    )
+    assert resp.status_code == 422, resp.text
+
+
+async def test_patch_replaces_client_rules_wholesale(client: AsyncClient, auth) -> None:
+    al_id = await _seeded_list(client, auth)
+
+    resp = await client.patch(
+        f"/api/v1/access-lists/{al_id}",
+        headers=auth,
+        json={
+            "clients": [
+                {"address": "192.168.0.0/16", "directive": "allow"},
+                {"address": "all", "directive": "deny"},
+            ]
+        },
+    )
+    assert resp.status_code == 200, resp.text
+    rules = {(r["address"], r["directive"]) for r in resp.json()["client_rules"]}
+    assert rules == {("192.168.0.0/16", "allow"), ("all", "deny")}
+
+
+async def test_patch_empty_collection_clears_it(client: AsyncClient, auth) -> None:
+    al_id = await _seeded_list(client, auth)
+
+    resp = await client.patch(
+        f"/api/v1/access-lists/{al_id}",
+        headers=auth,
+        json={"auth_users": [], "clients": []},
+    )
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["auth_users"] == []
+    assert resp.json()["client_rules"] == []
+
+
+async def test_patch_without_collection_keys_leaves_them_untouched(
+    client: AsyncClient, auth
+) -> None:
+    al_id = await _seeded_list(client, auth)
+
+    resp = await client.patch(
+        f"/api/v1/access-lists/{al_id}", headers=auth, json={"name": "renamed"}
+    )
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["name"] == "renamed"
+    assert {u["username"] for u in body["auth_users"]} == {"alice", "bob"}
+    assert len(body["client_rules"]) == 1
+
+
+async def test_patch_invalid_client_address_rejected(client: AsyncClient, auth) -> None:
+    al_id = await _seeded_list(client, auth)
+
+    resp = await client.patch(
+        f"/api/v1/access-lists/{al_id}",
+        headers=auth,
+        json={"clients": [{"address": "not-an-ip", "directive": "allow"}]},
+    )
+    assert resp.status_code == 422, resp.text
+
+
+async def test_patch_of_everything_enqueues_one_reload(
+    client: AsyncClient, auth, monkeypatch
+) -> None:
+    """A whole-form save is one config write, not one per user and rule."""
+    al_id = await _seeded_list(client, auth)
+
+    calls = 0
+
+    def _counting_reload() -> TaskEnqueued:
+        nonlocal calls
+        calls += 1
+        return TaskEnqueued(task_id="test-reload-task", status="PENDING")
+
+    monkeypatch.setattr(config_writes, "enqueue_nginx_reload", _counting_reload)
+
+    resp = await client.patch(
+        f"/api/v1/access-lists/{al_id}",
+        headers=auth,
+        json={
+            "name": "everything",
+            "satisfy_any": True,
+            "pass_auth": True,
+            "auth_users": [
+                {"username": "alice"},
+                {"username": "carol", "password": "c"},
+                {"username": "dave", "password": "d"},
+            ],
+            "clients": [
+                {"address": "172.16.0.0/12", "directive": "allow"},
+                {"address": "all", "directive": "deny"},
+            ],
+        },
+    )
+    assert resp.status_code == 200, resp.text
+    assert calls == 1

@@ -51,7 +51,11 @@ export interface paths {
         head?: never;
         /**
          * Update Access List
-         * @description Update an access list's own attributes (name/satisfy_any/pass_auth).
+         * @description Update an access list, optionally replacing its users and/or rules.
+         *
+         *     ``auth_users`` and ``clients`` are whole-collection replacements; omitting a
+         *     key leaves that collection alone. A whole-form save therefore costs one
+         *     request, one audit entry and one nginx reload.
          */
         patch: operations["update_access_list_api_v1_access_lists__access_list_id__patch"];
         trace?: never;
@@ -1197,6 +1201,24 @@ export interface components {
             username: string;
         };
         /**
+         * AccessListAuthReplace
+         * @description A basic-auth user within a whole-collection replacement.
+         *
+         *     Unlike :class:`AccessListAuthCreate` the password is optional, because the
+         *     API never returns credential material: a client editing an existing list has
+         *     no hash to send back. Omit it to keep the stored hash for a username that is
+         *     already present; it is required to introduce a new one.
+         */
+        AccessListAuthReplace: {
+            /**
+             * Password
+             * @description Omit to keep the existing user's password unchanged
+             */
+            password?: string | null;
+            /** Username */
+            username: string;
+        };
+        /**
          * AccessListAuthUpdate
          * @description Reset a basic-auth user's password.
          */
@@ -1321,9 +1343,25 @@ export interface components {
         };
         /**
          * AccessListUpdate
-         * @description Partial update of an access list's own attributes (not its users/rules).
+         * @description Partial update of an access list, optionally replacing its collections.
+         *
+         *     ``auth_users`` and ``clients`` are **whole-collection replacements**: omit
+         *     the key to leave that collection alone, or send the complete desired set to
+         *     replace it (``[]`` clears it). This lets an editing UI save the entire form
+         *     in one request — one transaction, one audit entry, one nginx reload — rather
+         *     than one round trip per user and rule.
          */
         AccessListUpdate: {
+            /**
+             * Auth Users
+             * @description Full replacement of the basic-auth users; omit to keep
+             */
+            auth_users?: components["schemas"]["AccessListAuthReplace"][] | null;
+            /**
+             * Clients
+             * @description Full replacement of the IP rules; omit to keep
+             */
+            clients?: components["schemas"]["AccessListClientCreate"][] | null;
             /** Name */
             name?: string | null;
             /** Pass Auth */

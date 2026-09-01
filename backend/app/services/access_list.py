@@ -41,6 +41,14 @@ class DuplicateUsernameError(Exception):
     """Raised when a username already exists within the access list."""
 
 
+class MissingPasswordError(Exception):
+    """Raised when a replacement introduces a new username with no password.
+
+    The argument is the comma-separated list of offending usernames, so the
+    route can name them in the 422 it returns.
+    """
+
+
 async def get_access_list(db: AsyncSession, access_list_id: int) -> AccessList | None:
     """Return the access list (with users and rules) or ``None``."""
     result = await db.execute(
@@ -105,16 +113,73 @@ async def create_access_list(
     return refreshed
 
 
+def _replace_auth_users(access_list: AccessList, desired: list[dict[str, Any]]) -> None:
+    """Make the list's users exactly ``desired``, preserving untouched hashes.
+
+    Rows are matched to the payload by username, which is the only identity a
+    client can send back: hashes are never returned, so an entry with no
+    ``password`` means "keep this user as they are". Usernames absent from
+    ``desired`` are dropped by the relationship's delete-orphan cascade.
+    """
+    existing = {u.username: u for u in access_list.auth_users}
+
+    # Validate before mutating anything, so a rejected payload leaves the
+    # in-session object untouched.
+    missing = [
+        spec["username"]
+        for spec in desired
+        if not spec.get("password") and spec["username"] not in existing
+    ]
+    if missing:
+        raise MissingPasswordError(", ".join(missing))
+
+    kept: list[AccessListAuth] = []
+    for spec in desired:
+        user = existing.get(spec["username"])
+        if user is None:
+            user = AccessListAuth(
+                username=spec["username"], password_hash=hash_apr1(spec["password"])
+            )
+        elif spec.get("password"):
+            user.password_hash = hash_apr1(spec["password"])
+        kept.append(user)
+    access_list.auth_users = kept
+
+
 async def update_access_list(
     db: AsyncSession, access_list_id: int, changes: dict[str, Any]
 ) -> AccessList:
-    """Apply a partial update to an access list's own attributes."""
+    """Apply a partial update, optionally replacing the users and/or rules.
+
+    ``changes`` may carry ``auth_users`` and ``clients`` as whole-collection
+    replacements (see :class:`~app.schemas.access_list.AccessListUpdate`); keys
+    that are absent leave their collection alone. Everything lands in a single
+    commit so a whole-form save is one transaction and one nginx reload.
+    """
     access_list = await get_access_list(db, access_list_id)
     if access_list is None:
         raise AccessListNotFoundError(str(access_list_id))
+
+    changes = dict(changes)
+    auth_users = changes.pop("auth_users", None)
+    clients = changes.pop("clients", None)
+
+    if auth_users is not None:
+        _replace_auth_users(access_list, auth_users)
+    if clients is not None:
+        # Client rules carry no identity worth preserving and nothing
+        # references them, so replacement is a straight rebuild.
+        access_list.client_rules = [
+            AccessListClient(address=c["address"], directive=c["directive"]) for c in clients
+        ]
     for field, value in changes.items():
         setattr(access_list, field, value)
-    await db.commit()
+
+    try:
+        await db.commit()
+    except IntegrityError as exc:
+        await db.rollback()
+        raise DuplicateUsernameError(str(exc.orig)) from exc
     refreshed = await get_access_list(db, access_list_id)
     assert refreshed is not None
     return refreshed
@@ -245,6 +310,7 @@ __all__ = [
     "AuthUserNotFoundError",
     "ClientRuleNotFoundError",
     "DuplicateUsernameError",
+    "MissingPasswordError",
     "add_auth_user",
     "add_client_rule",
     "create_access_list",

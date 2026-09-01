@@ -55,6 +55,35 @@
         "title": "AccessListAuthRead",
         "type": "object"
       },
+      "AccessListAuthReplace": {
+        "description": "A basic-auth user within a whole-collection replacement.\n\nUnlike :class:`AccessListAuthCreate` the password is optional, because the\nAPI never returns credential material: a client editing an existing list has\nno hash to send back. Omit it to keep the stored hash for a username that is\nalready present; it is required to introduce a new one.",
+        "properties": {
+          "password": {
+            "anyOf": [
+              {
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Omit to keep the existing user's password unchanged",
+            "title": "Password"
+          },
+          "username": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Username",
+            "type": "string"
+          }
+        },
+        "required": [
+          "username"
+        ],
+        "title": "AccessListAuthReplace",
+        "type": "object"
+      },
       "AccessListAuthUpdate": {
         "description": "Reset a basic-auth user's password.",
         "properties": {
@@ -270,8 +299,38 @@
         "type": "object"
       },
       "AccessListUpdate": {
-        "description": "Partial update of an access list's own attributes (not its users/rules).",
+        "description": "Partial update of an access list, optionally replacing its collections.\n\n``auth_users`` and ``clients`` are **whole-collection replacements**: omit\nthe key to leave that collection alone, or send the complete desired set to\nreplace it (``[]`` clears it). This lets an editing UI save the entire form\nin one request — one transaction, one audit entry, one nginx reload — rather\nthan one round trip per user and rule.",
         "properties": {
+          "auth_users": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/AccessListAuthReplace"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Full replacement of the basic-auth users; omit to keep",
+            "title": "Auth Users"
+          },
+          "clients": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/AccessListClientCreate"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Full replacement of the IP rules; omit to keep",
+            "title": "Clients"
+          },
           "name": {
             "anyOf": [
               {
@@ -4330,7 +4389,7 @@
         ]
       },
       "patch": {
-        "description": "Update an access list's own attributes (name/satisfy_any/pass_auth).",
+        "description": "Update an access list, optionally replacing its users and/or rules.\n\n``auth_users`` and ``clients`` are whole-collection replacements; omitting a\nkey leaves that collection alone. A whole-form save therefore costs one\nrequest, one audit entry and one nginx reload.",
         "operationId": "update_access_list_api_v1_access_lists__access_list_id__patch",
         "parameters": [
           {

@@ -98,13 +98,28 @@ async def update_access_list(
     db: SessionDep,
     response: Response,
 ) -> AccessListRead:
-    """Update an access list's own attributes (name/satisfy_any/pass_auth)."""
+    """Update an access list, optionally replacing its users and/or rules.
+
+    ``auth_users`` and ``clients`` are whole-collection replacements; omitting a
+    key leaves that collection alone. A whole-form save therefore costs one
+    request, one audit entry and one nginx reload.
+    """
     changes = body.model_dump(exclude_unset=True)
     try:
         access_list = await access_list_service.update_access_list(db, access_list_id, changes)
     except access_list_service.AccessListNotFoundError:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Access list not found"
+        ) from None
+    except access_list_service.MissingPasswordError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"A password is required for new user(s): {exc}",
+        ) from None
+    except access_list_service.DuplicateUsernameError:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Duplicate username within the access list",
         ) from None
     await after_config_write(
         db,

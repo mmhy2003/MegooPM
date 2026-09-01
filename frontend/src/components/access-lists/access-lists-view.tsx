@@ -6,7 +6,6 @@ import { KeyRound, ListChecks, Network, Pencil, Plus, Trash2 } from "lucide-reac
 import { accessLists, type AccessList } from "@/lib/api";
 import { describeError, satisfyLabel } from "@/components/access-lists/lib";
 import { AccessListDialog } from "@/components/access-lists/access-list-dialog";
-import { AccessListEditor } from "@/components/access-lists/access-list-editor";
 import { ConfirmDeleteDialog } from "@/components/proxy-hosts/confirm-delete-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -41,8 +40,8 @@ export function AccessListsView() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
-  const [createOpen, setCreateOpen] = useState(false);
-  const [editId, setEditId] = useState<number | null>(null);
+  // `null` closes the dialog; `undefined` opens it in create mode.
+  const [editing, setEditing] = useState<AccessList | null | undefined>(null);
   const [deleteList, setDeleteList] = useState<AccessList | null>(null);
 
   const load = useCallback(async () => {
@@ -85,7 +84,7 @@ export function AccessListsView() {
             host.
           </p>
         </div>
-        <Button size="sm" onClick={() => setCreateOpen(true)}>
+        <Button size="sm" onClick={() => setEditing(undefined)}>
           <Plus /> New access list
         </Button>
       </div>
@@ -158,7 +157,7 @@ export function AccessListsView() {
                         variant="ghost"
                         size="icon-sm"
                         aria-label={`Edit ${list.name}`}
-                        onClick={() => setEditId(list.id)}
+                        onClick={() => setEditing(list)}
                       >
                         <Pencil />
                       </Button>
@@ -179,25 +178,14 @@ export function AccessListsView() {
         </Table>
       </div>
 
-      {createOpen ? (
+      {editing !== null ? (
         <AccessListDialog
+          // Remount per list so the form reseeds instead of keeping stale rows.
+          key={editing?.id ?? "new"}
           open
-          onOpenChange={setCreateOpen}
-          onCreated={(list) => {
-            refresh();
-            // Jump straight into the editor to add users / IP rules.
-            setEditId(list.id);
-          }}
-        />
-      ) : null}
-
-      {editId !== null ? (
-        <AccessListEditor
-          key={editId}
-          open
-          onOpenChange={(open) => !open && setEditId(null)}
-          listId={editId}
-          onChanged={refresh}
+          onOpenChange={(open) => !open && setEditing(null)}
+          list={editing}
+          onSaved={refresh}
         />
       ) : null}
 

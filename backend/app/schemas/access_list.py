@@ -68,6 +68,28 @@ class AccessListAuthUpdate(BaseModel):
     password: str = Field(min_length=1)
 
 
+class AccessListAuthReplace(BaseModel):
+    """A basic-auth user within a whole-collection replacement.
+
+    Unlike :class:`AccessListAuthCreate` the password is optional, because the
+    API never returns credential material: a client editing an existing list has
+    no hash to send back. Omit it to keep the stored hash for a username that is
+    already present; it is required to introduce a new one.
+    """
+
+    username: str = Field(min_length=1, max_length=255)
+    password: str | None = Field(
+        default=None,
+        min_length=1,
+        description="Omit to keep the existing user's password unchanged",
+    )
+
+    @field_validator("username")
+    @classmethod
+    def _clean_username(cls, value: str) -> str:
+        return _validate_username(value)
+
+
 class AccessListAuthRead(BaseModel):
     """Public representation of a basic-auth user (no credential material)."""
 
@@ -152,11 +174,36 @@ class AccessListCreate(AccessListBase):
 
 
 class AccessListUpdate(BaseModel):
-    """Partial update of an access list's own attributes (not its users/rules)."""
+    """Partial update of an access list, optionally replacing its collections.
+
+    ``auth_users`` and ``clients`` are **whole-collection replacements**: omit
+    the key to leave that collection alone, or send the complete desired set to
+    replace it (``[]`` clears it). This lets an editing UI save the entire form
+    in one request — one transaction, one audit entry, one nginx reload — rather
+    than one round trip per user and rule.
+    """
 
     name: str | None = Field(default=None, min_length=1, max_length=255)
     satisfy_any: bool | None = None
     pass_auth: bool | None = None
+    auth_users: list[AccessListAuthReplace] | None = Field(
+        default=None, description="Full replacement of the basic-auth users; omit to keep"
+    )
+    clients: list[AccessListClientCreate] | None = Field(
+        default=None, description="Full replacement of the IP rules; omit to keep"
+    )
+
+    @field_validator("auth_users")
+    @classmethod
+    def _unique_usernames(
+        cls, value: list[AccessListAuthReplace] | None
+    ) -> list[AccessListAuthReplace] | None:
+        if value is None:
+            return None
+        seen = {u.username for u in value}
+        if len(seen) != len(value):
+            raise ValueError("duplicate usernames within the access list")
+        return value
 
 
 class AccessListRead(AccessListBase):
@@ -174,6 +221,7 @@ class AccessListRead(AccessListBase):
 __all__ = [
     "AccessListAuthCreate",
     "AccessListAuthRead",
+    "AccessListAuthReplace",
     "AccessListAuthUpdate",
     "AccessListBase",
     "AccessListClientCreate",
