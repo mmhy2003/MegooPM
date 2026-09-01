@@ -128,3 +128,115 @@ async def test_redirect_without_a_url_is_rejected_by_the_database(pg_conn) -> No
                 "default_site_redirect_url = NULL WHERE id = 1"
             )
         )
+
+
+# --- Routes ----------------------------------------------------------------
+
+CUSTOM_HTML = "<!doctype html><html><body>ban</body></html>"
+
+
+async def _make_page(client: AsyncClient, auth, name: str = "Denied") -> int:
+    resp = await client.post(
+        "/api/v1/custom-pages", headers=auth, json={"name": name, "html": CUSTOM_HTML}
+    )
+    assert resp.status_code == 201, resp.text
+    return resp.json()["id"]
+
+
+async def test_get_returns_the_seeded_default(client: AsyncClient, auth) -> None:
+    resp = await client.get("/api/v1/settings", headers=auth)
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["default_site_mode"] == "not_found"
+    assert resp.json()["default_site_redirect_url"] is None
+
+
+@pytest.mark.parametrize("mode", ["congratulations", "not_found", "no_response"])
+async def test_simple_modes_round_trip(client: AsyncClient, auth, mode: str) -> None:
+    resp = await client.patch("/api/v1/settings", headers=auth, json={"default_site_mode": mode})
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["default_site_mode"] == mode
+
+
+async def test_redirect_mode_round_trips(client: AsyncClient, auth) -> None:
+    resp = await client.patch(
+        "/api/v1/settings",
+        headers=auth,
+        json={
+            "default_site_mode": "redirect",
+            "default_site_redirect_url": "https://example.com/moved",
+        },
+    )
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["default_site_redirect_url"] == "https://example.com/moved"
+
+
+async def test_custom_page_mode_round_trips(client: AsyncClient, auth) -> None:
+    page_id = await _make_page(client, auth)
+    resp = await client.patch(
+        "/api/v1/settings",
+        headers=auth,
+        json={"default_site_mode": "custom_page", "default_site_page_id": page_id},
+    )
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["default_site_page_id"] == page_id
+
+
+async def test_switching_mode_clears_the_previous_mode_field(client: AsyncClient, auth) -> None:
+    """A stale URL would reappear in the form if the operator switched back."""
+    await client.patch(
+        "/api/v1/settings",
+        headers=auth,
+        json={
+            "default_site_mode": "redirect",
+            "default_site_redirect_url": "https://example.com",
+        },
+    )
+    resp = await client.patch(
+        "/api/v1/settings", headers=auth, json={"default_site_mode": "not_found"}
+    )
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["default_site_redirect_url"] is None
+
+
+async def test_incoherent_payloads_are_rejected(client: AsyncClient, auth) -> None:
+    for body in (
+        {"default_site_mode": "redirect"},
+        {"default_site_mode": "custom_page"},
+        {"default_site_mode": "redirect", "default_site_redirect_url": "not-a-url"},
+    ):
+        resp = await client.patch("/api/v1/settings", headers=auth, json=body)
+        assert resp.status_code == 422, (body, resp.text)
+
+
+async def test_unknown_page_is_rejected(client: AsyncClient, auth) -> None:
+    resp = await client.patch(
+        "/api/v1/settings",
+        headers=auth,
+        json={"default_site_mode": "custom_page", "default_site_page_id": 9999},
+    )
+    assert resp.status_code == 422, resp.text
+
+
+async def test_a_write_enqueues_exactly_one_reload(client: AsyncClient, auth, monkeypatch) -> None:
+    calls = 0
+
+    def _counting_reload() -> TaskEnqueued:
+        nonlocal calls
+        calls += 1
+        return TaskEnqueued(task_id="test-reload-task", status="PENDING")
+
+    monkeypatch.setattr(config_writes, "enqueue_nginx_reload", _counting_reload)
+
+    resp = await client.patch(
+        "/api/v1/settings", headers=auth, json={"default_site_mode": "no_response"}
+    )
+    assert resp.status_code == 200, resp.text
+    assert resp.headers["X-Config-Reload-Task"] == "test-reload-task"
+    assert calls == 1
+
+
+async def test_endpoints_require_authentication(client: AsyncClient) -> None:
+    assert (await client.get("/api/v1/settings")).status_code == 401
+    assert (
+        await client.patch("/api/v1/settings", json={"default_site_mode": "not_found"})
+    ).status_code == 401

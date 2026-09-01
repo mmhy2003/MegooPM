@@ -22,6 +22,7 @@ from app.api.routes import (
     nginx,
     proxy_hosts,
     redirection_hosts,
+    settings,
     streams,
     tasks,
     upstreams,
@@ -47,6 +48,7 @@ api_router.include_router(redirection_hosts.router, prefix="/redirection-hosts")
 api_router.include_router(dead_hosts.router, prefix="/dead-hosts")
 api_router.include_router(streams.router, prefix="/streams")
 api_router.include_router(custom_pages.router, prefix="/custom-pages")
+api_router.include_router(settings.router, prefix="/settings")
 
 # Additional feature routers are included here as they are added, for example:
 # from app.api.routes import projects

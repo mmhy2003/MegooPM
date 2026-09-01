@@ -1786,6 +1786,18 @@
         "title": "DecisionList",
         "type": "object"
       },
+      "DefaultSiteMode": {
+        "description": "What nginx returns for a request matching no configured host.",
+        "enum": [
+          "congratulations",
+          "not_found",
+          "no_response",
+          "redirect",
+          "custom_page"
+        ],
+        "title": "DefaultSiteMode",
+        "type": "string"
+      },
       "DnsCredentialCreate": {
         "properties": {
           "name": {
@@ -2048,6 +2060,86 @@
         ],
         "title": "HttpScheme",
         "type": "string"
+      },
+      "InstanceSettingsRead": {
+        "description": "Public representation of the settings singleton.",
+        "properties": {
+          "default_site_mode": {
+            "$ref": "#/components/schemas/DefaultSiteMode"
+          },
+          "default_site_page_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Default Site Page Id"
+          },
+          "default_site_redirect_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Default Site Redirect Url"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "default_site_mode",
+          "default_site_redirect_url",
+          "default_site_page_id",
+          "updated_at"
+        ],
+        "title": "InstanceSettingsRead",
+        "type": "object"
+      },
+      "InstanceSettingsUpdate": {
+        "description": "Set the default site. ``default_site_mode`` is required (see module doc).",
+        "properties": {
+          "default_site_mode": {
+            "$ref": "#/components/schemas/DefaultSiteMode"
+          },
+          "default_site_page_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Required when the mode is 'custom_page'",
+            "title": "Default Site Page Id"
+          },
+          "default_site_redirect_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Required when the mode is 'redirect'",
+            "title": "Default Site Redirect Url"
+          }
+        },
+        "required": [
+          "default_site_mode"
+        ],
+        "title": "InstanceSettingsUpdate",
+        "type": "object"
       },
       "LetsEncryptCertificateCreate": {
         "description": "Request to issue a Let's Encrypt certificate for a set of domains.",
@@ -7235,6 +7327,78 @@
         "summary": "Update Redirection Host",
         "tags": [
           "redirection-hosts"
+        ]
+      }
+    },
+    "/api/v1/settings": {
+      "get": {
+        "description": "Read the instance settings. Admin-only.",
+        "operationId": "read_settings_api_v1_settings_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InstanceSettingsRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Read Settings",
+        "tags": [
+          "settings"
+        ]
+      },
+      "patch": {
+        "description": "Set the default site. Admin-only.\n\n``default_site_mode`` is required; the columns the chosen mode does not use\nare cleared, so the stored row always describes exactly one configuration.",
+        "operationId": "update_settings_api_v1_settings_patch",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InstanceSettingsUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InstanceSettingsRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Update Settings",
+        "tags": [
+          "settings"
         ]
       }
     },
