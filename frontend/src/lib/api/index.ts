@@ -79,6 +79,13 @@ export type {
   CustomPageUpdate,
 } from "@/lib/api/resources/custom-pages";
 
+export { instanceSettings } from "@/lib/api/resources/settings";
+export type {
+  InstanceSettings,
+  InstanceSettingsUpdate,
+  DefaultSiteMode,
+} from "@/lib/api/resources/settings";
+
 export { streams } from "@/lib/api/resources/streams";
 export type { Stream, StreamCreate, StreamUpdate } from "@/lib/api/resources/streams";
 

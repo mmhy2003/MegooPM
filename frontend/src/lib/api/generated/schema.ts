@@ -893,6 +893,33 @@ export interface paths {
         patch: operations["update_redirection_host_api_v1_redirection_hosts__host_id__patch"];
         trace?: never;
     };
+    "/api/v1/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read Settings
+         * @description Read the instance settings. Admin-only.
+         */
+        get: operations["read_settings_api_v1_settings_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Update Settings
+         * @description Set the default site. Admin-only.
+         *
+         *     ``default_site_mode`` is required; the columns the chosen mode does not use
+         *     are cleared, so the stored row always describes exactly one configuration.
+         */
+        patch: operations["update_settings_api_v1_settings_patch"];
+        trace?: never;
+    };
     "/api/v1/streams": {
         parameters: {
             query?: never;
@@ -2109,6 +2136,12 @@ export interface components {
              */
             total: number;
         };
+        /**
+         * DefaultSiteMode
+         * @description What nginx returns for a request matching no configured host.
+         * @enum {string}
+         */
+        DefaultSiteMode: "congratulations" | "not_found" | "no_response" | "redirect" | "custom_page";
         /** DnsCredentialCreate */
         DnsCredentialCreate: {
             /** Name */
@@ -2234,6 +2267,39 @@ export interface components {
          * @enum {string}
          */
         HttpScheme: "http" | "https";
+        /**
+         * InstanceSettingsRead
+         * @description Public representation of the settings singleton.
+         */
+        InstanceSettingsRead: {
+            default_site_mode: components["schemas"]["DefaultSiteMode"];
+            /** Default Site Page Id */
+            default_site_page_id: number | null;
+            /** Default Site Redirect Url */
+            default_site_redirect_url: string | null;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /**
+         * InstanceSettingsUpdate
+         * @description Set the default site. ``default_site_mode`` is required (see module doc).
+         */
+        InstanceSettingsUpdate: {
+            default_site_mode: components["schemas"]["DefaultSiteMode"];
+            /**
+             * Default Site Page Id
+             * @description Required when the mode is 'custom_page'
+             */
+            default_site_page_id?: number | null;
+            /**
+             * Default Site Redirect Url
+             * @description Required when the mode is 'redirect'
+             */
+            default_site_redirect_url?: string | null;
+        };
         /**
          * LetsEncryptCertificateCreate
          * @description Request to issue a Let's Encrypt certificate for a set of domains.
@@ -5296,6 +5362,59 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RedirectionHostRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_settings_api_v1_settings_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InstanceSettingsRead"];
+                };
+            };
+        };
+    };
+    update_settings_api_v1_settings_patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InstanceSettingsUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InstanceSettingsRead"];
                 };
             };
             /** @description Validation Error */
