@@ -32,6 +32,10 @@ dependencies = [
     # on the zone's authoritative nameservers before the challenge is answered.
     "dns-lexicon[route53]>=3.25",
     "dnspython>=2.6",
+    # LLM integration: one model string names any of ~100 providers. Heavy —
+    # ~190 MB with openai/tokenizers/huggingface-hub — and 3.49s to import,
+    # which is why app/services/llm.py imports it lazily.
+    "litellm>=1.99",
 ]
 
 [project.optional-dependencies]
