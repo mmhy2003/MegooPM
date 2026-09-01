@@ -9,6 +9,7 @@ from __future__ import annotations
 import pytest
 from app.services.llm import LlmConfig
 from app.services.page_assist import (
+    ASSIST_TIMEOUT_SECONDS,
     SYSTEM_PROMPT,
     assist_page,
     build_user_message,
@@ -118,7 +119,19 @@ async def test_assist_page_strips_what_the_model_wrapped(captured) -> None:
 
 
 async def test_assist_page_allows_a_long_generation(captured) -> None:
-    """A full page from a strong model takes 20-60s; the default must not cut it off."""
+    """A full page from a strong model takes 20-60s, a large one several minutes."""
     calls, _ = captured
     await assist_page(LlmConfig(model="gpt-4o"), instruction="write one", html="")
-    assert calls[0]["timeout"] >= 120.0
+    assert calls[0]["timeout"] >= 240.0
+
+
+def test_the_timeout_stays_below_the_proxys() -> None:
+    """Whichever timeout fires first owns the error.
+
+    nginx sets proxy_read_timeout to 300s (infra/nginx/nginx.conf). If this one
+    ever crept above that, the proxy would sever the connection first and the
+    operator would get "Failed to fetch" instead of a scrubbed, readable
+    message. That inversion is exactly what shipped and had to be fixed.
+    """
+    proxy_read_timeout = 300.0
+    assert ASSIST_TIMEOUT_SECONDS < proxy_read_timeout

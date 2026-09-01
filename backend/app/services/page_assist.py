@@ -32,10 +32,15 @@ MAX_INSTRUCTION_CHARS = 2000
 # operator gets a sentence rather than a 422; this copy is the enforcement.
 MAX_ASSIST_HTML_BYTES = 200 * 1024
 
-# A generation from a strong model runs 20-60 seconds, and the editor shows a
-# spinner with a cancel button throughout. Cutting it off at the usual 60 would
-# fail the exact requests this feature exists for.
-ASSIST_TIMEOUT_SECONDS = 120.0
+# A generation from a strong model runs 20-60 seconds, and a large page with a
+# detailed instruction can run several minutes. The editor shows a spinner with
+# a cancel button throughout, so a long ceiling costs the operator nothing.
+#
+# This must stay BELOW the proxy's own proxy_read_timeout (300s in
+# infra/nginx/nginx.conf). Whichever timeout fires first owns the error, and
+# only this one produces a scrubbed, readable message -- the proxy produces a
+# 504 the browser reports as "Failed to fetch".
+ASSIST_TIMEOUT_SECONDS = 240.0
 
 SYSTEM_PROMPT = """You edit and write single-file HTML pages for MegooPM, a \
 reverse-proxy manager. These pages are served directly by nginx.
