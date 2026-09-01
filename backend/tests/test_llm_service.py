@@ -86,6 +86,10 @@ def test_scrubber_removes_the_configured_key() -> None:
     assert "gpt-4o" in scrubbed
 
 
+# Deliberately NOT realistic. These only need to match the scrubber's shape
+# patterns, and a genuine-looking `sk_live_...` here is blocked by GitHub's push
+# protection as a Stripe key — which cost one rewritten history to learn. Keep
+# them obviously synthetic.
 @pytest.mark.parametrize(
     "secret",
     [
