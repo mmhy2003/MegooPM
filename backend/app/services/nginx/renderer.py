@@ -226,41 +226,63 @@ def render_stream_config(state: DesiredState) -> dict[str, str]:
 
 DEFAULT_SITE_CONF = "megoopm-default.conf"
 DEFAULT_SITE_HTML = "megoopm-default.html"
+# The CrowdSec ban page, written into the same directory. Not a *.conf, so
+# the base config's `include .../*.conf` never parses it as configuration.
+BAN_PAGE_HTML = "megoopm-ban.html"
 
 # The two modes that answer with a document rather than a status code.
 _DOCUMENT_MODES = frozenset({"congratulations", "custom_page"})
 
 
 def render_default_site(state: DesiredState) -> dict[str, str]:
-    """Render the default-site files to a ``{filename: contents}`` mapping.
+    """Render the files of the shared default directory.
 
-    These are written to a directory the base config includes from *inside* its
-    ``default_server`` block, so the ``.conf`` holds a bare ``location``, not a
-    server block. An empty mapping is meaningful: with no file present nginx
-    matches no location and answers 404, which is what the base config used to
-    hardcode.
+    Two independent settings write here: the default site (a bare ``location``
+    the base config includes from *inside* its ``default_server`` block) and the
+    CrowdSec ban page (a document the bouncer reads, never parsed as config).
+
+    An empty mapping is meaningful for both: with no default-site file nginx
+    matches no location and answers 404, and with no ban file the bouncer
+    answers a bare 403 — which is what each did before these settings existed.
     """
-    site = state.default_site
-    if site is None:
-        return {}
+    files: dict[str, str] = {}
 
-    files = {
-        DEFAULT_SITE_CONF: _env()
-        .get_template("default_site.conf.j2")
-        .render(site=site, default_dir=settings.nginx_default_dir)
-    }
-    if site.mode in _DOCUMENT_MODES:
-        files[DEFAULT_SITE_HTML] = (
-            _env().get_template("congratulations.html.j2").render()
-            if site.mode == "congratulations"
-            else site.html
+    # The default site and the ban page are independent settings that happen to
+    # share a directory, so neither may return early on the other's behalf.
+    site = state.default_site
+    if site is not None:
+        files[DEFAULT_SITE_CONF] = (
+            _env()
+            .get_template("default_site.conf.j2")
+            .render(site=site, default_dir=settings.nginx_default_dir)
         )
+        if site.mode in _DOCUMENT_MODES:
+            files[DEFAULT_SITE_HTML] = (
+                _env().get_template("congratulations.html.j2").render()
+                if site.mode == "congratulations"
+                else site.html
+            )
+
+    # Mode "none" — and a custom page whose document has gone missing — emit no
+    # key at all: ban.lua guards on the file EXISTING, so its absence is what
+    # restores the bare 403. An empty file would serve a blank page instead.
+    ban = state.ban_page
+    if ban is not None and ban.mode != "none":
+        body = (
+            _env().get_template("banned.html.j2").render()
+            if ban.mode == "megoopm"
+            else ban.html
+        )
+        if body:
+            files[BAN_PAGE_HTML] = body
+
     return {name: files[name] for name in sorted(files)}
 
 
 __all__ = [
     "DEFAULT_SITE_CONF",
     "DEFAULT_SITE_HTML",
+    "BAN_PAGE_HTML",
     "render_config",
     "render_default_site",
     "render_stream_config",

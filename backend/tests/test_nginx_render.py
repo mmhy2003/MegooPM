@@ -9,9 +9,12 @@ from __future__ import annotations
 
 import pytest
 from app.services.nginx import render_config
+from app.services.nginx.renderer import render_default_site
 from app.services.nginx.state import (
     BackendSpec,
+    BanPageSpec,
     CertificateSpec,
+    DefaultSiteSpec,
     DefaultTlsSpec,
     DesiredState,
     LocationSpec,
@@ -449,3 +452,62 @@ def test_default_tls_block_has_a_root_so_nothing_falls_through_to_openresty() ->
 
 def test_no_default_tls_blocks_when_there_are_none() -> None:
     assert render_config(DesiredState()) == {}
+
+
+# --- The CrowdSec ban page -------------------------------------------------
+
+
+def test_ban_page_writes_the_megoopm_document() -> None:
+    files = render_default_site(DesiredState(ban_page=BanPageSpec(mode="megoopm")))
+    assert "megoopm-ban.html" in files
+    assert "<html" in files["megoopm-ban.html"].lower()
+
+
+def test_ban_page_writes_the_referenced_custom_page() -> None:
+    files = render_default_site(
+        DesiredState(ban_page=BanPageSpec(mode="custom_page", html="<h1>Blocked</h1>"))
+    )
+    assert files["megoopm-ban.html"] == "<h1>Blocked</h1>"
+
+
+def test_ban_page_none_writes_no_file_at_all() -> None:
+    """An empty file would be served as a blank page with a 403; ban.lua guards
+    on the file EXISTING, so the absence is what restores the bare 403."""
+    files = render_default_site(DesiredState(ban_page=BanPageSpec(mode="none")))
+    assert "megoopm-ban.html" not in files
+
+
+def test_ban_page_custom_mode_with_a_missing_document_writes_no_file() -> None:
+    """A blank white page reads as a broken deployment; the bare 403 does not."""
+    files = render_default_site(
+        DesiredState(ban_page=BanPageSpec(mode="custom_page", html=""))
+    )
+    assert "megoopm-ban.html" not in files
+
+
+def test_the_megoopm_ban_document_leaks_nothing_about_the_decision() -> None:
+    """It is static — the bouncer emits it verbatim — so anything specific in it
+    would be a lie, and an IP or ban duration would help someone probing."""
+    body = render_default_site(DesiredState(ban_page=BanPageSpec(mode="megoopm")))[
+        "megoopm-ban.html"
+    ].lower()
+    for leak in ("{{", "duration", "your ip", "expires"):
+        assert leak not in body
+
+
+def test_a_default_site_and_a_ban_page_coexist_in_one_directory() -> None:
+    """They share a reconciliation target; neither may displace the other."""
+    files = render_default_site(
+        DesiredState(
+            default_site=DefaultSiteSpec(mode="not_found"),
+            ban_page=BanPageSpec(mode="megoopm"),
+        )
+    )
+    assert {"megoopm-default.conf", "megoopm-ban.html"} <= set(files)
+
+
+def test_the_ban_page_is_written_even_with_no_default_site() -> None:
+    """The two settings are independent; an early return for one must not
+    silently disable the other."""
+    files = render_default_site(DesiredState(ban_page=BanPageSpec(mode="megoopm")))
+    assert "megoopm-ban.html" in files

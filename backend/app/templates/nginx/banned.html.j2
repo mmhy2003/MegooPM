@@ -1,0 +1,140 @@
+{# Served to a CrowdSec-blocked visitor.
+
+   Read once when nginx loads its configuration and emitted verbatim by the
+   bouncer, so: no request data is available, and nothing here may describe the
+   visitor, the decision that matched, or how long the block lasts — all three
+   tell someone probing the instance how the defence behaves.
+
+   The palette is the one congratulations.html.j2 uses, so the two pages read
+   as one product. Each colour is declared twice on purpose: the hex is the
+   fallback for engines without oklch(), and the oklch line wins where it is
+   supported. #}
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Access blocked</title>
+    <style>
+      /* Light — "daylight city". */
+      :root {
+        --bg: #f3f6f8;
+        --bg: oklch(0.975 0.01 220);
+        --fg: #272040;
+        --fg: oklch(0.22 0.05 290);
+        --card: #ffffff;
+        --card: oklch(1 0 0);
+        --primary: #00778f;
+        --primary: oklch(0.5 0.14 205);
+        --muted: #6a6b85;
+        --muted: oklch(0.48 0.05 260);
+        --accent: #ab0069;
+        --accent: oklch(0.45 0.22 340);
+        --border: #cbd7de;
+        --border: oklch(0.86 0.04 210);
+        --glow: none;
+      }
+
+      /*
+       * Dark — "neon noir". A standalone page has no next-themes and no toggle,
+       * so the visitor's OS preference is the only signal available.
+       */
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #15121e;
+          --bg: oklch(0.15 0.03 285);
+          --fg: #e8f2f4;
+          --fg: oklch(0.95 0.02 200);
+          --card: #1c1829;
+          --card: oklch(0.19 0.035 285);
+          --primary: #4fdcef;
+          --primary: oklch(0.85 0.16 195);
+          --muted: #9fb2bc;
+          --muted: oklch(0.72 0.04 215);
+          --accent: #ff77c9;
+          --accent: oklch(0.88 0.17 340);
+          --border: #2b3f49;
+          --border: oklch(0.85 0.16 195 / 18%);
+          --glow: 0 0 24px rgba(79, 220, 239, 0.35);
+        }
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100dvh;
+        display: grid;
+        place-items: center;
+        padding: 1.5rem;
+        background: var(--bg);
+        color: var(--fg);
+        font:
+          16px/1.6 ui-sans-serif,
+          system-ui,
+          -apple-system,
+          "Segoe UI",
+          sans-serif;
+      }
+
+      main {
+        width: 100%;
+        max-width: 32rem;
+        padding: 2.5rem 2rem;
+        text-align: center;
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        box-shadow: var(--glow);
+      }
+
+      .mark {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 3.5rem;
+        height: 3.5rem;
+        margin-bottom: 1.25rem;
+        border: 2px solid var(--accent);
+        border-radius: 999px;
+        color: var(--accent);
+        font-size: 1.5rem;
+        line-height: 1;
+      }
+
+      h1 {
+        margin: 0 0 0.75rem;
+        font-size: 1.75rem;
+        letter-spacing: -0.01em;
+      }
+
+      p {
+        margin: 0 0 0.5rem;
+        color: var(--muted);
+      }
+
+      p:last-child {
+        margin-bottom: 0;
+      }
+
+      .rule {
+        height: 2px;
+        width: 4rem;
+        margin: 1.5rem auto 0;
+        background: var(--primary);
+        border-radius: 2px;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <div class="mark" aria-hidden="true">&#10005;</div>
+      <h1>Access blocked</h1>
+      <p>Your request was blocked by this site&#39;s security policy.</p>
+      <p>If you believe this is a mistake, contact the site operator.</p>
+      <div class="rule"></div>
+    </main>
+  </body>
+</html>

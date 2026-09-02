@@ -29,7 +29,7 @@ from app.models.access_list import AccessList
 from app.models.certificate import Certificate
 from app.models.custom_page import CustomPage
 from app.models.dead_host import DeadHost
-from app.models.enums import CertificateStatus, DefaultSiteMode
+from app.models.enums import CertificateStatus, CrowdSecBanMode, DefaultSiteMode
 from app.models.instance_settings import InstanceSettings
 from app.models.proxy_host import ProxyHost, ProxyHostLocation
 from app.models.redirection_host import RedirectionHost
@@ -40,6 +40,7 @@ from app.services.nginx.state import (
     AccessListSpec,
     AuthUserSpec,
     BackendSpec,
+    BanPageSpec,
     CertificateSpec,
     ClientRuleSpec,
     DeadHostSpec,
@@ -226,6 +227,7 @@ async def load_desired_state(
     dead_specs = await _load_dead_hosts(session, certs_dir)
     stream_specs, stream_upstream_specs = await _load_streams(session, certs_dir)
     default_site = await _load_default_site(session)
+    ban_page = await _load_ban_page(session)
 
     state = DesiredState(
         proxy_hosts=tuple(host_specs),
@@ -235,6 +237,7 @@ async def load_desired_state(
         streams=stream_specs,
         stream_upstreams=stream_upstream_specs,
         default_site=default_site,
+        ban_page=ban_page,
     )
     # Built from the finished state so the claimed-name set comes from exactly
     # the specs that render :443 blocks — the two cannot drift.
@@ -258,6 +261,27 @@ async def _load_certificates(session: AsyncSession) -> tuple[Certificate, ...]:
         .order_by(Certificate.id)
     )
     return tuple(rows)
+
+
+async def _load_ban_page(session: AsyncSession) -> BanPageSpec | None:
+    """Read the ban-page setting, resolving a referenced page into its HTML.
+
+    Dereferenced here for the same reason the default site is: the renderer
+    stays a pure function of explicit data.
+    """
+    row = await session.get(InstanceSettings, 1)
+    if row is None:
+        return None
+
+    html = ""
+    if row.crowdsec_ban_mode is CrowdSecBanMode.custom_page and row.crowdsec_ban_page_id:
+        page = await session.get(CustomPage, row.crowdsec_ban_page_id)
+        # The FK is RESTRICT, so a missing page means the row was edited outside
+        # the API. Leaving html empty makes the renderer write no file, which
+        # degrades to the bare 403 rather than to a blank white page.
+        html = page.html if page is not None else ""
+
+    return BanPageSpec(mode=row.crowdsec_ban_mode.value, html=html)
 
 
 async def _load_default_site(session: AsyncSession) -> DefaultSiteSpec | None:

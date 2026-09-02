@@ -215,6 +215,23 @@ class DefaultSiteSpec:
 
 
 @dataclass(frozen=True, slots=True)
+class BanPageSpec:
+    """What a CrowdSec-blocked visitor is served.
+
+    ``html`` is already resolved for ``custom_page``: the loader reads the
+    referenced document and puts it here, so the renderer never reaches into
+    the database. For ``megoopm`` the renderer renders the shipped template and
+    this stays empty — the same division :class:`DefaultSiteSpec` makes between
+    ``congratulations`` and ``custom_page``.
+    """
+
+    # One of CrowdSecBanMode's values, as a plain string — specs stay free of
+    # ORM enums so they remain trivially constructible in tests.
+    mode: str
+    html: str = ""
+
+
+@dataclass(frozen=True, slots=True)
 class DefaultTlsSpec:
     """The default site served over TLS for names one certificate covers.
 
@@ -264,6 +281,7 @@ class DesiredState:
     streams: tuple[StreamSpec, ...] = field(default_factory=tuple)
     default_site: DefaultSiteSpec | None = None
     default_tls: tuple[DefaultTlsSpec, ...] = field(default_factory=tuple)
+    ban_page: BanPageSpec | None = None
 
 
 __all__ = [
