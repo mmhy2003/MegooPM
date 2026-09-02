@@ -198,11 +198,17 @@ block, blocks by certificate id. Two nodes rendering the same state must
 produce byte-identical text, or the engine sees a spurious change and reloads
 every node for nothing.
 
-**Each name appears in exactly one block.** Where two certificates cover the
-same name, the more specific wins (an exact name over a wildcard), with the
-lowest certificate id as a deterministic tie-break. Two blocks declaring one
+**Each name string appears in exactly one block.** Where two certificates list
+the *identical* name, the lowest certificate id wins. Two blocks declaring one
 name would leave nginx picking one arbitrarily — the same class of bug this
 design exists to remove — and would emit a conflicting-server-name warning.
+
+Note this arbitration is only needed for identical strings. An exact name in
+one certificate and a wildcard covering it in another are *different* strings,
+so they never collide: both blocks are emitted and nginx prefers the exact one,
+which is the behaviour the probe above confirmed. No specificity ranking is
+required in the loader, and inventing one would only risk diverging from what
+nginx actually does.
 
 ## Testing
 
@@ -213,8 +219,10 @@ bulk of the coverage:
 - an enabled TLS host's name never becomes covered
 - an enabled HTTP-only host's name does become covered
 - a wildcard covers a subdomain, and the apex only when the certificate lists it
-- a name covered by two certificates lands in exactly one block, by specificity
-  then by id
+- the identical name listed by two certificates lands in exactly one block,
+  chosen by lowest id
+- an exact name in one certificate and a wildcard covering it in another are
+  both emitted, since nginx arbitrates them
 - `pending`, `failed` and `expired` certificates contribute nothing
 - a certificate whose every name is claimed produces no file at all
 - names are emitted in a deterministic order, so two nodes render identical text
