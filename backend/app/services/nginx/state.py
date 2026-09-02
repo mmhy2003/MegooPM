@@ -215,6 +215,19 @@ class DefaultSiteSpec:
 
 
 @dataclass(frozen=True, slots=True)
+class DefaultTlsSpec:
+    """The default site served over TLS for names one certificate covers.
+
+    ``server_names`` are the names that certificate holds which no enabled host
+    claims on :443 — a disabled host's own name lands here, which is the whole
+    point. Sorted, so two nodes render identical text.
+    """
+
+    certificate: CertificateSpec
+    server_names: tuple[str, ...]
+
+
+@dataclass(frozen=True, slots=True)
 class DesiredState:
     """The complete set of managed objects a render pass should emit.
 
@@ -237,6 +250,10 @@ class DesiredState:
     ``default_site`` renders into a third directory the base config includes
     from *inside* its ``default_server`` block; ``None`` means no file is
     written and nginx falls back to its own no-location-match 404.
+
+    ``default_tls`` renders one ``:443`` server block per certificate, serving
+    the default site for names that certificate covers but no enabled host
+    claims — the HTTPS counterpart to the ``:80`` ``default_server``.
     """
 
     proxy_hosts: tuple[ProxyHostSpec, ...] = field(default_factory=tuple)
@@ -246,6 +263,7 @@ class DesiredState:
     dead_hosts: tuple[DeadHostSpec, ...] = field(default_factory=tuple)
     streams: tuple[StreamSpec, ...] = field(default_factory=tuple)
     default_site: DefaultSiteSpec | None = None
+    default_tls: tuple[DefaultTlsSpec, ...] = field(default_factory=tuple)
 
 
 __all__ = [
