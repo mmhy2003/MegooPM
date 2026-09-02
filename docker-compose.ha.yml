@@ -129,6 +129,10 @@ services:
       CROWDSEC_APPSEC_URL: ${CROWDSEC_APPSEC_URL:?CROWDSEC_APPSEC_URL is required (shared AppSec)}
       CROWDSEC_BOUNCER_KEY: ${CROWDSEC_BOUNCER_KEY:?}
       NGINX_RELOAD_TOKEN: ${NGINX_RELOAD_TOKEN:?}
+      # Visitor analytics: every node's nginx counts into the SHARED
+      # Redis, so the counts aggregate cluster-wide before any flush.
+      REDIS_URL: ${REDIS_URL:?REDIS_URL is required (shared Redis)}
+      ANALYTICS_ENABLED: ${ANALYTICS_ENABLED:-true}
       # This node's nginx ships its logs to the shared CrowdSec agent's
       # syslog port (control-plane host:514/udp). Real-IP for CDN/LB setups.
       CROWDSEC_SYSLOG_ADDR: ${CROWDSEC_SYSLOG_ADDR:?CROWDSEC_SYSLOG_ADDR is required (shared CrowdSec host:514)}

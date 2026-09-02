@@ -179,6 +179,10 @@ services:
       CROWDSEC_APPSEC_URL: ${CROWDSEC_APPSEC_URL:-http://crowdsec:7422}
       CROWDSEC_BOUNCER_KEY: ${CROWDSEC_BOUNCER_KEY:?CROWDSEC_BOUNCER_KEY is required}
       NGINX_RELOAD_TOKEN: ${NGINX_RELOAD_TOKEN:?NGINX_RELOAD_TOKEN is required}
+      # Visitor analytics: the log-phase handler counts into Redis.
+      # Set ANALYTICS_ENABLED=false to turn counting off entirely.
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      ANALYTICS_ENABLED: ${ANALYTICS_ENABLED:-true}
       # Ship access/error logs to the CrowdSec agent (syslog/UDP) so its nginx
       # scenarios detect attackers. Behind a CDN/tunnel/LB set the real-IP pair
       # (e.g. Cloudflare: NGINX_REAL_IP_HEADER=CF-Connecting-IP) or detections
