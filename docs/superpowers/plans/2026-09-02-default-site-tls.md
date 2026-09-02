@@ -17,7 +17,22 @@
 - **Output must be byte-identical across nodes** for the same state: sort names within a block, and emit blocks ordered by certificate id. Two nodes rendering different text makes the engine see a spurious change and reload every node for nothing.
 - **Every emitted block carries `# cert-material {id}:{fingerprint}`.** Renewal rewrites certificate files in place, leaving paths and therefore the config byte-identical; without this line the engine's idempotency check skips the reload and nodes keep serving the old certificate from memory. This bug has already been fixed once for host blocks.
 - **No change to `infra/nginx/nginx.conf`** and no new directory. These files render into `conf.d/` via `render_config`, which is already a reconciliation target.
-- Run backend tests in a Linux container — the app imports `fcntl`. Use the `megoopm-backend` image.
+- Run backend tests in a Linux container — the app imports `fcntl`. Start it once, with Postgres attached so the DB-gated suites do not silently skip:
+
+```bash
+export MSYS_NO_PATHCONV=1
+docker network create megoopm-testnet
+docker run -d --name megoopm-testdb --network megoopm-testnet \
+  -e POSTGRES_USER=megoopm -e POSTGRES_PASSWORD=megoopm -e POSTGRES_DB=megoopm postgres:16-alpine
+docker run -d --name megoopm-test --user root --network megoopm-testnet \
+  -v "C:/Projects/megoopm/backend:/src" -w /src \
+  -e CELERY_TASK_ALWAYS_EAGER=true -e CELERY_RESULT_BACKEND=cache+memory:// \
+  -e DATABASE_URL="postgresql+asyncpg://megoopm:megoopm@megoopm-testdb:5432/megoopm" \
+  --entrypoint sleep megoopm-backend infinity
+docker exec megoopm-test pip install -q "pytest>=8.2" "pytest-asyncio>=0.23" "aiosqlite>=0.20" "ruff>=0.6"
+```
+
+  Do NOT mount the working tree over `/app`: it shadows the image's entrypoint with the host's CRLF copy and the container dies on `bash\r`. Tear down with `docker rm -f megoopm-test megoopm-testdb && docker network rm megoopm-testnet`.
 
 ---
 
@@ -35,7 +50,7 @@
   - `DesiredState.default_tls: tuple[DefaultTlsSpec, ...] = ()`
   - `plan_default_tls(certificates: Sequence[Certificate], claimed_names: Collection[str], certs_dir: str) -> tuple[DefaultTlsSpec, ...]` in `default_tls.py`
 
-- [ ] **Step 1: Add the spec type**
+- [x] **Step 1: Add the spec type**
 
 In `backend/app/services/nginx/state.py`, directly after the `DefaultSiteSpec` class:
 
@@ -67,7 +82,7 @@ And extend the `DesiredState` docstring with a sentence:
     claims — the HTTPS counterpart to the ``:80`` ``default_server``.
 ```
 
-- [ ] **Step 2: Write the failing tests**
+- [x] **Step 2: Write the failing tests**
 
 Create `backend/tests/test_nginx_default_tls.py`:
 
@@ -209,16 +224,15 @@ def test_a_certificate_with_no_names_is_skipped() -> None:
     assert plan_default_tls([_cert(domain_names=[])], set(), CERTS_DIR) == ()
 ```
 
-- [ ] **Step 3: Run the tests to verify they fail**
+- [x] **Step 3: Run the tests to verify they fail**
 
 ```bash
-docker run --rm -v "//c/Projects/megoopm/backend://app" -w //app megoopm-backend:latest \
-  python -m pytest tests/test_nginx_default_tls.py -q
+docker exec megoopm-test python -m pytest -p no:cacheprovider tests/test_nginx_default_tls.py -q
 ```
 
 Expected: FAIL — `ModuleNotFoundError: No module named 'app.services.nginx.default_tls'`.
 
-- [ ] **Step 4: Write the implementation**
+- [x] **Step 4: Write the implementation**
 
 Create `backend/app/services/nginx/default_tls.py`:
 
@@ -294,16 +308,15 @@ def plan_default_tls(
 __all__ = ["plan_default_tls"]
 ```
 
-- [ ] **Step 5: Run the tests to verify they pass**
+- [x] **Step 5: Run the tests to verify they pass**
 
 ```bash
-docker run --rm -v "//c/Projects/megoopm/backend://app" -w //app megoopm-backend:latest \
-  python -m pytest tests/test_nginx_default_tls.py -q
+docker exec megoopm-test python -m pytest -p no:cacheprovider tests/test_nginx_default_tls.py -q
 ```
 
 Expected: PASS, 10 tests.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add backend/app/services/nginx/state.py backend/app/services/nginx/default_tls.py backend/tests/test_nginx_default_tls.py
@@ -323,7 +336,7 @@ git commit -m "feat(nginx): decide which names get the default site over TLS"
 - Consumes: `DefaultTlsSpec(certificate, server_names)` and `DesiredState.default_tls` from Task 1.
 - Produces: files named `megoopm-default-tls-{cert_id}.conf` in the mapping returned by `render_config(state)`.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Append to `backend/tests/test_nginx_render.py`. Add `DefaultTlsSpec` to the existing `from app.services.nginx.state import (...)` block first.
 
@@ -402,16 +415,15 @@ def test_no_default_tls_blocks_when_there_are_none() -> None:
     assert render_config(DesiredState()) == {}
 ```
 
-- [ ] **Step 2: Run the tests to verify they fail**
+- [x] **Step 2: Run the tests to verify they fail**
 
 ```bash
-docker run --rm -v "//c/Projects/megoopm/backend://app" -w //app megoopm-backend:latest \
-  python -m pytest tests/test_nginx_render.py -q -k default_tls
+docker exec megoopm-test python -m pytest -p no:cacheprovider tests/test_nginx_render.py -q -k default_tls
 ```
 
 Expected: FAIL — `ImportError: cannot import name 'DefaultTlsSpec'` is already resolved by Task 1, so expect `KeyError: 'megoopm-default-tls-3.conf'`.
 
-- [ ] **Step 3: Write the template**
+- [x] **Step 3: Write the template**
 
 Create `backend/app/templates/nginx/default_tls.conf.j2`:
 
@@ -447,7 +459,7 @@ server {
 }
 ```
 
-- [ ] **Step 4: Wire it into the renderer**
+- [x] **Step 4: Wire it into the renderer**
 
 In `backend/app/services/nginx/renderer.py`, add the render helper next to `_render_dead_host`:
 
@@ -467,16 +479,15 @@ Add `DefaultTlsSpec` to the `from .state import (...)` block at the top of the f
         files[f"megoopm-default-tls-{tls.certificate.id}.conf"] = _render_default_tls(tls)
 ```
 
-- [ ] **Step 5: Run the tests to verify they pass**
+- [x] **Step 5: Run the tests to verify they pass**
 
 ```bash
-docker run --rm -v "//c/Projects/megoopm/backend://app" -w //app megoopm-backend:latest \
-  python -m pytest tests/test_nginx_render.py -q
+docker exec megoopm-test python -m pytest -p no:cacheprovider tests/test_nginx_render.py -q
 ```
 
 Expected: PASS, the whole render module including the six new tests.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add backend/app/templates/nginx/default_tls.conf.j2 backend/app/services/nginx/renderer.py backend/tests/test_nginx_render.py
@@ -495,7 +506,7 @@ git commit -m "feat(nginx): render a :443 default-site block per certificate"
 - Consumes: `plan_default_tls(certificates, claimed_names, certs_dir)` from Task 1; `DesiredState.default_tls` from Task 1.
 - Produces: `load_desired_state` returns a state whose `default_tls` is populated. No signature change.
 
-- [ ] **Step 1: Write the failing test for the claimed-name rule**
+- [x] **Step 1: Write the failing test for the claimed-name rule**
 
 The set of claimed names is derived from the specs already built, so it can be tested without a database. Append to `backend/tests/test_nginx_default_tls.py`:
 
@@ -554,16 +565,15 @@ def test_redirection_and_dead_hosts_claim_their_names_too() -> None:
 ```
 
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 ```bash
-docker run --rm -v "//c/Projects/megoopm/backend://app" -w //app megoopm-backend:latest \
-  python -m pytest tests/test_nginx_default_tls.py -q -k claimed
+docker exec megoopm-test python -m pytest -p no:cacheprovider tests/test_nginx_default_tls.py -q -k claimed
 ```
 
 Expected: FAIL — `ImportError: cannot import name 'claimed_tls_names'`.
 
-- [ ] **Step 3: Implement `claimed_tls_names`**
+- [x] **Step 3: Implement `claimed_tls_names`**
 
 Add to `backend/app/services/nginx/default_tls.py`, importing `DesiredState` from `.state`:
 
@@ -585,16 +595,15 @@ def claimed_tls_names(state: DesiredState) -> set[str]:
     }
 ```
 
-- [ ] **Step 4: Run the test to verify it passes**
+- [x] **Step 4: Run the test to verify it passes**
 
 ```bash
-docker run --rm -v "//c/Projects/megoopm/backend://app" -w //app megoopm-backend:latest \
-  python -m pytest tests/test_nginx_default_tls.py -q
+docker exec megoopm-test python -m pytest -p no:cacheprovider tests/test_nginx_default_tls.py -q
 ```
 
 Expected: PASS.
 
-- [ ] **Step 5: Load the certificates and populate the state**
+- [x] **Step 5: Load the certificates and populate the state**
 
 In `backend/app/services/nginx/loader.py`, add the import:
 
@@ -640,16 +649,15 @@ Then in `load_desired_state`, replace the `return DesiredState(...)` block with:
 
 Add `from dataclasses import replace` to the imports.
 
-- [ ] **Step 6: Run the whole backend suite**
+- [x] **Step 6: Run the whole backend suite**
 
 ```bash
-docker run --rm -v "//c/Projects/megoopm/backend://app" -w //app megoopm-backend:latest \
-  sh -c "python -m pytest -q && ruff check app tests alembic"
+docker exec megoopm-test sh -c "python -m pytest -p no:cacheprovider && ruff check app tests alembic"
 ```
 
 Expected: PASS, with no new skips, and ruff clean.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add backend/app/services/nginx/loader.py backend/app/services/nginx/default_tls.py backend/tests/test_nginx_default_tls.py
@@ -666,7 +674,7 @@ git commit -m "feat(nginx): serve the default site over TLS for unclaimed names"
 **Interfaces:**
 - Consumes: the rendered output of Tasks 2 and 3.
 
-- [ ] **Step 1: Render a sample config to a scratch directory**
+- [x] **Step 1: Render a sample config to a scratch directory**
 
 Write the two files by hand into a scratch `conf.d`, matching what Task 2 renders — one enabled host with an exact name, one default-TLS block whose filename sorts LAST, so it cannot win by configuration order:
 
@@ -695,7 +703,7 @@ location / { return 200 "DEFAULT SITE\n"; }
 EOF
 ```
 
-- [ ] **Step 2: Run nginx and query both names**
+- [x] **Step 2: Run nginx and query both names**
 
 ```bash
 docker run --rm --entrypoint sh \
@@ -723,11 +731,11 @@ disabled.example.com     -> DEFAULT SITE
 
 If `aaa.example.com` returns `DEFAULT SITE`, the catch-all is stealing a working host's name — stop and fix before going further; that is worse than the bug being fixed.
 
-- [ ] **Step 3: Record the result in the spec**
+- [x] **Step 3: Record the result in the spec**
 
 Append the observed output to the "Behaviour" table's surrounding prose in `docs/superpowers/specs/2026-09-02-default-site-tls-design.md` if it differs from what is already recorded there. If it matches, change nothing.
 
-- [ ] **Step 4: Commit any spec correction**
+- [x] **Step 4: Commit any spec correction**
 
 ```bash
 git add docs/superpowers/specs/2026-09-02-default-site-tls-design.md
@@ -746,3 +754,32 @@ Not covered by any automated test, and worth doing once against the running inst
 4. Re-enable it and confirm the host itself answers again.
 
 The absence of a warning is the point of using the operator's own certificate rather than a self-signed one, and only a browser can confirm it.
+
+
+---
+
+## Executed 2026-09-02
+
+All four tasks complete. **708 passed, 41 skipped**; ruff clean.
+
+Two things the plan did not anticipate:
+
+- **The wiring needed its own test.** The plan tested `plan_default_tls` and
+  `claimed_tls_names` separately but never that `load_desired_state` joins
+  them, so `tests/test_nginx_default_tls_pg.py` was added. It failed on first
+  run and was worth having.
+- **A host whose pool has no backends is covered too.** The loader drops such a
+  host rather than emit a block with nothing to forward to, so it claims no
+  name and has nothing on `:443` — the same position a disabled host is in.
+  Discovered through a fixture that forgot the backend, and now pinned by a
+  test.
+
+Task 4 was run against config rendered by the real code rather than
+hand-written, with the catch-all file sorting *first* so it could not win by
+load order:
+
+| request | result |
+| --- | --- |
+| `aaa.example.com` (enabled) | 502 from its own block, reaching for its upstream |
+| `disabled.example.com` | 301 to the default site |
+| `deep.sub.example.com` | 301 to the default site |
