@@ -169,16 +169,20 @@ export function OriginMap({
         </div>
       </div>
 
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
+      {/* Stacked, not side by side. Beside a full-width card the list was
+          pushed to the far right and overflowed the card's edge, and the map
+          was squeezed into a narrow column where it rendered tiny. Full width
+          gives the map room; the list reads fine underneath. */}
+      <div className="space-y-4">
         {canDraw ? (
           <div
             ref={containerRef}
             aria-hidden="true"
-            className="h-64 w-full shrink-0 sm:w-[28rem]"
+            className="h-[22rem] w-full sm:h-[30rem]"
           />
         ) : null}
 
-        <div className="min-w-0 flex-1">
+        <div className="min-w-0">
           {empty ? (
             // Wording distinct from the Visitors card's: two panels repeating
             // one sentence reads as a bug rather than as two views of the same
@@ -189,11 +193,19 @@ export function OriginMap({
                 : "Nothing shaded — CrowdSec has flagged no requests. That means nothing was detected, not that nothing happened."}
             </p>
           ) : (
-            <ol className="space-y-1">
+            // Columns rather than one long list: below the map there is width
+            // to spare, and a single column would push the card metres tall
+            // once a few dozen countries appear.
+            <ol className="grid grid-cols-2 gap-x-6 gap-y-1 sm:grid-cols-3 lg:grid-cols-5">
               {active.map((row) => (
-                <li key={row.country} className="flex items-baseline gap-3 text-sm">
+                <li
+                  key={row.country}
+                  className="flex items-baseline justify-between gap-3 text-sm"
+                >
                   <span className="font-medium">{row.country}</span>
-                  <span className="tabular-nums">{row.count}</span>
+                  <span className="text-muted-foreground tabular-nums">
+                    {row.count}
+                  </span>
                 </li>
               ))}
             </ol>
