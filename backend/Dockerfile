@@ -23,6 +23,21 @@ COPY pyproject.toml ./
 RUN pip install --upgrade pip \
     && pip install .
 
+# DB-IP IP-to-Country Lite (CC BY 4.0) for visitor analytics.
+#
+# Best-effort on purpose: the URL carries the current month, so a build running
+# on the 1st may find it not yet published. A failure leaves the file absent
+# rather than breaking the build -- country resolution then degrades to null and
+# says so once at startup. An operator who wants MaxMind mounts their own file
+# and points GEOIP_DATABASE_PATH at it.
+RUN mkdir -p /app/data \
+    && MONTH="$(date -u +%Y-%m)" \
+    && (curl -fsSL "https://download.db-ip.com/free/dbip-country-lite-${MONTH}.mmdb.gz" \
+        | gunzip > /app/data/dbip-country-lite.mmdb \
+        || (rm -f /app/data/dbip-country-lite.mmdb \
+            && echo "db-ip download failed; country resolution disabled")) \
+    && ls -l /app/data/ 2>/dev/null || true
+
 # Copy application source. `scripts/` ships too: the worker's nginx reload
 # transport (`python -m scripts.nginx_remote`) and the operator CLIs
 # (`scripts.create_user`, `scripts.export_openapi`) run from the image.

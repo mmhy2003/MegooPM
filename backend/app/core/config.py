@@ -94,6 +94,18 @@ class Settings(BaseSettings):
     # reference ``{nginx_certs_dir}/{cert_id}/fullchain.pem`` and privkey.pem.
     # Defaults to ``{shared_data_dir}/certs``.
     nginx_certs_dir: str | None = None
+    # Country lookup for visitor analytics. The image bundles a DB-IP country
+    # database here; an operator who prefers MaxMind points this at their own
+    # file. A missing file means country resolution is simply off, logged once.
+    geoip_database_path: str = "/app/data/dbip-country-lite.mmdb"
+    # Days of visitor rows kept. These are IP addresses -- personal data -- so
+    # this is a retention limit, not a performance tuning knob.
+    visitor_retention_days: int = 30
+    # How often the counters Redis accumulates are drained into Postgres.
+    visitor_flush_interval_seconds: float = 60.0
+    # Key prefix the nginx log handler and the flush task must agree on.
+    visitor_redis_prefix: str = "megoopm:visits"
+
     # The dashboard's traffic card. This URL is always this node's OWN nginx:
     # a backend reaches only its co-located container, which is exactly why the
     # sample is stored per node rather than aggregated at scrape time.

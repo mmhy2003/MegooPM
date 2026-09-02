@@ -96,3 +96,14 @@ npm run test
 
 See [`docs/CONVENTIONS.md`](docs/CONVENTIONS.md) for the stack, directory
 conventions, and how features are wired into the app shell and API client.
+
+## Attribution
+
+Visitor analytics resolves countries using the
+[DB-IP IP-to-Country Lite](https://db-ip.com/db/download/ip-to-country-lite)
+database, licensed [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
+The licence requires this credit; keep it if you redistribute the image.
+
+The database is downloaded at image build time on a best-effort basis. If it is
+absent, visitor rows are still recorded — they simply carry no country.
+

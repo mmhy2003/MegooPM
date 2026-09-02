@@ -23,6 +23,9 @@ dependencies = [
     # LAPI client for the CrowdSec integration (MEG-22) and the async HTTP
     # stack the ASGI test client also builds on.
     "httpx>=0.27",
+    # MMDB reader for the bundled country database (visitor analytics).
+    # Pure Python: no C extension to build, no network at runtime.
+    "maxminddb>=2.6",
     # TLS certificate management (MEG-19): PEM parsing/validation + self-signed
     # issuance (cryptography) and ACME/Let's Encrypt issuance (acme).
     "cryptography>=42",

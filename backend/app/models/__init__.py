@@ -32,6 +32,7 @@ from app.models.redirection_host import RedirectionHost  # noqa: F401
 from app.models.stream import Stream  # noqa: F401
 from app.models.upstream import Upstream, UpstreamBackend  # noqa: F401
 from app.models.user import User, UserRole  # noqa: F401
+from app.models.visitor_day import VisitorDay  # noqa: F401
 
 __all__ = [
     "Base",
@@ -51,6 +52,7 @@ __all__ = [
     "DnsProviderCredential",
     "InstanceSettings",
     "NodeMetrics",
+    "VisitorDay",
     "ProxyHost",
     "ProxyHostLocation",
     "RedirectionHost",
