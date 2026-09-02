@@ -15,7 +15,7 @@ import {
   SecurityCard,
   TrafficCard,
 } from "@/components/dashboard/cards";
-import { OriginGlobe } from "@/components/dashboard/origin-globe";
+import { OriginMap } from "@/components/dashboard/origin-map";
 import { VisitorsCard } from "@/components/dashboard/visitors-card";
 import { subscribeToEvents } from "@/lib/events";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -111,7 +111,7 @@ export function DashboardView() {
       {visitors ? <VisitorsCard visitors={visitors} /> : null}
 
       {/* `visitors` is null until the first load resolves. */}
-      <OriginGlobe threats={threats} traffic={visitors?.countries ?? []} />
+      <OriginMap threats={threats} traffic={visitors?.countries ?? []} />
     </div>
   );
 }

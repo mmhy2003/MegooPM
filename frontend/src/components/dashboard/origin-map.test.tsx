@@ -2,43 +2,65 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
-import { OriginGlobe } from "@/components/dashboard/origin-globe";
+import { OriginMap, bucketFor } from "@/components/dashboard/origin-map";
 
-// jsdom has no WebGL, so the globe cannot draw here. That is the point: the
-// component must still present its data, which is exactly what a screen reader
-// gets, and it keeps these tests independent of the rendering technology.
-vi.mock("cobe", () => ({
-  default: () => {
-    throw new Error("no webgl in jsdom");
+// jsdom cannot render the SVG map, so the library is stubbed out. That is the
+// point: the component must still present its data, which is what assistive
+// technology gets too, and it keeps these tests independent of the rendering
+// library — they survived the move from cobe to jsvectormap unchanged.
+vi.mock("jsvectormap", () => ({
+  default: class {
+    destroy() {}
   },
 }));
+vi.mock("jsvectormap/dist/maps/world", () => ({}));
 
 const THREATS = [{ country: "DE", count: 9 }];
 const TRAFFIC = [{ country: "FR", visitors: 3, requests: 40 }];
 
 afterEach(() => cleanup());
 
-describe("OriginGlobe", () => {
+describe("bucketFor", () => {
+  it("puts the busiest country in the top band", () => {
+    expect(bucketFor(100, 100)).toBe("b5");
+  });
+
+  it("puts a trivial share in the lowest band", () => {
+    expect(bucketFor(1, 100)).toBe("b1");
+  });
+
+  it("spreads the middle rather than saturating it", () => {
+    // Linear on the maximum: with one dominant country the rest must not all
+    // land in the top band, or the map says everywhere is equally busy.
+    expect(bucketFor(50, 100)).toBe("b3");
+  });
+
+  it("does not divide by zero when there is no traffic", () => {
+    expect(bucketFor(0, 0)).toBe("b1");
+  });
+});
+
+describe("OriginMap", () => {
   it("shows traffic first, because it describes the whole site", () => {
-    render(<OriginGlobe threats={THREATS} traffic={TRAFFIC} />);
+    render(<OriginMap threats={THREATS} traffic={TRAFFIC} />);
     expect(screen.getByText("FR")).toBeInTheDocument();
     expect(screen.queryByText("DE")).not.toBeInTheDocument();
   });
 
   it("switches the list when the layer changes", async () => {
     const user = userEvent.setup();
-    render(<OriginGlobe threats={THREATS} traffic={TRAFFIC} />);
+    render(<OriginMap threats={THREATS} traffic={TRAFFIC} />);
 
     await user.click(screen.getByRole("button", { name: /threats/i }));
 
     expect(screen.getByText("DE")).toBeInTheDocument();
-    // The list and the globe must never describe different datasets.
+    // The list and the map must never describe different datasets.
     expect(screen.queryByText("FR")).not.toBeInTheDocument();
   });
 
   it("marks the active layer for assistive technology", async () => {
     const user = userEvent.setup();
-    render(<OriginGlobe threats={THREATS} traffic={TRAFFIC} />);
+    render(<OriginMap threats={THREATS} traffic={TRAFFIC} />);
 
     expect(screen.getByRole("button", { name: /traffic/i })).toHaveAttribute(
       "aria-pressed",
@@ -59,7 +81,7 @@ describe("OriginGlobe", () => {
 
   it("says something different for each empty layer", async () => {
     const user = userEvent.setup();
-    render(<OriginGlobe threats={[]} traffic={[]} />);
+    render(<OriginMap threats={[]} traffic={[]} />);
 
     expect(screen.getByText(/no visitors recorded/i)).toBeInTheDocument();
 
@@ -70,23 +92,23 @@ describe("OriginGlobe", () => {
     expect(screen.getByText(/not that nothing happened/i)).toBeInTheDocument();
   });
 
-  it("lists a country it cannot place, with its count", async () => {
-    // Dropping it would understate the data to keep the map tidy.
+  it("lists every country with its count", async () => {
+    // The choropleth shades what the world map knows; the list carries every
+    // number regardless, so nothing is hidden to keep the map tidy.
     const user = userEvent.setup();
-    render(<OriginGlobe threats={[{ country: "ZZ", count: 4 }]} traffic={[]} />);
+    render(<OriginMap threats={[{ country: "ZZ", count: 4 }]} traffic={[]} />);
 
     await user.click(screen.getByRole("button", { name: /threats/i }));
 
     expect(screen.getByText("ZZ")).toBeInTheDocument();
     expect(screen.getByText("4")).toBeInTheDocument();
-    expect(screen.getByText(/not located/i)).toBeInTheDocument();
   });
 
   it("keeps the order the API supplied", () => {
     // The backend already ranks by volume; reshuffling here would make the two
     // disagree for no reason.
     render(
-      <OriginGlobe
+      <OriginMap
         threats={[]}
         traffic={[
           { country: "DE", visitors: 1, requests: 5 },
@@ -101,9 +123,9 @@ describe("OriginGlobe", () => {
 
   it("says the threat layer covers only flagged requests", async () => {
     // An operator reading the threat map as a traffic map would badly misjudge
-    // their load; the traffic layer is the one that describes all requests.
+    // their load.
     const user = userEvent.setup();
-    render(<OriginGlobe threats={THREATS} traffic={TRAFFIC} />);
+    render(<OriginMap threats={THREATS} traffic={TRAFFIC} />);
 
     await user.click(screen.getByRole("button", { name: /threats/i }));
 
