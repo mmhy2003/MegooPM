@@ -48,9 +48,13 @@ describe("VisitorsCard", () => {
         })}
       />,
     );
-    const items = screen.getAllByRole("listitem").map((li) => li.textContent);
-    expect(items[0]).toContain("DE");
-    expect(items[1]).toContain("FR");
+    // By accessible name: the country is a flag now, so it is no longer part
+    // of the row's text content.
+    const flags = screen
+      .getAllByRole("img")
+      .map((el) => el.getAttribute("aria-label"));
+    expect(flags[0]).toBe("DE");
+    expect(flags[1]).toBe("FR");
   });
 
   it("shows an unlocated visitor rather than hiding it", () => {

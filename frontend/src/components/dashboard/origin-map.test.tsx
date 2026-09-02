@@ -43,8 +43,8 @@ describe("bucketFor", () => {
 describe("OriginMap", () => {
   it("shows traffic first, because it describes the whole site", () => {
     render(<OriginMap threats={THREATS} traffic={TRAFFIC} />);
-    expect(screen.getByText("FR")).toBeInTheDocument();
-    expect(screen.queryByText("DE")).not.toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "FR" })).toBeInTheDocument();
+    expect(screen.queryByRole("img", { name: "DE" })).not.toBeInTheDocument();
   });
 
   it("switches the list when the layer changes", async () => {
@@ -53,9 +53,9 @@ describe("OriginMap", () => {
 
     await user.click(screen.getByRole("button", { name: /threats/i }));
 
-    expect(screen.getByText("DE")).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "DE" })).toBeInTheDocument();
     // The list and the map must never describe different datasets.
-    expect(screen.queryByText("FR")).not.toBeInTheDocument();
+    expect(screen.queryByRole("img", { name: "FR" })).not.toBeInTheDocument();
   });
 
   it("marks the active layer for assistive technology", async () => {
@@ -104,7 +104,7 @@ describe("OriginMap", () => {
 
     await user.click(screen.getByRole("button", { name: /threats/i }));
 
-    expect(screen.getByText("ZZ")).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "ZZ" })).toBeInTheDocument();
     expect(screen.getByText("4")).toBeInTheDocument();
   });
 
@@ -120,9 +120,11 @@ describe("OriginMap", () => {
         ]}
       />,
     );
-    const items = screen.getAllByRole("listitem").map((li) => li.textContent);
-    expect(items[0]).toContain("DE");
-    expect(items[1]).toContain("FR");
+    // By accessible name: the country is a flag now, so it is no longer part
+    // of the row's text content.
+    const flags = screen.getAllByRole("img").map((el) => el.getAttribute("aria-label"));
+    expect(flags[0]).toBe("DE");
+    expect(flags[1]).toBe("FR");
   });
 
   it("says the threat layer covers only flagged requests", async () => {

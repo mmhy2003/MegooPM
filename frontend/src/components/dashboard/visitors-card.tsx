@@ -1,5 +1,6 @@
 "use client";
 
+import "flag-icons/css/flag-icons.min.css";
 import { Users } from "lucide-react";
 
 import type { VisitorSummary } from "@/lib/api";
@@ -14,6 +15,28 @@ import type { VisitorSummary } from "@/lib/api";
  * knowing whether that is a day or a month, and the API clamps the window to
  * the retention limit, so it may not be the one that was asked for.
  */
+/**
+ * A country's flag, from the `flag-icons` CSS sprite set.
+ *
+ * Not a Unicode flag emoji: Chrome and Edge on Windows render those as the
+ * two-letter code, so a large share of operators would see exactly what this
+ * is meant to replace.
+ *
+ * The code is kept as the accessible name — a flag alone is unreadable to a
+ * screen reader, and several flags are hard to tell apart at 16px.
+ */
+function Flag({ country }: { country: string }) {
+  return (
+    <span
+      className={`fi fi-${country.toLowerCase()} shrink-0 rounded-[2px]`}
+      style={{ width: "1.25rem", height: "0.9375rem" }}
+      role="img"
+      aria-label={country}
+      title={country}
+    />
+  );
+}
+
 export function VisitorsCard({ visitors }: { visitors: VisitorSummary }) {
   const recorded = visitors.total_visitors > 0;
   const window =
@@ -64,7 +87,7 @@ export function VisitorsCard({ visitors }: { visitors: VisitorSummary }) {
                       key={row.country}
                       className="flex items-baseline gap-3 text-sm"
                     >
-                      <span className="font-medium">{row.country}</span>
+                      <Flag country={row.country} />
                       <span className="tabular-nums">{row.requests}</span>
                       <span className="text-muted-foreground text-xs">
                         {row.visitors} visitor{row.visitors === 1 ? "" : "s"}
@@ -90,7 +113,11 @@ export function VisitorsCard({ visitors }: { visitors: VisitorSummary }) {
                       <span className="text-muted-foreground text-xs">
                         {/* Never hidden: the gap between these and the country
                           list is real, unlocated traffic. */}
-                        {row.country ?? "unknown"}
+                        {row.country ? (
+                          <Flag country={row.country} />
+                        ) : (
+                          "unknown"
+                        )}
                       </span>
                       <span className="tabular-nums">{row.requests}</span>
                     </li>

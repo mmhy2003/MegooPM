@@ -6,6 +6,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 // unpositioned SVG.
 import "jsvectormap/dist/jsvectormap.min.css";
 
+import "flag-icons/css/flag-icons.min.css";
 import { Globe } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -67,6 +68,28 @@ export function bucketFor(count: number, busiest: number): string {
  * data available at all — and it is what the tests assert on, which keeps them
  * independent of the rendering library.
  */
+/**
+ * A country's flag, from the `flag-icons` CSS sprite set.
+ *
+ * Not a Unicode flag emoji: Chrome and Edge on Windows render those as the
+ * two-letter code, so a large share of operators would see exactly what this
+ * is meant to replace.
+ *
+ * The code is kept as the accessible name — a flag alone is unreadable to a
+ * screen reader, and several flags are hard to tell apart at 16px.
+ */
+function Flag({ country }: { country: string }) {
+  return (
+    <span
+      className={`fi fi-${country.toLowerCase()} shrink-0 rounded-[2px]`}
+      style={{ width: "1.25rem", height: "0.9375rem" }}
+      role="img"
+      aria-label={country}
+      title={country}
+    />
+  );
+}
+
 export function OriginMap({
   threats,
   traffic,
@@ -213,7 +236,7 @@ export function OriginMap({
                   key={row.country}
                   className="flex items-baseline justify-between gap-3 text-sm"
                 >
-                  <span className="font-medium">{row.country}</span>
+                  <Flag country={row.country} />
                   <span className="text-muted-foreground tabular-nums">
                     {row.count}
                   </span>
