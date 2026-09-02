@@ -52,7 +52,7 @@ docker exec megoopm-test pip install -q "pytest>=8.2" "pytest-asyncio>=0.23" "ai
   - `async publish(event) -> None`
   - `async subscribe() -> AsyncIterator[Event]`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Create `backend/tests/test_events.py`:
 
@@ -126,7 +126,7 @@ async def test_a_published_event_reaches_a_subscriber() -> None:
     assert received[0].detail["version"] == 3
 ```
 
-- [ ] **Step 2: Run the tests to verify they fail**
+- [x] **Step 2: Run the tests to verify they fail**
 
 ```bash
 docker exec megoopm-test python -m pytest tests/test_events.py -p no:cacheprovider
@@ -134,7 +134,7 @@ docker exec megoopm-test python -m pytest tests/test_events.py -p no:cacheprovid
 
 Expected: FAIL — `ModuleNotFoundError: No module named 'app.schemas.events'`.
 
-- [ ] **Step 3: Write the schema**
+- [x] **Step 3: Write the schema**
 
 Create `backend/app/schemas/events.py`:
 
@@ -163,7 +163,7 @@ class Event(BaseModel):
     detail: dict[str, Any] = Field(default_factory=dict)
 ```
 
-- [ ] **Step 4: Write the service**
+- [x] **Step 4: Write the service**
 
 Create `backend/app/services/events.py`:
 
@@ -242,7 +242,7 @@ async def subscribe() -> AsyncIterator[Event]:
 __all__ = ["CHANNEL", "Event", "format_sse", "publish", "subscribe"]
 ```
 
-- [ ] **Step 5: Run the tests to verify they pass**
+- [x] **Step 5: Run the tests to verify they pass**
 
 ```bash
 docker exec megoopm-test python -m pytest tests/test_events.py -p no:cacheprovider
@@ -251,7 +251,7 @@ docker exec megoopm-test python -m pytest tests/test_events.py -p no:cacheprovid
 Expected: PASS, 4 tests. If the round-trip test hangs, the subscription had not
 registered before the publish — raise the sleep, do not delete the test.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add backend/app/schemas/events.py backend/app/services/events.py backend/tests/test_events.py
@@ -272,7 +272,7 @@ git commit -m "feat(events): publish and relay dashboard events over Redis"
 - Consumes: `subscribe`, `format_sse` (Task 1).
 - Produces: `GET /api/v1/events`, and `StreamAdminUser` in `deps.py`.
 
-- [ ] **Step 1: Add the stream-only dependency**
+- [x] **Step 1: Add the stream-only dependency**
 
 In `backend/app/api/deps.py`, **leaving `get_current_user` untouched**:
 
@@ -327,7 +327,7 @@ StreamAdminUser = Annotated[User, Depends(require_stream_admin)]
 
 Add `Request` to the `fastapi` import and `StreamAdminUser` to `__all__`.
 
-- [ ] **Step 2: Write the failing tests**
+- [x] **Step 2: Write the failing tests**
 
 Create `backend/tests/test_events_api.py`, reusing the `client`/`auth` fixture
 pattern from `tests/test_dashboard_api.py`:
@@ -361,7 +361,7 @@ async def test_the_other_routes_still_reject_a_cookie(client, admin_token) -> No
     assert resp.status_code in (401, 403)
 ```
 
-- [ ] **Step 3: Run the tests to verify they fail**
+- [x] **Step 3: Run the tests to verify they fail**
 
 ```bash
 docker exec megoopm-test python -m pytest tests/test_events_api.py -p no:cacheprovider
@@ -370,7 +370,7 @@ docker exec megoopm-test python -m pytest tests/test_events_api.py -p no:cachepr
 Expected: FAIL with 404 — the route does not exist. The last test may already
 pass; that is fine, it is a regression guard.
 
-- [ ] **Step 4: Write the endpoint**
+- [x] **Step 4: Write the endpoint**
 
 Create `backend/app/api/routes/events.py`:
 
@@ -457,7 +457,7 @@ async def stream_events(_admin: StreamAdminUser, request: Request) -> StreamingR
 
 Mount it in `app/api/router.py` with `prefix="/events"`, alongside the others.
 
-- [ ] **Step 5: Run the tests and refresh the contract**
+- [x] **Step 5: Run the tests and refresh the contract**
 
 ```bash
 docker exec megoopm-test python -m pytest -p no:cacheprovider
@@ -466,7 +466,7 @@ docker exec megoopm-test python -m pytest -p no:cacheprovider
 docker exec megoopm-test ruff check app tests alembic
 ```
 
-- [ ] **Step 6: Document the buffering requirement**
+- [x] **Step 6: Document the buffering requirement**
 
 The endpoint sets `X-Accel-Buffering: no`, which nginx honours — so an operator
 fronting the admin API with a MegooPM host is already covered. Other proxies
@@ -481,7 +481,7 @@ Add to `README.md`, under Deploying:
 > buffered stream makes the dashboard fall back to its 60-second poll, which is
 > a slowdown rather than a failure.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add backend README.md
@@ -501,7 +501,7 @@ git commit -m "feat(events): an SSE endpoint for the dashboard"
 **Interfaces:**
 - Consumes: `publish`, `Event` (Task 1).
 
-- [ ] **Step 1: Publish a config change**
+- [x] **Step 1: Publish a config change**
 
 In `after_config_write`, after `enqueue_nginx_reload()`:
 
@@ -519,7 +519,7 @@ In `after_config_write`, after `enqueue_nginx_reload()`:
     )
 ```
 
-- [ ] **Step 2: Publish a certificate change**
+- [x] **Step 2: Publish a certificate change**
 
 Publish from inside `_issue_async`, which is **already async** — do not reach
 for `asyncio.run` in the sync task wrapper, which would nest event loops.
@@ -547,7 +547,7 @@ and call `await _announce(cert_id, ok=True)` on the success path and
 `await _announce(cert_id, ok=False)` wherever `_mark_failed` has run, before
 returning.
 
-- [ ] **Step 3: Publish a decision**
+- [x] **Step 3: Publish a decision**
 
 In the `add_decision` route in `app/api/routes/crowdsec.py`, after the decision
 is created:
@@ -558,7 +558,7 @@ is created:
     )
 ```
 
-- [ ] **Step 4: Add a test that a publish failure is harmless**
+- [x] **Step 4: Add a test that a publish failure is harmless**
 
 Append to `backend/tests/test_events.py`:
 
@@ -579,7 +579,7 @@ async def test_a_publish_failure_does_not_raise(monkeypatch) -> None:
     await events.publish(Event(type="x", at=AT, detail={}))  # must not raise
 ```
 
-- [ ] **Step 5: Run everything**
+- [x] **Step 5: Run everything**
 
 ```bash
 docker exec megoopm-test python -m pytest -p no:cacheprovider
@@ -589,7 +589,7 @@ docker exec megoopm-test ruff check app tests alembic
 Expected: all pass. Any existing test that asserts on `after_config_write`'s
 behaviour must still pass — publishing is additive.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add backend
@@ -608,7 +608,7 @@ git commit -m "feat(events): announce config, certificate and decision changes"
 **Interfaces:**
 - Produces: `subscribeToEvents(onEvent: (type: string) => void): () => void`.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Create `frontend/src/lib/events.test.ts` with a fake `EventSource`:
 
@@ -644,7 +644,7 @@ it("does nothing when EventSource is unavailable", () => {
 });
 ```
 
-- [ ] **Step 2: Write the subscription**
+- [x] **Step 2: Write the subscription**
 
 Create `frontend/src/lib/events.ts`:
 
@@ -684,7 +684,7 @@ export function subscribeToEvents(onEvent: (type: string) => void): () => void {
 }
 ```
 
-- [ ] **Step 3: Wire it into the dashboard**
+- [x] **Step 3: Wire it into the dashboard**
 
 In `dashboard-view.tsx`:
 
@@ -719,13 +719,13 @@ and the effect becomes:
 Both cleanups matter: a leaked `EventSource` holds a connection open per mount,
 and the dashboard is a page an operator navigates in and out of all day.
 
-- [ ] **Step 4: Run the full frontend gate**
+- [x] **Step 4: Run the full frontend gate**
 
 ```bash
 cd frontend && npx vitest run && npm run typecheck && npm run lint && npm run build
 ```
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add frontend/src
@@ -751,3 +751,30 @@ on a real browser and a real proxy chain:
    close.
 6. If you front the admin API with a MegooPM proxy host, repeat step 1 through
    it: without `proxy_buffering off`, events arrive in bursts or not at all.
+
+
+---
+
+## Executed 2026-09-02
+
+All four tasks complete. Backend **806 passed, 41 skipped**, ruff clean.
+Frontend **441 passed, 1 skipped**, typecheck, lint and build clean.
+
+Two things execution changed:
+
+- **The subscription had to move before the first `yield`.** An async generator
+  does not run its body until the consumer pulls, and it suspends at each
+  yield — so creating the pump after the opening frame left the subscription
+  dormant until the client had consumed it, and anything published in that gap
+  was lost. Found because a test *skipped* on the resulting timeout instead of
+  failing; the skip is now narrowed to a genuinely missing Redis, so a lost
+  event fails loudly.
+- **The streaming tests do not go through the HTTP client.** httpx's
+  ASGITransport buffers a whole response before returning, so an endpoint that
+  never completes hangs the runner — the first attempt did exactly that. The
+  stream generator and the auth dependency are exercised directly instead,
+  which also lets the Redis round trip be observed at all, something an
+  HTTP-level test could not do.
+
+The plan's own constraint held: a test asserts a session cookie still fails on
+`/dashboard/summary`, so cookie authentication did not leak out of the stream.
