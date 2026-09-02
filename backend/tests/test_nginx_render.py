@@ -12,6 +12,7 @@ from app.services.nginx import render_config
 from app.services.nginx.state import (
     BackendSpec,
     CertificateSpec,
+    DefaultTlsSpec,
     DesiredState,
     LocationSpec,
     ProxyHostSpec,
@@ -371,3 +372,80 @@ def test_locations_render_both_target_kinds() -> None:
 
     assert "proxy_pass http://megoopm_upstream_2;" in out
     assert "proxy_pass http://10.0.0.9:9000;" in out
+
+
+# --- The default site over TLS --------------------------------------------
+
+
+def _default_tls(**kw) -> DefaultTlsSpec:
+    base = {
+        "certificate": CertificateSpec(
+            id=3,
+            fullchain_path="/data/certs/3/fullchain.pem",
+            privkey_path="/data/certs/3/privkey.pem",
+            fingerprint="abc123",
+        ),
+        "server_names": ("disabled.example.com", "*.example.com"),
+    }
+    base.update(kw)
+    return DefaultTlsSpec(**base)
+
+
+def test_default_tls_block_is_named_per_certificate() -> None:
+    files = render_config(DesiredState(default_tls=(_default_tls(),)))
+    assert set(files) == {"megoopm-default-tls-3.conf"}
+
+
+def test_default_tls_block_serves_the_names_on_443_with_the_certificate() -> None:
+    conf = render_config(DesiredState(default_tls=(_default_tls(),)))[
+        "megoopm-default-tls-3.conf"
+    ]
+    assert "listen 443 ssl;" in conf
+    assert "server_name disabled.example.com *.example.com;" in conf
+    assert "ssl_certificate /data/certs/3/fullchain.pem;" in conf
+    assert "ssl_certificate_key /data/certs/3/privkey.pem;" in conf
+
+
+def test_default_tls_block_includes_the_existing_default_site_fragment() -> None:
+    """Reusing the fragment is what makes the Settings choice apply to HTTPS."""
+    conf = render_config(DesiredState(default_tls=(_default_tls(),)))[
+        "megoopm-default-tls-3.conf"
+    ]
+    assert "include" in conf
+    assert "*.conf;" in conf
+
+
+def test_default_tls_block_records_the_certificate_material() -> None:
+    """Renewal rewrites the files in place; without this the rendered config is
+    unchanged and no node reloads onto the new certificate."""
+    conf = render_config(DesiredState(default_tls=(_default_tls(),)))[
+        "megoopm-default-tls-3.conf"
+    ]
+    assert "# cert-material 3:abc123" in conf
+    other = render_config(
+        DesiredState(
+            default_tls=(
+                _default_tls(
+                    certificate=CertificateSpec(
+                        id=3,
+                        fullchain_path="/data/certs/3/fullchain.pem",
+                        privkey_path="/data/certs/3/privkey.pem",
+                        fingerprint="def456",
+                    )
+                ),
+            )
+        )
+    )["megoopm-default-tls-3.conf"]
+    assert conf != other
+
+
+def test_default_tls_block_has_a_root_so_nothing_falls_through_to_openresty() -> None:
+    """Without it an unmatched request is served OpenResty's welcome page."""
+    conf = render_config(DesiredState(default_tls=(_default_tls(),)))[
+        "megoopm-default-tls-3.conf"
+    ]
+    assert "root /var/empty/megoopm;" in conf
+
+
+def test_no_default_tls_blocks_when_there_are_none() -> None:
+    assert render_config(DesiredState()) == {}

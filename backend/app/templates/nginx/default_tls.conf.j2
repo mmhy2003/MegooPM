@@ -1,0 +1,29 @@
+{# The default site over TLS, for names this certificate covers that no enabled
+   host claims on :443 — a host that was just disabled, most obviously.
+
+   The base config declares `default_server` on :80 only. With nothing default
+   on :443, nginx answers an unmatched HTTPS request from the FIRST server block
+   it loaded for that port — an unrelated host, chosen by filename order. This
+   block removes that for every name a certificate covers. #}
+# Managed by MegooPM — do not edit by hand.
+server {
+    listen 443 ssl;
+    server_name {{ server_names }};
+
+    # Without this a request matching no location falls through to OpenResty's
+    # compiled-in root and is served its welcome page.
+    root /var/empty/megoopm;
+
+    # Renewal rewrites the files below in place, so without this line the
+    # rendered config would be unchanged and no node would reload onto the new
+    # certificate. See CertificateSpec.fingerprint.
+    # cert-material {{ spec.certificate.id }}:{{ spec.certificate.fingerprint }}
+    ssl_certificate {{ spec.certificate.fullchain_path }};
+    ssl_certificate_key {{ spec.certificate.privkey_path }};
+
+    # The default site the operator chose in Settings, written by the same
+    # feature that serves it on :80 — a bare `location /`, so the mode matrix
+    # is not duplicated here. Absent when no default site is configured, in
+    # which case no location matches and nginx answers 404.
+    include {{ default_dir }}/*.conf;
+}

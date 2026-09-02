@@ -23,6 +23,7 @@ from app.core.config import settings
 from app.services.nginx.state import (
     AccessListSpec,
     DeadHostSpec,
+    DefaultTlsSpec,
     DesiredState,
     LocationSpec,
     ProxyHostSpec,
@@ -156,6 +157,14 @@ def _render_dead_host(host: DeadHostSpec) -> str:
     )
 
 
+def _render_default_tls(spec: DefaultTlsSpec) -> str:
+    return _env().get_template("default_tls.conf.j2").render(
+        spec=spec,
+        server_names=" ".join(spec.server_names),
+        default_dir=settings.nginx_default_dir,
+    )
+
+
 def _render_stream(stream: StreamSpec) -> str:
     return _env().get_template("stream.conf.j2").render(
         stream=stream,
@@ -191,6 +200,10 @@ def render_config(state: DesiredState) -> dict[str, str]:
         files[f"megoopm-redirect-{redirect.id}.conf"] = _render_redirection_host(redirect)
     for dead in state.dead_hosts:
         files[f"megoopm-dead-{dead.id}.conf"] = _render_dead_host(dead)
+    # One :443 block per certificate, serving the default site for the names
+    # that certificate covers but no enabled host claims.
+    for tls in state.default_tls:
+        files[f"megoopm-default-tls-{tls.certificate.id}.conf"] = _render_default_tls(tls)
     return {name: files[name] for name in sorted(files)}
 
 
