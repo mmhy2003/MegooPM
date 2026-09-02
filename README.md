@@ -97,6 +97,17 @@ npm run test
 See [`docs/CONVENTIONS.md`](docs/CONVENTIONS.md) for the stack, directory
 conventions, and how features are wired into the app shell and API client.
 
+## Event stream
+
+The dashboard opens a Server-Sent Events connection to `/api/v1/events` and
+refreshes when a config change, certificate change or new decision is
+announced.
+
+If you put a reverse proxy in front of the admin API, it must not buffer that
+route. nginx honours the `X-Accel-Buffering: no` header the endpoint sends;
+other proxies may need explicit configuration. A buffered stream is a
+slowdown, not a failure — the dashboard falls back to its 60-second poll.
+
 ## Attribution
 
 Visitor analytics resolves countries using the

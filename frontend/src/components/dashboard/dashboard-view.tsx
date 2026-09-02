@@ -17,13 +17,17 @@ import {
 } from "@/components/dashboard/cards";
 import { OriginGlobe } from "@/components/dashboard/origin-globe";
 import { VisitorsCard } from "@/components/dashboard/visitors-card";
+import { subscribeToEvents } from "@/lib/events";
 import { Skeleton } from "@/components/ui/skeleton";
 
 /**
- * Polls at the same cadence the nodes sample at. A faster poll would re-read
- * numbers that had not changed, since each node writes once per interval.
+ * The floor, not the mechanism.
+ *
+ * Pushed events refresh the page the moment something happens; this is what
+ * keeps it correct when the stream is blocked by a proxy, so it must never go
+ * to zero. Push is an accelerator here, never a dependency.
  */
-const POLL_MS = 15_000;
+const POLL_MS = 60_000;
 
 export function DashboardView() {
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
@@ -60,7 +64,16 @@ export function DashboardView() {
       await load();
     })();
     const timer = setInterval(() => void load(), POLL_MS);
-    return () => clearInterval(timer);
+    // Any event means something shown here may have changed. The client
+    // refetches rather than trusting a payload, so the type is only a trigger
+    // and there is never a second serialisation to drift from the REST one.
+    const unsubscribe = subscribeToEvents(() => void load());
+    return () => {
+      clearInterval(timer);
+      // Both cleanups matter: a leaked EventSource holds a connection open per
+      // mount, on a page an operator navigates in and out of all day.
+      unsubscribe();
+    };
   }, [load]);
 
   if (loading) {
