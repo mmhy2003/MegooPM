@@ -26,6 +26,7 @@ from app.models.custom_page import CustomPage  # noqa: F401
 from app.models.dead_host import DeadHost  # noqa: F401
 from app.models.dns_credential import DnsProviderCredential  # noqa: F401
 from app.models.instance_settings import InstanceSettings  # noqa: F401
+from app.models.node_metrics import NodeMetrics  # noqa: F401
 from app.models.proxy_host import ProxyHost, ProxyHostLocation  # noqa: F401
 from app.models.redirection_host import RedirectionHost  # noqa: F401
 from app.models.stream import Stream  # noqa: F401
@@ -49,6 +50,7 @@ __all__ = [
     "DeadHost",
     "DnsProviderCredential",
     "InstanceSettings",
+    "NodeMetrics",
     "ProxyHost",
     "ProxyHostLocation",
     "RedirectionHost",
