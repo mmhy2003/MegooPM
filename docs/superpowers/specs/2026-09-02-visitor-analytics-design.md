@@ -52,7 +52,28 @@ adds **no new package, no new container and no new service**.
 
 ### The mechanism
 
-`log_by_lua_block` runs on every request and performs two `HINCRBY`s:
+**Corrected during implementation.** This spec originally had `log_by_lua`
+call Redis directly. It cannot: **cosockets are unavailable in the log phase**.
+Measured in the image — a handler that logs a line and then calls
+`ngx.socket.tcp()` prints the line and never reaches the connect, so a Redis
+call from there counts nothing, silently.
+
+What ships instead is strictly better:
+
+1. **The log phase touches only `lua_shared_dict`** — plain shared memory,
+   always available — with two `incr` calls keyed `c|<day>|<ip>` and
+   `b|<day>|<ip>`. No socket, and no timer per request.
+2. **A recurring timer in worker 0** drains that dict into Redis every second,
+   subtracting exactly what it read so concurrent increments are preserved.
+
+Besides being possible, this is cheaper: two shared-memory increments per
+request rather than a network round trip, with pushes batched by construction.
+Measured with Redis stopped, requests still complete in **0.5 ms** — the
+original design would have cost a 200 ms timeout on every one.
+
+The Redis key layout is unchanged, so nothing downstream of nginx was affected:
+
+
 
 ```
 megoopm:visits:count:2026-09-02   { "203.0.113.9": 412, ... }
@@ -71,13 +92,14 @@ permanently-down worker cannot grow Redis without bound.
 
 ### The hard rule
 
-**Losing analytics must never cost a served request.** The Lua uses a short
-connect/read timeout and wraps everything in `pcall`; any failure is swallowed
-and the request completes normally.
+**Losing analytics must never cost a served request.** With the shared-memory
+design this is structural rather than defensive: the request path performs no
+I/O at all, so there is nothing for it to wait on. The timer that does talk to
+Redis runs outside any request, and a failure there leaves the counts in shared
+memory for the next tick.
 
-The log phase runs *after* the response is sent, so there is no client-visible
-latency — but a hung Redis could still occupy a worker for the duration of its
-timeout, which is why the timeout matters and `pcall` alone is not enough.
+The `pcall` wrappers remain as a second line: a fault in the handler must not
+fail a response that has already been sent.
 
 ### Approaches rejected
 
@@ -85,6 +107,7 @@ timeout, which is why the timeout matters and `pcall` alone is not enough.
 | --- | --- |
 | second `access_log syslog:` into a MegooPM collector | needs a new long-running UDP service, and parses `combined` text back into fields nginx already had structured |
 | tail the access log file | needs a shared volume, rotation handling and offset tracking across restarts — the most ways to silently lose or double-count |
+| `log_by_lua` calling Redis directly | **impossible**: cosockets are unavailable in the log phase, so the call is aborted and nothing is counted |
 
 ## Flush
 
@@ -173,7 +196,9 @@ breakdowns multiply the row count by the number of hosts a visitor touches.
 
 **Infra**
 
-- `infra/nginx/lua/megoopm_analytics.lua` (new) — the `log_by_lua` body
+- `infra/nginx/lua/megoopm_analytics.lua` (new) — the `log_by_lua` body and
+  the drain timer
+- `infra/nginx/nginx.conf` — a `lua_shared_dict` for the counters
 - `infra/nginx/nginx.conf` — load it, plus the Redis connection settings
 - `infra/nginx/docker-entrypoint.sh` — pass `REDIS_URL` through to nginx
 

@@ -12,7 +12,8 @@
 
 ## Global Constraints
 
-- **Losing analytics must never cost a served request.** The Lua uses a short connect/read timeout AND wraps everything in `pcall`. `pcall` alone is not enough: it catches errors but not a hung Redis, which would occupy an nginx worker for the full default timeout. If in doubt, drop the data.
+- **The log phase cannot open a socket.** Cosockets are unavailable in `log_by_lua` — verified in the image, where a handler logs its first line and is then aborted at `ngx.socket.tcp()`. Counting therefore goes to a `lua_shared_dict` and a timer started from `init_worker_by_lua` drains it. Anything that tries to reach Redis from the request path will silently count nothing.
+- **Losing analytics must never cost a served request.** With the shared-memory design this is structural: the request path does no I/O. `pcall` stays as a second line so a fault cannot fail an already-sent response.
 - **The flush upsert ADDS, it does not replace.** Each flush carries the delta since the last one. `SET request_count = EXCLUDED.request_count` would silently reset every visitor's count once a minute — code that looks right and produces wrong numbers forever.
 - **The flush MUST hold `leader_lock`.** HA requires a *shared* Redis (`docker-compose.ha.yml`: "REDIS_URL is required (shared Redis)"), so every node sees the same counters. Without the lock, every count is multiplied by the cluster size.
 - **Drain by removing the fields that were read, never by deleting the key.** `DEL` would discard increments that arrived during the flush.
@@ -1187,3 +1188,27 @@ Not reachable by any automated test:
 5. `docker compose exec db psql -U megoopm -c "select * from visitor_day"` —
    confirm counts accumulate across several flushes rather than resetting.
 6. Confirm the dashboard's own polling does not appear as a visitor.
+
+
+---
+
+## Executed 2026-09-02 (Tasks 1-5)
+
+Backend **787 passed, 41 skipped**, ruff clean.
+
+**The ingestion design changed, because the specced one cannot work.**
+Cosockets are unavailable in `log_by_lua`, so the planned direct Redis call was
+aborted every time and counted nothing — found by running it, not by reading.
+The log phase now writes to a `lua_shared_dict` and a timer in worker 0 drains
+it. The Redis key layout is identical, so Tasks 1-4 needed no change.
+
+Verified against the real image:
+
+| check | result |
+| --- | --- |
+| five requests to a managed host | exactly five counts in Redis |
+| `stub_status` scrape and `/healthz` | correctly excluded |
+| requests with Redis stopped | **200 OK in 0.5 ms** |
+
+That last row is the one that matters: the original design would have cost a
+200 ms timeout on every request while Redis was away.
