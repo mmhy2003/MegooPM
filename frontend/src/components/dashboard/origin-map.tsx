@@ -6,6 +6,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 // unpositioned SVG.
 import "jsvectormap/dist/jsvectormap.min.css";
 
+import { Globe } from "lucide-react";
+
 import { Button } from "@/components/ui/button";
 import type { CountryCount, ThreatPoint } from "@/lib/api";
 
@@ -47,7 +49,10 @@ const THREAT_SCALE: Record<string, string> = {
 export function bucketFor(count: number, busiest: number): string {
   if (busiest <= 0) return BUCKETS[0];
   const share = count / busiest;
-  const index = Math.min(BUCKETS.length - 1, Math.floor(share * BUCKETS.length));
+  const index = Math.min(
+    BUCKETS.length - 1,
+    Math.floor(share * BUCKETS.length),
+  );
   return BUCKETS[Math.max(0, index)];
 }
 
@@ -88,7 +93,10 @@ export function OriginMap({
   const values = useMemo(() => {
     const busiest = Math.max(0, ...active.map((row) => row.count));
     return Object.fromEntries(
-      active.map((row) => [row.country.toUpperCase(), bucketFor(row.count, busiest)]),
+      active.map((row) => [
+        row.country.toUpperCase(),
+        bucketFor(row.count, busiest),
+      ]),
     );
   }, [active]);
 
@@ -146,7 +154,10 @@ export function OriginMap({
     <section className="space-y-3 rounded-xl border p-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h3 className="text-sm font-medium">Request origins</h3>
+          <h3 className="flex items-center gap-2 text-sm font-medium">
+            <Globe className="size-4 shrink-0" aria-hidden="true" />
+            Request origins
+          </h3>
           <p className="text-muted-foreground text-xs">
             {layer === "traffic"
               ? "Every request that reached a managed host."

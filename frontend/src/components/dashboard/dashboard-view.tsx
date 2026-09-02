@@ -53,7 +53,8 @@ export function DashboardView() {
         setError("Could not load the dashboard.");
       }
       if (threatsResult.status === "fulfilled") setThreats(threatsResult.value);
-      if (visitorsResult.status === "fulfilled") setVisitors(visitorsResult.value);
+      if (visitorsResult.status === "fulfilled")
+        setVisitors(visitorsResult.value);
     } finally {
       setLoading(false);
     }

@@ -9,6 +9,15 @@
  * reported says so, because "0 connections" and "nothing has measured this"
  * mean opposite things to an operator deciding whether to page someone.
  */
+import {
+  Activity,
+  Boxes,
+  Server,
+  ShieldAlert,
+  ShieldCheck,
+  type LucideIcon,
+} from "lucide-react";
+
 import type {
   CertificateHealth,
   ConfigHealth,
@@ -19,14 +28,21 @@ import type {
 
 function Card({
   title,
+  icon: Icon,
   children,
 }: {
   title: string;
+  icon: LucideIcon;
   children: React.ReactNode;
 }) {
   return (
     <section className="space-y-3 rounded-xl border p-4">
-      <h3 className="text-muted-foreground text-sm font-medium">{title}</h3>
+      <h3 className="text-muted-foreground flex items-center gap-2 text-sm font-medium">
+        {/* Decorative: the title beside it already names the card, so a screen
+            reader announcing the icon too would just repeat itself. */}
+        <Icon className="size-4 shrink-0" aria-hidden="true" />
+        {title}
+      </h3>
       {children}
     </section>
   );
@@ -53,12 +69,15 @@ export function CertificatesCard({
   const needsAttention =
     certificates.expiring_soon + certificates.expired + certificates.failed;
   return (
-    <Card title="Certificates">
+    <Card title="Certificates" icon={ShieldCheck}>
       {needsAttention === 0 ? (
         <Absent>All healthy — {certificates.total} in total.</Absent>
       ) : (
         <div className="flex gap-6">
-          <Figure value={certificates.expiring_soon} label="expiring in 30 days" />
+          <Figure
+            value={certificates.expiring_soon}
+            label="expiring in 30 days"
+          />
           <Figure value={certificates.expired} label="expired" />
           <Figure value={certificates.failed} label="failed" />
         </div>
@@ -69,7 +88,7 @@ export function CertificatesCard({
 
 export function ConfigHealthCard({ config }: { config: ConfigHealth }) {
   return (
-    <Card title="Config health">
+    <Card title="Config health" icon={Server}>
       <div className="space-y-1">
         <p className="text-2xl font-semibold tabular-nums">
           {config.nodes_in_sync} of {config.nodes_total}
@@ -79,16 +98,22 @@ export function ConfigHealthCard({ config }: { config: ConfigHealth }) {
         </p>
         <p className={config.converged ? "text-xs" : "text-warning text-xs"}>
           {config.converged ? "In sync" : "Not converged"}
-          {config.nodes_stale > 0 ? ` · ${config.nodes_stale} not seen recently` : ""}
+          {config.nodes_stale > 0
+            ? ` · ${config.nodes_stale} not seen recently`
+            : ""}
         </p>
       </div>
     </Card>
   );
 }
 
-export function SecurityCard({ security }: { security: SecuritySummary | null }) {
+export function SecurityCard({
+  security,
+}: {
+  security: SecuritySummary | null;
+}) {
   return (
-    <Card title="Security">
+    <Card title="Security" icon={ShieldAlert}>
       {security === null ? (
         <Absent>CrowdSec unavailable — no data to show.</Absent>
       ) : (
@@ -111,13 +136,16 @@ export function SecurityCard({ security }: { security: SecuritySummary | null })
 export function TrafficCard({ traffic }: { traffic: TrafficSummary }) {
   const measured = traffic.active_connections !== null;
   return (
-    <Card title="Live traffic">
+    <Card title="Live traffic" icon={Activity}>
       {!measured ? (
         <Absent>No data yet — waiting for the first sample.</Absent>
       ) : (
         <div className="space-y-2">
           <div className="flex gap-6">
-            <Figure value={traffic.active_connections ?? 0} label="active connections" />
+            <Figure
+              value={traffic.active_connections ?? 0}
+              label="active connections"
+            />
             {/* Labelled as an average on purpose: stub_status reports cumulative
                 counters, so this is a delta between scrapes, not a live figure. */}
             <Figure
@@ -127,8 +155,9 @@ export function TrafficCard({ traffic }: { traffic: TrafficSummary }) {
           </div>
           {traffic.stale_nodes > 0 ? (
             <p className="text-warning text-xs">
-              {traffic.stale_nodes} node{traffic.stale_nodes === 1 ? "" : "s"} not
-              reporting — totals exclude {traffic.stale_nodes === 1 ? "it" : "them"}.
+              {traffic.stale_nodes} node{traffic.stale_nodes === 1 ? "" : "s"}{" "}
+              not reporting — totals exclude{" "}
+              {traffic.stale_nodes === 1 ? "it" : "them"}.
             </p>
           ) : null}
         </div>
@@ -139,15 +168,15 @@ export function TrafficCard({ traffic }: { traffic: TrafficSummary }) {
 
 export function InventoryCard({ inventory }: { inventory: InventoryCounts }) {
   return (
-    <Card title="Inventory">
+    <Card title="Inventory" icon={Boxes}>
       <div className="space-y-1">
         <p className="text-2xl font-semibold tabular-nums">
           {inventory.proxy_hosts_enabled} of {inventory.proxy_hosts_total}
         </p>
         <p className="text-muted-foreground text-xs">proxy hosts enabled</p>
         <p className="text-muted-foreground text-xs">
-          {inventory.redirection_hosts} redirects · {inventory.dead_hosts} 404 hosts ·{" "}
-          {inventory.streams} streams
+          {inventory.redirection_hosts} redirects · {inventory.dead_hosts} 404
+          hosts · {inventory.streams} streams
         </p>
       </div>
     </Card>

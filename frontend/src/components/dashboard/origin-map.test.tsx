@@ -85,7 +85,9 @@ describe("OriginMap", () => {
 
     // Wording distinct from the Visitors card's: the same sentence in two
     // panels reads as a bug rather than two views of one absence.
-    expect(screen.getByText(/no requests have been counted/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/no requests have been counted/i),
+    ).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: /threats/i }));
 

@@ -107,7 +107,11 @@ describe("SecurityCard", () => {
   it("shows the counts when CrowdSec answers", () => {
     render(
       <SecurityCard
-        security={{ active_decisions: 12, alerts_24h: 40, top_scenarios: ["http-probing"] }}
+        security={{
+          active_decisions: 12,
+          alerts_24h: 40,
+          top_scenarios: ["http-probing"],
+        }}
       />,
     );
     expect(screen.getByText("12")).toBeInTheDocument();

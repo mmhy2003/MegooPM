@@ -1,5 +1,7 @@
 "use client";
 
+import { Users } from "lucide-react";
+
 import type { VisitorSummary } from "@/lib/api";
 
 /**
@@ -20,7 +22,10 @@ export function VisitorsCard({ visitors }: { visitors: VisitorSummary }) {
   return (
     <section className="space-y-3 rounded-xl border p-4">
       <div>
-        <h3 className="text-sm font-medium">Visitors</h3>
+        <h3 className="flex items-center gap-2 text-sm font-medium">
+          <Users className="size-4 shrink-0" aria-hidden="true" />
+          Visitors
+        </h3>
         <p className="text-muted-foreground text-xs">
           Distinct addresses that reached a managed host over {window}.
         </p>
