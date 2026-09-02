@@ -403,7 +403,12 @@ against a mock transport). To verify the acceptance criteria end-to-end:
 1. `docker compose up --build` and create a proxy host with `crowdsec_enabled`
    (and optionally `crowdsec_appsec_enabled`).
 2. **Ban blocks:** `docker compose exec crowdsec cscli decisions add --ip <your-ip> --duration 5m`
-   then request the host → expect `403` from the bouncer.
+   then request the host → expect `403` from the bouncer, carrying the ban page
+   chosen under Settings (the MegooPM page by default). A *bare* 403 with no
+   document means either the `none` mode is selected or the template failed to
+   load — check the nginx log for `BAN_TEMPLATE_PATH and REDIRECT_LOCATION
+   variable are empty`, and that `megoopm-ban.html` exists in the shared
+   default directory.
 3. **AppSec blocks:** with AppSec on, send a known-malicious payload
    (e.g. `?x=/etc/passwd` style probe covered by the generic rules) → expect a
    block.
