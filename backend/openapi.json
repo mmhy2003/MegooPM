@@ -1235,6 +1235,30 @@
         "title": "ConfigHealth",
         "type": "object"
       },
+      "CountryCount": {
+        "description": "One country's share of recorded traffic.",
+        "properties": {
+          "country": {
+            "title": "Country",
+            "type": "string"
+          },
+          "requests": {
+            "title": "Requests",
+            "type": "integer"
+          },
+          "visitors": {
+            "title": "Visitors",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "country",
+          "visitors",
+          "requests"
+        ],
+        "title": "CountryCount",
+        "type": "object"
+      },
       "CrowdSecBanMode": {
         "description": "What a CrowdSec-blocked visitor is served.\n\n``none`` is not \"unset\": it is the deliberate choice to write no template\nfile, so the bouncer answers a bare 403 as it did before this setting\nexisted. Some operators prefer that a block does not advertise which\nproduct is in front.",
         "enum": [
@@ -4696,6 +4720,83 @@
         "title": "ValidationError",
         "type": "object"
       },
+      "VisitorRow": {
+        "description": "One visitor, summed across the requested window.",
+        "properties": {
+          "country": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Country"
+          },
+          "ip": {
+            "title": "Ip",
+            "type": "string"
+          },
+          "last_seen_at": {
+            "format": "date-time",
+            "title": "Last Seen At",
+            "type": "string"
+          },
+          "requests": {
+            "title": "Requests",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "ip",
+          "country",
+          "requests",
+          "last_seen_at"
+        ],
+        "title": "VisitorRow",
+        "type": "object"
+      },
+      "VisitorSummary": {
+        "description": "Recorded visitors over a window of days.\n\n``total_visitors`` counts every distinct address, including those with no\ncountry, so the totals and the country breakdown deliberately do not have\nto add up — an operator seeing the difference is seeing unlocated traffic,\nwhich is real.",
+        "properties": {
+          "countries": {
+            "items": {
+              "$ref": "#/components/schemas/CountryCount"
+            },
+            "title": "Countries",
+            "type": "array"
+          },
+          "days": {
+            "title": "Days",
+            "type": "integer"
+          },
+          "top_ips": {
+            "items": {
+              "$ref": "#/components/schemas/VisitorRow"
+            },
+            "title": "Top Ips",
+            "type": "array"
+          },
+          "total_requests": {
+            "title": "Total Requests",
+            "type": "integer"
+          },
+          "total_visitors": {
+            "title": "Total Visitors",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "days",
+          "total_visitors",
+          "total_requests",
+          "countries",
+          "top_ips"
+        ],
+        "title": "VisitorSummary",
+        "type": "object"
+      },
       "WhitelistApplyStatus": {
         "description": "Whether the last render actually reached CrowdSec.",
         "properties": {
@@ -7008,6 +7109,59 @@
           }
         ],
         "summary": "Dashboard Threats",
+        "tags": [
+          "dashboard"
+        ]
+      }
+    },
+    "/api/v1/dashboard/visitors": {
+      "get": {
+        "description": "Recorded visitors and countries. Admin-only.\n\nInclusive of today, so days=1 is today. Clamped to the retention window,\nbecause rows older than that have been deleted and a larger window would\nsilently describe a shorter one.",
+        "operationId": "dashboard_visitors_api_v1_dashboard_visitors_get",
+        "parameters": [
+          {
+            "description": "Days to summarise",
+            "in": "query",
+            "name": "days",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "description": "Days to summarise",
+              "maximum": 365,
+              "minimum": 1,
+              "title": "Days",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VisitorSummary"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Dashboard Visitors",
         "tags": [
           "dashboard"
         ]

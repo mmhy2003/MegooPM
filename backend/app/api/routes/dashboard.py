@@ -8,13 +8,17 @@ outage empties the map instead of blanking the whole page.
 
 from __future__ import annotations
 
-from fastapi import APIRouter
+from typing import Annotated
+
+from fastapi import APIRouter, Query
 
 from app.api.deps import AdminUser, SessionDep
 from app.api.routes.crowdsec import ClientDep
-from app.schemas.dashboard import DashboardSummary, ThreatPoint
+from app.core.config import settings
+from app.schemas.dashboard import DashboardSummary, ThreatPoint, VisitorSummary
 from app.services.dashboard.summary import build_summary
 from app.services.dashboard.threats import group_by_country
+from app.services.dashboard.visitors import load_visitors
 
 router = APIRouter(tags=["dashboard"])
 
@@ -50,3 +54,21 @@ async def dashboard_threats(_admin: AdminUser, client: ClientDep) -> list[Threat
     except Exception:  # noqa: BLE001 - any failure empties this one panel
         return []
     return group_by_country(alerts)
+
+
+# Bounded by the retention window: asking for more days than are kept would
+# quietly return a shorter span than the caller requested.
+DaysArg = Annotated[int, Query(ge=1, le=365, description="Days to summarise")]
+
+
+@router.get("/visitors", response_model=VisitorSummary)
+async def dashboard_visitors(
+    _admin: AdminUser, db: SessionDep, days: DaysArg = 1
+) -> VisitorSummary:
+    """Recorded visitors and countries. Admin-only.
+
+    Inclusive of today, so days=1 is today. Clamped to the retention window,
+    because rows older than that have been deleted and a larger window would
+    silently describe a shorter one.
+    """
+    return await load_visitors(db, days=min(days, settings.visitor_retention_days))

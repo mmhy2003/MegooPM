@@ -692,6 +692,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/dashboard/visitors": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Dashboard Visitors
+         * @description Recorded visitors and countries. Admin-only.
+         *
+         *     Inclusive of today, so days=1 is today. Clamped to the retention window,
+         *     because rows older than that have been deleted and a larger window would
+         *     silently describe a shorter one.
+         */
+        get: operations["dashboard_visitors_api_v1_dashboard_visitors_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/dead-hosts": {
         parameters: {
             query?: never;
@@ -2005,6 +2029,18 @@ export interface components {
             nodes_stale: number;
             /** Nodes Total */
             nodes_total: number;
+        };
+        /**
+         * CountryCount
+         * @description One country's share of recorded traffic.
+         */
+        CountryCount: {
+            /** Country */
+            country: string;
+            /** Requests */
+            requests: number;
+            /** Visitors */
+            visitors: number;
         };
         /**
          * CrowdSecBanMode
@@ -3766,6 +3802,44 @@ export interface components {
             type: string;
         };
         /**
+         * VisitorRow
+         * @description One visitor, summed across the requested window.
+         */
+        VisitorRow: {
+            /** Country */
+            country: string | null;
+            /** Ip */
+            ip: string;
+            /**
+             * Last Seen At
+             * Format: date-time
+             */
+            last_seen_at: string;
+            /** Requests */
+            requests: number;
+        };
+        /**
+         * VisitorSummary
+         * @description Recorded visitors over a window of days.
+         *
+         *     ``total_visitors`` counts every distinct address, including those with no
+         *     country, so the totals and the country breakdown deliberately do not have
+         *     to add up — an operator seeing the difference is seeing unlocated traffic,
+         *     which is real.
+         */
+        VisitorSummary: {
+            /** Countries */
+            countries: components["schemas"]["CountryCount"][];
+            /** Days */
+            days: number;
+            /** Top Ips */
+            top_ips: components["schemas"]["VisitorRow"][];
+            /** Total Requests */
+            total_requests: number;
+            /** Total Visitors */
+            total_visitors: number;
+        };
+        /**
          * WhitelistApplyStatus
          * @description Whether the last render actually reached CrowdSec.
          */
@@ -5220,6 +5294,38 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ThreatPoint"][];
+                };
+            };
+        };
+    };
+    dashboard_visitors_api_v1_dashboard_visitors_get: {
+        parameters: {
+            query?: {
+                /** @description Days to summarise */
+                days?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VisitorSummary"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

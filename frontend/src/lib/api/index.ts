@@ -85,11 +85,14 @@ export type {
 export { dashboard } from "@/lib/api/resources/dashboard";
 export type {
   CertificateHealth,
+  CountryCount,
   ConfigHealth,
   DashboardSummary,
   InventoryCounts,
   SecuritySummary,
   ThreatPoint,
+  VisitorRow,
+  VisitorSummary,
   TrafficSummary,
 } from "@/lib/api/resources/dashboard";
 export { instanceSettings } from "@/lib/api/resources/settings";

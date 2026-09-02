@@ -127,3 +127,37 @@ async def test_summary_reports_config_health(
     assert body["config"]["nodes_total"] == 0
     # No nodes registered yet, so nothing has converged onto anything.
     assert body["config"]["converged"] is False
+
+
+async def test_visitors_is_empty_before_any_traffic(
+    client: AsyncClient, auth: dict[str, str]
+) -> None:
+    body = (await client.get("/api/v1/dashboard/visitors", headers=auth)).json()
+    assert body["total_visitors"] == 0
+    assert body["total_requests"] == 0
+    assert body["countries"] == []
+    assert body["top_ips"] == []
+
+
+async def test_visitors_requires_authentication(client: AsyncClient) -> None:
+    assert (await client.get("/api/v1/dashboard/visitors")).status_code in (401, 403)
+
+
+async def test_visitors_window_is_clamped_to_the_retention_limit(
+    client: AsyncClient, auth: dict[str, str]
+) -> None:
+    """Asking for a year when 30 days are kept would otherwise report a
+    30-day figure labelled as a year."""
+    from app.core.config import settings
+
+    body = (
+        await client.get("/api/v1/dashboard/visitors?days=365", headers=auth)
+    ).json()
+    assert body["days"] == settings.visitor_retention_days
+
+
+async def test_visitors_rejects_a_zero_day_window(
+    client: AsyncClient, auth: dict[str, str]
+) -> None:
+    resp = await client.get("/api/v1/dashboard/visitors?days=0", headers=auth)
+    assert resp.status_code == 422

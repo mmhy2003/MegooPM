@@ -9,6 +9,8 @@ in exactly the situation where accuracy matters.
 
 from __future__ import annotations
 
+from datetime import datetime
+
 from pydantic import BaseModel
 
 
@@ -69,6 +71,41 @@ class ThreatPoint(BaseModel):
     lng: float | None
 
 
+class CountryCount(BaseModel):
+    """One country's share of recorded traffic."""
+
+    country: str
+    visitors: int
+    requests: int
+
+
+class VisitorRow(BaseModel):
+    """One visitor, summed across the requested window."""
+
+    ip: str
+    # None when the address could not be located. The visitor is still listed:
+    # hiding them would understate the traffic to keep the map tidy.
+    country: str | None
+    requests: int
+    last_seen_at: datetime
+
+
+class VisitorSummary(BaseModel):
+    """Recorded visitors over a window of days.
+
+    ``total_visitors`` counts every distinct address, including those with no
+    country, so the totals and the country breakdown deliberately do not have
+    to add up — an operator seeing the difference is seeing unlocated traffic,
+    which is real.
+    """
+
+    days: int
+    total_visitors: int
+    total_requests: int
+    countries: list[CountryCount]
+    top_ips: list[VisitorRow]
+
+
 class DashboardSummary(BaseModel):
     certificates: CertificateHealth
     inventory: InventoryCounts
@@ -85,6 +122,9 @@ __all__ = [
     "DashboardSummary",
     "InventoryCounts",
     "SecuritySummary",
+    "CountryCount",
     "ThreatPoint",
+    "VisitorRow",
+    "VisitorSummary",
     "TrafficSummary",
 ]

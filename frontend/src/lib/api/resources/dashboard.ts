@@ -15,10 +15,16 @@ export type InventoryCounts = Schemas["InventoryCounts"];
 export type SecuritySummary = Schemas["SecuritySummary"];
 export type TrafficSummary = Schemas["TrafficSummary"];
 export type ThreatPoint = Schemas["ThreatPoint"];
+export type VisitorSummary = Schemas["VisitorSummary"];
+export type CountryCount = Schemas["CountryCount"];
+export type VisitorRow = Schemas["VisitorRow"];
 
 const BASE = "/api/v1/dashboard";
 
 export const dashboard = {
   summary: () => api.get<DashboardSummary>(`${BASE}/summary`),
   threats: () => api.get<ThreatPoint[]>(`${BASE}/threats`),
+  /** Inclusive of today, so days=1 is today. Clamped server-side to the
+   *  retention window: rows older than that no longer exist. */
+  visitors: (days = 1) => api.get<VisitorSummary>(`${BASE}/visitors?days=${days}`),
 } as const;

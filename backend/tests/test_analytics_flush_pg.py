@@ -10,7 +10,7 @@ Skipped without Postgres.
 from __future__ import annotations
 
 from collections.abc import AsyncIterator
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 
 import pytest
 from app.core.config import settings
@@ -103,3 +103,74 @@ async def test_a_batch_of_many_visitors_writes_them_all(
 async def test_an_empty_batch_writes_nothing(pg_session: AsyncSession) -> None:
     """A quiet minute must not produce an empty INSERT, which Postgres rejects."""
     assert await upsert_visitors(pg_session, [], now=NOW) == 0
+
+
+# --- Reading the aggregates back -------------------------------------------
+
+
+async def test_visitors_are_summed_across_days_and_ranked(
+    pg_session: AsyncSession,
+) -> None:
+    """A visitor active on several days must outrank one busy for an hour, so
+    the totals have to sum across rows rather than take the latest."""
+    from app.services.dashboard.visitors import load_visitors
+
+    today = datetime.now(UTC).date()
+    yesterday = today - timedelta(days=1)
+    await upsert_visitors(
+        pg_session,
+        [
+            VisitorCounts("1.1.1.1", today, 5, 50),
+            VisitorCounts("1.1.1.1", yesterday, 7, 70),
+            VisitorCounts("2.2.2.2", today, 100, 1000),
+        ],
+        now=NOW,
+    )
+
+    got = await load_visitors(pg_session, days=2)
+
+    assert got.total_visitors == 2
+    assert got.total_requests == 112
+    # 2.2.2.2 has more requests in one day than 1.1.1.1 has across two.
+    assert [row.ip for row in got.top_ips] == ["2.2.2.2", "1.1.1.1"]
+    assert got.top_ips[1].requests == 12
+
+
+async def test_the_window_excludes_older_days(pg_session: AsyncSession) -> None:
+    from app.services.dashboard.visitors import load_visitors
+
+    today = datetime.now(UTC).date()
+    await upsert_visitors(
+        pg_session,
+        [
+            VisitorCounts("1.1.1.1", today, 3, 30),
+            VisitorCounts("9.9.9.9", today - timedelta(days=5), 99, 990),
+        ],
+        now=NOW,
+    )
+
+    got = await load_visitors(pg_session, days=1)
+
+    assert got.total_visitors == 1
+    assert got.total_requests == 3
+
+
+async def test_an_unlocated_visitor_is_counted_but_not_in_the_countries(
+    pg_session: AsyncSession,
+) -> None:
+    """The gap between the totals and the country breakdown IS the unlocated
+    traffic; hiding the visitor entirely would understate the numbers."""
+    from app.services.dashboard.visitors import load_visitors
+
+    today = datetime.now(UTC).date()
+    # 10.0.0.1 is private, so the lookup yields no country.
+    await upsert_visitors(
+        pg_session, [VisitorCounts("10.0.0.1", today, 4, 40)], now=NOW
+    )
+
+    got = await load_visitors(pg_session, days=1)
+
+    assert got.total_visitors == 1
+    assert got.total_requests == 4
+    assert got.countries == []
+    assert got.top_ips[0].country is None

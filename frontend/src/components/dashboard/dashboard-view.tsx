@@ -2,7 +2,12 @@
 
 import { useCallback, useEffect, useState } from "react";
 
-import { dashboard, type DashboardSummary, type ThreatPoint } from "@/lib/api";
+import {
+  dashboard,
+  type DashboardSummary,
+  type ThreatPoint,
+  type VisitorSummary,
+} from "@/lib/api";
 import {
   CertificatesCard,
   ConfigHealthCard,
@@ -11,6 +16,7 @@ import {
   TrafficCard,
 } from "@/components/dashboard/cards";
 import { ThreatGlobe } from "@/components/dashboard/threat-globe";
+import { VisitorsCard } from "@/components/dashboard/visitors-card";
 import { Skeleton } from "@/components/ui/skeleton";
 
 /**
@@ -22,6 +28,7 @@ const POLL_MS = 15_000;
 export function DashboardView() {
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
   const [threats, setThreats] = useState<ThreatPoint[]>([]);
+  const [visitors, setVisitors] = useState<VisitorSummary | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -29,10 +36,12 @@ export function DashboardView() {
     try {
       // Settled, not all: the threat list depends on CrowdSec and the summary
       // does not, so one being unreachable must not blank the other.
-      const [summaryResult, threatsResult] = await Promise.allSettled([
-        dashboard.summary(),
-        dashboard.threats(),
-      ]);
+      const [summaryResult, threatsResult, visitorsResult] =
+        await Promise.allSettled([
+          dashboard.summary(),
+          dashboard.threats(),
+          dashboard.visitors(7),
+        ]);
       if (summaryResult.status === "fulfilled") {
         setSummary(summaryResult.value);
         setError(null);
@@ -40,6 +49,7 @@ export function DashboardView() {
         setError("Could not load the dashboard.");
       }
       if (threatsResult.status === "fulfilled") setThreats(threatsResult.value);
+      if (visitorsResult.status === "fulfilled") setVisitors(visitorsResult.value);
     } finally {
       setLoading(false);
     }
@@ -84,6 +94,8 @@ export function DashboardView() {
           <InventoryCard inventory={summary.inventory} />
         </div>
       ) : null}
+
+      {visitors ? <VisitorsCard visitors={visitors} /> : null}
 
       <ThreatGlobe points={threats} />
     </div>
