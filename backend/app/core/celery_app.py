@@ -23,11 +23,18 @@ from app.core.config import settings
 
 # Task modules Celery imports on worker startup so their ``@task`` decorators
 # register. Add new task modules here.
+#
+# Scheduling a task in ``beat_schedule`` is NOT enough: beat sends by name, and
+# a worker that never imported the module answers "Received unregistered task"
+# and drops it. That failure appears only in a running cluster, as a feature
+# that silently never works — see the guard in tests/test_analytics_tasks.py.
 TASK_MODULES = [
     "app.tasks.sample",
     "app.tasks.nginx",
     "app.tasks.certs",
     "app.tasks.crowdsec",
+    "app.tasks.metrics",
+    "app.tasks.analytics",
 ]
 
 

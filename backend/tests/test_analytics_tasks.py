@@ -180,3 +180,25 @@ def test_the_flush_also_covers_yesterday() -> None:
 
     days = analytics._flush_days()
     assert days[1] == days[0] - timedelta(days=1)
+
+
+def test_every_scheduled_task_is_registered_with_the_worker() -> None:
+    """Beat sends a task by NAME; a worker that never imported the module
+    rejects it with "Received unregistered task" and the schedule quietly does
+    nothing.
+
+    Scheduling and registering are two separate lists — `beat_schedule` and
+    `TASK_MODULES` — and adding to one without the other fails only in a
+    running cluster, where it looks like a feature that simply never works.
+    """
+    from app.core.celery_app import celery_app
+
+    # What a worker does at startup. Without it `celery_app.tasks` holds only
+    # tasks this process happened to import, so the check would pass or fail
+    # for reasons unrelated to the configuration under test.
+    celery_app.loader.import_default_modules()
+
+    scheduled = {entry["task"] for entry in celery_app.conf.beat_schedule.values()}
+    registered = set(celery_app.tasks)
+    missing = scheduled - registered
+    assert not missing, f"scheduled but never imported by the worker: {sorted(missing)}"
