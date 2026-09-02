@@ -68,6 +68,17 @@ def create_celery() -> Celery:
             "task": "app.tasks.sample.heartbeat",
             "schedule": crontab(minute="*/5"),
         },
+        "flush-visitor-counters": {
+            "task": "app.tasks.analytics.flush_visitor_counters",
+            "schedule": settings.visitor_flush_interval_seconds,
+            # A tick that could not run promptly is worthless: the counters are
+            # still in Redis and the next flush takes them.
+            "options": {"expires": settings.visitor_flush_interval_seconds},
+        },
+        "prune-visitor-days": {
+            "task": "app.tasks.analytics.prune_visitor_days",
+            "schedule": crontab(hour=3, minute=30),
+        },
         "scrape-nginx-metrics": {
             "task": "app.tasks.metrics.scrape_local_nginx",
             "schedule": settings.metrics_scrape_interval_seconds,
