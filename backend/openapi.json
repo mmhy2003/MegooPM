@@ -917,6 +917,35 @@
         "title": "BackendUpdate",
         "type": "object"
       },
+      "CertificateHealth": {
+        "description": "Counts an operator would want to act on, not an inventory.",
+        "properties": {
+          "expired": {
+            "title": "Expired",
+            "type": "integer"
+          },
+          "expiring_soon": {
+            "title": "Expiring Soon",
+            "type": "integer"
+          },
+          "failed": {
+            "title": "Failed",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "expiring_soon",
+          "expired",
+          "failed",
+          "total"
+        ],
+        "title": "CertificateHealth",
+        "type": "object"
+      },
       "CertificateIssued": {
         "description": "Response for an issuance request: the pending cert plus its tracking task.",
         "properties": {
@@ -1149,6 +1178,39 @@
           "converged"
         ],
         "title": "ClusterStatus",
+        "type": "object"
+      },
+      "ConfigHealth": {
+        "properties": {
+          "config_version": {
+            "title": "Config Version",
+            "type": "integer"
+          },
+          "converged": {
+            "title": "Converged",
+            "type": "boolean"
+          },
+          "nodes_in_sync": {
+            "title": "Nodes In Sync",
+            "type": "integer"
+          },
+          "nodes_stale": {
+            "title": "Nodes Stale",
+            "type": "integer"
+          },
+          "nodes_total": {
+            "title": "Nodes Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "config_version",
+          "nodes_total",
+          "nodes_in_sync",
+          "nodes_stale",
+          "converged"
+        ],
+        "title": "ConfigHealth",
         "type": "object"
       },
       "CrowdSecBanMode": {
@@ -1425,6 +1487,41 @@
           }
         },
         "title": "CustomPageUpdate",
+        "type": "object"
+      },
+      "DashboardSummary": {
+        "properties": {
+          "certificates": {
+            "$ref": "#/components/schemas/CertificateHealth"
+          },
+          "config": {
+            "$ref": "#/components/schemas/ConfigHealth"
+          },
+          "inventory": {
+            "$ref": "#/components/schemas/InventoryCounts"
+          },
+          "security": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SecuritySummary"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "traffic": {
+            "$ref": "#/components/schemas/TrafficSummary"
+          }
+        },
+        "required": [
+          "certificates",
+          "inventory",
+          "traffic",
+          "config",
+          "security"
+        ],
+        "title": "DashboardSummary",
         "type": "object"
       },
       "DeadHostCreate": {
@@ -2224,6 +2321,39 @@
           "default_site_mode"
         ],
         "title": "InstanceSettingsUpdate",
+        "type": "object"
+      },
+      "InventoryCounts": {
+        "properties": {
+          "dead_hosts": {
+            "title": "Dead Hosts",
+            "type": "integer"
+          },
+          "proxy_hosts_enabled": {
+            "title": "Proxy Hosts Enabled",
+            "type": "integer"
+          },
+          "proxy_hosts_total": {
+            "title": "Proxy Hosts Total",
+            "type": "integer"
+          },
+          "redirection_hosts": {
+            "title": "Redirection Hosts",
+            "type": "integer"
+          },
+          "streams": {
+            "title": "Streams",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "proxy_hosts_total",
+          "proxy_hosts_enabled",
+          "redirection_hosts",
+          "dead_hosts",
+          "streams"
+        ],
+        "title": "InventoryCounts",
         "type": "object"
       },
       "LetsEncryptCertificateCreate": {
@@ -3700,6 +3830,32 @@
         "title": "SampleTaskRequest",
         "type": "object"
       },
+      "SecuritySummary": {
+        "properties": {
+          "active_decisions": {
+            "title": "Active Decisions",
+            "type": "integer"
+          },
+          "alerts_24h": {
+            "title": "Alerts 24H",
+            "type": "integer"
+          },
+          "top_scenarios": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Top Scenarios",
+            "type": "array"
+          }
+        },
+        "required": [
+          "active_decisions",
+          "alerts_24h",
+          "top_scenarios"
+        ],
+        "title": "SecuritySummary",
+        "type": "object"
+      },
       "StreamCreate": {
         "description": "Payload to create a stream.",
         "properties": {
@@ -4077,6 +4233,49 @@
           "refresh_token"
         ],
         "title": "TokenPair",
+        "type": "object"
+      },
+      "TrafficSummary": {
+        "description": "``None`` means no node has reported recently — unknown, not idle.",
+        "properties": {
+          "active_connections": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Active Connections"
+          },
+          "reporting_nodes": {
+            "title": "Reporting Nodes",
+            "type": "integer"
+          },
+          "requests_per_second": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Requests Per Second"
+          },
+          "stale_nodes": {
+            "title": "Stale Nodes",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "active_connections",
+          "requests_per_second",
+          "reporting_nodes",
+          "stale_nodes"
+        ],
+        "title": "TrafficSummary",
         "type": "object"
       },
       "UpstreamContext": {
@@ -5842,7 +6041,7 @@
     },
     "/api/v1/cluster/status": {
       "get": {
-        "description": "Report the shared config version and how far each node has converged.",
+        "description": "Report the shared config version and how far each node has converged.\n\nThe computation lives in the service so the dashboard reuses it rather than\ngrowing a second, divergent copy.",
         "operationId": "cluster_status_api_v1_cluster_status_get",
         "responses": {
           "200": {
@@ -6688,6 +6887,33 @@
         "summary": "Update Custom Page",
         "tags": [
           "custom-pages"
+        ]
+      }
+    },
+    "/api/v1/dashboard/summary": {
+      "get": {
+        "description": "Every card's numbers in one payload.\n\nOne request rather than five list endpoints the browser would have to count\nitself — and one shape that a push transport can later deliver unchanged.",
+        "operationId": "dashboard_summary_api_v1_dashboard_summary_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DashboardSummary"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Dashboard Summary",
+        "tags": [
+          "dashboard"
         ]
       }
     },
