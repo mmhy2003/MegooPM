@@ -25,6 +25,9 @@ from app.services.nginx.stub_status import ParseError, parse_stub_status
 
 log = logging.getLogger(__name__)
 
+# Whether a scrape failure has already been reported at warning level.
+_warned = False
+
 
 async def _fetch(url: str) -> str:
     """GET the status body. Short timeout: a slow answer is worthless when the
@@ -36,15 +39,36 @@ async def _fetch(url: str) -> str:
 
 
 async def _scrape_async(*, session_factory=None) -> None:
+    global _warned
+
     try:
         body = await _fetch(settings.nginx_status_url)
         sample = parse_stub_status(body)
     except (OSError, ParseError, httpx.HTTPError) as exc:
-        # Debug, not warning: a node whose nginx is briefly down would otherwise
-        # fill the log every scrape interval with something the dashboard
-        # already shows by marking the node as not reporting.
-        log.debug("stub_status scrape failed: %s", exc)
+        # The FIRST failure is a warning; the rest are debug.
+        #
+        # A node whose nginx blips would otherwise fill the log every interval
+        # with something the dashboard already shows. But a scrape that has
+        # NEVER succeeded means the traffic card will sit empty forever, and an
+        # operator has nothing to go on — which is exactly what happened the
+        # first time this shipped.
+        if not _warned:
+            _warned = True
+            log.warning(
+                "stub_status scrape failed at %s: %s. The Live traffic card "
+                "stays empty until this succeeds. Check that nginx exposes "
+                ":8081 (rebuild the nginx image if it predates that change).",
+                settings.nginx_status_url,
+                exc,
+            )
+        else:
+            log.debug("stub_status scrape failed: %s", exc)
         return
+
+    if _warned:
+        # Say so once, so a log that reported a problem also reports its end.
+        _warned = False
+        log.warning("stub_status scrape recovered at %s", settings.nginx_status_url)
 
     if session_factory is None:
         engine = create_async_engine(settings.database_url)

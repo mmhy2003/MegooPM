@@ -94,7 +94,10 @@ export function OriginMap({
 
   useEffect(() => {
     const container = containerRef.current;
-    if (!container || active.length === 0) return;
+    // No early return on empty data: an unshaded world map says "nothing
+    // from anywhere" far better than a sentence where a map should be, and
+    // it does not look like a component that failed to load.
+    if (!container) return;
 
     let map: { destroy: () => void } | null = null;
     let cancelled = false;
@@ -135,7 +138,7 @@ export function OriginMap({
       cancelled = true;
       map?.destroy();
     };
-  }, [values, layer, active.length]);
+  }, [values, layer]);
 
   const empty = active.length === 0;
 
@@ -166,37 +169,37 @@ export function OriginMap({
         </div>
       </div>
 
-      {empty ? (
-        layer === "traffic" ? (
-          <p className="text-muted-foreground text-sm">
-            No visitors recorded yet — counting starts after the next flush.
-          </p>
-        ) : (
-          <p className="text-muted-foreground text-sm">
-            No attacks flagged. This means nothing was detected, not that nothing
-            happened.
-          </p>
-        )
-      ) : (
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
-          {canDraw ? (
-            <div
-              ref={containerRef}
-              aria-hidden="true"
-              className="h-64 w-full shrink-0 sm:w-[28rem]"
-            />
-          ) : null}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
+        {canDraw ? (
+          <div
+            ref={containerRef}
+            aria-hidden="true"
+            className="h-64 w-full shrink-0 sm:w-[28rem]"
+          />
+        ) : null}
 
-          <ol className="min-w-0 flex-1 space-y-1">
-            {active.map((row) => (
-              <li key={row.country} className="flex items-baseline gap-3 text-sm">
-                <span className="font-medium">{row.country}</span>
-                <span className="tabular-nums">{row.count}</span>
-              </li>
-            ))}
-          </ol>
+        <div className="min-w-0 flex-1">
+          {empty ? (
+            // Wording distinct from the Visitors card's: two panels repeating
+            // one sentence reads as a bug rather than as two views of the same
+            // absence.
+            <p className="text-muted-foreground text-sm">
+              {layer === "traffic"
+                ? "Nothing shaded yet — no requests have been counted."
+                : "Nothing shaded — CrowdSec has flagged no requests. That means nothing was detected, not that nothing happened."}
+            </p>
+          ) : (
+            <ol className="space-y-1">
+              {active.map((row) => (
+                <li key={row.country} className="flex items-baseline gap-3 text-sm">
+                  <span className="font-medium">{row.country}</span>
+                  <span className="tabular-nums">{row.count}</span>
+                </li>
+              ))}
+            </ol>
+          )}
         </div>
-      )}
+      </div>
     </section>
   );
 }

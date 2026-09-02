@@ -16,6 +16,7 @@ from datetime import UTC, datetime
 import pytest
 from app.schemas.events import Event
 from app.services.events import format_sse
+from redis.exceptions import RedisError
 
 pytestmark = pytest.mark.asyncio
 
@@ -75,7 +76,7 @@ async def test_a_published_event_reaches_a_subscriber() -> None:
     try:
         await publish(Event(type="config.changed", at=AT, detail={"version": 3}))
         await asyncio.wait_for(task, timeout=5)
-    except (TimeoutError, OSError):  # pragma: no cover - no Redis available
+    except (TimeoutError, OSError, RedisError):  # pragma: no cover - no Redis available
         task.cancel()
         pytest.skip("No Redis reachable at REDIS_URL")
 

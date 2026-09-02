@@ -28,6 +28,7 @@ from app.main import app
 from app.models.user import UserRole
 from app.services import user as user_service
 from httpx import ASGITransport, AsyncClient
+from redis.exceptions import RedisError
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from sqlalchemy.pool import NullPool
 
@@ -139,7 +140,7 @@ async def test_a_published_event_arrives_as_a_frame() -> None:
             Event(type="config.changed", at=datetime.now(UTC), detail={"version": 4})
         )
         frame = await asyncio.wait_for(gen.__anext__(), timeout=5)
-    except OSError:  # pragma: no cover - no Redis available
+    except (OSError, RedisError):  # pragma: no cover - no Redis available
         pytest.skip("No Redis reachable at REDIS_URL")
     # NOT skipping on TimeoutError: a timeout with Redis present means the
     # event was genuinely lost, and skipping there once hid a real bug — the

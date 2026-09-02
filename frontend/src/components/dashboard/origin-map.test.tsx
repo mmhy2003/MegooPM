@@ -83,12 +83,14 @@ describe("OriginMap", () => {
     const user = userEvent.setup();
     render(<OriginMap threats={[]} traffic={[]} />);
 
-    expect(screen.getByText(/no visitors recorded/i)).toBeInTheDocument();
+    // Wording distinct from the Visitors card's: the same sentence in two
+    // panels reads as a bug rather than two views of one absence.
+    expect(screen.getByText(/no requests have been counted/i)).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: /threats/i }));
 
-    expect(screen.getByText(/no attacks flagged/i)).toBeInTheDocument();
-    // An empty threat list must keep saying what it does NOT mean.
+    expect(screen.getByText(/flagged no requests/i)).toBeInTheDocument();
+    // An empty threat layer must keep saying what it does NOT mean.
     expect(screen.getByText(/not that nothing happened/i)).toBeInTheDocument();
   });
 
