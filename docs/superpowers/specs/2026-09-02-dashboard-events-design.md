@@ -41,28 +41,36 @@ server pushes, the browser never sends. WebSocket's bidirectionality is unused
 cost: a separate auth story, a separate framing protocol, and no automatic
 reconnection.
 
-### Auth is by cookie, and that is safe here
+### Auth is by bearer header
 
-`EventSource` cannot set an `Authorization` header, so this endpoint also
-accepts the access token from the session cookie the app already sets
-(`megoopm_session`, per `frontend/src/lib/auth/session.ts`).
+**Corrected after a production 401.** This spec originally had the endpoint
+accept the access token from the session cookie, because `EventSource` cannot
+set an `Authorization` header. It verified that the cookie is `SameSite=Lax`
+and concluded the approach was safe.
 
-**Verified before designing:** those cookies carry `SameSite=Lax`
-(`frontend/src/lib/auth/session.ts`). A cross-origin `EventSource` is a
-subresource request, and Lax cookies are not sent on those — so another site
-cannot open a stream and read an operator's events. The browser blocks it
-before the backend is involved.
+That reasoning was sound and answered the wrong question. The cookie is written
+with **no `Domain` attribute**, so it is *host-only*: the browser sends it only
+to the host that set it. Deployed with the UI on one host and the API on
+another — `lb.example` and `lb-api.example` — the cookie never reaches the API,
+every connection arrives with no credential, and the endpoint correctly returns
+401. Local development hides this, because the UI and API share `localhost` and
+cookies ignore the port.
 
-**The fallback is a separate dependency, not a change to the shared one.**
-`get_current_user` keeps requiring the bearer header exactly as it does today;
-the events route uses its own dependency that tries the header first and falls
-back to the cookie. Editing the shared dependency would silently extend cookie
-authentication to every endpoint in the application, including the mutating
-ones — turning a read-only convenience into a CSRF surface across the whole
-API.
+So the client reads the stream with **`fetch` and a `ReadableStream`**, which
+can set the header, and the endpoint authenticates with the ordinary bearer
+token like every other route.
 
-So the surface that accepts a cookie is one read-only stream, and that is
-enforced by structure rather than by intent.
+What this costs: `EventSource` reconnects by itself and `fetch` does not, so
+the client implements capped exponential backoff — roughly thirty lines that
+were previously free.
+
+What it removes, which is more than it costs:
+
+- **The separate stream dependency.** No route accepts a cookie now, so the
+  CSRF surface this spec worried about does not exist.
+- **A CORS trap.** `cors_origins` defaults to `["*"]` while
+  `allow_credentials=True`; browsers reject that pairing for *credentialed*
+  requests. A bearer header is not one, so the default configuration works.
 
 ### Heartbeats
 
@@ -192,15 +200,15 @@ particular proxy chain.
 - `app/services/events.py` (new) — publish and subscribe over Redis
 - `app/schemas/events.py` (new) — the event shape
 - `app/api/routes/events.py` (new) — the SSE endpoint
-- `app/api/deps.py` — a NEW dependency for the stream; `get_current_user`
-  is left untouched
+- `app/api/deps.py` — unchanged; the stream uses the existing `AdminUser`
 - `app/api/routes/_config_writes.py` — publish `config.applied`
 - `app/tasks/certs.py` — publish `certificate.changed`
 - `app/api/routes/crowdsec.py` — publish `decision.added`
 
 **Frontend**
 
-- `src/lib/events.ts` (new) — the `EventSource` subscription
+- `src/lib/events.ts` (new) — the `fetch` stream reader, frame parser and
+  reconnect backoff
 - `src/components/dashboard/dashboard-view.tsx` — refetch on event, poll at 60s
 
 **Docs**
@@ -223,10 +231,10 @@ particular proxy chain.
 it would not be for a public-facing stream. If the audience ever widens, this
 needs a single shared subscription fanned out in-process.
 
-**The cookie fallback widens what can authenticate a request**, from a header
-an attacker's page cannot set to a cookie the browser attaches automatically.
-`SameSite=Lax` is what makes that safe, so it is load-bearing: weakening it to
-`None` anywhere would open this stream to any site.
+**Reconnection is now the client's to get right.** `EventSource` handled it;
+the backoff here is hand-written, so a bug in it shows up as a stream that
+stops reconnecting after a blip. The 60-second poll is what keeps that from
+being visible as a frozen page.
 
 **Events can be missed.** A browser that reconnects between a publish and its
 subscription never sees that event. The 60-second poll is what makes this

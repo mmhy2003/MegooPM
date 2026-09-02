@@ -94,12 +94,11 @@ async def admin_token(session_factory, client: AsyncClient) -> str:
 
 
 class _FakeRequest:
-    """Stands in for a Request. Only `is_disconnected` and `cookies` are read."""
+    """Stands in for a Request. Only `is_disconnected` is read."""
 
-    def __init__(self, *, disconnect_after: int = 0, cookies: dict | None = None):
+    def __init__(self, *, disconnect_after: int = 0):
         self._calls = 0
         self._after = disconnect_after
-        self.cookies = cookies or {}
 
     async def is_disconnected(self) -> bool:
         self._calls += 1
@@ -170,47 +169,30 @@ async def test_the_stream_refuses_an_anonymous_connection(client: AsyncClient) -
     assert resp.status_code in (401, 403)
 
 
-async def test_the_dependency_accepts_a_bearer_token(
-    session_factory, admin_token: str
-) -> None:
-    """The header must keep working: the cookie is an addition, not a swap."""
-    from app.api.deps import get_stream_user
+async def test_a_bearer_token_is_accepted(session_factory, admin_token: str) -> None:
+    """The stream authenticates like every other route.
+
+    It briefly accepted the session cookie instead, so a browser `EventSource`
+    could connect. That cookie is host-only, so it never reached an API deployed
+    on a different host from the UI and every connection got a 401. The client
+    reads the stream with `fetch` now, which can set the header.
+    """
+    from app.api.deps import get_current_user
 
     async with session_factory() as session:
-        user = await get_stream_user(_FakeRequest(), admin_token, session)
+        user = await get_current_user(admin_token, session)
     assert user.is_admin
 
 
-async def test_the_dependency_accepts_the_session_cookie(
-    session_factory, admin_token: str
-) -> None:
-    """EventSource cannot set a header, so this is the path a browser uses."""
-    from app.api.deps import get_stream_user
-
-    request = _FakeRequest(cookies={"megoopm_session": admin_token})
-    async with session_factory() as session:
-        user = await get_stream_user(request, None, session)
-    assert user.is_admin
-
-
-async def test_the_dependency_refuses_when_neither_is_present(
-    session_factory,
-) -> None:
-    from app.api.deps import get_stream_user
-    from fastapi import HTTPException
-
-    async with session_factory() as session:
-        with pytest.raises(HTTPException):
-            await get_stream_user(_FakeRequest(), None, session)
-
-
-async def test_cookie_auth_did_not_leak_to_the_other_routes(
+async def test_a_cookie_authenticates_nothing(
     client: AsyncClient, admin_token: str
 ) -> None:
-    """The whole reason the fallback is a separate dependency. If this fails,
-    every mutating endpoint now accepts a cookie the browser attaches
-    automatically — a CSRF surface across the entire API.
+    """No route accepts a cookie any more — not the stream, not anything else.
+
+    A credential the browser attaches automatically is a CSRF surface, and the
+    only reason to have accepted one was a client limitation now removed.
     """
     client.cookies.set("megoopm_session", admin_token)
-    resp = await client.get("/api/v1/dashboard/summary")
-    assert resp.status_code in (401, 403)
+    for path in ("/api/v1/events", "/api/v1/dashboard/summary"):
+        resp = await client.get(path)
+        assert resp.status_code in (401, 403), path

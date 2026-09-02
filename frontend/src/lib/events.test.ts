@@ -1,90 +1,112 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { subscribeToEvents } from "@/lib/events";
-
-class FakeEventSource {
-  static last: FakeEventSource | null = null;
-
-  onmessage: ((event: MessageEvent<string>) => void) | null = null;
-  onerror: ((event: Event) => void) | null = null;
-  closed = false;
-  readonly url: string;
-  readonly withCredentials: boolean;
-
-  constructor(url: string, init?: { withCredentials?: boolean }) {
-    this.url = url;
-    this.withCredentials = Boolean(init?.withCredentials);
-    FakeEventSource.last = this;
-  }
-
-  close() {
-    this.closed = true;
-  }
-
-  emit(payload: unknown) {
-    this.onmessage?.({ data: JSON.stringify(payload) } as MessageEvent<string>);
-  }
-
-  emitRaw(data: string) {
-    this.onmessage?.({ data } as MessageEvent<string>);
-  }
-}
-
-beforeEach(() => {
-  FakeEventSource.last = null;
-  vi.stubGlobal("EventSource", FakeEventSource);
-});
+import { parseFrames, subscribeToEvents } from "@/lib/events";
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  vi.restoreAllMocks();
 });
 
-describe("subscribeToEvents", () => {
-  it("calls back with the event type", () => {
-    const seen: string[] = [];
-    const stop = subscribeToEvents((type) => seen.push(type));
-
-    FakeEventSource.last!.emit({ type: "config.changed", at: "", detail: {} });
-
-    expect(seen).toEqual(["config.changed"]);
-    stop();
+describe("parseFrames", () => {
+  it("reads one complete frame", () => {
+    const { types, rest } = parseFrames('data: {"type":"config.changed"}\n\n');
+    expect(types).toEqual(["config.changed"]);
+    expect(rest).toBe("");
   });
 
-  it("sends credentials, because the cookie is the only way to authenticate", () => {
-    // EventSource cannot set an Authorization header; without this the stream
-    // is rejected and the dashboard silently falls back to polling forever.
-    subscribeToEvents(() => {})();
-    expect(FakeEventSource.last!.withCredentials).toBe(true);
+  it("keeps a partial frame for the next read", () => {
+    // A chunk boundary can fall anywhere, including mid-JSON. Dropping the
+    // remainder would silently lose an event on every awkward split.
+    const { types, rest } = parseFrames('data: {"type":"a"}\n\ndata: {"ty');
+    expect(types).toEqual(["a"]);
+    expect(rest).toBe('data: {"ty');
+  });
+
+  it("reads several frames from one chunk", () => {
+    const { types } = parseFrames(
+      'data: {"type":"a"}\n\ndata: {"type":"b"}\n\n',
+    );
+    expect(types).toEqual(["a", "b"]);
+  });
+
+  it("ignores keepalive comments", () => {
+    // They exist to keep proxies from closing an idle stream, not to signal.
+    const { types } = parseFrames(': keepalive\n\ndata: {"type":"a"}\n\n');
+    expect(types).toEqual(["a"]);
   });
 
   it("ignores a malformed frame rather than throwing", () => {
-    // The stream is long-lived: one bad frame must not kill the subscription.
-    const seen: string[] = [];
-    subscribeToEvents((type) => seen.push(type));
-
-    FakeEventSource.last!.emitRaw("not json");
-    FakeEventSource.last!.emit({ type: "config.changed" });
-
-    expect(seen).toEqual(["config.changed"]);
+    const { types } = parseFrames('data: not json\n\ndata: {"type":"a"}\n\n');
+    expect(types).toEqual(["a"]);
   });
 
   it("ignores a frame with no type", () => {
-    const seen: string[] = [];
-    subscribeToEvents((type) => seen.push(type));
-    FakeEventSource.last!.emit({ detail: {} });
-    expect(seen).toEqual([]);
+    expect(parseFrames('data: {"detail":{}}\n\n').types).toEqual([]);
   });
+});
 
-  it("closes the connection when stopped", () => {
-    // A leaked connection per mount, on a page navigated in and out all day.
+describe("subscribeToEvents", () => {
+  it("sends the bearer token, not a cookie", async () => {
+    // The whole reason this is fetch and not EventSource: the session cookie
+    // is host-only, so it never reaches an API on a different host and every
+    // connection was rejected with 401.
+    vi.mock("@/lib/auth/session", () => ({ getAccessToken: () => "tok123" }));
+
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      body: { getReader: () => ({ read: async () => ({ done: true }) }) },
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
     const stop = subscribeToEvents(() => {});
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalled());
     stop();
-    expect(FakeEventSource.last!.closed).toBe(true);
+
+    const [, init] = fetchMock.mock.calls[0];
+    expect(init.headers.Authorization).toBe("Bearer tok123");
   });
 
-  it("does nothing when EventSource is unavailable", () => {
-    // Older browsers and some test environments. The dashboard must still poll.
-    vi.stubGlobal("EventSource", undefined);
+  it("delivers event types to the callback", async () => {
+    vi.mock("@/lib/auth/session", () => ({ getAccessToken: () => "tok123" }));
+
+    const chunks = [
+      new TextEncoder().encode('data: {"type":"config.changed"}\n\n'),
+    ];
+    let index = 0;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        body: {
+          getReader: () => ({
+            read: async () =>
+              index < chunks.length
+                ? { done: false, value: chunks[index++] }
+                : { done: true },
+          }),
+        },
+      }),
+    );
+
+    const seen: string[] = [];
+    const stop = subscribeToEvents((type) => seen.push(type));
+    await vi.waitFor(() => expect(seen).toEqual(["config.changed"]));
+    stop();
+  });
+
+  it("stops cleanly and never throws", () => {
+    // It runs unawaited, so a rejection here would surface as a console error
+    // on a page that is otherwise working.
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockRejectedValue(new Error("network down")),
+    );
+    expect(() => subscribeToEvents(() => {})()).not.toThrow();
+  });
+
+  it("does nothing when fetch is unavailable", () => {
+    // The dashboard must still poll.
+    vi.stubGlobal("fetch", undefined);
     expect(() => subscribeToEvents(() => {})()).not.toThrow();
   });
 });

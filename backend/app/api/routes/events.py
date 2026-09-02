@@ -1,8 +1,14 @@
 """The dashboard event stream (admin-only).
 
 Server-Sent Events, not WebSocket: the traffic is one-directional, so the
-bidirectionality would buy nothing and cost a separate auth story and manual
-reconnection.
+bidirectionality would buy nothing.
+
+Authenticated by the ordinary bearer header, like every other route. An earlier
+version accepted the session cookie so a browser `EventSource` could connect —
+`EventSource` cannot set headers — but that cookie is host-only, so it never
+reached an API deployed on a different host from the UI and every connection
+was rejected with 401. The client now reads the stream with `fetch`, which can
+set the header, and this route needs no special case at all.
 
 Events are signals. A client that receives one refetches through the ordinary
 REST path, so there is never a second serialisation of a domain object to drift
@@ -19,7 +25,7 @@ from datetime import UTC, datetime
 from fastapi import APIRouter, Request
 from fastapi.responses import StreamingResponse
 
-from app.api.deps import StreamAdminUser
+from app.api.deps import AdminUser
 from app.schemas.events import Event
 from app.services.events import format_sse, subscribe
 
@@ -74,7 +80,7 @@ async def _stream(request: Request) -> AsyncIterator[str]:
 
 
 @router.get("")
-async def stream_events(_admin: StreamAdminUser, request: Request) -> StreamingResponse:
+async def stream_events(_admin: AdminUser, request: Request) -> StreamingResponse:
     """Relay dashboard events until the client disconnects."""
     return StreamingResponse(
         _stream(request),
