@@ -47,44 +47,53 @@ export function VisitorsCard({ visitors }: { visitors: VisitorSummary }) {
             </div>
           </div>
 
-          {visitors.countries.length > 0 ? (
-            <div className="space-y-1">
-              <p className="text-muted-foreground text-xs">By country</p>
-              <ol className="space-y-1">
-                {visitors.countries.slice(0, 8).map((row) => (
-                  <li
-                    key={row.country}
-                    className="flex items-baseline gap-3 text-sm"
-                  >
-                    <span className="font-medium">{row.country}</span>
-                    <span className="tabular-nums">{row.requests}</span>
-                    <span className="text-muted-foreground text-xs">
-                      {row.visitors} visitor{row.visitors === 1 ? "" : "s"}
-                    </span>
-                  </li>
-                ))}
-              </ol>
-            </div>
-          ) : null}
+          {/* Side by side once there is room: stacked, the two short lists left
+              most of a full-width card empty. */}
+          <div className="grid gap-6 lg:grid-cols-2">
+            {visitors.countries.length > 0 ? (
+              <div className="space-y-1">
+                <p className="text-muted-foreground text-xs">By country</p>
+                <ol className="space-y-1">
+                  {visitors.countries.slice(0, 8).map((row) => (
+                    <li
+                      key={row.country}
+                      className="flex items-baseline gap-3 text-sm"
+                    >
+                      <span className="font-medium">{row.country}</span>
+                      <span className="tabular-nums">{row.requests}</span>
+                      <span className="text-muted-foreground text-xs">
+                        {row.visitors} visitor{row.visitors === 1 ? "" : "s"}
+                      </span>
+                    </li>
+                  ))}
+                </ol>
+              </div>
+            ) : null}
 
-          {visitors.top_ips.length > 0 ? (
-            <div className="space-y-1">
-              <p className="text-muted-foreground text-xs">Busiest addresses</p>
-              <ul className="space-y-1">
-                {visitors.top_ips.slice(0, 8).map((row) => (
-                  <li key={row.ip} className="flex items-baseline gap-3 text-sm">
-                    <span className="font-mono text-xs">{row.ip}</span>
-                    <span className="text-muted-foreground text-xs">
-                      {/* Never hidden: the gap between these and the country
+            {visitors.top_ips.length > 0 ? (
+              <div className="space-y-1">
+                <p className="text-muted-foreground text-xs">
+                  Busiest addresses
+                </p>
+                <ul className="space-y-1">
+                  {visitors.top_ips.slice(0, 8).map((row) => (
+                    <li
+                      key={row.ip}
+                      className="flex items-baseline gap-3 text-sm"
+                    >
+                      <span className="font-mono text-xs">{row.ip}</span>
+                      <span className="text-muted-foreground text-xs">
+                        {/* Never hidden: the gap between these and the country
                           list is real, unlocated traffic. */}
-                      {row.country ?? "unknown"}
-                    </span>
-                    <span className="tabular-nums">{row.requests}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ) : null}
+                        {row.country ?? "unknown"}
+                      </span>
+                      <span className="tabular-nums">{row.requests}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+          </div>
         </div>
       )}
     </section>
