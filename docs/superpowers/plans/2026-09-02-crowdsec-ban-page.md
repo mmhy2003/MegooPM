@@ -55,7 +55,7 @@ docker exec megoopm-test pip install -q "pytest>=8.2" "pytest-asyncio>=0.23" "ai
   - `settings_service.update_ban_page(db, changes) -> InstanceSettings`
   - `PATCH /api/v1/settings/ban-page`
 
-- [ ] **Step 1: Add the enum**
+- [x] **Step 1: Add the enum**
 
 In `backend/app/models/enums.py`, after `DefaultSiteMode`:
 
@@ -74,7 +74,7 @@ class CrowdSecBanMode(enum.StrEnum):
     none = "none"
 ```
 
-- [ ] **Step 2: Add the columns**
+- [x] **Step 2: Add the columns**
 
 In `backend/app/models/instance_settings.py`, after `default_site_page_id`, and add `CrowdSecBanMode` to the `app.models.enums` import:
 
@@ -100,7 +100,7 @@ In `backend/app/models/instance_settings.py`, after `default_site_page_id`, and 
     )
 ```
 
-- [ ] **Step 3: Write the migration**
+- [x] **Step 3: Write the migration**
 
 Create `backend/alembic/versions/0021_crowdsec_ban_page.py`:
 
@@ -196,7 +196,7 @@ def downgrade() -> None:
     _BAN_MODE.drop(op.get_bind(), checkfirst=True)
 ```
 
-- [ ] **Step 4: Run the migration up and back down**
+- [x] **Step 4: Run the migration up and back down**
 
 ```bash
 docker exec megoopm-test sh -c "alembic upgrade head && alembic downgrade -1 && alembic upgrade head"
@@ -204,7 +204,7 @@ docker exec megoopm-test sh -c "alembic upgrade head && alembic downgrade -1 && 
 
 Expected: all three succeed. The round trip is the point — a downgrade that leaves the enum type behind makes the next upgrade fail with `DuplicateObjectError`, which is the failure this codebase has already hit once.
 
-- [ ] **Step 5: Write the failing API tests**
+- [x] **Step 5: Write the failing API tests**
 
 Append to `backend/tests/test_settings_api.py`. The file provides an
 `AsyncClient` fixture named `client` and a bearer-header fixture named `auth`;
@@ -280,7 +280,7 @@ async def test_switching_away_from_custom_page_clears_the_reference(
     assert body["crowdsec_ban_page_id"] is None
 ```
 
-- [ ] **Step 6: Run the tests to verify they fail**
+- [x] **Step 6: Run the tests to verify they fail**
 
 ```bash
 docker exec megoopm-test python -m pytest tests/test_settings_api.py -p no:cacheprovider -k ban_page
@@ -288,7 +288,7 @@ docker exec megoopm-test python -m pytest tests/test_settings_api.py -p no:cache
 
 Expected: FAIL — `KeyError: 'crowdsec_ban_mode'` and 404s for the unrouted path.
 
-- [ ] **Step 7: Add the schema fields**
+- [x] **Step 7: Add the schema fields**
 
 In `backend/app/schemas/instance_settings.py`, add to `InstanceSettingsRead` (and to its `from_row`):
 
@@ -328,7 +328,7 @@ class CrowdSecBanUpdate(BaseModel):
 
 Import `CrowdSecBanMode` from `app.models.enums`.
 
-- [ ] **Step 8: Add the service function**
+- [x] **Step 8: Add the service function**
 
 In `backend/app/services/instance_settings.py`, after `update_default_site`:
 
@@ -358,7 +358,7 @@ async def update_ban_page(db: AsyncSession, changes: dict[str, Any]) -> Instance
 
 Import `CrowdSecBanMode` from `app.models.enums`.
 
-- [ ] **Step 9: Add the route**
+- [x] **Step 9: Add the route**
 
 In `backend/app/api/routes/settings.py`, after the `/default-site` route:
 
@@ -398,7 +398,7 @@ async def update_ban_page_settings(
 
 Import `CrowdSecBanUpdate` alongside the other schemas.
 
-- [ ] **Step 10: Run the tests and refresh the API contract**
+- [x] **Step 10: Run the tests and refresh the API contract**
 
 ```bash
 docker exec megoopm-test python -m pytest tests/test_settings_api.py -p no:cacheprovider
@@ -409,7 +409,7 @@ docker exec megoopm-test ruff check app tests alembic
 
 Expected: all pass, ruff clean. `test_committed_openapi_is_in_sync` passes only after the export.
 
-- [ ] **Step 11: Commit**
+- [x] **Step 11: Commit**
 
 ```bash
 git add backend/app/models backend/alembic backend/app/schemas backend/app/services backend/app/api backend/tests backend/openapi.json
@@ -431,7 +431,7 @@ git commit -m "feat(crowdsec): store which page a blocked visitor is served"
 - Consumes: `CrowdSecBanMode` and the two columns from Task 1.
 - Produces: `BanPageSpec(mode: str, html: str = "")` in `state.py`; `DesiredState.ban_page: BanPageSpec | None`; the key `megoopm-ban.html` in the mapping returned by `render_default_site(state)`.
 
-- [ ] **Step 1: Add the spec type**
+- [x] **Step 1: Add the spec type**
 
 In `backend/app/services/nginx/state.py`, after `DefaultSiteSpec`:
 
@@ -458,7 +458,7 @@ and the field on `DesiredState`, after `default_tls`:
     ban_page: BanPageSpec | None = None
 ```
 
-- [ ] **Step 2: Write the failing render tests**
+- [x] **Step 2: Write the failing render tests**
 
 Append to `backend/tests/test_nginx_render.py`, adding `BanPageSpec` to the state import block:
 
@@ -514,7 +514,7 @@ def test_a_default_site_and_a_ban_page_coexist_in_one_directory() -> None:
 
 Add `render_default_site` and `DefaultSiteSpec` to the imports at the top of the file if they are not already there.
 
-- [ ] **Step 3: Run the tests to verify they fail**
+- [x] **Step 3: Run the tests to verify they fail**
 
 ```bash
 docker exec megoopm-test python -m pytest tests/test_nginx_render.py -p no:cacheprovider -k ban
@@ -522,7 +522,7 @@ docker exec megoopm-test python -m pytest tests/test_nginx_render.py -p no:cache
 
 Expected: FAIL — `ImportError` on `BanPageSpec` until Step 1 is applied, then `KeyError: 'megoopm-ban.html'`.
 
-- [ ] **Step 4: Write the shipped page**
+- [x] **Step 4: Write the shipped page**
 
 Create `backend/app/templates/nginx/banned.html.j2`. It is emitted verbatim by the bouncer, so it must be a complete standalone document with no external references. Match `congratulations.html.j2`'s palette and its light/dark handling — open that file and reuse its `:root` / `prefers-color-scheme` block rather than inventing a second palette:
 
@@ -640,7 +640,7 @@ Create `backend/app/templates/nginx/banned.html.j2`. It is emitted verbatim by t
 </html>
 ```
 
-- [ ] **Step 5: Emit the file**
+- [x] **Step 5: Emit the file**
 
 In `backend/app/services/nginx/renderer.py`, add next to `DEFAULT_SITE_HTML`:
 
@@ -668,7 +668,7 @@ and inside `render_default_site`, before the `return`, after the default-site fi
 
 Note `render_default_site` returns early with `{}` when `state.default_site is None`; move that guard so the ban page is still written when no default site is configured — the two settings are independent.
 
-- [ ] **Step 6: Resolve the mode in the loader**
+- [x] **Step 6: Resolve the mode in the loader**
 
 In `backend/app/services/nginx/loader.py`, add next to `_load_default_site`:
 
@@ -702,7 +702,7 @@ Import `BanPageSpec` and `CrowdSecBanMode`. Then call it in `load_desired_state`
 
 and add `ban_page=ban_page` to the `DesiredState(...)` construction.
 
-- [ ] **Step 7: Cover the loader against real rows**
+- [x] **Step 7: Cover the loader against real rows**
 
 The renderer tests above cover the modes, but nothing yet proves the loader
 dereferences a chosen page. Create
@@ -748,7 +748,7 @@ async def test_the_megoopm_mode_needs_no_document(pg_session: AsyncSession) -> N
     assert state.ban_page.html == ""
 ```
 
-- [ ] **Step 8: Run the tests**
+- [x] **Step 8: Run the tests**
 
 ```bash
 docker exec megoopm-test python -m pytest -p no:cacheprovider
@@ -757,7 +757,7 @@ docker exec megoopm-test ruff check app tests alembic
 
 Expected: all pass, ruff clean.
 
-- [ ] **Step 9: Commit**
+- [x] **Step 9: Commit**
 
 ```bash
 git add backend/app/services/nginx backend/app/templates/nginx/banned.html.j2 backend/tests/test_nginx_render.py
@@ -775,7 +775,7 @@ git commit -m "feat(crowdsec): render the chosen ban page beside the default sit
 **Interfaces:**
 - Consumes: the file `megoopm-ban.html` written by Task 2 into the default directory.
 
-- [ ] **Step 1: Set the template path**
+- [x] **Step 1: Set the template path**
 
 In `infra/nginx/crowdsec-bouncer.conf`, under the `FALLBACK_REMEDIATION` block:
 
@@ -791,7 +791,7 @@ In `infra/nginx/crowdsec-bouncer.conf`, under the `FALLBACK_REMEDIATION` block:
 BAN_TEMPLATE_PATH=/data/nginx/default/megoopm-ban.html
 ```
 
-- [ ] **Step 2: Verify nginx still loads with the setting present**
+- [x] **Step 2: Verify nginx still loads with the setting present**
 
 ```bash
 export MSYS_NO_PATHCONV=1
@@ -807,7 +807,7 @@ openresty -p /usr/local/openresty/nginx -c /etc/nginx/nginx.conf -t 2>&1 | tail 
 
 Expected: `syntax is ok` / `test is successful`. The mounted conf is the raw template — `${CROWDSEC_LAPI_URL}` is unsubstituted, so a bouncer init error in the output is expected and not a failure of this step; what matters is that nginx loads.
 
-- [ ] **Step 3: Check the file line endings**
+- [x] **Step 3: Check the file line endings**
 
 ```bash
 git ls-files --eol infra/nginx/crowdsec-bouncer.conf
@@ -815,11 +815,11 @@ git ls-files --eol infra/nginx/crowdsec-bouncer.conf
 
 Expected: `i/lf w/lf`. A CRLF config file is read by Lua as values with a trailing `\r`, which would make the path not exist and silently disable the page.
 
-- [ ] **Step 4: Update the docs**
+- [x] **Step 4: Update the docs**
 
 In `docs/crowdsec.md`, amend the verification step that says "expect `403` from the bouncer" to note that the response now carries the configured ban page by default, and that a bare 403 means either the `none` mode or a template that failed to load.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add infra/nginx/crowdsec-bouncer.conf docs/crowdsec.md
@@ -839,7 +839,7 @@ git commit -m "feat(crowdsec): serve the managed ban page to blocked visitors"
 - Consumes: `PATCH /api/v1/settings/ban-page` and the regenerated `InstanceSettings` type from Task 1.
 - Produces: `<BanPageCard settings={row} pages={pages} onSaved={setRow} />`
 
-- [ ] **Step 1: Regenerate the API types**
+- [x] **Step 1: Regenerate the API types**
 
 ```bash
 cd frontend && npm run gen:api
@@ -847,7 +847,7 @@ cd frontend && npm run gen:api
 
 Expected: `crowdsec_ban_mode` and `crowdsec_ban_page_id` appear in the generated types.
 
-- [ ] **Step 2: Write the failing tests**
+- [x] **Step 2: Write the failing tests**
 
 Create `frontend/src/components/settings/ban-page-card.test.tsx`, mocking `instanceSettings` as `llm-card.test.tsx` does:
 
@@ -883,7 +883,7 @@ it("says an edit to the chosen page needs a config change to take effect", async
 });
 ```
 
-- [ ] **Step 3: Run the tests to verify they fail**
+- [x] **Step 3: Run the tests to verify they fail**
 
 ```bash
 cd frontend && npx vitest run src/components/settings/ban-page-card.test.tsx
@@ -891,7 +891,7 @@ cd frontend && npx vitest run src/components/settings/ban-page-card.test.tsx
 
 Expected: FAIL — the module does not exist.
 
-- [ ] **Step 4: Build the card**
+- [x] **Step 4: Build the card**
 
 First add the client call in `frontend/src/lib/api.ts`, beside the existing
 default-site and LLM calls (match their exact style — this repo wraps `fetch`
@@ -1022,7 +1022,7 @@ named `describeError` — `llm-card.tsx` shows the convention in use. The button
 label `Save ban page` must stay distinct from the other cards' save buttons, or
 the page has two controls with the same accessible name.
 
-- [ ] **Step 5: Mount it**
+- [x] **Step 5: Mount it**
 
 In `settings-view.tsx`, beside the existing `LlmCard`:
 
@@ -1032,7 +1032,7 @@ In `settings-view.tsx`, beside the existing `LlmCard`:
 
 The view already loads `customPages.list()` for the default-site dropdown, so reuse that state rather than fetching again.
 
-- [ ] **Step 6: Run the full frontend gate**
+- [x] **Step 6: Run the full frontend gate**
 
 ```bash
 cd frontend && npx vitest run && npm run typecheck && npm run lint && npm run build
@@ -1040,7 +1040,7 @@ cd frontend && npx vitest run && npm run typecheck && npm run lint && npm run bu
 
 Expected: all pass.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add frontend/src
@@ -1061,3 +1061,34 @@ Not reachable by any automated test, and worth doing once against a running stac
 6. `cscli decisions delete --ip <your-ip>` to unblock.
 
 Step 5 is the one most worth doing: it exercises the file-deletion path that makes "no page" work, which nothing else verifies end to end.
+
+
+---
+
+## Executed 2026-09-02
+
+All four tasks complete. Backend **723 passed, 41 skipped**, ruff clean.
+Frontend **401 passed, 1 skipped**, typecheck, lint and build clean.
+
+Four things the plan did not anticipate:
+
+- **Running the migration polluted the shared test database.** Step 4's
+  `alembic upgrade head` leaves a seeded `instance_settings` row, and the API
+  fixtures then fail on a duplicate primary key. Reset with
+  `docker exec megoopm-testdb psql -U megoopm -d megoopm -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"`
+  before running the suite.
+- **Adding two required fields to `InstanceSettingsRead` broke every existing
+  frontend fixture** that constructs one — four test files. `vitest` passed
+  throughout; only `npm run typecheck` caught it.
+- **Both radio groups needed names.** The page now has two cards each offering
+  a "Custom page" radio, so an unscoped query matched two elements — and a
+  screen reader had the same problem. Both `RadioGroup`s now carry an
+  `aria-label`, and the default-site tests scope to theirs.
+- **The ban card's radios must not set `aria-label`.** base-ui's
+  `aria-labelledby` from the wrapping `<label>` wins over it, so setting both
+  made the accessible name the label twice over plus the hint.
+
+Task 3 verified that the literal `BAN_TEMPLATE_PATH` survives the entrypoint's
+`envsubst` untouched and that nginx loads cleanly with it set. That a banned IP
+is actually served the document still needs a live LAPI decision — see the
+manual verification below, which remains unrun.
