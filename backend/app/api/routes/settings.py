@@ -26,6 +26,7 @@ from app.api.deps import AdminUser, SessionDep
 from app.api.routes._config_writes import after_config_write
 from app.models.enums import AuditAction
 from app.schemas.instance_settings import (
+    CrowdSecBanUpdate,
     InstanceSettingsRead,
     InstanceSettingsUpdate,
     LlmSettingsUpdate,
@@ -74,6 +75,39 @@ async def update_settings(
         object_type="instance_settings",
         object_id=row.id,
         meta={"default_site_mode": row.default_site_mode.value},
+    )
+    return InstanceSettingsRead.from_row(row)
+
+
+@router.patch("/ban-page", response_model=InstanceSettingsRead)
+async def update_ban_page_settings(
+    body: CrowdSecBanUpdate,
+    admin: AdminUser,
+    db: SessionDep,
+    response: Response,
+) -> InstanceSettingsRead:
+    """Choose what a CrowdSec-blocked visitor is served. Admin-only.
+
+    ``after_config_write``, not a bare audit: this changes a file nginx serves,
+    so the config has to be rewritten and reloaded for the choice to take
+    effect at all.
+    """
+    changes = body.model_dump()
+    try:
+        row = await settings_service.update_ban_page(db, changes)
+    except settings_service.UnknownCustomPageError:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="crowdsec_ban_page_id does not reference an existing custom page",
+        ) from None
+    await after_config_write(
+        db,
+        response,
+        actor=admin,
+        action=AuditAction.update,
+        object_type="instance_settings",
+        object_id=row.id,
+        meta={"crowdsec_ban_mode": row.crowdsec_ban_mode.value},
     )
     return InstanceSettingsRead.from_row(row)
 

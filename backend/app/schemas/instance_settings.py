@@ -20,7 +20,7 @@ from urllib.parse import urlsplit
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from app.models.enums import DefaultSiteMode
+from app.models.enums import CrowdSecBanMode, DefaultSiteMode
 
 _ALLOWED_SCHEMES = {"http", "https"}
 
@@ -68,6 +68,8 @@ class InstanceSettingsRead(BaseModel):
     default_site_mode: DefaultSiteMode
     default_site_redirect_url: str | None
     default_site_page_id: int | None
+    crowdsec_ban_mode: CrowdSecBanMode
+    crowdsec_ban_page_id: int | None
     llm_enabled: bool
     llm_model: str | None
     llm_api_base: str | None
@@ -86,6 +88,8 @@ class InstanceSettingsRead(BaseModel):
             default_site_mode=row.default_site_mode,
             default_site_redirect_url=row.default_site_redirect_url,
             default_site_page_id=row.default_site_page_id,
+            crowdsec_ban_mode=row.crowdsec_ban_mode,
+            crowdsec_ban_page_id=row.crowdsec_ban_page_id,
             llm_enabled=row.llm_enabled,
             llm_model=row.llm_model,
             llm_api_base=row.llm_api_base,
@@ -123,6 +127,30 @@ class InstanceSettingsUpdate(BaseModel):
             and self.default_site_page_id is None
         ):
             raise ValueError("default_site_page_id is required when the mode is 'custom_page'")
+        return self
+
+
+class CrowdSecBanUpdate(BaseModel):
+    """Set the CrowdSec ban page. ``crowdsec_ban_mode`` is required.
+
+    Required for the same reason ``default_site_mode`` is on its sibling:
+    "custom_page needs a page" cannot be checked against a payload that omits
+    the mode, and a schema never sees the stored row.
+    """
+
+    crowdsec_ban_mode: CrowdSecBanMode
+    crowdsec_ban_page_id: int | None = Field(
+        default=None, description="Required when the mode is 'custom_page'"
+    )
+
+    @model_validator(mode="after")
+    def _coherent(self) -> CrowdSecBanUpdate:
+        """Mirror the database CHECK constraint, with a usable message."""
+        if (
+            self.crowdsec_ban_mode is CrowdSecBanMode.custom_page
+            and self.crowdsec_ban_page_id is None
+        ):
+            raise ValueError("crowdsec_ban_page_id is required when the mode is 'custom_page'")
         return self
 
 

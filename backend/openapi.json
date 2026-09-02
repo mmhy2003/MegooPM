@@ -1151,6 +1151,41 @@
         "title": "ClusterStatus",
         "type": "object"
       },
+      "CrowdSecBanMode": {
+        "description": "What a CrowdSec-blocked visitor is served.\n\n``none`` is not \"unset\": it is the deliberate choice to write no template\nfile, so the bouncer answers a bare 403 as it did before this setting\nexisted. Some operators prefer that a block does not advertise which\nproduct is in front.",
+        "enum": [
+          "megoopm",
+          "custom_page",
+          "none"
+        ],
+        "title": "CrowdSecBanMode",
+        "type": "string"
+      },
+      "CrowdSecBanUpdate": {
+        "description": "Set the CrowdSec ban page. ``crowdsec_ban_mode`` is required.\n\nRequired for the same reason ``default_site_mode`` is on its sibling:\n\"custom_page needs a page\" cannot be checked against a payload that omits\nthe mode, and a schema never sees the stored row.",
+        "properties": {
+          "crowdsec_ban_mode": {
+            "$ref": "#/components/schemas/CrowdSecBanMode"
+          },
+          "crowdsec_ban_page_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Required when the mode is 'custom_page'",
+            "title": "Crowdsec Ban Page Id"
+          }
+        },
+        "required": [
+          "crowdsec_ban_mode"
+        ],
+        "title": "CrowdSecBanUpdate",
+        "type": "object"
+      },
       "CrowdSecHealth": {
         "description": "Whether the LAPI integration is configured, reachable, and has a machine.",
         "properties": {
@@ -2064,6 +2099,20 @@
       "InstanceSettingsRead": {
         "description": "Public representation of the settings singleton.\n\nThe LLM API key is deliberately absent. ``llm_api_key_set`` says whether one\nis stored; the value itself is never returned by any endpoint, so a\ncompromised browser session cannot read it back out.",
         "properties": {
+          "crowdsec_ban_mode": {
+            "$ref": "#/components/schemas/CrowdSecBanMode"
+          },
+          "crowdsec_ban_page_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Crowdsec Ban Page Id"
+          },
           "default_site_mode": {
             "$ref": "#/components/schemas/DefaultSiteMode"
           },
@@ -2129,6 +2178,8 @@
           "default_site_mode",
           "default_site_redirect_url",
           "default_site_page_id",
+          "crowdsec_ban_mode",
+          "crowdsec_ban_page_id",
           "llm_enabled",
           "llm_model",
           "llm_api_base",
@@ -7635,6 +7686,53 @@
           }
         ],
         "summary": "Read Settings",
+        "tags": [
+          "settings"
+        ]
+      }
+    },
+    "/api/v1/settings/ban-page": {
+      "patch": {
+        "description": "Choose what a CrowdSec-blocked visitor is served. Admin-only.\n\n``after_config_write``, not a bare audit: this changes a file nginx serves,\nso the config has to be rewritten and reloaded for the choice to take\neffect at all.",
+        "operationId": "update_ban_page_settings_api_v1_settings_ban_page_patch",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CrowdSecBanUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InstanceSettingsRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Update Ban Page Settings",
         "tags": [
           "settings"
         ]

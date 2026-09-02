@@ -16,7 +16,7 @@ from sqlalchemy import BigInteger, Boolean, CheckConstraint, Enum, ForeignKey, I
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
-from app.models.enums import DefaultSiteMode
+from app.models.enums import CrowdSecBanMode, DefaultSiteMode
 from app.models.mixins import TimestampMixin
 
 
@@ -60,6 +60,26 @@ class InstanceSettings(TimestampMixin, Base):
     # sees is worse than refusing the delete. (Contrast proxy_hosts.access_list_id,
     # where detaching one host's guard is visible and recoverable.)
     default_site_page_id: Mapped[int | None] = mapped_column(
+        BigInteger,
+        ForeignKey("custom_pages.id", ondelete="RESTRICT"),
+        nullable=True,
+        index=True,
+    )
+
+    # --- CrowdSec ban page ----------------------------------------------
+    crowdsec_ban_mode: Mapped[CrowdSecBanMode] = mapped_column(
+        Enum(
+            CrowdSecBanMode,
+            name="crowdsec_ban_mode",
+            values_callable=lambda e: [m.value for m in e],
+        ),
+        nullable=False,
+        default=CrowdSecBanMode.megoopm,
+        server_default=CrowdSecBanMode.megoopm.value,
+    )
+    # RESTRICT for the same reason as default_site_page_id: silently changing
+    # what every blocked visitor sees is worse than refusing the delete.
+    crowdsec_ban_page_id: Mapped[int | None] = mapped_column(
         BigInteger,
         ForeignKey("custom_pages.id", ondelete="RESTRICT"),
         nullable=True,

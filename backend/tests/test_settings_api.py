@@ -511,3 +511,74 @@ async def test_a_failed_probe_is_200_with_ok_false(client: AsyncClient, auth, mo
 
 async def test_probe_requires_authentication(client: AsyncClient) -> None:
     assert (await client.post("/api/v1/settings/llm/test", json={})).status_code == 401
+
+
+# --- The CrowdSec ban page -------------------------------------------------
+
+
+async def test_ban_page_defaults_to_the_megoopm_document(
+    client: AsyncClient, auth: dict[str, str]
+) -> None:
+    """An upgraded install serves a real page without anyone opening Settings."""
+    body = (await client.get("/api/v1/settings", headers=auth)).json()
+    assert body["crowdsec_ban_mode"] == "megoopm"
+    assert body["crowdsec_ban_page_id"] is None
+
+
+async def test_ban_page_can_be_set_to_none(
+    client: AsyncClient, auth: dict[str, str]
+) -> None:
+    """The deliberate choice to keep today's bare 403."""
+    resp = await client.patch(
+        "/api/v1/settings/ban-page", json={"crowdsec_ban_mode": "none"}, headers=auth
+    )
+    assert resp.status_code == 200
+    assert resp.json()["crowdsec_ban_mode"] == "none"
+
+
+async def test_ban_page_custom_mode_requires_a_page(
+    client: AsyncClient, auth: dict[str, str]
+) -> None:
+    resp = await client.patch(
+        "/api/v1/settings/ban-page",
+        json={"crowdsec_ban_mode": "custom_page"},
+        headers=auth,
+    )
+    assert resp.status_code == 422
+
+
+async def test_ban_page_rejects_a_page_that_does_not_exist(
+    client: AsyncClient, auth: dict[str, str]
+) -> None:
+    resp = await client.patch(
+        "/api/v1/settings/ban-page",
+        json={"crowdsec_ban_mode": "custom_page", "crowdsec_ban_page_id": 999999},
+        headers=auth,
+    )
+    assert resp.status_code == 422
+
+
+async def test_switching_away_from_custom_page_clears_the_reference(
+    client: AsyncClient, auth: dict[str, str]
+) -> None:
+    """The stored row must always describe exactly one configuration."""
+    page = (
+        await client.post(
+            "/api/v1/custom-pages",
+            json={"name": "Blocked", "html": "<h1>no</h1>"},
+            headers=auth,
+        )
+    ).json()
+    await client.patch(
+        "/api/v1/settings/ban-page",
+        json={"crowdsec_ban_mode": "custom_page", "crowdsec_ban_page_id": page["id"]},
+        headers=auth,
+    )
+    body = (
+        await client.patch(
+            "/api/v1/settings/ban-page",
+            json={"crowdsec_ban_mode": "megoopm"},
+            headers=auth,
+        )
+    ).json()
+    assert body["crowdsec_ban_page_id"] is None

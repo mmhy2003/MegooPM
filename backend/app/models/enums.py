@@ -105,6 +105,20 @@ class DefaultSiteMode(enum.StrEnum):
     custom_page = "custom_page"
 
 
+class CrowdSecBanMode(enum.StrEnum):
+    """What a CrowdSec-blocked visitor is served.
+
+    ``none`` is not "unset": it is the deliberate choice to write no template
+    file, so the bouncer answers a bare 403 as it did before this setting
+    existed. Some operators prefer that a block does not advertise which
+    product is in front.
+    """
+
+    megoopm = "megoopm"
+    custom_page = "custom_page"
+    none = "none"
+
+
 class AuditAction(enum.StrEnum):
     """The mutation an audit-log row records."""
 

@@ -18,7 +18,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.crypto import decrypt_secret, encrypt_secret
-from app.models.enums import DefaultSiteMode
+from app.models.enums import CrowdSecBanMode, DefaultSiteMode
 from app.models.instance_settings import InstanceSettings
 from app.services.llm import LlmConfig
 
@@ -58,6 +58,27 @@ async def update_default_site(db: AsyncSession, changes: dict[str, Any]) -> Inst
     except IntegrityError as exc:
         await db.rollback()
         # The only FK here is the custom page, so a violation means the id is bogus.
+        raise UnknownCustomPageError(str(exc.orig)) from exc
+    await db.refresh(row)
+    return row
+
+
+async def update_ban_page(db: AsyncSession, changes: dict[str, Any]) -> InstanceSettings:
+    """Apply a coherent ban-page payload, clearing the unused column."""
+    row = await get_instance_settings(db)
+    mode = changes["crowdsec_ban_mode"]
+
+    row.crowdsec_ban_mode = mode
+    row.crowdsec_ban_page_id = (
+        changes.get("crowdsec_ban_page_id") if mode is CrowdSecBanMode.custom_page else None
+    )
+
+    try:
+        await db.commit()
+    except IntegrityError as exc:
+        await db.rollback()
+        # The only FK touched here is the custom page, so a violation means the
+        # id is bogus.
         raise UnknownCustomPageError(str(exc.orig)) from exc
     await db.refresh(row)
     return row
