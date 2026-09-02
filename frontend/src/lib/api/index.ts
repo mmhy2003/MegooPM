@@ -82,6 +82,16 @@ export type {
   PageEditChange,
 } from "@/lib/api/resources/custom-pages";
 
+export { dashboard } from "@/lib/api/resources/dashboard";
+export type {
+  CertificateHealth,
+  ConfigHealth,
+  DashboardSummary,
+  InventoryCounts,
+  SecuritySummary,
+  ThreatPoint,
+  TrafficSummary,
+} from "@/lib/api/resources/dashboard";
 export { instanceSettings } from "@/lib/api/resources/settings";
 export type {
   InstanceSettings,

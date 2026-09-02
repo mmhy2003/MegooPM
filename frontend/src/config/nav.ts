@@ -1,4 +1,5 @@
 import {
+  LayoutDashboard,
   Globe,
   ShieldCheck,
   ListChecks,
@@ -28,6 +29,12 @@ export interface NavItem {
  * Order and labels mirror the product areas defined in the PRD.
  */
 export const primaryNav: NavItem[] = [
+  {
+    title: "Dashboard",
+    href: "/",
+    icon: LayoutDashboard,
+    description: "Instance health, traffic and attack origins at a glance.",
+  },
   {
     title: "Proxy Hosts",
     href: "/proxy-hosts",
@@ -98,8 +105,8 @@ export const primaryNav: NavItem[] = [
   },
 ];
 
-/** Home / dashboard route the shell redirects to after login. */
-export const HOME_ROUTE = "/proxy-hosts";
+/** Home route: the dashboard, which is now a real page rather than a redirect. */
+export const HOME_ROUTE = "/";
 
 /**
  * The sidebar items a user with `role` may see. Admin-only entries are

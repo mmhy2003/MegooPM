@@ -20,7 +20,10 @@ import {
   SidebarRail,
 } from "@/components/ui/sidebar";
 
-function isActivePath(pathname: string, href: string): boolean {
+export function isActivePath(pathname: string, href: string): boolean {
+  // "/" is a prefix of every path, so the dashboard would otherwise light up on
+  // every page. It matches only itself.
+  if (href === "/") return pathname === "/";
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 

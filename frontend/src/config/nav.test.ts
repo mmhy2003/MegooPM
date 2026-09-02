@@ -1,11 +1,13 @@
 import { describe, expect, it } from "vitest";
 
 import { HOME_ROUTE, navForRole, primaryNav, utilityRoutes } from "@/config/nav";
+import { isActivePath } from "@/components/app-sidebar";
 
 describe("primaryNav", () => {
   it("covers every MegooPM product area", () => {
     const titles = primaryNav.map((item) => item.title);
     expect(titles).toEqual([
+      "Dashboard",
       "Proxy Hosts",
       "Upstream Pools",
       "Certificates",
@@ -58,5 +60,25 @@ describe("utilityRoutes", () => {
     expect(utilityRoutes["/profile"]).toBe("Profile");
     expect(utilityRoutes["/account"]).toBeUndefined();
     expect(primaryNav.some((i) => i.href === "/profile")).toBe(false);
+  });
+});
+
+describe("dashboard route", () => {
+  it("puts the dashboard first, before Proxy Hosts", () => {
+    expect(primaryNav[0].href).toBe("/");
+    expect(primaryNav[1].href).toBe("/proxy-hosts");
+  });
+
+  it("marks the dashboard active only on itself", () => {
+    // "/" is a prefix of every path, so a naive startsWith would light the
+    // dashboard up on every page in the app.
+    expect(isActivePath("/", "/")).toBe(true);
+    expect(isActivePath("/proxy-hosts", "/")).toBe(false);
+    expect(isActivePath("/certificates", "/")).toBe(false);
+  });
+
+  it("still matches nested routes for other entries", () => {
+    expect(isActivePath("/proxy-hosts/3", "/proxy-hosts")).toBe(true);
+    expect(isActivePath("/proxy-hosts-other", "/proxy-hosts")).toBe(false);
   });
 });

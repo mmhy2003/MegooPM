@@ -1,8 +1,9 @@
-import { redirect } from "next/navigation";
+import type { Metadata } from "next";
 
-import { HOME_ROUTE } from "@/config/nav";
+import { DashboardView } from "@/components/dashboard/dashboard-view";
 
-/** The shell has no dedicated dashboard yet; land on the first product area. */
-export default function IndexPage() {
-  redirect(HOME_ROUTE);
+export const metadata: Metadata = { title: "Dashboard" };
+
+export default function DashboardPage() {
+  return <DashboardView />;
 }

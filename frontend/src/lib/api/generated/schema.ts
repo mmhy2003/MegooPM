@@ -348,6 +348,9 @@ export interface paths {
         /**
          * Cluster Status
          * @description Report the shared config version and how far each node has converged.
+         *
+         *     The computation lives in the service so the dashboard reuses it rather than
+         *     growing a second, divergent copy.
          */
         get: operations["cluster_status_api_v1_cluster_status_get"];
         put?: never;
@@ -639,6 +642,54 @@ export interface paths {
          * @description Update a page's name, description and/or document. Admin-only.
          */
         patch: operations["update_custom_page_api_v1_custom_pages__page_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/dashboard/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Dashboard Summary
+         * @description Every card's numbers in one payload.
+         *
+         *     One request rather than five list endpoints the browser would have to count
+         *     itself — and one shape that a push transport can later deliver unchanged.
+         */
+        get: operations["dashboard_summary_api_v1_dashboard_summary_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/dashboard/threats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Dashboard Threats
+         * @description Attack origins by country.
+         *
+         *     Separate from the summary because it is the only part that needs CrowdSec,
+         *     so an outage empties the map rather than the page. An unreachable CrowdSec
+         *     returns an empty list for the same reason the summary returns null security:
+         *     the caller must be able to render "unavailable" rather than "no attacks".
+         */
+        get: operations["dashboard_threats_api_v1_dashboard_threats_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/v1/dead-hosts": {
@@ -1633,6 +1684,10 @@ export interface components {
             cn?: string | null;
             /** Ip */
             ip?: string | null;
+            /** Latitude */
+            latitude?: number | null;
+            /** Longitude */
+            longitude?: number | null;
             /** Scope */
             scope?: string | null;
             /** Value */
@@ -1826,6 +1881,20 @@ export interface components {
             weight?: number | null;
         };
         /**
+         * CertificateHealth
+         * @description Counts an operator would want to act on, not an inventory.
+         */
+        CertificateHealth: {
+            /** Expired */
+            expired: number;
+            /** Expiring Soon */
+            expiring_soon: number;
+            /** Failed */
+            failed: number;
+            /** Total */
+            total: number;
+        };
+        /**
          * CertificateIssued
          * @description Response for an issuance request: the pending cert plus its tracking task.
          */
@@ -1923,6 +1992,19 @@ export interface components {
             nodes: components["schemas"]["ClusterNodeStatus"][];
             /** This Node */
             this_node: string;
+        };
+        /** ConfigHealth */
+        ConfigHealth: {
+            /** Config Version */
+            config_version: number;
+            /** Converged */
+            converged: boolean;
+            /** Nodes In Sync */
+            nodes_in_sync: number;
+            /** Nodes Stale */
+            nodes_stale: number;
+            /** Nodes Total */
+            nodes_total: number;
         };
         /**
          * CrowdSecBanMode
@@ -2076,6 +2158,14 @@ export interface components {
             html?: string | null;
             /** Name */
             name?: string | null;
+        };
+        /** DashboardSummary */
+        DashboardSummary: {
+            certificates: components["schemas"]["CertificateHealth"];
+            config: components["schemas"]["ConfigHealth"];
+            inventory: components["schemas"]["InventoryCounts"];
+            security: components["schemas"]["SecuritySummary"] | null;
+            traffic: components["schemas"]["TrafficSummary"];
         };
         /**
          * DeadHostCreate
@@ -2469,6 +2559,19 @@ export interface components {
              * @description Required when the mode is 'redirect'
              */
             default_site_redirect_url?: string | null;
+        };
+        /** InventoryCounts */
+        InventoryCounts: {
+            /** Dead Hosts */
+            dead_hosts: number;
+            /** Proxy Hosts Enabled */
+            proxy_hosts_enabled: number;
+            /** Proxy Hosts Total */
+            proxy_hosts_total: number;
+            /** Redirection Hosts */
+            redirection_hosts: number;
+            /** Streams */
+            streams: number;
         };
         /**
          * LetsEncryptCertificateCreate
@@ -3240,6 +3343,15 @@ export interface components {
              */
             y: number;
         };
+        /** SecuritySummary */
+        SecuritySummary: {
+            /** Active Decisions */
+            active_decisions: number;
+            /** Alerts 24H */
+            alerts_24h: number;
+            /** Top Scenarios */
+            top_scenarios: string[];
+        };
         /**
          * StreamCreate
          * @description Payload to create a stream.
@@ -3403,6 +3515,24 @@ export interface components {
             task_id: string;
         };
         /**
+         * ThreatPoint
+         * @description One country's attack count, ready to place on a map.
+         *
+         *     Deliberately not CrowdSec-shaped: the request-analytics pipeline will one
+         *     day produce the same type from access logs, and the map component must not
+         *     need changing when it does.
+         */
+        ThreatPoint: {
+            /** Count */
+            count: number;
+            /** Country */
+            country: string;
+            /** Lat */
+            lat: number | null;
+            /** Lng */
+            lng: number | null;
+        };
+        /**
          * TokenPair
          * @description Issued access + refresh tokens.
          *
@@ -3419,6 +3549,20 @@ export interface components {
              * @default bearer
              */
             token_type: string;
+        };
+        /**
+         * TrafficSummary
+         * @description ``None`` means no node has reported recently — unknown, not idle.
+         */
+        TrafficSummary: {
+            /** Active Connections */
+            active_connections: number | null;
+            /** Reporting Nodes */
+            reporting_nodes: number;
+            /** Requests Per Second */
+            requests_per_second: number | null;
+            /** Stale Nodes */
+            stale_nodes: number;
         };
         /**
          * UpstreamContext
@@ -5036,6 +5180,46 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    dashboard_summary_api_v1_dashboard_summary_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DashboardSummary"];
+                };
+            };
+        };
+    };
+    dashboard_threats_api_v1_dashboard_threats_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ThreatPoint"][];
                 };
             };
         };
