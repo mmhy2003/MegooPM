@@ -4258,7 +4258,7 @@
         "type": "object"
       },
       "ThreatPoint": {
-        "description": "One country's attack count, ready to place on a map.\n\nDeliberately not CrowdSec-shaped: the request-analytics pipeline will one\nday produce the same type from access logs, and the map component must not\nneed changing when it does.",
+        "description": "One country's attack count.\n\nPosition is deliberately absent: the map owns placement, so this and the\nvisitor countries arrive in the same shape and a country is always drawn in\nthe same spot whichever layer drew it. Sending coordinates that never change\non every poll bought nothing.",
         "properties": {
           "count": {
             "title": "Count",
@@ -4267,35 +4267,11 @@
           "country": {
             "title": "Country",
             "type": "string"
-          },
-          "lat": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Lat"
-          },
-          "lng": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Lng"
           }
         },
         "required": [
           "country",
-          "count",
-          "lat",
-          "lng"
+          "count"
         ],
         "title": "ThreatPoint",
         "type": "object"

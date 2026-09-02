@@ -1,8 +1,8 @@
 """Grouping CrowdSec alerts into map points.
 
-Pure: no network. The map's whole contract is this list, and it is deliberately
-not CrowdSec-shaped so a future request-analytics pipeline can produce the same
-type without the map component changing.
+Pure: no network. The service counts; the map places. Both the threat and the
+visitor layers reach the map as {country, count}, which is what lets one
+centroid table position them consistently.
 """
 
 from __future__ import annotations
@@ -11,11 +11,8 @@ from app.schemas.crowdsec import Alert, AlertSource
 from app.services.dashboard.threats import group_by_country
 
 
-def _alert(cn: str | None, *, lat: float | None = None, lng: float | None = None) -> Alert:
-    return Alert(
-        scenario="x",
-        source=AlertSource(ip="1.2.3.4", cn=cn, latitude=lat, longitude=lng),
-    )
+def _alert(cn: str | None) -> Alert:
+    return Alert(scenario="x", source=AlertSource(ip="1.2.3.4", cn=cn))
 
 
 def test_groups_alerts_by_country() -> None:
@@ -48,30 +45,13 @@ def test_alerts_with_no_source_are_dropped() -> None:
     assert [p.country for p in points] == ["DE"]
 
 
-def test_coordinates_come_from_the_alerts_themselves() -> None:
-    """CrowdSec geolocates every alert, so the point is the real mean position
-    of the attackers rather than a static country centroid we would have to
-    ship and maintain."""
-    points = group_by_country(
-        [_alert("DE", lat=52.0, lng=13.0), _alert("DE", lat=48.0, lng=11.0)]
-    )
-    assert points[0].lat == 50.0
-    assert points[0].lng == 12.0
-
-
-def test_a_country_whose_alerts_carry_no_coordinates_is_still_counted() -> None:
-    """It cannot be plotted, but dropping it would hide a real attacker from
-    the ranked list — the map is best-effort, the count is not."""
+def test_a_country_is_counted_regardless_of_where_it_is() -> None:
+    """Placement moved to the map, so the service only counts. A country the
+    map cannot place is still a real country with real attacks."""
     points = group_by_country([_alert("DE"), _alert("DE")])
+    assert points[0].country == "DE"
     assert points[0].count == 2
-    assert points[0].lat is None
-    assert points[0].lng is None
-
-
-def test_a_country_with_mixed_coordinates_averages_only_the_known_ones() -> None:
-    points = group_by_country([_alert("DE", lat=52.0, lng=13.0), _alert("DE")])
-    assert points[0].count == 2
-    assert points[0].lat == 52.0
+    assert not hasattr(points[0], "lat")
 
 
 def test_country_codes_are_normalised_to_upper_case() -> None:
