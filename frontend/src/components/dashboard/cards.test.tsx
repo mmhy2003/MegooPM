@@ -3,6 +3,7 @@ import { cleanup, render, screen } from "@testing-library/react";
 
 import {
   CertificatesCard,
+  shortScenario,
   ConfigHealthCard,
   InventoryCard,
   SecurityCard,
@@ -166,5 +167,52 @@ describe("InventoryCard", () => {
       />,
     );
     expect(screen.getByText(/8 of 10/i)).toBeInTheDocument();
+  });
+});
+
+describe("shortScenario", () => {
+  it("drops the collection prefix", () => {
+    // Every scenario in a collection repeats it, which pushes the
+    // distinguishing half off the end of a badge.
+    expect(shortScenario("crowdsecurity/http-probing")).toBe("http-probing");
+  });
+
+  it("leaves a bare name alone", () => {
+    expect(shortScenario("manual-ban")).toBe("manual-ban");
+  });
+
+  it("keeps only the last segment of a nested name", () => {
+    expect(shortScenario("a/b/c")).toBe("c");
+  });
+});
+
+describe("SecurityCard scenarios", () => {
+  it("shows each scenario as its own badge", () => {
+    render(
+      <SecurityCard
+        security={{
+          active_decisions: 1,
+          alerts_24h: 2,
+          top_scenarios: ["crowdsecurity/http-probing", "megoopm/manual-ban"],
+        }}
+      />,
+    );
+    expect(screen.getByText("http-probing")).toBeInTheDocument();
+    expect(screen.getByText("manual-ban")).toBeInTheDocument();
+  });
+
+  it("keeps the full name available on the badge", () => {
+    // Two collections can carry the same scenario name, so the prefix is moved
+    // rather than lost.
+    render(
+      <SecurityCard
+        security={{
+          active_decisions: 1,
+          alerts_24h: 2,
+          top_scenarios: ["crowdsecurity/http-probing"],
+        }}
+      />,
+    );
+    expect(screen.getByTitle("crowdsecurity/http-probing")).toBeInTheDocument();
   });
 });

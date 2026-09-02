@@ -212,7 +212,11 @@ export function OriginMap({
           <div
             ref={containerRef}
             aria-hidden="true"
-            className="h-[22rem] w-full sm:h-[30rem]"
+            // Sized by aspect, not a fixed height: the world map is roughly 2:1, so
+            // this makes the container match it at any width — the map fills the
+            // card instead of sitting small in a letterbox. Capped so it cannot
+            // run away on an ultrawide monitor.
+            className="aspect-[2/1] max-h-[44rem] w-full"
           />
         ) : null}
 

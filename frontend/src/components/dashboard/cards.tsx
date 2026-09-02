@@ -18,6 +18,8 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
+import { Badge } from "@/components/ui/badge";
+
 import type {
   CertificateHealth,
   ConfigHealth,
@@ -107,6 +109,18 @@ export function ConfigHealthCard({ config }: { config: ConfigHealth }) {
   );
 }
 
+/**
+ * Drops the collection prefix from a CrowdSec scenario name.
+ *
+ * Every scenario from a given collection repeats it — `crowdsecurity/` on all
+ * five of them — which pushes the distinguishing half off the end of a badge.
+ * The full name stays as the badge's title.
+ */
+export function shortScenario(scenario: string): string {
+  const slash = scenario.lastIndexOf("/");
+  return slash === -1 ? scenario : scenario.slice(slash + 1);
+}
+
 export function SecurityCard({
   security,
 }: {
@@ -123,9 +137,24 @@ export function SecurityCard({
             <Figure value={security.alerts_24h} label="recent alerts" />
           </div>
           {security.top_scenarios.length > 0 ? (
-            <p className="text-muted-foreground text-xs">
-              Top: {security.top_scenarios.join(", ")}
-            </p>
+            <div className="space-y-1.5">
+              <p className="text-muted-foreground text-xs">Top scenarios</p>
+              <div className="flex flex-wrap gap-1.5">
+                {security.top_scenarios.map((scenario) => (
+                  <Badge
+                    key={scenario}
+                    variant="outline"
+                    className="font-mono text-xs"
+                    // The full name on hover: the collection is dropped for
+                    // readability, but two collections can carry the same
+                    // scenario name, so it is moved rather than lost.
+                    title={scenario}
+                  >
+                    {shortScenario(scenario)}
+                  </Badge>
+                ))}
+              </div>
+            </div>
           ) : null}
         </div>
       )}
