@@ -50,7 +50,7 @@ docker exec megoopm-test pip install -q "pytest>=8.2" "pytest-asyncio>=0.23" "ai
 **Interfaces:**
 - Produces: `parse_stub_status(text: str) -> StubStatus` and `StubStatus(active, accepted, handled, requests)` in `app/services/nginx/stub_status.py`.
 
-- [ ] **Step 1: Add the status server to nginx**
+- [x] **Step 1: Add the status server to nginx**
 
 In `infra/nginx/nginx.conf`, after the existing `default_server` block and before `include /data/nginx/conf.d/*.conf;`:
 
@@ -75,7 +75,7 @@ In `infra/nginx/nginx.conf`, after the existing `default_server` block and befor
     }
 ```
 
-- [ ] **Step 2: Verify nginx loads and the endpoint answers**
+- [x] **Step 2: Verify nginx loads and the endpoint answers**
 
 ```bash
 export MSYS_NO_PATHCONV=1
@@ -93,7 +93,7 @@ echo "--- other path ---"; curl -s -o /dev/null -w "%{http_code}\n" http://127.0
 
 Expected: the `Active connections:` body, then `404`. Record the exact body — Step 3's fixture must be the real thing, not a remembered format.
 
-- [ ] **Step 3: Write the failing tests**
+- [x] **Step 3: Write the failing tests**
 
 Create `backend/tests/test_stub_status.py`:
 
@@ -144,7 +144,7 @@ def test_tolerates_extra_whitespace() -> None:
     assert (got.active, got.accepted, got.handled, got.requests) == (7, 1, 2, 3)
 ```
 
-- [ ] **Step 4: Run the tests to verify they fail**
+- [x] **Step 4: Run the tests to verify they fail**
 
 ```bash
 docker exec megoopm-test python -m pytest tests/test_stub_status.py -p no:cacheprovider
@@ -152,7 +152,7 @@ docker exec megoopm-test python -m pytest tests/test_stub_status.py -p no:cachep
 
 Expected: FAIL — `ModuleNotFoundError: No module named 'app.services.nginx.stub_status'`.
 
-- [ ] **Step 5: Write the parser**
+- [x] **Step 5: Write the parser**
 
 Create `backend/app/services/nginx/stub_status.py`:
 
@@ -215,7 +215,7 @@ def parse_stub_status(text: str) -> StubStatus:
 __all__ = ["ParseError", "StubStatus", "parse_stub_status"]
 ```
 
-- [ ] **Step 6: Run the tests to verify they pass**
+- [x] **Step 6: Run the tests to verify they pass**
 
 ```bash
 docker exec megoopm-test python -m pytest tests/test_stub_status.py -p no:cacheprovider
@@ -223,7 +223,7 @@ docker exec megoopm-test python -m pytest tests/test_stub_status.py -p no:cachep
 
 Expected: PASS, 4 tests.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add infra/nginx/nginx.conf backend/app/services/nginx/stub_status.py backend/tests/test_stub_status.py
@@ -247,7 +247,7 @@ git commit -m "feat(nginx): expose stub_status and parse it"
   - `record_sample(session, node_id, sample, *, now) -> None`
   - `aggregate(rows, *, now, stale_after) -> TrafficTotals(active_connections, requests_per_second, reporting_nodes, stale_nodes)`
 
-- [ ] **Step 1: Add the model**
+- [x] **Step 1: Add the model**
 
 Create `backend/app/models/node_metrics.py`:
 
@@ -287,7 +287,7 @@ class NodeMetrics(Base):
 
 Register it wherever the other models are imported for metadata (check `app/db/base.py` or `app/models/__init__.py` and follow what `cluster_state.py` does).
 
-- [ ] **Step 2: Write the migration**
+- [x] **Step 2: Write the migration**
 
 Create `backend/alembic/versions/0022_node_metrics.py`:
 
@@ -338,7 +338,7 @@ def downgrade() -> None:
     op.drop_table("node_metrics")
 ```
 
-- [ ] **Step 3: Run the migration up, down, and up**
+- [x] **Step 3: Run the migration up, down, and up**
 
 ```bash
 docker exec megoopm-test sh -c "alembic upgrade head && alembic downgrade -1 && alembic upgrade head"
@@ -347,7 +347,7 @@ docker exec megoopm-testdb psql -U megoopm -d megoopm -c "DROP SCHEMA public CAS
 
 Expected: all three succeed. The reset afterwards matters — see Global Constraints.
 
-- [ ] **Step 4: Write the failing tests**
+- [x] **Step 4: Write the failing tests**
 
 Create `backend/tests/test_node_metrics.py`:
 
@@ -448,7 +448,7 @@ def test_two_samples_at_the_same_instant_do_not_divide_by_zero() -> None:
     assert compute_rate(StubStatus(1, 0, 0, 600), (500, NOW), now=NOW) == 0.0
 ```
 
-- [ ] **Step 5: Run the tests to verify they fail**
+- [x] **Step 5: Run the tests to verify they fail**
 
 ```bash
 docker exec megoopm-test python -m pytest tests/test_node_metrics.py -p no:cacheprovider
@@ -456,7 +456,7 @@ docker exec megoopm-test python -m pytest tests/test_node_metrics.py -p no:cache
 
 Expected: FAIL — `ModuleNotFoundError: No module named 'app.services.dashboard'`.
 
-- [ ] **Step 6: Write the implementation**
+- [x] **Step 6: Write the implementation**
 
 Create `backend/app/services/dashboard/__init__.py` (empty) and
 `backend/app/services/dashboard/metrics.py`:
@@ -562,7 +562,7 @@ async def load_traffic(
 __all__ = ["TrafficTotals", "aggregate", "compute_rate", "load_traffic", "record_sample"]
 ```
 
-- [ ] **Step 7: Run the tests to verify they pass**
+- [x] **Step 7: Run the tests to verify they pass**
 
 ```bash
 docker exec megoopm-test python -m pytest tests/test_node_metrics.py -p no:cacheprovider
@@ -570,7 +570,7 @@ docker exec megoopm-test python -m pytest tests/test_node_metrics.py -p no:cache
 
 Expected: PASS, 8 tests.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add backend/app/models/node_metrics.py backend/alembic/versions/0022_node_metrics.py backend/app/services/dashboard backend/tests/test_node_metrics.py
@@ -591,7 +591,7 @@ git commit -m "feat(dashboard): record and aggregate per-node nginx samples"
 - Consumes: `parse_stub_status` (Task 1), `record_sample` (Task 2).
 - Produces: the Celery task `app.tasks.metrics.scrape_local_nginx`, and `settings.metrics_scrape_interval_seconds` (default `15.0`), `settings.nginx_status_url` (default `http://nginx:8081/stub_status`).
 
-- [ ] **Step 1: Add the settings**
+- [x] **Step 1: Add the settings**
 
 In `backend/app/core/config.py`, beside the other nginx settings:
 
@@ -603,7 +603,7 @@ In `backend/app/core/config.py`, beside the other nginx settings:
     metrics_scrape_interval_seconds: float = 15.0
 ```
 
-- [ ] **Step 2: Write the failing test**
+- [x] **Step 2: Write the failing test**
 
 Create `backend/tests/test_metrics_task.py`:
 
@@ -700,7 +700,7 @@ def _null_session_factory():
     return factory
 ```
 
-- [ ] **Step 3: Run the test to verify it fails**
+- [x] **Step 3: Run the test to verify it fails**
 
 ```bash
 docker exec megoopm-test python -m pytest tests/test_metrics_task.py -p no:cacheprovider
@@ -708,7 +708,7 @@ docker exec megoopm-test python -m pytest tests/test_metrics_task.py -p no:cache
 
 Expected: FAIL — `ModuleNotFoundError: No module named 'app.tasks.metrics'`.
 
-- [ ] **Step 4: Write the task**
+- [x] **Step 4: Write the task**
 
 Create `backend/app/tasks/metrics.py`, following the session pattern in `app/tasks/certs.py` (Celery runs outside FastAPI's session scope, so the task opens its own engine):
 
@@ -772,7 +772,7 @@ def scrape_local_nginx() -> None:
     asyncio.run(_scrape_async())
 ```
 
-- [ ] **Step 5: Schedule it, and route it in HA**
+- [x] **Step 5: Schedule it, and route it in HA**
 
 In `backend/app/core/celery_app.py`, add to `celery_app.conf.beat_schedule`:
 
@@ -796,7 +796,7 @@ and inside `_configure_ha`, extend `task_routes`:
     }
 ```
 
-- [ ] **Step 6: Run the tests**
+- [x] **Step 6: Run the tests**
 
 ```bash
 docker exec megoopm-test python -m pytest -p no:cacheprovider
@@ -805,7 +805,7 @@ docker exec megoopm-test ruff check app tests alembic
 
 Expected: all pass, ruff clean.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add backend/app/tasks/metrics.py backend/app/core/celery_app.py backend/app/core/config.py backend/tests/test_metrics_task.py
@@ -829,7 +829,7 @@ git commit -m "feat(dashboard): scrape each node's own nginx on its beat"
 - Consumes: `load_traffic` (Task 2).
 - Produces: `GET /api/v1/dashboard/summary` returning `DashboardSummary`.
 
-- [ ] **Step 1: Extract the cluster status computation**
+- [x] **Step 1: Extract the cluster status computation**
 
 Move the body of `cluster_status` from `backend/app/api/routes/cluster.py:29-61` into a new
 `backend/app/services/cluster/status.py` as:
@@ -853,7 +853,7 @@ either being wrong alone.
 
 Run `docker exec megoopm-test python -m pytest tests/test_cluster_coordination.py -p no:cacheprovider` and confirm it still passes before going further — a pure move must change no behaviour.
 
-- [ ] **Step 2: Write the failing tests**
+- [x] **Step 2: Write the failing tests**
 
 Create `backend/tests/test_dashboard_api.py`, using the `client` and `auth` fixtures the same way `tests/test_settings_api.py` does:
 
@@ -893,7 +893,7 @@ async def test_summary_survives_crowdsec_being_unreachable(
     assert body["certificates"] is not None
 ```
 
-- [ ] **Step 3: Run the tests to verify they fail**
+- [x] **Step 3: Run the tests to verify they fail**
 
 ```bash
 docker exec megoopm-test python -m pytest tests/test_dashboard_api.py -p no:cacheprovider
@@ -901,7 +901,7 @@ docker exec megoopm-test python -m pytest tests/test_dashboard_api.py -p no:cach
 
 Expected: FAIL with 404s — the route does not exist.
 
-- [ ] **Step 4: Write the schemas**
+- [x] **Step 4: Write the schemas**
 
 Create `backend/app/schemas/dashboard.py`:
 
@@ -963,7 +963,7 @@ class DashboardSummary(BaseModel):
     security: SecuritySummary | None
 ```
 
-- [ ] **Step 5: Write the summary service**
+- [x] **Step 5: Write the summary service**
 
 Create `backend/app/services/dashboard/summary.py`:
 
@@ -1092,7 +1092,7 @@ maps between them.
 Check `list_decisions`/`list_alerts` against their real signatures in
 `app/api/routes/crowdsec.py` and pass a 24-hour window to the alert call.
 
-- [ ] **Step 6: Write the route**
+- [x] **Step 6: Write the route**
 
 Create `backend/app/api/routes/dashboard.py`:
 
@@ -1108,7 +1108,7 @@ async def dashboard_summary(
 Register the router alongside the others, and check how `crowdsec.py` obtains
 `ClientDep` so the CrowdSec dependency matches.
 
-- [ ] **Step 7: Run the tests and refresh the contract**
+- [x] **Step 7: Run the tests and refresh the contract**
 
 ```bash
 docker exec megoopm-test python -m pytest -p no:cacheprovider
@@ -1119,7 +1119,7 @@ docker exec megoopm-test ruff check app tests alembic
 
 Expected: all pass, ruff clean.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add backend/app backend/tests backend/openapi.json
@@ -1139,7 +1139,7 @@ git commit -m "feat(dashboard): one endpoint for every card's numbers"
 **Interfaces:**
 - Produces: `GET /api/v1/dashboard/threats` returning `list[ThreatPoint]` where `ThreatPoint(country, count, lat, lng)`.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Create `backend/tests/test_dashboard_threats.py`. The grouping is pure — feed it `Alert` objects directly:
 
@@ -1193,7 +1193,7 @@ def test_no_alerts_is_an_empty_list_not_an_error() -> None:
     assert group_by_country([]) == []
 ```
 
-- [ ] **Step 2: Run the tests to verify they fail**
+- [x] **Step 2: Run the tests to verify they fail**
 
 ```bash
 docker exec megoopm-test python -m pytest tests/test_dashboard_threats.py -p no:cacheprovider
@@ -1201,7 +1201,7 @@ docker exec megoopm-test python -m pytest tests/test_dashboard_threats.py -p no:
 
 Expected: FAIL — `ModuleNotFoundError: No module named 'app.services.dashboard.threats'`.
 
-- [ ] **Step 3: Implement the grouping**
+- [x] **Step 3: Implement the grouping**
 
 Create `backend/app/services/dashboard/threats.py`:
 
@@ -1284,7 +1284,7 @@ than a dependency — a dict of ~250 entries. Do not reach for a package for thi
 it is a table, and a dependency would need vetting, updating and a licence
 review for data that has not changed in decades. Cite the source in a comment.
 
-- [ ] **Step 4: Add the schema and the route**
+- [x] **Step 4: Add the schema and the route**
 
 Add to `backend/app/schemas/dashboard.py`:
 
@@ -1319,7 +1319,7 @@ async def dashboard_threats(
 Match `list_alerts`' real signature from `app/api/routes/crowdsec.py`, and pass a
 24-hour window.
 
-- [ ] **Step 5: Run everything and refresh the contract**
+- [x] **Step 5: Run everything and refresh the contract**
 
 ```bash
 docker exec megoopm-test python -m pytest -p no:cacheprovider
@@ -1328,7 +1328,7 @@ docker exec megoopm-test python -m pytest -p no:cacheprovider
 docker exec megoopm-test ruff check app tests alembic
 ```
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add backend/app backend/tests backend/openapi.json
@@ -1351,7 +1351,7 @@ git commit -m "feat(dashboard): group attack origins into map points"
 - Consumes: `GET /dashboard/summary`, `GET /dashboard/threats`.
 - Produces: `dashboard.summary()` and `dashboard.threats()` on the API client.
 
-- [ ] **Step 1: Regenerate the API types**
+- [x] **Step 1: Regenerate the API types**
 
 ```bash
 cd frontend && npm run gen:api
@@ -1359,7 +1359,7 @@ cd frontend && npm run gen:api
 
 Then add `src/lib/api/resources/dashboard.ts` following `resources/settings.ts`, and export it from `src/lib/api/index.ts`.
 
-- [ ] **Step 2: Make `/` the dashboard**
+- [x] **Step 2: Make `/` the dashboard**
 
 `src/app/(app)/page.tsx` currently redirects, with the comment *"The shell has
 no dedicated dashboard yet; land on the first product area."* That is now
@@ -1413,7 +1413,7 @@ it("marks Dashboard active only on the dashboard itself", () => {
 `nav.test.ts` asserts `primaryNav.some((item) => item.href === HOME_ROUTE)` —
 that stays true with `HOME_ROUTE = "/"` and the new entry.
 
-- [ ] **Step 3: Write the failing card tests**
+- [x] **Step 3: Write the failing card tests**
 
 One file per card. Each renders from a fixture and asserts the number, the empty
 state, and — for traffic and security — the *unmeasured* state, which must not
@@ -1437,7 +1437,7 @@ it("warns when a node is not reporting", () => {
 });
 ```
 
-- [ ] **Step 4: Build the cards and the view**
+- [x] **Step 4: Build the cards and the view**
 
 `DashboardView` loads both endpoints, polls the summary every 15 seconds
 (`settings.metrics_scrape_interval_seconds` is the same figure, so a faster poll
@@ -1463,7 +1463,7 @@ misrepresent the data.
 Follow the loading/error conventions of an existing view such as
 `certificates-view.tsx`.
 
-- [ ] **Step 5: Run the full frontend gate**
+- [x] **Step 5: Run the full frontend gate**
 
 ```bash
 cd frontend && npx vitest run && npm run typecheck && npm run lint && npm run build
@@ -1472,7 +1472,7 @@ cd frontend && npx vitest run && npm run typecheck && npm run lint && npm run bu
 Expected: all pass. `typecheck` is the one that catches fixtures broken by the
 new response types.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add frontend/src
@@ -1491,7 +1491,7 @@ git commit -m "feat(dashboard): the dashboard page and its cards"
 - Consumes: `ThreatPoint[]` from Task 5.
 - Produces: `<ThreatGlobe points={points} />`.
 
-- [ ] **Step 1: Measure before choosing**
+- [x] **Step 1: Measure before choosing**
 
 Build the page with a candidate library and record the bundle delta:
 
@@ -1508,7 +1508,7 @@ Record the measured numbers and the decision in the commit message. Do not skip
 this step and pick from memory — bundle sizes change release to release, and the
 whole point of deferring the choice was to decide it with a number.
 
-- [ ] **Step 2: Write the failing tests**
+- [x] **Step 2: Write the failing tests**
 
 The component's contract is the props, not the rendering technology, so the
 tests must pass for either choice:
@@ -1528,7 +1528,7 @@ it("lists the top origins as text alongside the map", () => {
 });
 ```
 
-- [ ] **Step 3: Build the component**
+- [x] **Step 3: Build the component**
 
 Render the map plus a short ranked list of origins. The list is not decoration:
 a canvas or WebGL globe is invisible to assistive technology, so the text list
@@ -1538,13 +1538,13 @@ which keeps them independent of the rendering choice.
 Guard against WebGL being unavailable (a headless browser, a locked-down
 client): fall back to the list alone rather than a blank box.
 
-- [ ] **Step 4: Run the full frontend gate**
+- [x] **Step 4: Run the full frontend gate**
 
 ```bash
 cd frontend && npx vitest run && npm run typecheck && npm run lint && npm run build
 ```
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add frontend/src
@@ -1571,3 +1571,35 @@ Not reachable by any automated test:
    most on the page.
 7. `cscli decisions add --ip <some-ip> --duration 5m`, then confirm the ban count
    rises and the globe places a point.
+
+
+---
+
+## Executed 2026-09-02
+
+All seven tasks complete. Backend **760 passed, 41 skipped**, ruff clean.
+Frontend **420 passed, 1 skipped**, typecheck, lint and build clean.
+
+Four deviations from the plan, all deliberate:
+
+- **No centroid table.** The plan had a static ~250-entry table of country
+  centroids. CrowdSec's `geoip-enrich` parser already resolves coordinates for
+  every alert — its own description is "Populate event with geoloc info : as,
+  country, coords, source range" — so `AlertSource` gained `latitude` and
+  `longitude` and each country's point is the mean position of the attackers
+  actually seen. Less data to maintain, more accurate, and nothing to drift.
+  `ThreatPoint.lat/lng` became nullable so a country with no coordinates is
+  still counted and ranked, just not plotted.
+- **The HA routing test no longer skips.** It was skipping whenever
+  `ha_enabled` was false, which hid the plan's own constraint #1. It now calls
+  `_configure_ha` directly and asserts the queue.
+- **`cobe` chosen by measurement**, as required: +36 KB to the built assets
+  (2487 → 2523 KB).
+- **`plottable` had to be memoised.** A fresh array each render made the globe
+  effect tear down and rebuild on every poll, flickering and leaking WebGL
+  contexts. Caught by reading the dependency array, not by a test.
+
+Two things the plan warned about happened exactly as written: `alembic upgrade`
+polluted the shared test database (reset before running the suite), and
+`typecheck` caught what `vitest` could not — `cobe` has no `onRender` hook in
+this version, so rotation is driven by `update()` from an animation frame.
