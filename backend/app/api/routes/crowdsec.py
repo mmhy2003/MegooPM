@@ -17,6 +17,7 @@ Manual decisions are recorded in the audit log.
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -41,6 +42,7 @@ from app.schemas.crowdsec_whitelist import (
     WhitelistRead,
     WhitelistUpdate,
 )
+from app.schemas.events import Event
 from app.services import audit as audit_service
 from app.services.crowdsec import (
     CrowdSecClient,
@@ -59,6 +61,7 @@ from app.services.crowdsec.whitelists import (
     render_whitelists,
     slugify,
 )
+from app.services.events import publish
 
 router = APIRouter(tags=["crowdsec"])
 
@@ -194,6 +197,18 @@ async def add_decision(
         },
     )
     await db.commit()
+
+    # Only decisions MegooPM itself creates. Bans CrowdSec raises on its own
+    # are invisible until the next poll, because nothing tells MegooPM they
+    # happened — see the spec; an operator who believes the map is live would
+    # misread a quiet globe.
+    await publish(
+        Event(
+            type="decision.added",
+            at=datetime.now(UTC),
+            detail={"value": payload.value, "scope": payload.scope},
+        )
+    )
     return decision
 
 

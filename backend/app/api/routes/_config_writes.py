@@ -19,6 +19,7 @@ last step so a queueing hiccup never rolls back a persisted change.
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from typing import Any
 
 from fastapi import Response
@@ -26,7 +27,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.enums import AuditAction
 from app.models.user import User
+from app.schemas.events import Event
 from app.services.audit import record_audit
+from app.services.events import publish
 from app.services.tasks import enqueue_nginx_reload
 
 RELOAD_TASK_HEADER = "X-Config-Reload-Task"
@@ -59,6 +62,18 @@ async def after_config_write(
 
     task = enqueue_nginx_reload()
     response.headers[RELOAD_TASK_HEADER] = task.task_id
+
+    # `config.changed`, NOT `config.applied`: this point has only ENQUEUED the
+    # reload. The apply happens later in a worker, so claiming "applied" here
+    # would be a lie the dashboard would repeat. What has genuinely changed is
+    # the database the inventory card reads, which is worth refetching now.
+    await publish(
+        Event(
+            type="config.changed",
+            at=datetime.now(UTC),
+            detail={"object_type": object_type, "object_id": object_id},
+        )
+    )
     return task.task_id
 
 

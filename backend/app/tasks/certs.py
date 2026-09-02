@@ -21,10 +21,12 @@ from app.core.celery_app import celery_app
 from app.core.config import settings
 from app.models.certificate import Certificate
 from app.models.enums import CertificateStatus
+from app.schemas.events import Event
 from app.services.certs import dns_credentials
 from app.services.certs.acme_client import ChallengeType
 from app.services.certs.issuance import build_issuer, issue_for_certificate
 from app.services.certs.renewal import list_due_certificate_ids
+from app.services.events import publish
 
 
 def _mark_failed(cert: Certificate, exc: Exception) -> None:
@@ -34,6 +36,21 @@ def _mark_failed(cert: Certificate, exc: Exception) -> None:
         "last_error": str(exc),
         "failed_at": datetime.now(UTC).isoformat(),
     }
+
+
+async def _announce(cert_id: int, *, ok: bool) -> None:
+    """Announce a certificate outcome. Never raises — see services.events.publish.
+
+    Published from here rather than the sync task wrapper because this function
+    is already async; `asyncio.run` there would nest event loops.
+    """
+    await publish(
+        Event(
+            type="certificate.changed",
+            at=datetime.now(UTC),
+            detail={"cert_id": cert_id, "ok": ok},
+        )
+    )
 
 
 async def _issue_async(cert_id: int, *, session_factory: async_sessionmaker | None = None) -> dict:
@@ -59,12 +76,16 @@ async def _issue_async(cert_id: int, *, session_factory: async_sessionmaker | No
                 if cert.status != CertificateStatus.failed:
                     _mark_failed(cert, exc)  # errors raised before issue_for_certificate
                 await session.commit()  # keep status=failed + last_error
+                # Announced too, not just success: a failed renewal is exactly
+                # what an operator wants the dashboard to surface promptly.
+                await _announce(cert_id, ok=False)
                 return {
                     "cert_id": cert_id,
                     "issued": False,
                     "error": str(exc),
                     "status": "failed",
                 }
+            await _announce(cert_id, ok=True)
             return {
                 "cert_id": cert_id,
                 "issued": True,
