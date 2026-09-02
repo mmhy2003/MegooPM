@@ -94,6 +94,13 @@ class Settings(BaseSettings):
     # reference ``{nginx_certs_dir}/{cert_id}/fullchain.pem`` and privkey.pem.
     # Defaults to ``{shared_data_dir}/certs``.
     nginx_certs_dir: str | None = None
+    # The dashboard's traffic card. This URL is always this node's OWN nginx:
+    # a backend reaches only its co-located container, which is exactly why the
+    # sample is stored per node rather than aggregated at scrape time.
+    nginx_status_url: str = "http://nginx:8081/stub_status"
+    # How often each node samples its own nginx. The dashboard polls at the same
+    # cadence, so a faster poll would only re-read identical numbers.
+    metrics_scrape_interval_seconds: float = 15.0
     # Only files with this prefix are managed by the engine; anything else in
     # conf.d (hand-placed by operators) is left untouched.
     nginx_managed_prefix: str = "megoopm-"

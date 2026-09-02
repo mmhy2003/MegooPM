@@ -68,6 +68,13 @@ def create_celery() -> Celery:
             "task": "app.tasks.sample.heartbeat",
             "schedule": crontab(minute="*/5"),
         },
+        "scrape-nginx-metrics": {
+            "task": "app.tasks.metrics.scrape_local_nginx",
+            "schedule": settings.metrics_scrape_interval_seconds,
+            # A tick that could not run promptly is worthless: the next one is
+            # one interval away and carries fresher numbers.
+            "options": {"expires": settings.metrics_scrape_interval_seconds},
+        },
         "renew-due-certificates-daily": {
             "task": "app.tasks.certs.renew_due_certificates",
             "schedule": crontab(
@@ -131,6 +138,10 @@ def _configure_ha(celery_app: Celery) -> None:
     # An explicit ``queue=`` on apply_async overrides this — that is the push path.
     celery_app.conf.task_routes = {
         "app.tasks.nginx.reconcile_local_nginx": {"queue": own_queue},
+        # Same reason, different failure: a scrape executed on another node
+        # would measure that node's nginx and upsert its row, so this node is
+        # never sampled and the other is counted twice.
+        "app.tasks.metrics.scrape_local_nginx": {"queue": own_queue},
     }
     celery_app.conf.beat_schedule["reconcile-nginx-across-nodes"] = {
         "task": "app.tasks.nginx.reconcile_local_nginx",
