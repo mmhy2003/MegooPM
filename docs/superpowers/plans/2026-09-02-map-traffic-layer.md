@@ -47,7 +47,7 @@ docker exec megoopm-test pip install -q "pytest>=8.2" "pytest-asyncio>=0.23" "ai
 **Interfaces:**
 - Produces: `ThreatPoint(country: str, count: int)` — no `lat`/`lng`.
 
-- [ ] **Step 1: Update the failing tests first**
+- [x] **Step 1: Update the failing tests first**
 
 In `backend/tests/test_dashboard_threats.py`, delete the two coordinate tests
 (`test_coordinates_come_from_the_alerts_themselves` and
@@ -69,7 +69,7 @@ def test_a_country_is_counted_regardless_of_where_it_is() -> None:
     assert not hasattr(points[0], "lat")
 ```
 
-- [ ] **Step 2: Run the tests to verify they fail**
+- [x] **Step 2: Run the tests to verify they fail**
 
 ```bash
 docker exec megoopm-test python -m pytest tests/test_dashboard_threats.py -p no:cacheprovider
@@ -77,7 +77,7 @@ docker exec megoopm-test python -m pytest tests/test_dashboard_threats.py -p no:
 
 Expected: FAIL — `ThreatPoint` still requires `lat`/`lng`, so `hasattr` is true.
 
-- [ ] **Step 3: Simplify the schema**
+- [x] **Step 3: Simplify the schema**
 
 In `backend/app/schemas/dashboard.py`:
 
@@ -95,7 +95,7 @@ class ThreatPoint(BaseModel):
     count: int
 ```
 
-- [ ] **Step 4: Simplify the service**
+- [x] **Step 4: Simplify the service**
 
 In `backend/app/services/dashboard/threats.py`, delete `_mean`, the `lats` and
 `lngs` accumulators, and the coordinate arguments to `ThreatPoint`. The loop
@@ -124,7 +124,7 @@ def group_by_country(alerts: Iterable[Alert]) -> list[ThreatPoint]:
 Update the module docstring: it currently explains that coordinates come from
 CrowdSec, which stops being true.
 
-- [ ] **Step 5: Run the tests and refresh the contract**
+- [x] **Step 5: Run the tests and refresh the contract**
 
 ```bash
 docker exec megoopm-test python -m pytest -p no:cacheprovider
@@ -135,7 +135,7 @@ docker exec megoopm-test ruff check app tests alembic
 
 Expected: all pass, ruff clean.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add backend
@@ -153,7 +153,7 @@ git commit -m "refactor(dashboard): let the map place countries, not the API"
 **Interfaces:**
 - Produces: `centroidFor(code: string): [number, number] | null`.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Create `frontend/src/components/dashboard/country-centroids.test.ts`:
 
@@ -208,7 +208,7 @@ describe("centroidFor", () => {
 
 Import `COUNTRY_CENTROIDS` alongside `centroidFor`.
 
-- [ ] **Step 2: Run the tests to verify they fail**
+- [x] **Step 2: Run the tests to verify they fail**
 
 ```bash
 cd frontend && npx vitest run src/components/dashboard/country-centroids.test.ts
@@ -216,7 +216,7 @@ cd frontend && npx vitest run src/components/dashboard/country-centroids.test.ts
 
 Expected: FAIL — the module does not exist.
 
-- [ ] **Step 3: Write the table**
+- [x] **Step 3: Write the table**
 
 Create `frontend/src/components/dashboard/country-centroids.ts`. Static view
 data: approximate country centroids, `[lat, lng]`.
@@ -380,7 +380,7 @@ export function centroidFor(code: string): [number, number] | null {
 }
 ```
 
-- [ ] **Step 4: Run the tests to verify they pass**
+- [x] **Step 4: Run the tests to verify they pass**
 
 ```bash
 cd frontend && npx vitest run src/components/dashboard/country-centroids.test.ts
@@ -390,7 +390,7 @@ Expected: PASS, 6 tests. The bounds test is the valuable one — it catches a
 transposed `[lng, lat]` pair, which is invisible on a globe until someone
 notices Brazil in the Pacific.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add frontend/src/components/dashboard/country-centroids.ts frontend/src/components/dashboard/country-centroids.test.ts
@@ -410,7 +410,7 @@ git commit -m "feat(dashboard): country centroids for the map"
 - Consumes: `centroidFor` (Task 2), `ThreatPoint` and `CountryCount` from the API client.
 - Produces: `<OriginGlobe threats={ThreatPoint[]} traffic={CountryCount[]} />`.
 
-- [ ] **Step 1: Regenerate the API types**
+- [x] **Step 1: Regenerate the API types**
 
 ```bash
 cd frontend && npm run gen:api
@@ -419,7 +419,7 @@ cd frontend && npm run gen:api
 `ThreatPoint` loses `lat`/`lng`, which will break the existing globe test
 fixtures — that is expected and Step 2 replaces them.
 
-- [ ] **Step 2: Write the failing tests**
+- [x] **Step 2: Write the failing tests**
 
 Rename the test file to `origin-globe.test.tsx` and replace its contents:
 
@@ -516,7 +516,7 @@ describe("OriginGlobe", () => {
 });
 ```
 
-- [ ] **Step 3: Run the tests to verify they fail**
+- [x] **Step 3: Run the tests to verify they fail**
 
 ```bash
 cd frontend && npx vitest run src/components/dashboard/origin-globe.test.tsx
@@ -524,7 +524,7 @@ cd frontend && npx vitest run src/components/dashboard/origin-globe.test.tsx
 
 Expected: FAIL — the module does not exist.
 
-- [ ] **Step 4: Build the component**
+- [x] **Step 4: Build the component**
 
 Rename `threat-globe.tsx` to `origin-globe.tsx` and rework it. Keep everything
 that already works — the `keepMounted`-style canvas, the WebGL fallback, the
@@ -595,7 +595,7 @@ statements are not interchangeable:
 ) : null}
 ```
 
-- [ ] **Step 5: Pass both datasets from the view**
+- [x] **Step 5: Pass both datasets from the view**
 
 In `dashboard-view.tsx`, replace `<ThreatGlobe points={threats} />` with:
 
@@ -606,7 +606,7 @@ In `dashboard-view.tsx`, replace `<ThreatGlobe points={threats} />` with:
 and update the import. `visitors` may be null before the first load, hence the
 fallback.
 
-- [ ] **Step 6: Run the full frontend gate**
+- [x] **Step 6: Run the full frontend gate**
 
 ```bash
 cd frontend && npx vitest run && npm run typecheck && npm run lint && npm run build
@@ -615,7 +615,7 @@ cd frontend && npx vitest run && npm run typecheck && npm run lint && npm run bu
 Expected: all pass. `typecheck` is what catches fixtures still supplying the
 removed `lat`/`lng`.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add frontend/src
@@ -639,3 +639,22 @@ Not reachable by any automated test:
    not be rebuilt; if it blinks, it is being remounted.
 5. With no visitor data yet, confirm the traffic layer says "no visitors
    recorded" rather than showing an empty globe with no explanation.
+
+
+---
+
+## Executed 2026-09-02
+
+All three tasks complete. Backend **792 passed, 41 skipped**, ruff clean.
+Frontend **435 passed, 1 skipped**, typecheck, lint and build clean. The globe
+gained a layer for **+24 KB** of built assets (2523 → 2547 KB), all of it the
+centroid table and the toggle.
+
+No deviations from the plan. Two things worth recording:
+
+- **The centroid table shipped with ~150 entries**, not the 249 that exist. A
+  country outside it is listed with its count and not plotted, exactly as
+  designed, so extending it later needs no code change.
+- **The canvas stays mounted across a layer switch**, as the plan required —
+  only the marker list and the colour change. Whether it visibly flickers is a
+  manual check, since jsdom has no WebGL to test against.
