@@ -40,6 +40,8 @@ const IMG = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUg";
 function makeSettings(llmEnabled: boolean): InstanceSettings {
   return {
     default_site_mode: "not_found",
+    crowdsec_ban_mode: "megoopm",
+    crowdsec_ban_page_id: null,
     default_site_redirect_url: null,
     default_site_page_id: null,
     llm_enabled: llmEnabled,

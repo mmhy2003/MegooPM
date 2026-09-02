@@ -23,6 +23,7 @@ import {
   validateSettingsForm,
   type SettingsFormState,
 } from "@/components/settings/lib";
+import { BanPageCard } from "@/components/settings/ban-page-card";
 import { LlmCard } from "@/components/settings/llm-card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -151,6 +152,7 @@ export function SettingsView() {
         ) : (
           <>
             <RadioGroup
+              aria-label="Default site"
               value={form.mode}
               // base-ui passes (value, eventDetails) — the second argument is
               // ignored here but must not be mistaken for the value.
@@ -244,6 +246,7 @@ export function SettingsView() {
         )}
       </section>
 
+      {row ? <BanPageCard settings={row} pages={pages} onSaved={setRow} /> : null}
       {row ? <LlmCard settings={row} onSaved={setRow} /> : null}
     </div>
   );

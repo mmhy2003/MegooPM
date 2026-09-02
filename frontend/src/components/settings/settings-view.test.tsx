@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 const push = vi.fn();
@@ -18,6 +18,8 @@ const STAMPS = { created_at: "2026-09-01T00:00:00Z", updated_at: "2026-09-01T00:
 function makeSettings(overrides: Partial<InstanceSettings> = {}): InstanceSettings {
   return {
     default_site_mode: "not_found",
+    crowdsec_ban_mode: "megoopm",
+    crowdsec_ban_page_id: null,
     default_site_redirect_url: null,
     default_site_page_id: null,
     llm_enabled: false,
@@ -59,7 +61,8 @@ describe("SettingsView", () => {
       /Redirect/i,
       /Custom page/i,
     ]) {
-      expect(screen.getByRole("radio", { name })).toBeInTheDocument();
+      const group = screen.getByRole("radiogroup", { name: "Default site" });
+      expect(within(group).getByRole("radio", { name })).toBeInTheDocument();
     }
   });
 
@@ -82,7 +85,9 @@ describe("SettingsView", () => {
     await screen.findByRole("radio", { name: /404 page/i });
     expect(screen.queryByLabelText("Page to serve")).not.toBeInTheDocument();
 
-    await user.click(screen.getByRole("radio", { name: /Custom page/i }));
+    // Two cards now offer a "Custom page" radio; scope to the one meant.
+    const group = screen.getByRole("radiogroup", { name: "Default site" });
+    await user.click(within(group).getByRole("radio", { name: /Custom page/i }));
     expect(await screen.findByLabelText("Page to serve")).toBeInTheDocument();
   });
 
@@ -128,7 +133,8 @@ describe("SettingsView", () => {
     vi.mocked(customPages.list).mockResolvedValue([]);
     const user = userEvent.setup();
     render(<SettingsView />);
-    await user.click(await screen.findByRole("radio", { name: /Custom page/i }));
+    const group = await screen.findByRole("radiogroup", { name: "Default site" });
+    await user.click(within(group).getByRole("radio", { name: /Custom page/i }));
 
     expect(await screen.findByText(/no custom pages/i)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Create a page/i })).toBeInTheDocument();

@@ -15,6 +15,8 @@ import type { Schemas } from "@/lib/api/types";
 export type InstanceSettings = Schemas["InstanceSettingsRead"];
 export type DefaultSiteUpdate = Schemas["InstanceSettingsUpdate"];
 export type DefaultSiteMode = Schemas["DefaultSiteMode"];
+export type CrowdSecBanUpdate = Schemas["CrowdSecBanUpdate"];
+export type CrowdSecBanMode = Schemas["CrowdSecBanMode"];
 export type LlmSettingsUpdate = Schemas["LlmSettingsUpdate"];
 export type LlmTestRequest = Schemas["LlmTestRequest"];
 export type LlmTestResult = Schemas["LlmTestResult"];
@@ -25,6 +27,8 @@ export const instanceSettings = {
   get: () => api.get<InstanceSettings>(BASE),
   updateDefaultSite: (body: DefaultSiteUpdate) =>
     api.patch<InstanceSettings>(`${BASE}/default-site`, body),
+  updateBanPage: (body: CrowdSecBanUpdate) =>
+    api.patch<InstanceSettings>(`${BASE}/ban-page`, body),
   updateLlm: (body: LlmSettingsUpdate) => api.patch<InstanceSettings>(`${BASE}/llm`, body),
   /**
    * Runs a real completion. Overrides win over stored values, so a key can be

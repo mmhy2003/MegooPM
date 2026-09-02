@@ -8,6 +8,8 @@ import { LlmCard } from "@/components/settings/llm-card";
 function makeSettings(overrides: Partial<InstanceSettings> = {}): InstanceSettings {
   return {
     default_site_mode: "not_found",
+    crowdsec_ban_mode: "megoopm",
+    crowdsec_ban_page_id: null,
     default_site_redirect_url: null,
     default_site_page_id: null,
     llm_enabled: false,

@@ -945,6 +945,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/settings/ban-page": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Update Ban Page Settings
+         * @description Choose what a CrowdSec-blocked visitor is served. Admin-only.
+         *
+         *     ``after_config_write``, not a bare audit: this changes a file nginx serves,
+         *     so the config has to be rewritten and reloaded for the choice to take
+         *     effect at all.
+         */
+        patch: operations["update_ban_page_settings_api_v1_settings_ban_page_patch"];
+        trace?: never;
+    };
     "/api/v1/settings/default-site": {
         parameters: {
             query?: never;
@@ -1901,6 +1925,33 @@ export interface components {
             this_node: string;
         };
         /**
+         * CrowdSecBanMode
+         * @description What a CrowdSec-blocked visitor is served.
+         *
+         *     ``none`` is not "unset": it is the deliberate choice to write no template
+         *     file, so the bouncer answers a bare 403 as it did before this setting
+         *     existed. Some operators prefer that a block does not advertise which
+         *     product is in front.
+         * @enum {string}
+         */
+        CrowdSecBanMode: "megoopm" | "custom_page" | "none";
+        /**
+         * CrowdSecBanUpdate
+         * @description Set the CrowdSec ban page. ``crowdsec_ban_mode`` is required.
+         *
+         *     Required for the same reason ``default_site_mode`` is on its sibling:
+         *     "custom_page needs a page" cannot be checked against a payload that omits
+         *     the mode, and a schema never sees the stored row.
+         */
+        CrowdSecBanUpdate: {
+            crowdsec_ban_mode: components["schemas"]["CrowdSecBanMode"];
+            /**
+             * Crowdsec Ban Page Id
+             * @description Required when the mode is 'custom_page'
+             */
+            crowdsec_ban_page_id?: number | null;
+        };
+        /**
          * CrowdSecHealth
          * @description Whether the LAPI integration is configured, reachable, and has a machine.
          */
@@ -2380,6 +2431,9 @@ export interface components {
          *     compromised browser session cannot read it back out.
          */
         InstanceSettingsRead: {
+            crowdsec_ban_mode: components["schemas"]["CrowdSecBanMode"];
+            /** Crowdsec Ban Page Id */
+            crowdsec_ban_page_id: number | null;
             default_site_mode: components["schemas"]["DefaultSiteMode"];
             /** Default Site Page Id */
             default_site_page_id: number | null;
@@ -5658,6 +5712,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["InstanceSettingsRead"];
+                };
+            };
+        };
+    };
+    update_ban_page_settings_api_v1_settings_ban_page_patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CrowdSecBanUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InstanceSettingsRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

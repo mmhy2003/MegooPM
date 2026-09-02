@@ -86,6 +86,8 @@ export { instanceSettings } from "@/lib/api/resources/settings";
 export type {
   InstanceSettings,
   DefaultSiteUpdate,
+  CrowdSecBanMode,
+  CrowdSecBanUpdate,
   DefaultSiteMode,
   LlmSettingsUpdate,
   LlmTestRequest,

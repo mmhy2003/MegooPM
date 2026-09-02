@@ -19,6 +19,8 @@ import type { InstanceSettings } from "@/lib/api";
 
 const SETTINGS: InstanceSettings = {
   default_site_mode: "redirect",
+  crowdsec_ban_mode: "megoopm",
+  crowdsec_ban_page_id: null,
   default_site_redirect_url: "https://example.com",
   default_site_page_id: null,
   llm_enabled: false,
