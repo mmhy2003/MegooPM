@@ -536,6 +536,28 @@
             ],
             "title": "Ip"
           },
+          "latitude": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latitude"
+          },
+          "longitude": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Longitude"
+          },
           "scope": {
             "anyOf": [
               {
@@ -4211,6 +4233,49 @@
         "title": "TaskStatus",
         "type": "object"
       },
+      "ThreatPoint": {
+        "description": "One country's attack count, ready to place on a map.\n\nDeliberately not CrowdSec-shaped: the request-analytics pipeline will one\nday produce the same type from access logs, and the map component must not\nneed changing when it does.",
+        "properties": {
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "country": {
+            "title": "Country",
+            "type": "string"
+          },
+          "lat": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lat"
+          },
+          "lng": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lng"
+          }
+        },
+        "required": [
+          "country",
+          "count",
+          "lat",
+          "lng"
+        ],
+        "title": "ThreatPoint",
+        "type": "object"
+      },
       "TokenPair": {
         "description": "Issued access + refresh tokens.\n\n``token_type`` is the OAuth2 scheme name (``bearer``); clients send the\naccess token as ``Authorization: Bearer <access_token>``.",
         "properties": {
@@ -6912,6 +6977,37 @@
           }
         ],
         "summary": "Dashboard Summary",
+        "tags": [
+          "dashboard"
+        ]
+      }
+    },
+    "/api/v1/dashboard/threats": {
+      "get": {
+        "description": "Attack origins by country.\n\nSeparate from the summary because it is the only part that needs CrowdSec,\nso an outage empties the map rather than the page. An unreachable CrowdSec\nreturns an empty list for the same reason the summary returns null security:\nthe caller must be able to render \"unavailable\" rather than \"no attacks\".",
+        "operationId": "dashboard_threats_api_v1_dashboard_threats_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ThreatPoint"
+                  },
+                  "title": "Response Dashboard Threats Api V1 Dashboard Threats Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Dashboard Threats",
         "tags": [
           "dashboard"
         ]

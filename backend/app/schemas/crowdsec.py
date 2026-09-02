@@ -36,6 +36,12 @@ class AlertSource(BaseModel):
     ip: str | None = None
     cn: str | None = None
     as_name: str | None = Field(default=None, alias="as_name")
+    # CrowdSec's geoip-enrich parser populates coordinates alongside the country
+    # ("Populate event with geoloc info : as, country, coords, source range"),
+    # so the dashboard map plots where attacks really came from instead of
+    # shipping a static table of country centroids.
+    latitude: float | None = None
+    longitude: float | None = None
 
 
 class Alert(BaseModel):

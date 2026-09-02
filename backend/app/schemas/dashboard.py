@@ -62,8 +62,11 @@ class ThreatPoint(BaseModel):
 
     country: str
     count: int
-    lat: float
-    lng: float
+    # None when no alert for this country carried coordinates: the country is
+    # still counted and ranked, it simply cannot be plotted. Dropping it would
+    # hide a real attacker from the list to keep the map tidy.
+    lat: float | None
+    lng: float | None
 
 
 class DashboardSummary(BaseModel):
