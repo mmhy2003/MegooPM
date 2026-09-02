@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+from dataclasses import replace
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
@@ -25,14 +26,16 @@ from sqlalchemy.pool import NullPool
 
 from app.core.config import settings
 from app.models.access_list import AccessList
+from app.models.certificate import Certificate
 from app.models.custom_page import CustomPage
 from app.models.dead_host import DeadHost
-from app.models.enums import DefaultSiteMode
+from app.models.enums import CertificateStatus, DefaultSiteMode
 from app.models.instance_settings import InstanceSettings
 from app.models.proxy_host import ProxyHost, ProxyHostLocation
 from app.models.redirection_host import RedirectionHost
 from app.models.stream import Stream
 from app.models.upstream import Upstream
+from app.services.nginx.default_tls import claimed_tls_names, plan_default_tls
 from app.services.nginx.state import (
     AccessListSpec,
     AuthUserSpec,
@@ -224,7 +227,7 @@ async def load_desired_state(
     stream_specs, stream_upstream_specs = await _load_streams(session, certs_dir)
     default_site = await _load_default_site(session)
 
-    return DesiredState(
+    state = DesiredState(
         proxy_hosts=tuple(host_specs),
         http_upstreams=upstream_specs,
         redirection_hosts=redirection_specs,
@@ -233,6 +236,28 @@ async def load_desired_state(
         stream_upstreams=stream_upstream_specs,
         default_site=default_site,
     )
+    # Built from the finished state so the claimed-name set comes from exactly
+    # the specs that render :443 blocks — the two cannot drift.
+    certificates = await _load_certificates(session)
+    return replace(
+        state,
+        default_tls=plan_default_tls(certificates, claimed_tls_names(state), certs_dir),
+    )
+
+
+async def _load_certificates(session: AsyncSession) -> tuple[Certificate, ...]:
+    """Every active certificate.
+
+    Status gates it because a ``pending`` row's files are not on disk yet, and
+    referencing one fails ``nginx -t``, which rolls back the entire apply for
+    the instance. Ordered by id so the render is deterministic across nodes.
+    """
+    rows = await session.scalars(
+        select(Certificate)
+        .where(Certificate.status == CertificateStatus.active)
+        .order_by(Certificate.id)
+    )
+    return tuple(rows)
 
 
 async def _load_default_site(session: AsyncSession) -> DefaultSiteSpec | None:

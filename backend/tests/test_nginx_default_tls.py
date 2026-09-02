@@ -9,7 +9,14 @@ from __future__ import annotations
 
 from app.models.certificate import Certificate
 from app.models.enums import CertificateProvider, CertificateStatus
-from app.services.nginx.default_tls import plan_default_tls
+from app.services.nginx.default_tls import claimed_tls_names, plan_default_tls
+from app.services.nginx.state import (
+    CertificateSpec,
+    DeadHostSpec,
+    DesiredState,
+    ProxyHostSpec,
+    RedirectionHostSpec,
+)
 
 CERTS_DIR = "/data/certs"
 
@@ -132,3 +139,49 @@ def test_names_are_sorted_and_blocks_ordered_by_certificate_id() -> None:
 
 def test_a_certificate_with_no_names_is_skipped() -> None:
     assert plan_default_tls([_cert(domain_names=[])], set(), CERTS_DIR) == ()
+
+
+# --- Which names an enabled host already answers for on :443 ---------------
+
+_CERT = CertificateSpec(
+    id=1,
+    fullchain_path="/data/certs/1/fullchain.pem",
+    privkey_path="/data/certs/1/privkey.pem",
+    fingerprint="f",
+)
+
+
+def test_a_host_with_a_certificate_claims_its_names() -> None:
+    state = DesiredState(
+        proxy_hosts=(
+            ProxyHostSpec(
+                id=1, domain_names=("live.example.com",), upstream_id=1, certificate=_CERT
+            ),
+        )
+    )
+    assert claimed_tls_names(state) == {"live.example.com"}
+
+
+def test_a_host_without_a_certificate_claims_nothing() -> None:
+    """It renders no :443 block at all, so HTTPS to it currently reaches a
+    stranger's site. Leaving its name unclaimed is what fixes that."""
+    state = DesiredState(
+        proxy_hosts=(ProxyHostSpec(id=1, domain_names=("plain.example.com",), upstream_id=1),)
+    )
+    assert claimed_tls_names(state) == set()
+
+
+def test_redirection_and_dead_hosts_claim_their_names_too() -> None:
+    """They render :443 blocks from their own templates on the same condition."""
+    state = DesiredState(
+        redirection_hosts=(
+            RedirectionHostSpec(
+                id=1,
+                domain_names=("r.example.com",),
+                forward_domain_name="x.example.com",
+                certificate=_CERT,
+            ),
+        ),
+        dead_hosts=(DeadHostSpec(id=1, domain_names=("d.example.com",), certificate=_CERT),),
+    )
+    assert claimed_tls_names(state) == {"r.example.com", "d.example.com"}
