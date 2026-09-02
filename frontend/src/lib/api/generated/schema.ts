@@ -3552,21 +3552,18 @@ export interface components {
         };
         /**
          * ThreatPoint
-         * @description One country's attack count, ready to place on a map.
+         * @description One country's attack count.
          *
-         *     Deliberately not CrowdSec-shaped: the request-analytics pipeline will one
-         *     day produce the same type from access logs, and the map component must not
-         *     need changing when it does.
+         *     Position is deliberately absent: the map owns placement, so this and the
+         *     visitor countries arrive in the same shape and a country is always drawn in
+         *     the same spot whichever layer drew it. Sending coordinates that never change
+         *     on every poll bought nothing.
          */
         ThreatPoint: {
             /** Count */
             count: number;
             /** Country */
             country: string;
-            /** Lat */
-            lat: number | null;
-            /** Lng */
-            lng: number | null;
         };
         /**
          * TokenPair
