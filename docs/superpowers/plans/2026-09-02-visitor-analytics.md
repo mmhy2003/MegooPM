@@ -50,7 +50,7 @@ docker exec megoopm-test pip install -q "pytest>=8.2" "pytest-asyncio>=0.23" "ai
 **Interfaces:**
 - Produces: `VisitorDay` with primary key `(ip, day)` and columns `first_seen_at`, `last_seen_at`, `request_count`, `bytes`, `country`.
 
-- [ ] **Step 1: Add the model**
+- [x] **Step 1: Add the model**
 
 Create `backend/app/models/visitor_day.py`:
 
@@ -99,7 +99,7 @@ class VisitorDay(Base):
 
 Register it in `app/models/__init__.py` beside `NodeMetrics`, and add `"VisitorDay"` to `__all__`.
 
-- [ ] **Step 2: Write the migration**
+- [x] **Step 2: Write the migration**
 
 Create `backend/alembic/versions/0023_visitor_day.py`:
 
@@ -157,7 +157,7 @@ def downgrade() -> None:
     op.drop_table("visitor_day")
 ```
 
-- [ ] **Step 3: Run the migration up, down and up**
+- [x] **Step 3: Run the migration up, down and up**
 
 ```bash
 docker exec megoopm-test sh -c "alembic upgrade head && alembic downgrade -1 && alembic upgrade head"
@@ -166,7 +166,7 @@ docker exec megoopm-testdb psql -U megoopm -d megoopm -c "DROP SCHEMA public CAS
 
 Expected: all three succeed. Reset afterwards — see Global Constraints.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add backend/app/models backend/alembic
@@ -185,7 +185,7 @@ git commit -m "feat(analytics): per-IP-per-day visitor table"
 **Interfaces:**
 - Produces: `lookup_country(ip: str) -> str | None` and `database_available() -> bool`.
 
-- [ ] **Step 1: Add the dependency and setting**
+- [x] **Step 1: Add the dependency and setting**
 
 In `backend/pyproject.toml`, beside the other data dependencies:
 
@@ -207,7 +207,7 @@ In `backend/app/core/config.py`:
     visitor_retention_days: int = 30
 ```
 
-- [ ] **Step 2: Bundle the database, without making the build depend on it**
+- [x] **Step 2: Bundle the database, without making the build depend on it**
 
 In `backend/Dockerfile`, before the app is copied:
 
@@ -226,7 +226,7 @@ RUN mkdir -p /app/data \
 
 Attribution belongs in the docs: DB-IP Lite is CC BY 4.0 and requires it. Add a line to `README.md` crediting "IP Geolocation by DB-IP" with a link.
 
-- [ ] **Step 3: Write the failing tests**
+- [x] **Step 3: Write the failing tests**
 
 Create `backend/tests/test_geoip.py`:
 
@@ -262,7 +262,7 @@ def test_a_missing_database_disables_lookups_without_raising(monkeypatch) -> Non
     assert geoip.database_available() is False
 ```
 
-- [ ] **Step 4: Run the tests to verify they fail**
+- [x] **Step 4: Run the tests to verify they fail**
 
 ```bash
 docker exec megoopm-test python -m pytest tests/test_geoip.py -p no:cacheprovider
@@ -270,7 +270,7 @@ docker exec megoopm-test python -m pytest tests/test_geoip.py -p no:cacheprovide
 
 Expected: FAIL — `ModuleNotFoundError: No module named 'app.services.analytics'`.
 
-- [ ] **Step 5: Write the reader**
+- [x] **Step 5: Write the reader**
 
 Create `backend/app/services/analytics/__init__.py` (a docstring only) and
 `backend/app/services/analytics/geoip.py`:
@@ -357,7 +357,7 @@ def lookup_country(ip: str) -> str | None:
 __all__ = ["database_available", "lookup_country", "reset_reader"]
 ```
 
-- [ ] **Step 6: Run the tests to verify they pass**
+- [x] **Step 6: Run the tests to verify they pass**
 
 ```bash
 docker exec megoopm-test python -m pytest tests/test_geoip.py -p no:cacheprovider
@@ -365,7 +365,7 @@ docker exec megoopm-test python -m pytest tests/test_geoip.py -p no:cacheprovide
 
 Expected: PASS, 3 tests. They pass whether or not the database shipped, which is deliberate — the suite must not depend on a build-time download.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add backend/pyproject.toml backend/Dockerfile backend/app/core/config.py backend/app/services/analytics backend/tests/test_geoip.py README.md
@@ -387,7 +387,7 @@ git commit -m "feat(analytics): country lookup from a bundled MMDB"
   - `parse_counters(count_map, bytes_map, day) -> list[VisitorCounts]`
   - `async upsert_visitors(session, rows, *, now) -> int`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Create `backend/tests/test_analytics_flush.py`:
 
@@ -445,7 +445,7 @@ def test_no_counters_is_an_empty_list() -> None:
     assert parse_counters({}, {}, DAY) == []
 ```
 
-- [ ] **Step 2: Run the tests to verify they fail**
+- [x] **Step 2: Run the tests to verify they fail**
 
 ```bash
 docker exec megoopm-test python -m pytest tests/test_analytics_flush.py -p no:cacheprovider
@@ -453,7 +453,7 @@ docker exec megoopm-test python -m pytest tests/test_analytics_flush.py -p no:ca
 
 Expected: FAIL — no module `app.services.analytics.flush`.
 
-- [ ] **Step 3: Write the parser and the writer**
+- [x] **Step 3: Write the parser and the writer**
 
 Create `backend/app/services/analytics/flush.py`:
 
@@ -562,7 +562,7 @@ async def upsert_visitors(
 __all__ = ["VisitorCounts", "parse_counters", "upsert_visitors"]
 ```
 
-- [ ] **Step 4: Run the tests to verify they pass**
+- [x] **Step 4: Run the tests to verify they pass**
 
 ```bash
 docker exec megoopm-test python -m pytest tests/test_analytics_flush.py -p no:cacheprovider
@@ -570,7 +570,7 @@ docker exec megoopm-test python -m pytest tests/test_analytics_flush.py -p no:ca
 
 Expected: PASS, 5 tests.
 
-- [ ] **Step 5: Prove the upsert adds, against real Postgres**
+- [x] **Step 5: Prove the upsert adds, against real Postgres**
 
 This is the constraint most likely to be got wrong, and a pure test cannot
 check it. Create `backend/tests/test_analytics_flush_pg.py` with the
@@ -612,7 +612,7 @@ async def test_the_same_ip_on_two_days_is_two_rows(pg_session) -> None:
 Define `DAY`, `OTHER_DAY`, `NOW`, `LATER` at module level as timezone-aware
 values.
 
-- [ ] **Step 6: Run and commit**
+- [x] **Step 6: Run and commit**
 
 ```bash
 docker exec megoopm-test python -m pytest tests/test_analytics_flush_pg.py -p no:cacheprovider
@@ -633,7 +633,7 @@ git commit -m "feat(analytics): drain Redis counters into visitor rows"
 **Interfaces:**
 - Produces: `app.tasks.analytics.flush_visitor_counters`, `app.tasks.analytics.prune_visitor_days`, and `settings.visitor_flush_interval_seconds` (default `60.0`), `settings.visitor_redis_prefix` (default `"megoopm:visits"`).
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Create `backend/tests/test_analytics_tasks.py`. The Redis client is stubbed;
 what matters is the drain semantics:
@@ -688,7 +688,7 @@ def test_both_tasks_are_scheduled() -> None:
     assert "app.tasks.analytics.prune_visitor_days" in tasks
 ```
 
-- [ ] **Step 2: Run to verify they fail, then write the tasks**
+- [x] **Step 2: Run to verify they fail, then write the tasks**
 
 ```bash
 docker exec megoopm-test python -m pytest tests/test_analytics_tasks.py -p no:cacheprovider
@@ -795,7 +795,7 @@ async def test_retention_keeps_exactly_the_configured_window(pg_session) -> None
 Check `leader_lock`'s real signature in `app/services/cluster/locks.py` and how
 existing callers build the sync engine — copy that, do not invent it.
 
-- [ ] **Step 3: Schedule both**
+- [x] **Step 3: Schedule both**
 
 In `app/core/celery_app.py`, add to `beat_schedule`:
 
@@ -815,7 +815,7 @@ In `app/core/celery_app.py`, add to `beat_schedule`:
 node-local: the counters are in a shared Redis, so any node may drain them and
 `leader_lock` decides which does.
 
-- [ ] **Step 4: Run everything and commit**
+- [x] **Step 4: Run everything and commit**
 
 ```bash
 docker exec megoopm-test python -m pytest -p no:cacheprovider
@@ -835,7 +835,7 @@ git commit -m "feat(analytics): flush and prune visitor counters"
 **Interfaces:**
 - Consumes: the Redis key layout from Task 4 (`{prefix}:count:{YYYY-MM-DD}`).
 
-- [ ] **Step 1: Generate the Lua config from the environment**
+- [x] **Step 1: Generate the Lua config from the environment**
 
 In `infra/nginx/docker-entrypoint.sh`, beside the logging block, parse
 `REDIS_URL` into a Lua table:
@@ -870,7 +870,7 @@ _redis_port="$(echo "${_redis_hostport}" | cut -s -d: -f2)"
 Add `REDIS_URL` to the `nginx` service's environment in `docker-compose.yml`
 (and the HA file), since nginx does not currently receive it.
 
-- [ ] **Step 2: Write the log handler**
+- [x] **Step 2: Write the log handler**
 
 Create `infra/nginx/lua/megoopm_analytics.lua`:
 
@@ -955,7 +955,7 @@ end
 return M
 ```
 
-- [ ] **Step 3: Wire it into nginx**
+- [x] **Step 3: Wire it into nginx**
 
 In `infra/nginx/nginx.conf`, in the `http {}` block near the other Lua:
 
@@ -970,7 +970,7 @@ In `infra/nginx/nginx.conf`, in the `http {}` block near the other Lua:
     }
 ```
 
-- [ ] **Step 4: Prove it counts, and prove it degrades**
+- [x] **Step 4: Prove it counts, and prove it degrades**
 
 The second half matters more than the first:
 
@@ -1012,7 +1012,7 @@ timeout or the pcall is wrong, and analytics is costing served requests.
 
 Tear down: `docker rm -f probe-redis && docker network rm megoopm-lua-probe`.
 
-- [ ] **Step 5: Check line endings and commit**
+- [x] **Step 5: Check line endings and commit**
 
 ```bash
 git ls-files --eol infra/nginx/lua/megoopm_analytics.lua infra/nginx/docker-entrypoint.sh
@@ -1037,7 +1037,7 @@ git commit -m "feat(analytics): count visitors from nginx's log phase"
 **Interfaces:**
 - Produces: `GET /api/v1/dashboard/visitors?days=1` returning `VisitorSummary { total_visitors, total_requests, countries: [{country, visitors, requests}], top_ips: [{ip, country, requests, last_seen_at}] }`.
 
-- [ ] **Step 1: Write the failing backend test**
+- [x] **Step 1: Write the failing backend test**
 
 Add to `backend/tests/test_dashboard_api.py`:
 
@@ -1055,7 +1055,7 @@ async def test_visitors_requires_authentication(client: AsyncClient) -> None:
     assert (await client.get("/api/v1/dashboard/visitors")).status_code in (401, 403)
 ```
 
-- [ ] **Step 2: Implement the endpoint**
+- [x] **Step 2: Implement the endpoint**
 
 Create `backend/app/services/dashboard/visitors.py`:
 
@@ -1131,7 +1131,7 @@ async def load_visitors(
 Add the route with a `days` query parameter bounded to `1..settings.visitor_retention_days`,
 so a caller cannot ask for a window the data cannot cover.
 
-- [ ] **Step 3: Write the failing card test**
+- [x] **Step 3: Write the failing card test**
 
 Create `frontend/src/components/dashboard/visitors-card.test.tsx`:
 
@@ -1153,13 +1153,13 @@ it("shows an unlocated visitor rather than hiding it", () => {
 });
 ```
 
-- [ ] **Step 4: Build the card and mount it**
+- [x] **Step 4: Build the card and mount it**
 
 Follow `cards.tsx`: the same `Card` shell, the same "absent is not zero" rule.
 Mount it in `dashboard-view.tsx` below the grid, beside the threat map, and add
 `visitors()` to the API client.
 
-- [ ] **Step 5: Run the full gates and commit**
+- [x] **Step 5: Run the full gates and commit**
 
 ```bash
 docker exec megoopm-test python -m pytest -p no:cacheprovider
@@ -1192,9 +1192,10 @@ Not reachable by any automated test:
 
 ---
 
-## Executed 2026-09-02 (Tasks 1-5)
+## Executed 2026-09-02
 
-Backend **787 passed, 41 skipped**, ruff clean.
+All six tasks complete. Backend **794 passed, 41 skipped**, ruff clean.
+Frontend **425 passed, 1 skipped**, typecheck, lint and build clean.
 
 **The ingestion design changed, because the specced one cannot work.**
 Cosockets are unavailable in `log_by_lua`, so the planned direct Redis call was
