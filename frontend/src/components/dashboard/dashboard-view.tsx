@@ -16,6 +16,7 @@ import {
   TrafficCard,
 } from "@/components/dashboard/cards";
 import { OriginMap } from "@/components/dashboard/origin-map";
+import { PanelBoundary } from "@/components/dashboard/panel-boundary";
 import { VisitorsCard } from "@/components/dashboard/visitors-card";
 import { subscribeToEvents } from "@/lib/events";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -112,7 +113,12 @@ export function DashboardView() {
       {visitors ? <VisitorsCard visitors={visitors} /> : null}
 
       {/* `visitors` is null until the first load resolves. */}
-      <OriginMap threats={threats} traffic={visitors?.countries ?? []} />
+      {/* Boundaried: this panel drives a third-party library that touches
+          the DOM and listens for resize, so it is the most likely thing
+          here to throw — and the least worth losing the page over. */}
+      <PanelBoundary title="Request origins">
+        <OriginMap threats={threats} traffic={visitors?.countries ?? []} />
+      </PanelBoundary>
     </div>
   );
 }

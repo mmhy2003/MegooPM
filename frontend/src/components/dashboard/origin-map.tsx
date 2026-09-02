@@ -167,7 +167,12 @@ export function OriginMap({
 
     return () => {
       cancelled = true;
-      map?.destroy();
+      try {
+        map?.destroy();
+      } catch {
+        // A throw in a cleanup propagates to React and unmounts the tree, so a
+        // library failing to tear itself down would take the page with it.
+      }
     };
   }, [values, layer]);
 
@@ -216,7 +221,7 @@ export function OriginMap({
             // this makes the container match it at any width — the map fills the
             // card instead of sitting small in a letterbox. Capped so it cannot
             // run away on an ultrawide monitor.
-            className="aspect-[2/1] max-h-[44rem] w-full"
+            className="aspect-[2/1] max-h-[44rem] min-h-[12rem] w-full"
           />
         ) : null}
 

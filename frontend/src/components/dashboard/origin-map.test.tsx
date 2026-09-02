@@ -122,7 +122,9 @@ describe("OriginMap", () => {
     );
     // By accessible name: the country is a flag now, so it is no longer part
     // of the row's text content.
-    const flags = screen.getAllByRole("img").map((el) => el.getAttribute("aria-label"));
+    const flags = screen
+      .getAllByRole("img")
+      .map((el) => el.getAttribute("aria-label"));
     expect(flags[0]).toBe("DE");
     expect(flags[1]).toBe("FR");
   });
