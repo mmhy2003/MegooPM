@@ -129,6 +129,17 @@ class AuditAction(enum.StrEnum):
     disable = "disable"
 
 
+
+class SmtpSecurity(enum.StrEnum):
+    """How the SMTP connection is secured."""
+
+    #: Connect in the clear, then upgrade with STARTTLS. Port 587.
+    starttls = "starttls"
+    #: TLS from the first byte ("SMTPS"). Port 465.
+    ssl = "ssl"
+    #: No transport security. For a trusted local relay only.
+    none = "none"
+
 __all__ = [
     "LoadBalanceMethod",
     "WhitelistKind",
@@ -139,4 +150,5 @@ __all__ = [
     "AccessListDirective",
     "DefaultSiteMode",
     "AuditAction",
+    "SmtpSecurity",
 ]

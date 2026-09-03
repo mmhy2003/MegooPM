@@ -16,7 +16,7 @@ from sqlalchemy import BigInteger, Boolean, CheckConstraint, Enum, ForeignKey, I
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
-from app.models.enums import CrowdSecBanMode, DefaultSiteMode
+from app.models.enums import CrowdSecBanMode, DefaultSiteMode, SmtpSecurity
 from app.models.mixins import TimestampMixin
 
 
@@ -39,6 +39,10 @@ class InstanceSettings(TimestampMixin, Base):
         CheckConstraint(
             "llm_enabled = false OR llm_model IS NOT NULL",
             name="llm_needs_model",
+        ),
+        CheckConstraint(
+            "smtp_enabled = false OR smtp_host IS NOT NULL",
+            name="smtp_needs_host",
         ),
     )
 
@@ -102,6 +106,36 @@ class InstanceSettings(TimestampMixin, Base):
     # Fernet token (app.core.crypto), never plaintext. Nullable on purpose:
     # a local model legitimately needs no key.
     llm_api_key_enc: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    # --- Outbound email -------------------------------------------------
+    # Off by default: an upgrade must never start a reverse proxy's admin
+    # backend talking to a mail server nobody configured.
+    smtp_enabled: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default="false"
+    )
+    smtp_host: Mapped[str | None] = mapped_column(Text, nullable=True)
+    smtp_port: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=587, server_default="587"
+    )
+    smtp_security: Mapped[SmtpSecurity] = mapped_column(
+        Enum(
+            SmtpSecurity,
+            name="smtp_security",
+            values_callable=lambda e: [m.value for m in e],
+        ),
+        nullable=False,
+        default=SmtpSecurity.starttls,
+        server_default=SmtpSecurity.starttls.value,
+    )
+    smtp_username: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Fernet token (app.core.crypto), never plaintext — as llm_api_key_enc.
+    smtp_password_enc: Mapped[str | None] = mapped_column(Text, nullable=True)
+    smtp_from: Mapped[str | None] = mapped_column(Text, nullable=True)
+    smtp_from_name: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # This instance's public URL. Unused today — stored here so the operator
+    # sets it in the same sitting as the mail server. Password reset and
+    # invitations will build links with it; passkeys derive the RP ID from it.
+    app_url: Mapped[str | None] = mapped_column(Text, nullable=True)
 
 
 __all__ = ["InstanceSettings"]

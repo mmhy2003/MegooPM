@@ -18,9 +18,16 @@ from datetime import datetime
 from typing import Any
 from urllib.parse import urlsplit
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    EmailStr,
+    Field,
+    field_validator,
+    model_validator,
+)
 
-from app.models.enums import CrowdSecBanMode, DefaultSiteMode
+from app.models.enums import CrowdSecBanMode, DefaultSiteMode, SmtpSecurity
 
 _ALLOWED_SCHEMES = {"http", "https"}
 
@@ -55,12 +62,45 @@ def validate_redirect_url(value: str) -> str:
     return stripped
 
 
+def validate_app_url(value: str) -> str:
+    """Accept only a plain absolute http(s) URL.
+
+    Deliberately not :func:`validate_redirect_url`: that one also bans quotes,
+    backslash, ``;`` and ``$`` because its output is written into an nginx
+    directive. This value never reaches a config file, and over-restricting it
+    would reject legitimate URLs for a rule that does not apply here.
+    """
+    stripped = value.strip()
+    if not stripped:
+        raise ValueError("app URL must not be empty")
+    if any(ord(c) < 0x20 or ord(c) == 0x7F for c in stripped):
+        raise ValueError("app URL must not contain control characters")
+    parsed = urlsplit(stripped)
+    if parsed.scheme.lower() not in _ALLOWED_SCHEMES:
+        raise ValueError("app URL must start with http:// or https://")
+    if not parsed.netloc:
+        raise ValueError("app URL must include a host")
+    return stripped.rstrip("/")
+
+
+def reject_newlines(value: str, field: str) -> str:
+    """Refuse a value that could inject an email header.
+
+    A CR or LF ends the current header and begins another, letting an attacker
+    append a ``Bcc:`` of their choosing to every message the system sends.
+    """
+    if "\r" in value or "\n" in value:
+        raise ValueError(f"{field} must not contain a newline")
+    return value
+
+
 class InstanceSettingsRead(BaseModel):
     """Public representation of the settings singleton.
 
-    The LLM API key is deliberately absent. ``llm_api_key_set`` says whether one
-    is stored; the value itself is never returned by any endpoint, so a
-    compromised browser session cannot read it back out.
+    The LLM API key and the SMTP password are deliberately absent.
+    ``llm_api_key_set`` and ``smtp_password_set`` say whether one is stored; the
+    values themselves are never returned by any endpoint, so a compromised
+    browser session cannot read them back out.
     """
 
     model_config = ConfigDict(from_attributes=True)
@@ -74,6 +114,15 @@ class InstanceSettingsRead(BaseModel):
     llm_model: str | None
     llm_api_base: str | None
     llm_api_key_set: bool
+    smtp_enabled: bool
+    smtp_host: str | None
+    smtp_port: int
+    smtp_security: SmtpSecurity
+    smtp_username: str | None
+    smtp_password_set: bool
+    smtp_from: str | None
+    smtp_from_name: str | None
+    app_url: str | None
     updated_at: datetime
 
     @classmethod
@@ -94,6 +143,15 @@ class InstanceSettingsRead(BaseModel):
             llm_model=row.llm_model,
             llm_api_base=row.llm_api_base,
             llm_api_key_set=row.llm_api_key_enc is not None,
+            smtp_enabled=row.smtp_enabled,
+            smtp_host=row.smtp_host,
+            smtp_port=row.smtp_port,
+            smtp_security=row.smtp_security,
+            smtp_username=row.smtp_username,
+            smtp_password_set=row.smtp_password_enc is not None,
+            smtp_from=row.smtp_from,
+            smtp_from_name=row.smtp_from_name,
+            app_url=row.app_url,
             updated_at=row.updated_at,
         )
 
@@ -207,8 +265,88 @@ class LlmTestResult(BaseModel):
     latency_ms: int = 0
 
 
+class SmtpSettingsUpdate(BaseModel):
+    """Set the SMTP group. Carries the whole card; the password is the exception.
+
+    ``smtp_enabled`` is required for the same reason ``default_site_mode`` is on
+    its sibling: "enabled needs a host" cannot be checked against a payload that
+    omits it, and a schema never sees the stored row.
+
+    ``smtp_password`` is never returned, so a client has nothing to send back.
+    Absent keeps the stored password; a string replaces it; an explicit ``null``
+    clears it — distinguished with ``model_fields_set``, which is why the service
+    is handed ``model_dump(exclude_unset=True)``.
+    """
+
+    smtp_enabled: bool
+    smtp_host: str | None = None
+    smtp_port: int = Field(default=587, ge=1, le=65535)
+    smtp_security: SmtpSecurity = SmtpSecurity.starttls
+    smtp_username: str | None = None
+    smtp_password: str | None = None
+    smtp_from: str | None = None
+    smtp_from_name: str | None = None
+    app_url: str | None = None
+
+    @field_validator(
+        "smtp_host", "smtp_username", "smtp_password", "smtp_from", "smtp_from_name", "app_url"
+    )
+    @classmethod
+    def _blank_to_none(cls, value: str | None) -> str | None:
+        """An empty input box means "not set", not "the empty string"."""
+        if value is None:
+            return None
+        stripped = value.strip()
+        return stripped or None
+
+    @field_validator("smtp_from")
+    @classmethod
+    def _clean_from(cls, value: str | None) -> str | None:
+        return None if value is None else reject_newlines(value, "smtp_from")
+
+    @field_validator("smtp_from_name")
+    @classmethod
+    def _clean_from_name(cls, value: str | None) -> str | None:
+        return None if value is None else reject_newlines(value, "smtp_from_name")
+
+    @field_validator("app_url")
+    @classmethod
+    def _clean_app_url(cls, value: str | None) -> str | None:
+        return None if value is None else validate_app_url(value)
+
+    @model_validator(mode="after")
+    def _coherent(self) -> SmtpSettingsUpdate:
+        """Mirror the database CHECK constraint, with a usable message."""
+        if self.smtp_enabled and not self.smtp_host:
+            raise ValueError("smtp_host is required when smtp_enabled is true")
+        # Not a database constraint, but every receiving server rejects a
+        # message with no From, so an enabled card without one cannot work.
+        if self.smtp_enabled and not self.smtp_from:
+            raise ValueError("smtp_from is required when smtp_enabled is true")
+        return self
+
+
+class MailTestRequest(BaseModel):
+    """Where to send the test. Omitted means the requesting admin's own address."""
+
+    to: EmailStr | None = None
+
+
+class MailTestResult(BaseModel):
+    """The send's outcome. ``ok: false`` still returns HTTP 200 — see the route."""
+
+    ok: bool
+    detail: str = ""
+    latency_ms: int = 0
+
+
 __all__ = [
     "InstanceSettingsRead",
+    "MailTestRequest",
+    "MailTestResult",
+    "SmtpSettingsUpdate",
+    "reject_newlines",
+    "validate_app_url",
     "InstanceSettingsUpdate",
     "LlmSettingsUpdate",
     "LlmTestRequest",
