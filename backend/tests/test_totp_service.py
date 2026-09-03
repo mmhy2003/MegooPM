@@ -249,3 +249,15 @@ async def test_recovery_hashes_verify_with_the_password_hasher(
     async with db:
         rows = (await db.execute(select(RecoveryCode))).scalars().all()
     assert any(verify_password(codes[0].replace("-", ""), r.code_hash) for r in rows)
+
+
+async def test_disable_deletes_passkeys_too(session_factory, admin_user: User) -> None:
+    from app.models.passkey import Passkey
+    from app.services import passkeys
+
+    db, user, _, _ = await _enabled(session_factory, admin_user)
+    async with db:
+        await passkeys.add(db, user, passkeys.Registered(b"a", b"k", 0, []), name="a")
+        await totp.disable(db, user)
+        rows = (await db.execute(select(Passkey))).scalars().all()
+    assert rows == []

@@ -217,6 +217,11 @@ async def disable(db: AsyncSession, user: User) -> None:
     user.totp_enabled_at = None
     user.totp_last_step = None
     user.token_version += 1
+    # Passkeys ride on top of TOTP; turning it off takes them with it, so a
+    # user whose 2FA was cleared starts clean.
+    from app.services import passkeys  # local: avoids a services-level cycle
+
+    await passkeys.delete_all(db, user.id)
     await db.execute(delete(RecoveryCode).where(RecoveryCode.user_id == user.id))
     await db.commit()
 
