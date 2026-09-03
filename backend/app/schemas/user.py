@@ -36,6 +36,25 @@ class UserInvite(BaseModel):
     role: UserRole = UserRole.member
 
 
+class TotpSetup(BaseModel):
+    """What the profile page needs to enrol an authenticator app."""
+
+    secret: str
+    otpauth_uri: str
+
+
+class TotpCodeRequest(BaseModel):
+    """A TOTP or recovery code, wherever one is required."""
+
+    code: str = Field(min_length=1, max_length=32)
+
+
+class TotpCodes(BaseModel):
+    """Recovery codes. Returned exactly once; never retrievable."""
+
+    codes: list[str]
+
+
 class UserRead(UserBase):
     """Public representation of a user."""
 
@@ -47,6 +66,9 @@ class UserRead(UserBase):
     # Set while an invitation is outstanding. The users table renders the
     # Invited badge and the resend action from this alone.
     invited_at: datetime | None = None
+    # Derived from totp_enabled_at via the model property. Never the secret,
+    # never a code, never last_step.
+    totp_enabled: bool = False
 
 
 class UserUpdate(BaseModel):
@@ -94,6 +116,9 @@ __all__ = [
     "PasswordChange",
     "PasswordReset",
     "ProfileUpdate",
+    "TotpCodeRequest",
+    "TotpCodes",
+    "TotpSetup",
     "UserBase",
     "UserCreate",
     "UserInvite",

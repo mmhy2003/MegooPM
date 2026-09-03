@@ -167,3 +167,15 @@ def test_inviter_name_is_escaped_in_the_html_body() -> None:
     email = _invitation(inviter_name="<b>x</b>")
     assert "<b>x</b>" not in email.html
     assert "&lt;b&gt;" in email.html
+
+
+# --- 2FA disabled by an administrator -------------------------------------
+
+
+def test_totp_disabled_notice_names_the_admin_and_has_no_link() -> None:
+    # If the user did not ask for this, this email is how they find out — so
+    # it says who, and it carries nothing clickable.
+    email = render("totp_disabled", subject="2FA off", app_name="MegooPM", admin_name="Sara Ali")
+    assert "Sara Ali" in email.text
+    assert "href=" not in email.html
+    assert "http" not in email.text

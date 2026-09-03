@@ -1,0 +1,15 @@
+{% extends "base.html.j2" %}
+{% block subject_text %}Two-factor authentication was turned off{% endblock %}
+{% block body %}
+<p class="m-accent" style="margin:0 0 16px 0;font-size:18px;font-weight:600;
+                           color:{{ light.primary }};">Two-factor authentication was turned off</p>
+<p style="margin:0 0 16px 0;">
+  {{ admin_name }}, an administrator of {{ app_name }}, turned off two-factor
+  authentication on your account. Every other session was signed out. You can
+  turn it back on from your profile.
+</p>
+<p class="m-muted" style="margin:0;color:{{ light.muted_foreground }};font-size:13px;">
+  If you did not ask for this, contact an administrator of {{ app_name }}
+  straight away.
+</p>
+{% endblock %}

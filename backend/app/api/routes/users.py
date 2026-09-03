@@ -23,12 +23,15 @@ from app.schemas.user import (
     PasswordChange,
     PasswordReset,
     ProfileUpdate,
+    TotpCodeRequest,
+    TotpCodes,
+    TotpSetup,
     UserCreate,
     UserInvite,
     UserRead,
     UserUpdate,
 )
-from app.services import auth_tokens
+from app.services import auth_tokens, totp
 from app.services import instance_settings as settings_service
 from app.services import user as user_service
 from app.services.audit import record_audit
@@ -153,6 +156,90 @@ async def change_current_user_password(
         object_id=current_user.id,
         meta={"password_changed": True},
     )
+
+
+def _invalid_code() -> HTTPException:
+    return HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=totp.INVALID_CODE_MESSAGE)
+
+
+def _totp_off() -> HTTPException:
+    return HTTPException(
+        status_code=status.HTTP_409_CONFLICT, detail="Two-factor authentication is not on."
+    )
+
+
+@router.post("/me/totp/setup", response_model=TotpSetup)
+async def totp_setup(current_user: CurrentUser, db: SessionDep) -> TotpSetup:
+    """Start enrolling an authenticator app. 2FA stays off until confirmed."""
+    try:
+        secret = await totp.start_enrolment(db, current_user)
+    except totp.TotpAlreadyEnabled:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Two-factor authentication is already on. Turn it off first.",
+        ) from None
+    return TotpSetup(secret=secret, otpauth_uri=totp.provisioning_uri(secret, current_user.email))
+
+
+@router.post("/me/totp/enable", response_model=TotpCodes)
+async def totp_enable(
+    body: TotpCodeRequest, current_user: CurrentUser, db: SessionDep
+) -> TotpCodes:
+    """Prove the app works, then turn 2FA on. Returns the recovery codes once."""
+    try:
+        codes = await totp.confirm_enrolment(db, current_user, body.code)
+    except totp.TotpNotPending:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail="Start setup before confirming it."
+        ) from None
+    if codes is None:
+        raise _invalid_code()
+    await _audit(
+        db,
+        actor=current_user,
+        action=AuditAction.update,
+        object_id=current_user.id,
+        meta={"totp": "enabled"},
+    )
+    return TotpCodes(codes=codes)
+
+
+@router.post("/me/totp/disable", status_code=status.HTTP_204_NO_CONTENT)
+async def totp_disable(body: TotpCodeRequest, current_user: CurrentUser, db: SessionDep) -> None:
+    """Turn 2FA off. A valid code is required: a stolen session must not be
+    able to strip the second factor."""
+    if not current_user.totp_enabled:
+        raise _totp_off()
+    if not await totp.verify_code(db, current_user, body.code):
+        raise _invalid_code()
+    await totp.disable(db, current_user)
+    await _audit(
+        db,
+        actor=current_user,
+        action=AuditAction.update,
+        object_id=current_user.id,
+        meta={"totp": "disabled"},
+    )
+
+
+@router.post("/me/totp/recovery-codes", response_model=TotpCodes)
+async def totp_regenerate(
+    body: TotpCodeRequest, current_user: CurrentUser, db: SessionDep
+) -> TotpCodes:
+    """Replace every recovery code. A valid code is required."""
+    if not current_user.totp_enabled:
+        raise _totp_off()
+    if not await totp.verify_code(db, current_user, body.code):
+        raise _invalid_code()
+    codes = await totp.mint_recovery_codes(db, current_user)
+    await _audit(
+        db,
+        actor=current_user,
+        action=AuditAction.update,
+        object_id=current_user.id,
+        meta={"totp": "codes_regenerated"},
+    )
+    return TotpCodes(codes=codes)
 
 
 # --- admin: collection --------------------------------------------------------
@@ -316,3 +403,30 @@ async def delete_user(
     except user_service.UserProtectionError as exc:
         raise _conflict(exc) from None
     await _audit(db, actor=admin, action=AuditAction.delete, object_id=user_id, meta=snapshot)
+
+
+@router.post("/{user_id}/totp/disable", status_code=status.HTTP_204_NO_CONTENT)
+async def admin_totp_disable(user_id: int, admin: AdminUser, db: SessionDep) -> None:
+    """Turn off another user's 2FA. Admin-only; no code — this is the
+    lost-phone backstop. The user is told by email, naming the admin."""
+    user = await _get_or_404(db, user_id)
+    try:
+        await totp.disable(db, user)
+    except totp.TotpNotEnabled:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Two-factor authentication is not on for that user.",
+        ) from None
+    await _audit(
+        db,
+        actor=admin,
+        action=AuditAction.update,
+        object_id=user.id,
+        meta={"totp": "disabled_by_admin"},
+    )
+    send_email_task.delay(
+        to=user.email,
+        template="totp_disabled",
+        subject=f"Two-factor authentication was turned off on your {APP_NAME} account",
+        context={"app_name": APP_NAME, "admin_name": admin.full_name.strip() or admin.email},
+    )

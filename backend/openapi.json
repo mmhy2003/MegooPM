@@ -2792,6 +2792,83 @@
         "title": "MailTestResult",
         "type": "object"
       },
+      "MfaRequired": {
+        "description": "What ``POST /auth/login`` returns when a second factor is needed.\n\n``mfa_required`` is a literal so the frontend can discriminate the union\nwithout inspecting which keys are present.",
+        "properties": {
+          "mfa_required": {
+            "const": true,
+            "default": true,
+            "title": "Mfa Required",
+            "type": "boolean"
+          },
+          "mfa_token": {
+            "title": "Mfa Token",
+            "type": "string"
+          }
+        },
+        "required": [
+          "mfa_token"
+        ],
+        "title": "MfaRequired",
+        "type": "object"
+      },
+      "MfaVerifyRequest": {
+        "description": "Body for ``POST /auth/mfa/verify``.",
+        "properties": {
+          "code": {
+            "maxLength": 32,
+            "minLength": 1,
+            "title": "Code",
+            "type": "string"
+          },
+          "mfa_token": {
+            "minLength": 1,
+            "title": "Mfa Token",
+            "type": "string"
+          }
+        },
+        "required": [
+          "mfa_token",
+          "code"
+        ],
+        "title": "MfaVerifyRequest",
+        "type": "object"
+      },
+      "MfaVerifyResponse": {
+        "description": "The real pair, plus how many recovery codes are left when one was used.",
+        "properties": {
+          "access_token": {
+            "title": "Access Token",
+            "type": "string"
+          },
+          "recovery_codes_remaining": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recovery Codes Remaining"
+          },
+          "refresh_token": {
+            "title": "Refresh Token",
+            "type": "string"
+          },
+          "token_type": {
+            "default": "bearer",
+            "title": "Token Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "access_token",
+          "refresh_token"
+        ],
+        "title": "MfaVerifyResponse",
+        "type": "object"
+      },
       "NeutralResponse": {
         "description": "The one body ``forgot-password`` ever returns.",
         "properties": {
@@ -4618,6 +4695,58 @@
         "title": "TokenPair",
         "type": "object"
       },
+      "TotpCodeRequest": {
+        "description": "A TOTP or recovery code, wherever one is required.",
+        "properties": {
+          "code": {
+            "maxLength": 32,
+            "minLength": 1,
+            "title": "Code",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code"
+        ],
+        "title": "TotpCodeRequest",
+        "type": "object"
+      },
+      "TotpCodes": {
+        "description": "Recovery codes. Returned exactly once; never retrievable.",
+        "properties": {
+          "codes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Codes",
+            "type": "array"
+          }
+        },
+        "required": [
+          "codes"
+        ],
+        "title": "TotpCodes",
+        "type": "object"
+      },
+      "TotpSetup": {
+        "description": "What the profile page needs to enrol an authenticator app.",
+        "properties": {
+          "otpauth_uri": {
+            "title": "Otpauth Uri",
+            "type": "string"
+          },
+          "secret": {
+            "title": "Secret",
+            "type": "string"
+          }
+        },
+        "required": [
+          "secret",
+          "otpauth_uri"
+        ],
+        "title": "TotpSetup",
+        "type": "object"
+      },
       "TrafficSummary": {
         "description": "``None`` means no node has reported recently — unknown, not idle.",
         "properties": {
@@ -4945,6 +5074,11 @@
           "role": {
             "$ref": "#/components/schemas/UserRole",
             "default": "member"
+          },
+          "totp_enabled": {
+            "default": false,
+            "title": "Totp Enabled",
+            "type": "boolean"
           },
           "updated_at": {
             "format": "date-time",
@@ -6266,7 +6400,7 @@
     },
     "/api/v1/auth/login": {
       "post": {
-        "description": "Authenticate with email + password and return an access/refresh pair.",
+        "description": "Authenticate with email + password.\n\nReturns a token pair — or, for a user with 2FA on, a five-minute\n``mfa_token`` to present with a code at ``/auth/mfa/verify``. A wrong\npassword is 401 either way: the challenge must not leak that the password\nwas right.",
         "operationId": "login_api_v1_auth_login_post",
         "requestBody": {
           "content": {
@@ -6283,7 +6417,15 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/TokenPair"
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/TokenPair"
+                    },
+                    {
+                      "$ref": "#/components/schemas/MfaRequired"
+                    }
+                  ],
+                  "title": "Response Login Api V1 Auth Login Post"
                 }
               }
             },
@@ -6328,6 +6470,48 @@
           }
         ],
         "summary": "Read Me",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/v1/auth/mfa/verify": {
+      "post": {
+        "description": "Exchange a challenge token plus a code for the real token pair.\n\nOne message for every refusal — bad token, expired token, wrong code,\nreplayed code, spent recovery code. Any distinction tells an attacker\nwhich part they got right.",
+        "operationId": "mfa_verify_api_v1_auth_mfa_verify_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MfaVerifyRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MfaVerifyResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Mfa Verify",
         "tags": [
           "auth"
         ]
@@ -9906,6 +10090,167 @@
         ]
       }
     },
+    "/api/v1/users/me/totp/disable": {
+      "post": {
+        "description": "Turn 2FA off. A valid code is required: a stolen session must not be\nable to strip the second factor.",
+        "operationId": "totp_disable_api_v1_users_me_totp_disable_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TotpCodeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Totp Disable",
+        "tags": [
+          "users"
+        ]
+      }
+    },
+    "/api/v1/users/me/totp/enable": {
+      "post": {
+        "description": "Prove the app works, then turn 2FA on. Returns the recovery codes once.",
+        "operationId": "totp_enable_api_v1_users_me_totp_enable_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TotpCodeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TotpCodes"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Totp Enable",
+        "tags": [
+          "users"
+        ]
+      }
+    },
+    "/api/v1/users/me/totp/recovery-codes": {
+      "post": {
+        "description": "Replace every recovery code. A valid code is required.",
+        "operationId": "totp_regenerate_api_v1_users_me_totp_recovery_codes_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TotpCodeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TotpCodes"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Totp Regenerate",
+        "tags": [
+          "users"
+        ]
+      }
+    },
+    "/api/v1/users/me/totp/setup": {
+      "post": {
+        "description": "Start enrolling an authenticator app. 2FA stays off until confirmed.",
+        "operationId": "totp_setup_api_v1_users_me_totp_setup_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TotpSetup"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Totp Setup",
+        "tags": [
+          "users"
+        ]
+      }
+    },
     "/api/v1/users/{user_id}": {
       "delete": {
         "description": "Hard-delete a user. Admin-only. 409 under the lock-out rules.",
@@ -10090,6 +10435,47 @@
           }
         ],
         "summary": "Reset Password",
+        "tags": [
+          "users"
+        ]
+      }
+    },
+    "/api/v1/users/{user_id}/totp/disable": {
+      "post": {
+        "description": "Turn off another user's 2FA. Admin-only; no code — this is the\nlost-phone backstop. The user is told by email, naming the admin.",
+        "operationId": "admin_totp_disable_api_v1_users__user_id__totp_disable_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "title": "User Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Admin Totp Disable",
         "tags": [
           "users"
         ]
