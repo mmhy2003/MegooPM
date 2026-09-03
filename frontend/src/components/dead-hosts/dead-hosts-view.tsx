@@ -2,7 +2,7 @@
 
 import { toast } from "sonner";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Ban, Pencil, Plus, ShieldCheck, Trash2 } from "lucide-react";
 
 import { certificates, deadHosts, type Certificate, type DeadHost } from "@/lib/api";
@@ -12,7 +12,9 @@ import { DeadHostDialog } from "@/components/dead-hosts/dead-host-dialog";
 import { EnabledToggle } from "@/components/hosts/enabled-toggle";
 import { DomainLinks } from "@/components/hosts/domain-links";
 import { Button } from "@/components/ui/button";
+import { SearchInput } from "@/components/ui/search-input";
 import { Skeleton } from "@/components/ui/skeleton";
+import { filterBySearch } from "@/lib/search";
 import {
   Table,
   TableBody,
@@ -49,6 +51,13 @@ export function DeadHostsView() {
     host: null,
   });
   const [toDelete, setToDelete] = useState<DeadHost | null>(null);
+  const [query, setQuery] = useState("");
+
+  // Domains only: a 404 host has no forward target to match on.
+  const visible = useMemo(
+    () => filterBySearch(rows, query, (h) => [...h.domain_names]),
+    [rows, query],
+  );
 
   const load = useCallback(async () => {
     try {
@@ -118,7 +127,13 @@ export function DeadHostsView() {
       ) : null}
 
       <div className="space-y-3">
-        <div className="flex justify-end">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <SearchInput
+            value={query}
+            onValueChange={setQuery}
+            label="Search 404 hosts"
+            placeholder="Domain"
+          />
           <Button size="sm" onClick={() => setDialog({ open: true, host: null })}>
             <Plus /> New 404 host
           </Button>
@@ -136,14 +151,28 @@ export function DeadHostsView() {
             <TableBody>
               {loading ? (
                 <LoadingRows cols={4} />
-              ) : rows.length === 0 ? (
+              ) : visible.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={4} className="py-10 text-center text-muted-foreground">
-                    No 404 hosts yet. Create one to park a domain.
+                    {query.trim() ? (
+                      <>
+                        No 404 hosts match “{query.trim()}”.{" "}
+                        <Button
+                          variant="link"
+                          size="sm"
+                          className="h-auto p-0 align-baseline"
+                          onClick={() => setQuery("")}
+                        >
+                          Clear search
+                        </Button>
+                      </>
+                    ) : (
+                      "No 404 hosts yet. Create one to park a domain."
+                    )}
                   </TableCell>
                 </TableRow>
               ) : (
-                rows.map((host) => (
+                visible.map((host) => (
                   <TableRow key={host.id}>
                     <TableCell className="font-medium">
                       <DomainLinks

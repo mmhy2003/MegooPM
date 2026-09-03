@@ -18,7 +18,9 @@ import { Badge } from "@/components/ui/badge";
 import { EnabledToggle } from "@/components/hosts/enabled-toggle";
 import { DomainLinks } from "@/components/hosts/domain-links";
 import { Button } from "@/components/ui/button";
+import { SearchInput } from "@/components/ui/search-input";
 import { Skeleton } from "@/components/ui/skeleton";
+import { filterBySearch } from "@/lib/search";
 import {
   Table,
   TableBody,
@@ -55,6 +57,12 @@ export function RedirectionHostsView() {
     host: null,
   });
   const [toDelete, setToDelete] = useState<RedirectionHost | null>(null);
+  const [query, setQuery] = useState("");
+
+  const visible = useMemo(
+    () => filterBySearch(rows, query, (h) => [...h.domain_names, h.forward_domain_name]),
+    [rows, query],
+  );
 
   const load = useCallback(async () => {
     try {
@@ -130,7 +138,13 @@ export function RedirectionHostsView() {
       ) : null}
 
       <div className="space-y-3">
-        <div className="flex justify-end">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <SearchInput
+            value={query}
+            onValueChange={setQuery}
+            label="Search redirection hosts"
+            placeholder="Domain or redirect target"
+          />
           <Button size="sm" onClick={() => setDialog({ open: true, host: null })}>
             <Plus /> New redirection host
           </Button>
@@ -150,14 +164,28 @@ export function RedirectionHostsView() {
             <TableBody>
               {loading ? (
                 <LoadingRows cols={6} />
-              ) : rows.length === 0 ? (
+              ) : visible.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={6} className="py-10 text-center text-muted-foreground">
-                    No redirection hosts yet. Create one to redirect domains elsewhere.
+                    {query.trim() ? (
+                      <>
+                        No redirection hosts match “{query.trim()}”.{" "}
+                        <Button
+                          variant="link"
+                          size="sm"
+                          className="h-auto p-0 align-baseline"
+                          onClick={() => setQuery("")}
+                        >
+                          Clear search
+                        </Button>
+                      </>
+                    ) : (
+                      "No redirection hosts yet. Create one to redirect domains elsewhere."
+                    )}
                   </TableCell>
                 </TableRow>
               ) : (
-                rows.map((host) => (
+                visible.map((host) => (
                   <TableRow key={host.id}>
                     <TableCell className="font-medium">
                       <DomainLinks

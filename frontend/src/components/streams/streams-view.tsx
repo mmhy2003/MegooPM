@@ -2,7 +2,7 @@
 
 import { toast } from "sonner";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Network, Pencil, Plus, ShieldCheck, Trash2 } from "lucide-react";
 
 import {
@@ -19,7 +19,9 @@ import { StreamDialog } from "@/components/streams/stream-dialog";
 import { Badge } from "@/components/ui/badge";
 import { EnabledToggle } from "@/components/hosts/enabled-toggle";
 import { Button } from "@/components/ui/button";
+import { SearchInput } from "@/components/ui/search-input";
 import { Skeleton } from "@/components/ui/skeleton";
+import { filterBySearch } from "@/lib/search";
 import {
   Table,
   TableBody,
@@ -66,6 +68,14 @@ export function StreamsView() {
   });
   const [toDelete, setToDelete] = useState<Stream | null>(null);
   const [pools, setPools] = useState<Upstream[]>([]);
+  const [query, setQuery] = useState("");
+
+  // `incoming_port` is a number, so the page stringifies it here: the shared
+  // matcher stays string-only and never guesses how to render a number.
+  const visible = useMemo(
+    () => filterBySearch(rows, query, (s) => [String(s.incoming_port), s.forward_host]),
+    [rows, query],
+  );
 
   const load = useCallback(async () => {
     try {
@@ -140,7 +150,13 @@ export function StreamsView() {
       ) : null}
 
       <div className="space-y-3">
-        <div className="flex justify-end">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <SearchInput
+            value={query}
+            onValueChange={setQuery}
+            label="Search streams"
+            placeholder="Port or forward host"
+          />
           <Button size="sm" onClick={() => setDialog({ open: true, stream: null })}>
             <Plus /> New stream
           </Button>
@@ -160,14 +176,28 @@ export function StreamsView() {
             <TableBody>
               {loading ? (
                 <LoadingRows cols={6} />
-              ) : rows.length === 0 ? (
+              ) : visible.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={6} className="py-10 text-center text-muted-foreground">
-                    No streams yet. Create one to forward a TCP/UDP port to a backend.
+                    {query.trim() ? (
+                      <>
+                        No streams match “{query.trim()}”.{" "}
+                        <Button
+                          variant="link"
+                          size="sm"
+                          className="h-auto p-0 align-baseline"
+                          onClick={() => setQuery("")}
+                        >
+                          Clear search
+                        </Button>
+                      </>
+                    ) : (
+                      "No streams yet. Create one to forward a TCP/UDP port to a backend."
+                    )}
                   </TableCell>
                 </TableRow>
               ) : (
-                rows.map((stream) => (
+                visible.map((stream) => (
                   <TableRow key={stream.id}>
                     <TableCell className="font-medium tabular-nums">
                       {stream.incoming_port}

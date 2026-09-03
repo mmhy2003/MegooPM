@@ -76,3 +76,39 @@ describe("DeadHostsView enable toggle", () => {
     expect(toast.error).toHaveBeenCalled();
   });
 });
+
+describe("DeadHostsView search", () => {
+  afterEach(() => {
+    cleanup();
+    vi.restoreAllMocks();
+  });
+
+  it("narrows the table by domain", async () => {
+    const user = userEvent.setup();
+    vi.spyOn(deadHosts, "list").mockResolvedValue([
+      makeDeadHost({ id: 1, domain_names: ["parked.example.com"] }),
+      makeDeadHost({ id: 2, domain_names: ["retired.internal"] }),
+    ]);
+    vi.spyOn(certificates, "list").mockResolvedValue([]);
+    render(<DeadHostsView />);
+    await screen.findByRole("searchbox", { name: "Search 404 hosts" });
+
+    await user.type(screen.getByRole("searchbox"), "retired");
+
+    expect(screen.getByText("retired.internal")).toBeInTheDocument();
+    expect(screen.queryByText("parked.example.com")).not.toBeInTheDocument();
+  });
+
+  it("distinguishes a filtered-empty table from an empty instance", async () => {
+    const user = userEvent.setup();
+    vi.spyOn(deadHosts, "list").mockResolvedValue([]);
+    vi.spyOn(certificates, "list").mockResolvedValue([]);
+    render(<DeadHostsView />);
+    await screen.findByRole("searchbox", { name: "Search 404 hosts" });
+    expect(screen.getByText(/no 404 hosts yet/i)).toBeInTheDocument();
+
+    await user.type(screen.getByRole("searchbox"), "nonesuch");
+
+    expect(screen.getByText(/no 404 hosts match/i)).toBeInTheDocument();
+  });
+});
