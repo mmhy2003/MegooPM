@@ -46,6 +46,7 @@ import { Label } from "@/components/ui/label";
 import { SearchInput } from "@/components/ui/search-input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { filterBySearch } from "@/lib/search";
+import { useDebouncedValue } from "@/lib/use-debounced-value";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsList, TabsPanel, TabsTab } from "@/components/ui/tabs";
 import {
@@ -59,6 +60,9 @@ import {
 
 /** sessionStorage key persisting the community toggle across reloads (MEG-44). */
 const COMMUNITY_KEY = "mego.crowdsec.includeCommunity";
+
+/** Long enough that a typed IP costs one request, short enough to feel live. */
+const SEARCH_DEBOUNCE_MS = 300;
 
 function typeBadgeVariant(type: DecisionType | string) {
   if (type === "ban") return "destructive" as const;
@@ -164,12 +168,16 @@ export function SecurityView() {
   const [decList, setDecList] = useState<DecisionList | null>(null);
   const [decLoading, setDecLoading] = useState(true);
   const [decError, setDecError] = useState<string | null>(null);
+  const [decQuery, setDecQuery] = useState("");
+  const decSearch = useDebouncedValue(decQuery, SEARCH_DEBOUNCE_MS);
 
   const [alertPage, setAlertPage] = useState(1);
   const [alertPageSize, setAlertPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [alertList, setAlertList] = useState<AlertList | null>(null);
   const [alertLoading, setAlertLoading] = useState(true);
   const [alertError, setAlertError] = useState<string | null>(null);
+  const [alertQuery, setAlertQuery] = useState("");
+  const alertSearch = useDebouncedValue(alertQuery, SEARCH_DEBOUNCE_MS);
 
   const [banOpen, setBanOpen] = useState(false);
   const [banSeed, setBanSeed] = useState<{ value: string; scope: DecisionScope }>({
@@ -204,6 +212,18 @@ export function SecurityView() {
     } catch {
       // sessionStorage unavailable (privacy mode) — keep the default.
     }
+  }, []);
+
+  const changeDecQuery = useCallback((next: string) => {
+    setDecQuery(next);
+    // Immediately, not after the debounce: filtering while on page 4 otherwise
+    // lands past the end of a shorter result set and shows an empty table.
+    setDecPage(1);
+  }, []);
+
+  const changeAlertQuery = useCallback((next: string) => {
+    setAlertQuery(next);
+    setAlertPage(1);
   }, []);
 
   const setCommunity = useCallback((next: boolean) => {
@@ -245,6 +265,7 @@ export function SecurityView() {
           page: decPage,
           pageSize: decPageSize,
           includeCommunity,
+          q: decSearch,
         });
         if (!active) return;
         setDecList(list);
@@ -262,7 +283,7 @@ export function SecurityView() {
     return () => {
       active = false;
     };
-  }, [decPage, decPageSize, includeCommunity, refreshTick]);
+  }, [decPage, decPageSize, includeCommunity, decSearch, refreshTick]);
 
   // Alerts page.
   useEffect(() => {
@@ -274,6 +295,7 @@ export function SecurityView() {
           page: alertPage,
           pageSize: alertPageSize,
           includeCommunity,
+          q: alertSearch,
         });
         if (!active) return;
         setAlertList(list);
@@ -290,7 +312,7 @@ export function SecurityView() {
     return () => {
       active = false;
     };
-  }, [alertPage, alertPageSize, includeCommunity, refreshTick]);
+  }, [alertPage, alertPageSize, includeCommunity, alertSearch, refreshTick]);
 
   const refresh = useCallback(() => setRefreshTick((t) => t + 1), []);
 
@@ -438,6 +460,14 @@ export function SecurityView() {
             <TableError message={decError} onRetry={refresh} />
           ) : (
             <>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <SearchInput
+                  value={decQuery}
+                  onValueChange={changeDecQuery}
+                  label="Search decisions"
+                  placeholder="IP, range or scenario"
+                />
+              </div>
               <div className="rounded-xl border">
                 <Table>
                   <TableHeader>
@@ -457,9 +487,25 @@ export function SecurityView() {
                     ) : decisions.length === 0 ? (
                       <TableRow>
                         <TableCell colSpan={7} className="py-10 text-center text-muted-foreground">
-                          No active decisions
-                          {includeCommunity ? "" : " (community records are hidden)"}. The bouncer
-                          isn’t enforcing any matching bans right now.
+                          {decQuery.trim() ? (
+                            <>
+                              No decisions match “{decQuery.trim()}”.{" "}
+                              <Button
+                                variant="link"
+                                size="sm"
+                                className="h-auto p-0 align-baseline"
+                                onClick={() => changeDecQuery("")}
+                              >
+                                Clear search
+                              </Button>
+                            </>
+                          ) : (
+                            <>
+                              No active decisions
+                              {includeCommunity ? "" : " (community records are hidden)"}. The
+                              bouncer isn’t enforcing any matching bans right now.
+                            </>
+                          )}
                         </TableCell>
                       </TableRow>
                     ) : (
@@ -519,6 +565,14 @@ export function SecurityView() {
             <TableError message={alertError} onRetry={refresh} />
           ) : (
             <>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <SearchInput
+                  value={alertQuery}
+                  onValueChange={changeAlertQuery}
+                  label="Search alerts"
+                  placeholder="Source IP or scenario"
+                />
+              </div>
               <div className="rounded-xl border">
                 <Table>
                   <TableHeader>
@@ -537,8 +591,24 @@ export function SecurityView() {
                     ) : alerts.length === 0 ? (
                       <TableRow>
                         <TableCell colSpan={6} className="py-10 text-center text-muted-foreground">
-                          No recent alerts
-                          {includeCommunity ? "" : " (community records are hidden)"}.
+                          {alertQuery.trim() ? (
+                            <>
+                              No alerts match “{alertQuery.trim()}”.{" "}
+                              <Button
+                                variant="link"
+                                size="sm"
+                                className="h-auto p-0 align-baseline"
+                                onClick={() => changeAlertQuery("")}
+                              >
+                                Clear search
+                              </Button>
+                            </>
+                          ) : (
+                            <>
+                              No recent alerts
+                              {includeCommunity ? "" : " (community records are hidden)"}.
+                            </>
+                          )}
                         </TableCell>
                       </TableRow>
                     ) : (

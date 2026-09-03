@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import { crowdsec } from "@/lib/api";
@@ -77,12 +77,14 @@ describe("SecurityView", () => {
         page: 1,
         pageSize: 50,
         includeCommunity: false,
+          q: "",
       }),
     );
     expect(crowdsec.listAlerts).toHaveBeenCalledWith({
       page: 1,
       pageSize: 50,
       includeCommunity: false,
+      q: "",
     });
   });
 
@@ -102,6 +104,7 @@ describe("SecurityView", () => {
         page: 2,
         pageSize: 50,
         includeCommunity: false,
+          q: "",
       }),
     );
   });
@@ -118,12 +121,14 @@ describe("SecurityView", () => {
         page: 1,
         pageSize: 50,
         includeCommunity: true,
+          q: "",
       }),
     );
     expect(crowdsec.listAlerts).toHaveBeenLastCalledWith({
       page: 1,
       pageSize: 50,
       includeCommunity: true,
+      q: "",
     });
   });
 
@@ -284,5 +289,108 @@ describe("SecurityView whitelist search", () => {
 
     expect(screen.getByText("monitoring")).toBeInTheDocument();
     expect(screen.queryByText("office")).not.toBeInTheDocument();
+  });
+});
+
+describe("SecurityView decision search", () => {
+  beforeEach(() => {
+    vi.spyOn(crowdsec, "health").mockResolvedValue(healthOk as never);
+    vi.spyOn(crowdsec, "listAlerts").mockResolvedValue(emptyAlerts as never);
+    vi.spyOn(crowdsec, "listWhitelists").mockResolvedValue([] as never);
+    vi.spyOn(crowdsec, "whitelistStatus").mockResolvedValue({
+      ok: true,
+      error: null,
+      applied_at: null,
+      reload_configured: true,
+    } as never);
+  });
+
+  afterEach(() => {
+    cleanup();
+    vi.restoreAllMocks();
+    vi.useRealTimers();
+  });
+
+  it("sends the query to the server and resets to page 1", async () => {
+    // Server-side because a client-side filter here would search only the
+    // visible page. Page 1 because filtering while on page 4 otherwise lands
+    // past the end of a shorter result set.
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    const listDecisions = vi
+      .spyOn(crowdsec, "listDecisions")
+      .mockResolvedValue({ items: [], total: 0, page: 1, page_size: 50 } as never);
+
+    render(<SecurityView />);
+    await user.click(await screen.findByRole("tab", { name: /active decisions/i }));
+    const box = await screen.findByRole("searchbox", { name: "Search decisions" });
+
+    await user.type(box, "203.0");
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(400);
+    });
+
+    expect(listDecisions.mock.calls.at(-1)?.[0]).toMatchObject({ q: "203.0", page: 1 });
+  });
+
+  it("says a search is hiding the decisions, not that there are none", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    vi.spyOn(crowdsec, "listDecisions").mockResolvedValue({
+      items: [],
+      total: 0,
+      page: 1,
+      page_size: 50,
+    } as never);
+
+    render(<SecurityView />);
+    await user.click(await screen.findByRole("tab", { name: /active decisions/i }));
+    await user.type(
+      await screen.findByRole("searchbox", { name: "Search decisions" }),
+      "203.0",
+    );
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(400);
+    });
+
+    expect(screen.getByText(/no decisions match/i)).toBeInTheDocument();
+    expect(screen.queryByText(/no active decisions/i)).not.toBeInTheDocument();
+  });
+});
+
+describe("SecurityView alert search", () => {
+  beforeEach(() => {
+    vi.spyOn(crowdsec, "health").mockResolvedValue(healthOk as never);
+    vi.spyOn(crowdsec, "listDecisions").mockResolvedValue(decisionList(120) as never);
+    vi.spyOn(crowdsec, "listWhitelists").mockResolvedValue([] as never);
+    vi.spyOn(crowdsec, "whitelistStatus").mockResolvedValue({
+      ok: true,
+      error: null,
+      applied_at: null,
+      reload_configured: true,
+    } as never);
+  });
+
+  afterEach(() => {
+    cleanup();
+    vi.restoreAllMocks();
+    vi.useRealTimers();
+  });
+
+  it("sends the query to the server and resets to page 1", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    const listAlerts = vi
+      .spyOn(crowdsec, "listAlerts")
+      .mockResolvedValue({ items: [], total: 0, page: 1, page_size: 50 } as never);
+
+    render(<SecurityView />);
+    await user.click(await screen.findByRole("tab", { name: /recent alerts/i }));
+    await user.type(await screen.findByRole("searchbox", { name: "Search alerts" }), "ssh");
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(400);
+    });
+
+    expect(listAlerts.mock.calls.at(-1)?.[0]).toMatchObject({ q: "ssh", page: 1 });
   });
 });
