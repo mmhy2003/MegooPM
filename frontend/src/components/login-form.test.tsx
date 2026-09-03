@@ -154,3 +154,23 @@ describe("LoginForm with a remembered account", () => {
     expect(screen.getByLabelText("Email")).toHaveValue("mm@example.com");
   });
 });
+
+describe("LoginForm theme control", () => {
+  it("offers the theme switcher on a browser that has never signed in", async () => {
+    render(<LoginForm />);
+
+    expect(
+      await screen.findByRole("button", { name: "Change theme" }),
+    ).toBeInTheDocument();
+  });
+
+  it("still offers it once the account list appears", async () => {
+    // The two layouts differ; a toggle nested inside the single-column branch
+    // would vanish the moment an account was remembered.
+    saveMohamed();
+    render(<LoginForm />);
+    await screen.findByRole("button", { name: "Sign in as Mohamed Hammad" });
+
+    expect(screen.getByRole("button", { name: "Change theme" })).toBeInTheDocument();
+  });
+});

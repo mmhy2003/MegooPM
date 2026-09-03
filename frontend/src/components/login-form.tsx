@@ -14,6 +14,7 @@ import {
   type RecentAccount,
 } from "@/lib/auth/recent-accounts";
 import { AccountList } from "@/components/login/account-list";
+import { ModeToggle } from "@/components/mode-toggle";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -106,6 +107,14 @@ export function LoginForm() {
 
   return (
     <div className="flex min-h-dvh items-center justify-center p-4">
+      {/* Fixed, and a sibling of the layout branch below rather than inside it:
+          it must survive both the one- and two-column arrangements, and sit
+          where the topbar's toggle sits once signed in so the position carries
+          over instead of having to be found again. */}
+      <div className="fixed top-4 right-4 z-10">
+        <ModeToggle />
+      </div>
+
       {/* Without saved accounts this collapses to the single centred column the
           page has always been. With them it becomes two columns only from `sm`
           up: on a phone the list stacks above the form rather than sitting
