@@ -52,10 +52,11 @@ describe("PasskeysCard visibility", () => {
 describe("PasskeysCard adding", () => {
   it("asks for a code and a name, runs the ceremony, and posts the credential", async () => {
     const user = userEvent.setup();
+    const phone = { ...ONE, id: 2, name: "Phone" };
     vi.spyOn(users, "passkeyOptions").mockResolvedValue(OPTIONS);
-    const register = vi
-      .spyOn(users, "registerPasskey")
-      .mockResolvedValue({ ...ONE, id: 2, name: "Phone" });
+    const register = vi.spyOn(users, "registerPasskey").mockResolvedValue(phone);
+    // The card re-reads the list after adding; the second read has the new row.
+    vi.spyOn(users, "passkeys").mockResolvedValueOnce([ONE]).mockResolvedValue([ONE, phone]);
     render(<PasskeysCard enabled />);
     await screen.findByText("MacBook");
 
