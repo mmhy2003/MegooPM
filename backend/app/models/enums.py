@@ -140,6 +140,12 @@ class SmtpSecurity(enum.StrEnum):
     #: No transport security. For a trusted local relay only.
     none = "none"
 
+
+class AuthTokenKind(enum.StrEnum):
+    """What a single-use ``auth_token`` row is for."""
+
+    password_reset = "password_reset"
+
 __all__ = [
     "LoadBalanceMethod",
     "WhitelistKind",
@@ -151,4 +157,5 @@ __all__ = [
     "DefaultSiteMode",
     "AuditAction",
     "SmtpSecurity",
+    "AuthTokenKind",
 ]

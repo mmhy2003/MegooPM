@@ -11,6 +11,7 @@ from app.models.access_list import (  # noqa: F401
     AccessListClient,
 )
 from app.models.audit_log import AuditLog  # noqa: F401
+from app.models.auth_token import AuthToken  # noqa: F401
 from app.models.certificate import Certificate  # noqa: F401
 from app.models.cluster_state import (  # noqa: F401
     ClusterNode,
@@ -40,6 +41,7 @@ __all__ = [
     "AccessListAuth",
     "AccessListClient",
     "AuditLog",
+    "AuthToken",
     "Certificate",
     "ClusterNode",
     "ClusterState",

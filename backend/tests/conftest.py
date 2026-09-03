@@ -19,6 +19,7 @@ import pytest
 from app.db.session import get_session
 from app.main import app
 from app.models.audit_log import AuditLog
+from app.models.auth_token import AuthToken
 from app.models.crowdsec import CrowdSecCredential
 from app.models.dns_credential import DnsProviderCredential
 from app.models.user import User, UserRole
@@ -89,6 +90,7 @@ async def session_factory() -> AsyncIterator[async_sessionmaker]:
             tables=[
                 User.__table__,
                 AuditLog.__table__,
+                AuthToken.__table__,
                 CrowdSecCredential.__table__,
                 DnsProviderCredential.__table__,
             ],
