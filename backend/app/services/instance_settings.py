@@ -18,9 +18,10 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.crypto import decrypt_secret, encrypt_secret
-from app.models.enums import CrowdSecBanMode, DefaultSiteMode
+from app.models.enums import CrowdSecBanMode, DefaultSiteMode, SmtpSecurity
 from app.models.instance_settings import InstanceSettings
 from app.services.llm import LlmConfig
+from app.services.mail.config import MailConfig
 
 SETTINGS_ID = 1
 
@@ -116,11 +117,54 @@ def llm_config_from_row(row: InstanceSettings) -> LlmConfig:
     )
 
 
+async def update_smtp_settings(db: AsyncSession, changes: dict[str, Any]) -> InstanceSettings:
+    """Apply an SMTP settings payload, encrypting the password on the way in.
+
+    ``changes`` must come from ``model_dump(exclude_unset=True)``: the presence
+    or absence of ``smtp_password`` is the signal for keep-vs-replace-vs-clear,
+    and a plain dump would flatten "absent" into ``None`` and wipe a working
+    password on every save.
+    """
+    row = await get_instance_settings(db)
+
+    row.smtp_enabled = changes["smtp_enabled"]
+    row.smtp_host = changes.get("smtp_host")
+    row.smtp_port = changes.get("smtp_port", 587)
+    row.smtp_security = changes.get("smtp_security", SmtpSecurity.starttls)
+    row.smtp_username = changes.get("smtp_username")
+    row.smtp_from = changes.get("smtp_from")
+    row.smtp_from_name = changes.get("smtp_from_name")
+    row.app_url = changes.get("app_url")
+
+    if "smtp_password" in changes:
+        password = changes["smtp_password"]
+        row.smtp_password_enc = encrypt_secret(password) if password else None
+
+    await db.commit()
+    await db.refresh(row)
+    return row
+
+
+def mail_config_from_row(row: InstanceSettings) -> MailConfig:
+    """Decrypt the stored password into a config the sender can use."""
+    return MailConfig(
+        host=row.smtp_host,
+        port=row.smtp_port,
+        security=row.smtp_security,
+        username=row.smtp_username,
+        password=decrypt_secret(row.smtp_password_enc) if row.smtp_password_enc else None,
+        from_address=row.smtp_from,
+        from_name=row.smtp_from_name,
+    )
+
+
 __all__ = [
     "SETTINGS_ID",
     "UnknownCustomPageError",
     "get_instance_settings",
     "llm_config_from_row",
+    "mail_config_from_row",
     "update_default_site",
     "update_llm_settings",
+    "update_smtp_settings",
 ]
