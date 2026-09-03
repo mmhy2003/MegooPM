@@ -687,6 +687,20 @@
         "title": "AuditLogRead",
         "type": "object"
       },
+      "AuthCapabilities": {
+        "description": "What the login page may offer before anyone is signed in.",
+        "properties": {
+          "password_reset": {
+            "title": "Password Reset",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "password_reset"
+        ],
+        "title": "AuthCapabilities",
+        "type": "object"
+      },
       "BackendCreate": {
         "description": "Payload to add a backend to a pool.",
         "properties": {
@@ -2193,6 +2207,21 @@
         "title": "DnsProviderInfoRead",
         "type": "object"
       },
+      "ForgotPasswordRequest": {
+        "description": "Body for ``POST /auth/forgot-password``.",
+        "properties": {
+          "email": {
+            "format": "email",
+            "title": "Email",
+            "type": "string"
+          }
+        },
+        "required": [
+          "email"
+        ],
+        "title": "ForgotPasswordRequest",
+        "type": "object"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -2732,6 +2761,20 @@
           "ok"
         ],
         "title": "MailTestResult",
+        "type": "object"
+      },
+      "NeutralResponse": {
+        "description": "The one body ``forgot-password`` ever returns.",
+        "properties": {
+          "detail": {
+            "title": "Detail",
+            "type": "string"
+          }
+        },
+        "required": [
+          "detail"
+        ],
+        "title": "NeutralResponse",
         "type": "object"
       },
       "NginxConfigFile": {
@@ -3979,6 +4022,29 @@
           "refresh_token"
         ],
         "title": "RefreshRequest",
+        "type": "object"
+      },
+      "ResetPasswordRequest": {
+        "description": "Body for ``POST /auth/reset-password``.",
+        "properties": {
+          "new_password": {
+            "maxLength": 128,
+            "minLength": 8,
+            "title": "New Password",
+            "type": "string"
+          },
+          "token": {
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Token",
+            "type": "string"
+          }
+        },
+        "required": [
+          "token",
+          "new_password"
+        ],
+        "title": "ResetPasswordRequest",
         "type": "object"
       },
       "SampleTaskRequest": {
@@ -6033,6 +6099,70 @@
         ]
       }
     },
+    "/api/v1/auth/capabilities": {
+      "get": {
+        "description": "What the login page may offer. Unauthenticated by necessity.\n\nLeaks one bit — whether email is configured — which is cheaper than a user\nclicking \"forgot password\", being told to check their inbox, and nothing\never arriving.",
+        "operationId": "capabilities_api_v1_auth_capabilities_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthCapabilities"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Capabilities",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/v1/auth/forgot-password": {
+      "post": {
+        "description": "Issue a reset link if the address belongs to an active account.\n\nReturns the same status and body whether or not it does. Otherwise this\npage is a directory of who has an account, for anyone who can reach it.\nResponse *timing* still differs slightly; the spec records that as a\nknown, accepted gap.",
+        "operationId": "forgot_password_api_v1_auth_forgot_password_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ForgotPasswordRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NeutralResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Forgot Password",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
     "/api/v1/auth/login": {
       "post": {
         "description": "Authenticate with email + password and return an access/refresh pair.",
@@ -6139,6 +6269,41 @@
           }
         },
         "summary": "Refresh",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/v1/auth/reset-password": {
+      "post": {
+        "description": "Spend a reset token and set the new password. Ends every open session.",
+        "operationId": "reset_password_api_v1_auth_reset_password_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResetPasswordRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Reset Password",
         "tags": [
           "auth"
         ]

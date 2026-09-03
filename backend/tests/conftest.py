@@ -22,6 +22,7 @@ from app.models.audit_log import AuditLog
 from app.models.auth_token import AuthToken
 from app.models.crowdsec import CrowdSecCredential
 from app.models.dns_credential import DnsProviderCredential
+from app.models.instance_settings import InstanceSettings
 from app.models.user import User, UserRole
 from app.services import user as user_service
 from httpx import ASGITransport, AsyncClient
@@ -93,6 +94,7 @@ async def session_factory() -> AsyncIterator[async_sessionmaker]:
                 AuthToken.__table__,
                 CrowdSecCredential.__table__,
                 DnsProviderCredential.__table__,
+                InstanceSettings.__table__,
             ],
         )
 

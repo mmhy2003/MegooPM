@@ -30,4 +30,37 @@ class TokenPair(BaseModel):
     token_type: str = "bearer"
 
 
-__all__ = ["LoginRequest", "RefreshRequest", "TokenPair"]
+class ForgotPasswordRequest(BaseModel):
+    """Body for ``POST /auth/forgot-password``."""
+
+    email: EmailStr
+
+
+class ResetPasswordRequest(BaseModel):
+    """Body for ``POST /auth/reset-password``."""
+
+    token: str = Field(min_length=1, max_length=256)
+    new_password: str = Field(min_length=8, max_length=128)
+
+
+class AuthCapabilities(BaseModel):
+    """What the login page may offer before anyone is signed in."""
+
+    password_reset: bool
+
+
+class NeutralResponse(BaseModel):
+    """The one body ``forgot-password`` ever returns."""
+
+    detail: str
+
+
+__all__ = [
+    "AuthCapabilities",
+    "ForgotPasswordRequest",
+    "LoginRequest",
+    "NeutralResponse",
+    "RefreshRequest",
+    "ResetPasswordRequest",
+    "TokenPair",
+]
