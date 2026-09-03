@@ -1,14 +1,17 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { KeyRound, Pencil, Plus, Trash2, Users as UsersIcon } from "lucide-react";
+import { KeyRound, MailPlus, Pencil, Plus, Send, Trash2, Users as UsersIcon } from "lucide-react";
+import { toast } from "sonner";
 
 import { USER_ROLE_LABELS, users, type User } from "@/lib/api";
+import { fetchCapabilities } from "@/lib/auth/api";
 import { useAuth } from "@/lib/auth/context";
 import { describeError } from "@/components/proxy-hosts/lib";
 import { ConfirmDeleteDialog } from "@/components/proxy-hosts/confirm-delete-dialog";
 import { displayName, isSelf } from "@/components/users/lib";
 import { ResetPasswordDialog } from "@/components/users/reset-password-dialog";
+import { InviteDialog } from "@/components/users/invite-dialog";
 import { UserDialog } from "@/components/users/user-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -22,14 +25,23 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
-function StatusBadge({ active }: { active: boolean }) {
+function StatusBadge({ user }: { user: User }) {
+  // Invited is a third state derived from one column: invited_at IS NOT NULL.
+  if (user.invited_at) {
+    return (
+      <Badge variant="outline">
+        <span className="size-1.5 rounded-full bg-primary" aria-hidden />
+        Invited
+      </Badge>
+    );
+  }
   return (
-    <Badge variant={active ? "success" : "muted"}>
+    <Badge variant={user.is_active ? "success" : "muted"}>
       <span
-        className={`size-1.5 rounded-full ${active ? "bg-success" : "bg-muted-foreground"}`}
+        className={`size-1.5 rounded-full ${user.is_active ? "bg-success" : "bg-muted-foreground"}`}
         aria-hidden
       />
-      {active ? "Active" : "Inactive"}
+      {user.is_active ? "Active" : "Inactive"}
     </Badge>
   );
 }
@@ -66,6 +78,10 @@ export function UsersView() {
   });
   const [resetTarget, setResetTarget] = useState<User | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<User | null>(null);
+  const [inviteOpen, setInviteOpen] = useState(false);
+  const [inviteKey, setInviteKey] = useState(0);
+  // Hidden until the backend says an invitation could actually be sent.
+  const [canInvite, setCanInvite] = useState(false);
 
   // `load` performs no synchronous setState, so it is safe to call from an
   // effect body; `refresh` (event handlers) shows the skeleton while reloading.
@@ -95,6 +111,29 @@ export function UsersView() {
     };
   }, [load]);
 
+  useEffect(() => {
+    let active = true;
+    fetchCapabilities()
+      .then((caps) => {
+        if (active) setCanInvite(caps.password_reset);
+      })
+      .catch(() => {
+        // Leave the button hidden; the list load reports the real error.
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  async function resend(u: User) {
+    try {
+      await users.resendInvite(u.id);
+      toast.success(`Invitation resent to ${u.email}`);
+    } catch (err) {
+      toast.error(describeError(err).message);
+    }
+  }
+
   return (
     <div className="mx-auto flex max-w-5xl flex-col gap-6">
       <div className="flex items-center gap-3">
@@ -121,7 +160,19 @@ export function UsersView() {
       ) : null}
 
       <div className="space-y-3">
-        <div className="flex justify-end">
+        <div className="flex justify-end gap-2">
+          {canInvite ? (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                setInviteKey((k) => k + 1);
+                setInviteOpen(true);
+              }}
+            >
+              <MailPlus /> Invite user
+            </Button>
+          ) : null}
           <Button size="sm" onClick={() => setUserDialog({ open: true, user: null })}>
             <Plus /> New user
           </Button>
@@ -165,13 +216,23 @@ export function UsersView() {
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        <StatusBadge active={u.is_active} />
+                        <StatusBadge user={u} />
                       </TableCell>
                       <TableCell className="text-muted-foreground">
                         {formatDate(u.created_at)}
                       </TableCell>
                       <TableCell>
                         <div className="flex justify-end gap-1">
+                          {u.invited_at ? (
+                            <Button
+                              variant="ghost"
+                              size="icon-sm"
+                              aria-label={`Resend invitation to ${u.email}`}
+                              onClick={() => void resend(u)}
+                            >
+                              <Send />
+                            </Button>
+                          ) : null}
                           <Button
                             variant="ghost"
                             size="icon-sm"
@@ -219,6 +280,12 @@ export function UsersView() {
         currentUser={currentUser}
         onSaved={refresh}
       />
+      <InviteDialog
+        key={`invite-${inviteKey}`}
+        open={inviteOpen}
+        onOpenChange={setInviteOpen}
+        onSaved={refresh}
+      />
       <ResetPasswordDialog
         key={resetTarget?.id ?? "no-reset"}
         open={resetTarget !== null}
@@ -233,10 +300,12 @@ export function UsersView() {
         onOpenChange={(open) => {
           if (!open) setDeleteTarget(null);
         }}
-        title="Delete user"
+        title={deleteTarget?.invited_at ? "Withdraw invitation" : "Delete user"}
         description={
           deleteTarget
-            ? `Delete ${displayName(deleteTarget)} (${deleteTarget.email})? They will be signed out immediately. This cannot be undone.`
+            ? deleteTarget.invited_at
+              ? `Withdraw the invitation to ${deleteTarget.email}? Their link will stop working. You can invite them again later.`
+              : `Delete ${displayName(deleteTarget)} (${deleteTarget.email})? They will be signed out immediately. This cannot be undone.`
             : ""
         }
         onConfirm={async () => {

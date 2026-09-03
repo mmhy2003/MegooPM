@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 
 import { users } from "@/lib/api";
 import { UsersView } from "@/components/users/users-view";
+import { fetchCapabilities } from "@/lib/auth/api";
 
 const admin = {
   id: 1,
@@ -23,6 +24,10 @@ const member = {
   is_active: false,
 };
 
+vi.mock("@/lib/auth/api", () => ({ fetchCapabilities: vi.fn() }));
+vi.mock("@/components/users/invite-dialog", () => ({
+  InviteDialog: ({ open }: { open: boolean }) => (open ? <div>invite-dialog</div> : null),
+}));
 vi.mock("@/lib/auth/context", () => ({
   useAuth: () => ({
     user: admin,
@@ -48,27 +53,34 @@ vi.mock("@/components/users/reset-password-dialog", () => ({
 vi.mock("@/components/proxy-hosts/confirm-delete-dialog", () => ({
   ConfirmDeleteDialog: ({
     open,
+    title,
     onConfirm,
     onDeleted,
   }: {
     open: boolean;
+    title: string;
     onConfirm: () => Promise<void>;
     onDeleted: () => void;
   }) =>
     open ? (
-      <button
-        type="button"
-        onClick={() => {
-          void onConfirm().then(onDeleted);
-        }}
-      >
-        confirm-delete
-      </button>
+      <div>
+        {/* The title is rendered so a test can see which copy the view chose. */}
+        <span>{title}</span>
+        <button
+          type="button"
+          onClick={() => {
+            void onConfirm().then(onDeleted);
+          }}
+        >
+          confirm-delete
+        </button>
+      </div>
     ) : null,
 }));
 
 describe("UsersView", () => {
   beforeEach(() => {
+    vi.mocked(fetchCapabilities).mockResolvedValue({ password_reset: false });
     vi.spyOn(users, "list").mockResolvedValue([admin, member]);
     vi.spyOn(users, "remove").mockResolvedValue(undefined);
   });
@@ -118,5 +130,87 @@ describe("UsersView", () => {
     vi.spyOn(users, "list").mockRejectedValueOnce(new Error("boom"));
     render(<UsersView />);
     expect(await screen.findByRole("alert")).toHaveTextContent("boom");
+  });
+});
+
+describe("UsersView invitations", () => {
+  const invited = {
+    ...member,
+    id: 3,
+    email: "pending@example.com",
+    full_name: "",
+    is_active: false,
+    invited_at: "2026-09-03T00:00:00Z",
+  };
+
+  beforeEach(() => {
+    vi.mocked(fetchCapabilities).mockResolvedValue({ password_reset: true });
+  });
+  afterEach(() => {
+    cleanup();
+    vi.restoreAllMocks();
+  });
+
+  it("offers Invite user when an invitation could be sent", async () => {
+    vi.spyOn(users, "list").mockResolvedValue([admin]);
+    render(<UsersView />);
+    expect(await screen.findByRole("button", { name: /invite user/i })).toBeInTheDocument();
+  });
+
+  it("hides Invite user when email is not configured", async () => {
+    // An admin who can see Invite and then learns nothing can be sent has been
+    // misled by the UI.
+    vi.mocked(fetchCapabilities).mockResolvedValue({ password_reset: false });
+    vi.spyOn(users, "list").mockResolvedValue([admin]);
+    render(<UsersView />);
+    await screen.findByText("admin@example.com");
+    expect(screen.queryByRole("button", { name: /invite user/i })).not.toBeInTheDocument();
+  });
+
+  it("shows an Invited badge and a resend action on an invited row", async () => {
+    vi.spyOn(users, "list").mockResolvedValue([admin, invited]);
+    render(<UsersView />);
+    // An invitee has no name yet, so the email fills the Name cell too; both
+    // matches sit in the same row.
+    const row = (await screen.findAllByText("pending@example.com"))[0].closest("tr")!;
+    expect(within(row).getByText("Invited")).toBeInTheDocument();
+    expect(within(row).getByRole("button", { name: /resend invitation/i })).toBeInTheDocument();
+  });
+
+  it("shows neither on an accepted row", async () => {
+    vi.spyOn(users, "list").mockResolvedValue([admin, member]);
+    render(<UsersView />);
+    const row = (await screen.findByText("member@example.com")).closest("tr")!;
+    expect(within(row).queryByText("Invited")).not.toBeInTheDocument();
+    expect(
+      within(row).queryByRole("button", { name: /resend invitation/i }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("resend calls the right route", async () => {
+    const user = userEvent.setup();
+    vi.spyOn(users, "list").mockResolvedValue([admin, invited]);
+    const resend = vi.spyOn(users, "resendInvite").mockResolvedValue(undefined);
+    render(<UsersView />);
+    // An invitee has no name yet, so the email fills the Name cell too; both
+    // matches sit in the same row.
+    const row = (await screen.findAllByText("pending@example.com"))[0].closest("tr")!;
+
+    await user.click(within(row).getByRole("button", { name: /resend invitation/i }));
+
+    await waitFor(() => expect(resend).toHaveBeenCalledWith(3));
+  });
+
+  it("calls the delete a withdrawal for an invited row", async () => {
+    const user = userEvent.setup();
+    vi.spyOn(users, "list").mockResolvedValue([admin, invited]);
+    render(<UsersView />);
+    // An invitee has no name yet, so the email fills the Name cell too; both
+    // matches sit in the same row.
+    const row = (await screen.findAllByText("pending@example.com"))[0].closest("tr")!;
+
+    await user.click(within(row).getByRole("button", { name: /delete pending@example.com/i }));
+
+    expect(await screen.findByText(/withdraw/i)).toBeInTheDocument();
   });
 });
