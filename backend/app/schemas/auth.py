@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Literal
+
 from pydantic import BaseModel, EmailStr, Field
 
 
@@ -28,6 +30,30 @@ class TokenPair(BaseModel):
     access_token: str
     refresh_token: str
     token_type: str = "bearer"
+
+
+class MfaRequired(BaseModel):
+    """What ``POST /auth/login`` returns when a second factor is needed.
+
+    ``mfa_required`` is a literal so the frontend can discriminate the union
+    without inspecting which keys are present.
+    """
+
+    mfa_required: Literal[True] = True
+    mfa_token: str
+
+
+class MfaVerifyRequest(BaseModel):
+    """Body for ``POST /auth/mfa/verify``."""
+
+    mfa_token: str = Field(min_length=1)
+    code: str = Field(min_length=1, max_length=32)
+
+
+class MfaVerifyResponse(TokenPair):
+    """The real pair, plus how many recovery codes are left when one was used."""
+
+    recovery_codes_remaining: int | None = None
 
 
 class ForgotPasswordRequest(BaseModel):
@@ -68,6 +94,9 @@ __all__ = [
     "AuthCapabilities",
     "ForgotPasswordRequest",
     "LoginRequest",
+    "MfaRequired",
+    "MfaVerifyRequest",
+    "MfaVerifyResponse",
     "NeutralResponse",
     "RefreshRequest",
     "ResetPasswordRequest",

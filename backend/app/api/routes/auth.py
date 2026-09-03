@@ -9,6 +9,7 @@ from app.api.deps import CurrentUser, SessionDep
 from app.core.client_ip import client_ip
 from app.core.security import (
     create_access_token,
+    create_mfa_token,
     create_refresh_token,
     decode_token,
 )
@@ -19,13 +20,16 @@ from app.schemas.auth import (
     AuthCapabilities,
     ForgotPasswordRequest,
     LoginRequest,
+    MfaRequired,
+    MfaVerifyRequest,
+    MfaVerifyResponse,
     NeutralResponse,
     RefreshRequest,
     ResetPasswordRequest,
     TokenPair,
 )
 from app.schemas.user import UserRead
-from app.services import auth_tokens, rate_limit
+from app.services import auth_tokens, rate_limit, totp
 from app.services import instance_settings as settings_service
 from app.services import user as user_service
 from app.services.audit import record_audit
@@ -44,12 +48,18 @@ def _issue_tokens(user: User) -> TokenPair:
     )
 
 
-@router.post("/login", response_model=TokenPair)
+@router.post("/login", response_model=TokenPair | MfaRequired)
 async def login(
     body: LoginRequest,
     db: SessionDep,
-) -> TokenPair:
-    """Authenticate with email + password and return an access/refresh pair."""
+) -> TokenPair | MfaRequired:
+    """Authenticate with email + password.
+
+    Returns a token pair — or, for a user with 2FA on, a five-minute
+    ``mfa_token`` to present with a code at ``/auth/mfa/verify``. A wrong
+    password is 401 either way: the challenge must not leak that the password
+    was right.
+    """
     user = await user_service.authenticate(db, email=body.email, password=body.password)
     if user is None:
         raise HTTPException(
@@ -57,7 +67,54 @@ async def login(
             detail="Incorrect email or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
+    if user.totp_enabled:
+        return MfaRequired(mfa_token=create_mfa_token(user.id, token_version=user.token_version))
     return _issue_tokens(user)
+
+
+@router.post("/mfa/verify", response_model=MfaVerifyResponse)
+async def mfa_verify(body: MfaVerifyRequest, request: Request, db: SessionDep) -> MfaVerifyResponse:
+    """Exchange a challenge token plus a code for the real token pair.
+
+    One message for every refusal — bad token, expired token, wrong code,
+    replayed code, spent recovery code. Any distinction tells an attacker
+    which part they got right.
+    """
+    invalid = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail=totp.INVALID_CODE_MESSAGE,
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    try:
+        payload = decode_token(body.mfa_token, expected_type="mfa")
+        user_id = int(payload["sub"])
+    except (jwt.PyJWTError, KeyError, ValueError):
+        raise invalid from None
+
+    try:
+        await rate_limit.check_mfa_verify(user_id=user_id, ip=client_ip(request))
+    except rate_limit.RateLimited as exc:
+        raise _limit(exc) from None
+    except rate_limit.RateLimitUnavailable:
+        raise _unavailable() from None
+
+    user = await user_service.get_by_id(db, user_id)
+    if user is None or not user.is_active or payload.get("tv") != user.token_version:
+        raise invalid
+    if not await totp.verify_code(db, user, body.code):
+        raise invalid
+
+    # Only a recovery code changes the remaining count; a TOTP reports None
+    # so the client does not nag after every ordinary sign-in.
+    remaining = (
+        None if totp.is_totp_shaped(body.code) else await totp.recovery_codes_remaining(db, user)
+    )
+    pair = _issue_tokens(user)
+    return MfaVerifyResponse(
+        access_token=pair.access_token,
+        refresh_token=pair.refresh_token,
+        recovery_codes_remaining=remaining,
+    )
 
 
 @router.post("/refresh", response_model=TokenPair)
@@ -248,9 +305,7 @@ async def accept_invite(body: AcceptInviteRequest, request: Request, db: Session
             status_code=status.HTTP_400_BAD_REQUEST, detail=str(auth_tokens.TokenInvalid())
         )
 
-    await user_service.accept_invitation(
-        db, user, full_name=body.full_name, password=body.password
-    )
+    await user_service.accept_invitation(db, user, full_name=body.full_name, password=body.password)
     await record_audit(
         db,
         actor=user.email,
