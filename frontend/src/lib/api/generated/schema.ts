@@ -251,7 +251,12 @@ export interface paths {
         put?: never;
         /**
          * Login
-         * @description Authenticate with email + password and return an access/refresh pair.
+         * @description Authenticate with email + password.
+         *
+         *     Returns a token pair — or, for a user with 2FA on, a five-minute
+         *     ``mfa_token`` to present with a code at ``/auth/mfa/verify``. A wrong
+         *     password is 401 either way: the challenge must not leak that the password
+         *     was right.
          */
         post: operations["login_api_v1_auth_login_post"];
         delete?: never;
@@ -274,6 +279,30 @@ export interface paths {
         get: operations["read_me_api_v1_auth_me_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/mfa/verify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Mfa Verify
+         * @description Exchange a challenge token plus a code for the real token pair.
+         *
+         *     One message for every refusal — bad token, expired token, wrong code,
+         *     replayed code, spent recovery code. Any distinction tells an attacker
+         *     which part they got right.
+         */
+        post: operations["mfa_verify_api_v1_auth_mfa_verify_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1567,6 +1596,87 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/users/me/totp/disable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Totp Disable
+         * @description Turn 2FA off. A valid code is required: a stolen session must not be
+         *     able to strip the second factor.
+         */
+        post: operations["totp_disable_api_v1_users_me_totp_disable_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/users/me/totp/enable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Totp Enable
+         * @description Prove the app works, then turn 2FA on. Returns the recovery codes once.
+         */
+        post: operations["totp_enable_api_v1_users_me_totp_enable_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/users/me/totp/recovery-codes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Totp Regenerate
+         * @description Replace every recovery code. A valid code is required.
+         */
+        post: operations["totp_regenerate_api_v1_users_me_totp_recovery_codes_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/users/me/totp/setup": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Totp Setup
+         * @description Start enrolling an authenticator app. 2FA stays off until confirmed.
+         */
+        post: operations["totp_setup_api_v1_users_me_totp_setup_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/users/{user_id}": {
         parameters: {
             query?: never;
@@ -1630,6 +1740,27 @@ export interface paths {
          */
         put: operations["reset_password_api_v1_users__user_id__password_put"];
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/users/{user_id}/totp/disable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Admin Totp Disable
+         * @description Turn off another user's 2FA. Admin-only; no code — this is the
+         *     lost-phone backstop. The user is told by email, naming the admin.
+         */
+        post: operations["admin_totp_disable_api_v1_users__user_id__totp_disable_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3005,6 +3136,50 @@ export interface components {
             ok: boolean;
         };
         /**
+         * MfaRequired
+         * @description What ``POST /auth/login`` returns when a second factor is needed.
+         *
+         *     ``mfa_required`` is a literal so the frontend can discriminate the union
+         *     without inspecting which keys are present.
+         */
+        MfaRequired: {
+            /**
+             * Mfa Required
+             * @default true
+             * @constant
+             */
+            mfa_required: true;
+            /** Mfa Token */
+            mfa_token: string;
+        };
+        /**
+         * MfaVerifyRequest
+         * @description Body for ``POST /auth/mfa/verify``.
+         */
+        MfaVerifyRequest: {
+            /** Code */
+            code: string;
+            /** Mfa Token */
+            mfa_token: string;
+        };
+        /**
+         * MfaVerifyResponse
+         * @description The real pair, plus how many recovery codes are left when one was used.
+         */
+        MfaVerifyResponse: {
+            /** Access Token */
+            access_token: string;
+            /** Recovery Codes Remaining */
+            recovery_codes_remaining?: number | null;
+            /** Refresh Token */
+            refresh_token: string;
+            /**
+             * Token Type
+             * @default bearer
+             */
+            token_type: string;
+        };
+        /**
          * NeutralResponse
          * @description The one body ``forgot-password`` ever returns.
          */
@@ -3933,6 +4108,32 @@ export interface components {
             token_type: string;
         };
         /**
+         * TotpCodeRequest
+         * @description A TOTP or recovery code, wherever one is required.
+         */
+        TotpCodeRequest: {
+            /** Code */
+            code: string;
+        };
+        /**
+         * TotpCodes
+         * @description Recovery codes. Returned exactly once; never retrievable.
+         */
+        TotpCodes: {
+            /** Codes */
+            codes: string[];
+        };
+        /**
+         * TotpSetup
+         * @description What the profile page needs to enrol an authenticator app.
+         */
+        TotpSetup: {
+            /** Otpauth Uri */
+            otpauth_uri: string;
+            /** Secret */
+            secret: string;
+        };
+        /**
          * TrafficSummary
          * @description ``None`` means no node has reported recently — unknown, not idle.
          */
@@ -4128,6 +4329,11 @@ export interface components {
             is_active: boolean;
             /** @default member */
             role: components["schemas"]["UserRole"];
+            /**
+             * Totp Enabled
+             * @default false
+             */
+            totp_enabled: boolean;
             /**
              * Updated At
              * Format: date-time
@@ -4913,7 +5119,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["TokenPair"];
+                    "application/json": components["schemas"]["TokenPair"] | components["schemas"]["MfaRequired"];
                 };
             };
             /** @description Validation Error */
@@ -4943,6 +5149,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["UserRead"];
+                };
+            };
+        };
+    };
+    mfa_verify_api_v1_auth_mfa_verify_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MfaVerifyRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MfaVerifyResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -7340,6 +7579,123 @@ export interface operations {
             };
         };
     };
+    totp_disable_api_v1_users_me_totp_disable_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TotpCodeRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    totp_enable_api_v1_users_me_totp_enable_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TotpCodeRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TotpCodes"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    totp_regenerate_api_v1_users_me_totp_recovery_codes_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TotpCodeRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TotpCodes"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    totp_setup_api_v1_users_me_totp_setup_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TotpSetup"];
+                };
+            };
+        };
+    };
     delete_user_api_v1_users__user_id__delete: {
         parameters: {
             query?: never;
@@ -7447,6 +7803,35 @@ export interface operations {
                 "application/json": components["schemas"]["PasswordReset"];
             };
         };
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    admin_totp_disable_api_v1_users__user_id__totp_disable_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description Successful Response */
             204: {

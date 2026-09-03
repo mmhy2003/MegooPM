@@ -27,8 +27,10 @@ import { useRouter } from "next/navigation";
 import { setAuthTokenProvider, setTokenRefresher } from "@/lib/api/client";
 import {
   fetchCurrentUser,
+  isMfaRequired,
   login as loginRequest,
   refresh as refreshRequest,
+  verifyMfa as verifyMfaRequest,
   type CurrentUser,
 } from "@/lib/auth/api";
 import {
@@ -38,6 +40,7 @@ import {
   hasSession,
   LOGIN_ROUTE,
   persistSession,
+  type TokenPair,
 } from "@/lib/auth/session";
 import { rememberAccount } from "@/lib/auth/recent-accounts";
 
@@ -50,8 +53,20 @@ export type AuthStatus = "loading" | "authenticated" | "unauthenticated";
 export interface AuthContextValue {
   user: CurrentUser | null;
   status: AuthStatus;
-  /** Authenticate with credentials; throws `ApiError` on failure. */
-  login: (email: string, password: string) => Promise<void>;
+  /**
+   * Authenticate with credentials. Resolves to `null` once signed in, or to
+   * a challenge when a second factor is required; throws `ApiError` on
+   * failure.
+   */
+  login: (
+    email: string,
+    password: string,
+  ) => Promise<{ mfaToken: string } | null>;
+  /** Present a code for a challenge from `login`; signs in on success. */
+  verifyMfa: (
+    mfaToken: string,
+    code: string,
+  ) => Promise<{ recoveryCodesRemaining: number | null }>;
   /** Clear the session and return to the login page. */
   logout: () => void;
   /** Re-fetch `/users/me` (e.g. after a profile edit) so the shell reflects it. */
@@ -115,8 +130,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, [endSession]);
 
-  const login = useCallback(async (email: string, password: string) => {
-    const tokens = await loginRequest(email, password);
+  // The one place a session is established. Both the password-only path and
+  // the second-factor path end here, so "remembered account" and "signed in"
+  // cannot drift apart.
+  const finishLogin = useCallback(async (tokens: TokenPair) => {
     persistSession(tokens);
     const me = await fetchCurrentUser();
     setUser(me);
@@ -126,6 +143,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // display name. A failed attempt must never leave an address behind.
     rememberAccount(me);
   }, []);
+
+  const login = useCallback(
+    async (email: string, password: string) => {
+      const result = await loginRequest(email, password);
+      if (isMfaRequired(result)) {
+        // Nothing is persisted and nothing is remembered: an abandoned
+        // challenge must leave no trace of the account.
+        return { mfaToken: result.mfa_token };
+      }
+      await finishLogin(result);
+      return null;
+    },
+    [finishLogin],
+  );
+
+  const verifyMfa = useCallback(
+    async (mfaToken: string, code: string) => {
+      const result = await verifyMfaRequest(mfaToken, code);
+      await finishLogin(result);
+      return {
+        recoveryCodesRemaining: result.recovery_codes_remaining ?? null,
+      };
+    },
+    [finishLogin],
+  );
 
   const logout = useCallback(() => {
     endSession();
@@ -138,8 +180,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const value = useMemo<AuthContextValue>(
-    () => ({ user, status, login, logout, refreshUser }),
-    [user, status, login, logout, refreshUser],
+    () => ({ user, status, login, verifyMfa, logout, refreshUser }),
+    [user, status, login, verifyMfa, logout, refreshUser],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

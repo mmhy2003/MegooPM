@@ -11,12 +11,32 @@ import type { Schemas } from "@/lib/api/types";
 import type { TokenPair } from "@/lib/auth/session";
 
 export type CurrentUser = Schemas["UserRead"];
+export type MfaRequired = Schemas["MfaRequired"];
+export type MfaVerifyResponse = Schemas["MfaVerifyResponse"];
+/** A signed-in pair, or a challenge to present with a code. */
+export type LoginResult = TokenPair | MfaRequired;
 
-/** Exchange credentials for a token pair. */
-export function login(email: string, password: string): Promise<TokenPair> {
-  return apiFetch<TokenPair>("/api/v1/auth/login", {
+/** Exchange credentials for a token pair — or a second-factor challenge. */
+export function login(email: string, password: string): Promise<LoginResult> {
+  return apiFetch<LoginResult>("/api/v1/auth/login", {
     method: "POST",
     body: { email, password },
+    token: null,
+  });
+}
+
+export function isMfaRequired(result: LoginResult): result is MfaRequired {
+  return "mfa_required" in result && result.mfa_required === true;
+}
+
+/** Exchange a challenge token plus a code for the real pair. */
+export function verifyMfa(
+  mfaToken: string,
+  code: string,
+): Promise<MfaVerifyResponse> {
+  return apiFetch<MfaVerifyResponse>("/api/v1/auth/mfa/verify", {
+    method: "POST",
+    body: { mfa_token: mfaToken, code },
     token: null,
   });
 }
@@ -39,7 +59,10 @@ export type AuthCapabilities = Schemas["AuthCapabilities"];
 
 /** What the login page may offer before anyone is signed in. */
 export function fetchCapabilities(): Promise<AuthCapabilities> {
-  return apiFetch<AuthCapabilities>("/api/v1/auth/capabilities", { method: "GET", token: null });
+  return apiFetch<AuthCapabilities>("/api/v1/auth/capabilities", {
+    method: "GET",
+    token: null,
+  });
 }
 
 /**
@@ -55,7 +78,10 @@ export function requestPasswordReset(email: string): Promise<void> {
 }
 
 /** Spend a reset token. A refused token is a 400 with one message for every reason. */
-export function resetPassword(token: string, newPassword: string): Promise<void> {
+export function resetPassword(
+  token: string,
+  newPassword: string,
+): Promise<void> {
   return apiFetch<void>("/api/v1/auth/reset-password", {
     method: "POST",
     body: { token, new_password: newPassword },
@@ -64,7 +90,11 @@ export function resetPassword(token: string, newPassword: string): Promise<void>
 }
 
 /** Spend an invitation token. Refused tokens are a 400 with one message. */
-export function acceptInvite(token: string, fullName: string, password: string): Promise<void> {
+export function acceptInvite(
+  token: string,
+  fullName: string,
+  password: string,
+): Promise<void> {
   return apiFetch<void>("/api/v1/auth/accept-invite", {
     method: "POST",
     body: { token, full_name: fullName, password },

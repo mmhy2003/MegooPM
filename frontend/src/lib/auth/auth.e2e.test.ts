@@ -11,7 +11,12 @@
 import { describe, expect, it } from "vitest";
 
 import { setAuthTokenProvider, setTokenRefresher } from "@/lib/api/client";
-import { fetchCurrentUser, login, refresh } from "@/lib/auth/api";
+import {
+  fetchCurrentUser,
+  isMfaRequired,
+  login,
+  refresh,
+} from "@/lib/auth/api";
 
 const enabled = process.env.RUN_AUTH_E2E === "1";
 const email = process.env.AUTH_E2E_EMAIL ?? "admin@example.com";
@@ -25,7 +30,10 @@ describe.skipIf(!enabled)("auth end-to-end (live backend)", () => {
     });
 
     // 2. Login yields a token pair.
-    const tokens = await login(email, password);
+    const result = await login(email, password);
+    if (isMfaRequired(result))
+      throw new Error("the e2e account must not have 2FA on");
+    const tokens = result;
     expect(tokens.access_token).toBeTruthy();
     expect(tokens.refresh_token).toBeTruthy();
 

@@ -4,12 +4,17 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
+import { toast } from "sonner";
 
 import { APP_NAME } from "@/lib/env";
 import { ApiError } from "@/lib/api/errors";
 import { useAuth } from "@/lib/auth/context";
 import { fetchCapabilities } from "@/lib/auth/api";
-import { DEFAULT_AUTHED_ROUTE, FORGOT_PASSWORD_ROUTE, REDIRECT_PARAM } from "@/lib/auth/session";
+import {
+  DEFAULT_AUTHED_ROUTE,
+  FORGOT_PASSWORD_ROUTE,
+  REDIRECT_PARAM,
+} from "@/lib/auth/session";
 import {
   forgetAccount,
   readAccounts,
@@ -30,7 +35,7 @@ function safeRedirect(next: string | null): string {
 
 /** Credential form that authenticates against the backend JWT endpoint. */
 export function LoginForm() {
-  const { login } = useAuth();
+  const { login, verifyMfa } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -38,6 +43,13 @@ export function LoginForm() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+
+  // Set when the backend wants a second factor. While set, the form shows a
+  // code field instead of the credentials.
+  const [mfaToken, setMfaToken] = useState<string | null>(null);
+  const [code, setCode] = useState("");
+  const [useRecovery, setUseRecovery] = useState(false);
+  const codeRef = useRef<HTMLInputElement>(null);
 
   // Accounts that signed in on this browser. Empty until the effect below runs:
   // `localStorage` does not exist on the server, so reading it during render
@@ -111,7 +123,12 @@ export function LoginForm() {
     setError(null);
     setSubmitting(true);
     try {
-      await login(email, password);
+      const challenge = await login(email, password);
+      if (challenge) {
+        setMfaToken(challenge.mfaToken);
+        setSubmitting(false);
+        return;
+      }
       router.replace(safeRedirect(searchParams.get(REDIRECT_PARAM)));
     } catch (err) {
       const message =
@@ -123,6 +140,48 @@ export function LoginForm() {
       setError(message);
       setSubmitting(false);
     }
+  }
+
+  async function onVerify(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!mfaToken) return;
+    setError(null);
+    setSubmitting(true);
+    try {
+      const { recoveryCodesRemaining } = await verifyMfa(mfaToken, code);
+      if (recoveryCodesRemaining !== null && recoveryCodesRemaining <= 2) {
+        toast.warning(
+          `${recoveryCodesRemaining} recovery code${recoveryCodesRemaining === 1 ? "" : "s"} left. Generate new ones from your profile.`,
+        );
+      }
+      router.replace(safeRedirect(searchParams.get(REDIRECT_PARAM)));
+    } catch (err) {
+      setError(
+        err instanceof ApiError && err.status === 429
+          ? "Too many attempts. Please wait a while and try again."
+          : err instanceof ApiError
+            ? err.detail
+            : "Something went wrong. Please try again.",
+      );
+      setSubmitting(false);
+    }
+  }
+
+  function cancelMfa() {
+    setMfaToken(null);
+    setCode("");
+    setUseRecovery(false);
+    setError(null);
+    setPassword("");
+    // The password field remounts with the credential form; focus it once
+    // it exists.
+    setTimeout(() => passwordRef.current?.focus(), 0);
+  }
+
+  function toggleRecovery() {
+    setUseRecovery((v) => !v);
+    setCode("");
+    codeRef.current?.focus();
   }
 
   const hasAccounts = accounts.length > 0;
@@ -174,50 +233,119 @@ export function LoginForm() {
             </p>
           </div>
 
-          <form className="space-y-3" onSubmit={onSubmit} noValidate>
-            <Input
-              ref={emailRef}
-              type="email"
-              name="email"
-              placeholder="Email"
-              autoComplete="email"
-              aria-label="Email"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              disabled={submitting}
-            />
-            <Input
-              ref={passwordRef}
-              type="password"
-              name="password"
-              placeholder="Password"
-              autoComplete="current-password"
-              aria-label="Password"
-              required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              disabled={submitting}
-            />
-            {error ? (
-              <p role="alert" className="text-destructive text-sm">
-                {error}
+          {mfaToken ? (
+            <form
+              key="mfa"
+              className="space-y-3"
+              onSubmit={onVerify}
+              noValidate
+            >
+              <p className="text-muted-foreground text-sm">
+                {useRecovery
+                  ? "Enter one of your recovery codes."
+                  : "Enter the code from your authenticator app."}
               </p>
-            ) : null}
-            <Button type="submit" className="w-full" disabled={submitting}>
-              {submitting ? "Signing in…" : "Continue"}
-            </Button>
-            {canReset ? (
-              <p className="text-center text-sm">
-                <Link
-                  href={FORGOT_PASSWORD_ROUTE}
-                  className="text-muted-foreground underline-offset-4 hover:underline"
+              <Input
+                ref={codeRef}
+                name="code"
+                autoFocus
+                inputMode={useRecovery ? "text" : "numeric"}
+                autoComplete="one-time-code"
+                placeholder={useRecovery ? "xxxxx-xxxxx" : "123456"}
+                aria-label={
+                  useRecovery ? "Recovery code" : "Authentication code"
+                }
+                required
+                value={code}
+                onChange={(e) => setCode(e.target.value)}
+                disabled={submitting}
+              />
+              {error ? (
+                <p role="alert" className="text-destructive text-sm">
+                  {error}
+                </p>
+              ) : null}
+              <Button
+                type="submit"
+                className="w-full"
+                disabled={submitting || !code}
+              >
+                {submitting ? "Verifying…" : "Verify"}
+              </Button>
+              <div className="flex justify-between text-sm">
+                <Button
+                  type="button"
+                  variant="link"
+                  size="sm"
+                  className="h-auto p-0"
+                  onClick={cancelMfa}
                 >
-                  Forgot password?
-                </Link>
-              </p>
-            ) : null}
-          </form>
+                  Back
+                </Button>
+                <Button
+                  type="button"
+                  variant="link"
+                  size="sm"
+                  className="h-auto p-0"
+                  onClick={toggleRecovery}
+                >
+                  {useRecovery
+                    ? "Use your authenticator app"
+                    : "Use a recovery code instead"}
+                </Button>
+              </div>
+            </form>
+          ) : (
+            <form
+              key="credentials"
+              className="space-y-3"
+              onSubmit={onSubmit}
+              noValidate
+            >
+              <Input
+                ref={emailRef}
+                type="email"
+                name="email"
+                placeholder="Email"
+                autoComplete="email"
+                aria-label="Email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                disabled={submitting}
+              />
+              <Input
+                ref={passwordRef}
+                type="password"
+                name="password"
+                placeholder="Password"
+                autoComplete="current-password"
+                aria-label="Password"
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                disabled={submitting}
+              />
+              {error ? (
+                <p role="alert" className="text-destructive text-sm">
+                  {error}
+                </p>
+              ) : null}
+              <Button type="submit" className="w-full" disabled={submitting}>
+                {submitting ? "Signing in…" : "Continue"}
+              </Button>
+              {canReset ? (
+                <p className="text-center text-sm">
+                  <Link
+                    href={FORGOT_PASSWORD_ROUTE}
+                    className="text-muted-foreground underline-offset-4 hover:underline"
+                  >
+                    Forgot password?
+                  </Link>
+                </p>
+              ) : null}
+            </form>
+          )}
         </div>
       </div>
     </div>
