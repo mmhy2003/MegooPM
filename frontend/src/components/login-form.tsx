@@ -2,12 +2,14 @@
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 
 import { APP_NAME } from "@/lib/env";
 import { ApiError } from "@/lib/api/errors";
 import { useAuth } from "@/lib/auth/context";
-import { DEFAULT_AUTHED_ROUTE, REDIRECT_PARAM } from "@/lib/auth/session";
+import { fetchCapabilities } from "@/lib/auth/api";
+import { DEFAULT_AUTHED_ROUTE, FORGOT_PASSWORD_ROUTE, REDIRECT_PARAM } from "@/lib/auth/session";
 import {
   forgetAccount,
   readAccounts,
@@ -42,6 +44,11 @@ export function LoginForm() {
   // would make the first client paint disagree with the server's HTML.
   const [accounts, setAccounts] = useState<RecentAccount[]>([]);
 
+  // Hidden until the backend says a reset link could actually be sent. A
+  // link to a page that says "check your inbox" when nothing will arrive is
+  // worse than no link.
+  const [canReset, setCanReset] = useState(false);
+
   const emailRef = useRef<HTMLInputElement>(null);
   const passwordRef = useRef<HTMLInputElement>(null);
 
@@ -62,6 +69,21 @@ export function LoginForm() {
       emailRef.current?.focus();
     }
     /* eslint-enable react-hooks/set-state-in-effect */
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    fetchCapabilities()
+      .then((caps) => {
+        if (active) setCanReset(caps.password_reset);
+      })
+      .catch(() => {
+        // Unreachable backend: leave the link hidden. Login itself will
+        // report the real error when the user tries.
+      });
+    return () => {
+      active = false;
+    };
   }, []);
 
   function selectAccount(account: RecentAccount) {
@@ -185,6 +207,16 @@ export function LoginForm() {
             <Button type="submit" className="w-full" disabled={submitting}>
               {submitting ? "Signing in…" : "Continue"}
             </Button>
+            {canReset ? (
+              <p className="text-center text-sm">
+                <Link
+                  href={FORGOT_PASSWORD_ROUTE}
+                  className="text-muted-foreground underline-offset-4 hover:underline"
+                >
+                  Forgot password?
+                </Link>
+              </p>
+            ) : null}
           </form>
         </div>
       </div>

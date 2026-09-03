@@ -168,6 +168,55 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/auth/capabilities": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Capabilities
+         * @description What the login page may offer. Unauthenticated by necessity.
+         *
+         *     Leaks one bit — whether email is configured — which is cheaper than a user
+         *     clicking "forgot password", being told to check their inbox, and nothing
+         *     ever arriving.
+         */
+        get: operations["capabilities_api_v1_auth_capabilities_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/forgot-password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Forgot Password
+         * @description Issue a reset link if the address belongs to an active account.
+         *
+         *     Returns the same status and body whether or not it does. Otherwise this
+         *     page is a directory of who has an account, for anyone who can reach it.
+         *     Response *timing* still differs slightly; the spec records that as a
+         *     known, accepted gap.
+         */
+        post: operations["forgot_password_api_v1_auth_forgot_password_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/login": {
         parameters: {
             query?: never;
@@ -225,6 +274,26 @@ export interface paths {
          *     so privilege changes take effect on the next refresh.
          */
         post: operations["refresh_api_v1_auth_refresh_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/reset-password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reset Password
+         * @description Spend a reset token and set the new password. Ends every open session.
+         */
+        post: operations["reset_password_api_v1_auth_reset_password_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1838,6 +1907,14 @@ export interface components {
             object_type: string;
         };
         /**
+         * AuthCapabilities
+         * @description What the login page may offer before anyone is signed in.
+         */
+        AuthCapabilities: {
+            /** Password Reset */
+            password_reset: boolean;
+        };
+        /**
          * BackendCreate
          * @description Payload to add a backend to a pool.
          */
@@ -2595,6 +2672,17 @@ export interface components {
             /** Label */
             label: string;
         };
+        /**
+         * ForgotPasswordRequest
+         * @description Body for ``POST /auth/forgot-password``.
+         */
+        ForgotPasswordRequest: {
+            /**
+             * Email
+             * Format: email
+             */
+            email: string;
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
@@ -2831,6 +2919,14 @@ export interface components {
             latency_ms: number;
             /** Ok */
             ok: boolean;
+        };
+        /**
+         * NeutralResponse
+         * @description The one body ``forgot-password`` ever returns.
+         */
+        NeutralResponse: {
+            /** Detail */
+            detail: string;
         };
         /**
          * NginxConfigFile
@@ -3479,6 +3575,16 @@ export interface components {
         RefreshRequest: {
             /** Refresh Token */
             refresh_token: string;
+        };
+        /**
+         * ResetPasswordRequest
+         * @description Body for ``POST /auth/reset-password``.
+         */
+        ResetPasswordRequest: {
+            /** New Password */
+            new_password: string;
+            /** Token */
+            token: string;
         };
         /**
          * SampleTaskRequest
@@ -4600,6 +4706,59 @@ export interface operations {
             };
         };
     };
+    capabilities_api_v1_auth_capabilities_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthCapabilities"];
+                };
+            };
+        };
+    };
+    forgot_password_api_v1_auth_forgot_password_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ForgotPasswordRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NeutralResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     login_api_v1_auth_login_post: {
         parameters: {
             query?: never;
@@ -4674,6 +4833,37 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["TokenPair"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reset_password_api_v1_auth_reset_password_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ResetPasswordRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {

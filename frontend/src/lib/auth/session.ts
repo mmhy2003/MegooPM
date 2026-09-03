@@ -45,8 +45,18 @@ export function isAuthEnabled(): boolean {
   return process.env.NEXT_PUBLIC_AUTH_ENABLED !== "false";
 }
 
+/** Route where a user asks for a reset link. */
+export const FORGOT_PASSWORD_ROUTE = "/forgot-password";
+
+/** Route the emailed link lands on. */
+export const RESET_PASSWORD_ROUTE = "/reset-password";
+
 /** Routes that never require a session (login, health, static handled by matcher). */
-export const PUBLIC_ROUTES: readonly string[] = [LOGIN_ROUTE];
+export const PUBLIC_ROUTES: readonly string[] = [
+  LOGIN_ROUTE,
+  FORGOT_PASSWORD_ROUTE,
+  RESET_PASSWORD_ROUTE,
+];
 
 export function isPublicRoute(pathname: string): boolean {
   return PUBLIC_ROUTES.some(

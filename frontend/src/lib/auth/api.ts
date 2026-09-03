@@ -34,3 +34,31 @@ export function refresh(refreshToken: string): Promise<TokenPair> {
 export function fetchCurrentUser(): Promise<CurrentUser> {
   return apiFetch<CurrentUser>("/api/v1/users/me", { method: "GET" });
 }
+
+export type AuthCapabilities = Schemas["AuthCapabilities"];
+
+/** What the login page may offer before anyone is signed in. */
+export function fetchCapabilities(): Promise<AuthCapabilities> {
+  return apiFetch<AuthCapabilities>("/api/v1/auth/capabilities", { method: "GET", token: null });
+}
+
+/**
+ * Ask for a reset link. Resolves the same way whether or not the address is
+ * registered — the backend never says, and neither must the page.
+ */
+export function requestPasswordReset(email: string): Promise<void> {
+  return apiFetch<void>("/api/v1/auth/forgot-password", {
+    method: "POST",
+    body: { email },
+    token: null,
+  });
+}
+
+/** Spend a reset token. A refused token is a 400 with one message for every reason. */
+export function resetPassword(token: string, newPassword: string): Promise<void> {
+  return apiFetch<void>("/api/v1/auth/reset-password", {
+    method: "POST",
+    body: { token, new_password: newPassword },
+    token: null,
+  });
+}

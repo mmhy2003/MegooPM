@@ -10,12 +10,15 @@ vi.mock("next/navigation", () => ({
 
 const login = vi.fn();
 vi.mock("@/lib/auth/context", () => ({ useAuth: () => ({ login }) }));
+vi.mock("@/lib/auth/api", () => ({ fetchCapabilities: vi.fn() }));
 
 import { LoginForm } from "@/components/login-form";
+import { fetchCapabilities } from "@/lib/auth/api";
 import { rememberAccount } from "@/lib/auth/recent-accounts";
 
 beforeEach(() => {
   window.localStorage.clear();
+  vi.mocked(fetchCapabilities).mockResolvedValue({ password_reset: false });
   login.mockReset().mockResolvedValue(undefined);
   replace.mockReset();
 });
@@ -172,5 +175,35 @@ describe("LoginForm theme control", () => {
     await screen.findByRole("button", { name: "Sign in as Mohamed Hammad" });
 
     expect(screen.getByRole("button", { name: "Change theme" })).toBeInTheDocument();
+  });
+});
+
+describe("LoginForm forgot-password link", () => {
+  it("offers the link when the backend can send email", async () => {
+    vi.mocked(fetchCapabilities).mockResolvedValue({ password_reset: true });
+    render(<LoginForm />);
+
+    expect(await screen.findByRole("link", { name: /forgot password/i })).toHaveAttribute(
+      "href",
+      "/forgot-password",
+    );
+  });
+
+  it("hides the link when it could not work", async () => {
+    // Clicking through to a page that says "check your inbox" when no email
+    // will ever arrive is worse than no link.
+    vi.mocked(fetchCapabilities).mockResolvedValue({ password_reset: false });
+    render(<LoginForm />);
+    await screen.findByLabelText("Email");
+
+    expect(screen.queryByRole("link", { name: /forgot password/i })).not.toBeInTheDocument();
+  });
+
+  it("hides the link when capabilities cannot be fetched", async () => {
+    vi.mocked(fetchCapabilities).mockRejectedValue(new Error("network"));
+    render(<LoginForm />);
+    await screen.findByLabelText("Email");
+
+    expect(screen.queryByRole("link", { name: /forgot password/i })).not.toBeInTheDocument();
   });
 });

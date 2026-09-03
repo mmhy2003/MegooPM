@@ -77,3 +77,14 @@ describe("route helpers", () => {
     }
   });
 });
+
+describe("public routes for password reset", () => {
+  it("lets anonymous visitors reach the forgot-password page", () => {
+    // Otherwise the guard bounces them to /login before they can ask.
+    expect(isPublicRoute("/forgot-password")).toBe(true);
+  });
+
+  it("lets anonymous visitors reach the reset-password page", () => {
+    expect(isPublicRoute("/reset-password")).toBe(true);
+  });
+});
