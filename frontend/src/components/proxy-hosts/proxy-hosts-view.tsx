@@ -22,7 +22,9 @@ import { Badge } from "@/components/ui/badge";
 import { EnabledToggle } from "@/components/hosts/enabled-toggle";
 import { DomainLinks } from "@/components/hosts/domain-links";
 import { Button } from "@/components/ui/button";
+import { SearchInput } from "@/components/ui/search-input";
 import { Skeleton } from "@/components/ui/skeleton";
+import { filterBySearch } from "@/lib/search";
 import {
   Table,
   TableBody,
@@ -61,6 +63,7 @@ export function ProxyHostsView() {
     host: null,
   });
   const [deleteHost, setDeleteHost] = useState<ProxyHost | null>(null);
+  const [query, setQuery] = useState("");
 
   // `load` performs no synchronous setState, so it is safe to call from an
   // effect body; `refresh` (event handlers) shows the skeleton while reloading.
@@ -104,6 +107,14 @@ export function ProxyHostsView() {
     for (const pool of pools) map.set(pool.id, pool);
     return map;
   }, [pools]);
+
+  // Domains and the forward target: what an operator remembers about a host.
+  // Not the status or scheme columns — matching those makes `active` and `http`
+  // return half the table.
+  const visible = useMemo(
+    () => filterBySearch(hosts, query, (h) => [...h.domain_names, h.forward_host]),
+    [hosts, query],
+  );
 
   const listsById = useMemo(() => {
     const map = new Map<number, AccessList>();
@@ -151,7 +162,13 @@ export function ProxyHostsView() {
       ) : null}
 
       <div className="space-y-3">
-        <div className="flex justify-end">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <SearchInput
+            value={query}
+            onValueChange={setQuery}
+            label="Search proxy hosts"
+            placeholder="Domain or forward host"
+          />
           <Button size="sm" onClick={() => setHostDialog({ open: true, host: null })}>
             <Plus /> New proxy host
           </Button>
@@ -171,14 +188,28 @@ export function ProxyHostsView() {
             <TableBody>
               {loading ? (
                 <LoadingRows cols={6} />
-              ) : hosts.length === 0 ? (
+              ) : visible.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={6} className="py-10 text-center text-muted-foreground">
-                    No proxy hosts yet. Create a pool, then add a host that forwards to it.
+                    {query.trim() ? (
+                      <>
+                        No proxy hosts match “{query.trim()}”.{" "}
+                        <Button
+                          variant="link"
+                          size="sm"
+                          className="h-auto p-0 align-baseline"
+                          onClick={() => setQuery("")}
+                        >
+                          Clear search
+                        </Button>
+                      </>
+                    ) : (
+                      "No proxy hosts yet. Create a pool, then add a host that forwards to it."
+                    )}
                   </TableCell>
                 </TableRow>
               ) : (
-                hosts.map((host) => {
+                visible.map((host) => {
                   const pool =
                     host.upstream_id != null ? poolsById.get(host.upstream_id) : undefined;
                   const list =
