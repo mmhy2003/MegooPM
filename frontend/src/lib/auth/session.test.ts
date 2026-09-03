@@ -88,3 +88,9 @@ describe("public routes for password reset", () => {
     expect(isPublicRoute("/reset-password")).toBe(true);
   });
 });
+
+describe("public route for accepting an invitation", () => {
+  it("lets the invitee reach the accept page", () => {
+    expect(isPublicRoute("/accept-invite")).toBe(true);
+  });
+});

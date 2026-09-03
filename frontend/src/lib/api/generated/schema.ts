@@ -168,6 +168,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/auth/accept-invite": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Accept Invite
+         * @description Spend an invitation token: set the name and password, activate.
+         *
+         *     Then the invitee goes to the login page rather than into a session, for
+         *     the same reason as a reset: the token arrived by email.
+         */
+        post: operations["accept_invite_api_v1_auth_accept_invite_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/capabilities": {
         parameters: {
             query?: never;
@@ -1477,6 +1500,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/users/invite": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Invite User
+         * @description Create an invited user and send them the link. Admin-only.
+         *
+         *     409 on a taken address in every state — active, inactive, or already
+         *     invited. The fix for "they never got it" is resend, not a second invite.
+         */
+        post: operations["invite_user_api_v1_users_invite_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/users/me": {
         parameters: {
             query?: never;
@@ -1547,6 +1593,29 @@ export interface paths {
         patch: operations["update_user_api_v1_users__user_id__patch"];
         trace?: never;
     };
+    "/api/v1/users/{user_id}/invite": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Resend Invitation
+         * @description Send a fresh invitation to a user who has not yet accepted. Admin-only.
+         *
+         *     Refused for an accepted user: they have a password, and re-inviting them
+         *     would hand anyone with their inbox a way to reset it.
+         */
+        post: operations["resend_invitation_api_v1_users__user_id__invite_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/users/{user_id}/password": {
         parameters: {
             query?: never;
@@ -1591,6 +1660,21 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /**
+         * AcceptInviteRequest
+         * @description Body for ``POST /auth/accept-invite``.
+         */
+        AcceptInviteRequest: {
+            /**
+             * Full Name
+             * @default
+             */
+            full_name: string;
+            /** Password */
+            password: string;
+            /** Token */
+            token: string;
+        };
         /**
          * AccessListAuthCreate
          * @description A basic-auth credential to add to an access list (password write-only).
@@ -3996,6 +4080,24 @@ export interface components {
             role: components["schemas"]["UserRole"];
         };
         /**
+         * UserInvite
+         * @description Payload to invite a user. No password: they choose one when they accept.
+         */
+        UserInvite: {
+            /**
+             * Email
+             * Format: email
+             */
+            email: string;
+            /**
+             * Full Name
+             * @default
+             */
+            full_name: string;
+            /** @default member */
+            role: components["schemas"]["UserRole"];
+        };
+        /**
          * UserRead
          * @description Public representation of a user.
          */
@@ -4017,6 +4119,8 @@ export interface components {
             full_name: string;
             /** Id */
             id: number;
+            /** Invited At */
+            invited_at?: string | null;
             /**
              * Is Active
              * @default true
@@ -4694,6 +4798,37 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["AuditLogPage"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    accept_invite_api_v1_auth_accept_invite_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AcceptInviteRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {
@@ -7088,6 +7223,39 @@ export interface operations {
             };
         };
     };
+    invite_user_api_v1_users_invite_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UserInvite"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     read_current_user_api_v1_users_me_get: {
         parameters: {
             query?: never;
@@ -7224,6 +7392,35 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["UserRead"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    resend_invitation_api_v1_users__user_id__invite_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {

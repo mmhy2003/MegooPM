@@ -15,6 +15,7 @@ export type PasswordReset = Schemas["PasswordReset"];
 export type PasswordChange = Schemas["PasswordChange"];
 export type ProfileUpdate = Schemas["ProfileUpdate"];
 export type UserRole = Schemas["UserRole"];
+export type UserInvite = Schemas["UserInvite"];
 
 const BASE = "/api/v1/users";
 
@@ -25,6 +26,10 @@ export const users = {
   resetPassword: (id: number, body: PasswordReset) =>
     api.put<void>(`${BASE}/${id}/password`, body),
   remove: (id: number) => api.delete<void>(`${BASE}/${id}`),
+  /** Create an invited (inactive) user and email them the link. 409 if taken or mail is off. */
+  invite: (body: UserInvite) => api.post<User>(`${BASE}/invite`, body),
+  /** A fresh link for a user who has not accepted yet. 409 once they have. */
+  resendInvite: (id: number) => api.post<void>(`${BASE}/${id}/invite`, {}),
   /** The caller's own profile (display name only). */
   updateMe: (body: ProfileUpdate) => api.patch<User>(`${BASE}/me`, body),
   /** The caller's own password; 400 when the current password is wrong. */

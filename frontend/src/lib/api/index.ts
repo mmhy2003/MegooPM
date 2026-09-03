@@ -173,6 +173,7 @@ export type {
   PasswordChange,
   ProfileUpdate,
   UserRole,
+  UserInvite,
 } from "@/lib/api/resources/users";
 
 export { dnsProviders, dnsCredentials } from "@/lib/api/resources/dns-providers";

@@ -62,3 +62,12 @@ export function resetPassword(token: string, newPassword: string): Promise<void>
     token: null,
   });
 }
+
+/** Spend an invitation token. Refused tokens are a 400 with one message. */
+export function acceptInvite(token: string, fullName: string, password: string): Promise<void> {
+  return apiFetch<void>("/api/v1/auth/accept-invite", {
+    method: "POST",
+    body: { token, full_name: fullName, password },
+    token: null,
+  });
+}

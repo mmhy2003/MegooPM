@@ -51,11 +51,15 @@ export const FORGOT_PASSWORD_ROUTE = "/forgot-password";
 /** Route the emailed link lands on. */
 export const RESET_PASSWORD_ROUTE = "/reset-password";
 
+/** Route the invitation email lands on. */
+export const ACCEPT_INVITE_ROUTE = "/accept-invite";
+
 /** Routes that never require a session (login, health, static handled by matcher). */
 export const PUBLIC_ROUTES: readonly string[] = [
   LOGIN_ROUTE,
   FORGOT_PASSWORD_ROUTE,
   RESET_PASSWORD_ROUTE,
+  ACCEPT_INVITE_ROUTE,
 ];
 
 export function isPublicRoute(pathname: string): boolean {
