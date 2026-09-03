@@ -200,7 +200,7 @@ export function PasskeysCard({ enabled }: { enabled: boolean }) {
         {mode.kind !== "idle" ? (
           <div className="grid gap-3">
             <div className="space-y-1.5">
-              <Label htmlFor="passkey-code">Code</Label>
+              <Label htmlFor="passkey-code">Code from your app</Label>
               <Input
                 id="passkey-code"
                 autoComplete="one-time-code"
@@ -212,8 +212,8 @@ export function PasskeysCard({ enabled }: { enabled: boolean }) {
               />
               <p className="text-muted-foreground text-xs">
                 {mode.kind === "add"
-                  ? "A code is required to add a passkey, so a stolen session cannot."
-                  : `Removing ${mode.passkey.name}. A code is required.`}
+                  ? "Enter the current six-digit code from your authenticator app to confirm it's you. One of your recovery codes works too. Your device will then ask you to create the passkey."
+                  : `Removing ${mode.passkey.name}. Enter the current six-digit code from your authenticator app to confirm it's you; a recovery code works too.`}
               </p>
             </div>
             {mode.kind === "add" ? (
@@ -250,7 +250,7 @@ export function PasskeysCard({ enabled }: { enabled: boolean }) {
             }}
             disabled={passkeys.length >= MAX_PASSKEYS}
           >
-            <KeyRound /> Add a passkey
+            <KeyRound /> Add a passkey…
           </Button>
         ) : (
           <>

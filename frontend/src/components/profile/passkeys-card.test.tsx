@@ -61,7 +61,7 @@ describe("PasskeysCard adding", () => {
     await screen.findByText("MacBook");
 
     await user.click(screen.getByRole("button", { name: /add a passkey/i }));
-    await user.type(screen.getByLabelText("Code"), "123456");
+    await user.type(screen.getByLabelText("Code from your app"), "123456");
     await user.type(screen.getByLabelText("Name"), "Phone");
     await user.click(screen.getByRole("button", { name: /continue/i }));
 
@@ -78,6 +78,19 @@ describe("PasskeysCard adding", () => {
     expect(await screen.findByText("Phone")).toBeInTheDocument();
   });
 
+  it("tells the user where the code comes from", async () => {
+    const user = userEvent.setup();
+    render(<PasskeysCard enabled />);
+    await screen.findByText("MacBook");
+
+    await user.click(screen.getByRole("button", { name: /add a passkey/i }));
+
+    // The bare label was not enough for a real user; the field must say
+    // which app, and that recovery codes work too.
+    expect(screen.getByText(/six-digit code from your authenticator app/i)).toBeInTheDocument();
+    expect(screen.getByText(/recovery code/i)).toBeInTheDocument();
+  });
+
   it("a wrong code stays on the form with the message", async () => {
     const user = userEvent.setup();
     vi.spyOn(users, "passkeyOptions").mockRejectedValue(
@@ -86,7 +99,7 @@ describe("PasskeysCard adding", () => {
     render(<PasskeysCard enabled />);
     await screen.findByText("MacBook");
     await user.click(screen.getByRole("button", { name: /add a passkey/i }));
-    await user.type(screen.getByLabelText("Code"), "000000");
+    await user.type(screen.getByLabelText("Code from your app"), "000000");
     await user.click(screen.getByRole("button", { name: /continue/i }));
     expect(await screen.findByRole("alert")).toHaveTextContent(/not valid/i);
     expect(startRegistration).not.toHaveBeenCalled();
@@ -99,7 +112,7 @@ describe("PasskeysCard adding", () => {
     render(<PasskeysCard enabled />);
     await screen.findByText("MacBook");
     await user.click(screen.getByRole("button", { name: /add a passkey/i }));
-    await user.type(screen.getByLabelText("Code"), "123456");
+    await user.type(screen.getByLabelText("Code from your app"), "123456");
     await user.click(screen.getByRole("button", { name: /continue/i }));
     expect(await screen.findByText(/no passkey was added/i)).toBeInTheDocument();
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
@@ -112,7 +125,7 @@ describe("PasskeysCard adding", () => {
     render(<PasskeysCard enabled />);
     await screen.findByText("MacBook");
     await user.click(screen.getByRole("button", { name: /add a passkey/i }));
-    await user.type(screen.getByLabelText("Code"), "123456");
+    await user.type(screen.getByLabelText("Code from your app"), "123456");
     await user.click(screen.getByRole("button", { name: /continue/i }));
     expect(await screen.findByRole("alert")).toHaveTextContent(/app URL/i);
   });
@@ -126,7 +139,7 @@ describe("PasskeysCard removing", () => {
     await screen.findByText("MacBook");
 
     await user.click(screen.getByRole("button", { name: /remove MacBook/i }));
-    await user.type(screen.getByLabelText("Code"), "ABCDE-FGHJK");
+    await user.type(screen.getByLabelText("Code from your app"), "ABCDE-FGHJK");
     await user.click(screen.getByRole("button", { name: /^remove$/i }));
 
     await waitFor(() => expect(remove).toHaveBeenCalledWith(1, "ABCDE-FGHJK"));
