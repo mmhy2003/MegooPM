@@ -83,3 +83,47 @@ def test_an_unknown_template_fails_loudly() -> None:
     # template is missing, not because some later line happened to raise.
     with pytest.raises(TemplateNotFound):
         render("no_such_template", subject="Test", app_name="MegooPM")
+
+
+# --- password reset -------------------------------------------------------
+
+
+def test_reset_email_carries_the_link_in_both_bodies() -> None:
+    email = render(
+        "password_reset",
+        subject="Reset",
+        app_name="MegooPM",
+        reset_url="https://pm.example.com/reset-password?token=abc",
+        ttl_minutes=60,
+    )
+    assert "https://pm.example.com/reset-password?token=abc" in email.html
+    assert "https://pm.example.com/reset-password?token=abc" in email.text
+
+
+def test_reset_email_states_the_expiry() -> None:
+    email = render(
+        "password_reset",
+        subject="Reset",
+        app_name="MegooPM",
+        reset_url="https://x/r?token=abc",
+        ttl_minutes=60,
+    )
+    assert "60 minutes" in email.text
+
+
+def test_reset_url_is_not_html_escaped_into_a_broken_link() -> None:
+    # `&` in a query string must survive; `&amp;` inside an href is fine for a
+    # browser, but the *text* body has no parser and must be raw.
+    url = "https://x/r?token=abc&x=1"
+    email = render(
+        "password_reset", subject="Reset", app_name="MegooPM", reset_url=url, ttl_minutes=60
+    )
+    assert url in email.text
+
+
+def test_changed_notice_has_no_link() -> None:
+    # It exists to tell a victim someone else completed a reset. A link in it
+    # would make it phishable.
+    email = render("password_changed", subject="Changed", app_name="MegooPM")
+    assert "href=" not in email.html
+    assert "http" not in email.text

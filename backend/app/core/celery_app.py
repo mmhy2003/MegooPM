@@ -35,6 +35,7 @@ TASK_MODULES = [
     "app.tasks.crowdsec",
     "app.tasks.metrics",
     "app.tasks.analytics",
+    "app.tasks.mail",
 ]
 
 
