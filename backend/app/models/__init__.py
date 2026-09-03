@@ -28,6 +28,7 @@ from app.models.dead_host import DeadHost  # noqa: F401
 from app.models.dns_credential import DnsProviderCredential  # noqa: F401
 from app.models.instance_settings import InstanceSettings  # noqa: F401
 from app.models.node_metrics import NodeMetrics  # noqa: F401
+from app.models.passkey import Passkey  # noqa: F401
 from app.models.proxy_host import ProxyHost, ProxyHostLocation  # noqa: F401
 from app.models.recovery_code import RecoveryCode  # noqa: F401
 from app.models.redirection_host import RedirectionHost  # noqa: F401
@@ -55,6 +56,7 @@ __all__ = [
     "DnsProviderCredential",
     "InstanceSettings",
     "NodeMetrics",
+    "Passkey",
     "VisitorDay",
     "ProxyHost",
     "ProxyHostLocation",

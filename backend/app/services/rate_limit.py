@@ -15,7 +15,7 @@ import hashlib
 import redis.asyncio as aioredis
 from redis.exceptions import RedisError
 
-from app.core.config import settings
+from app.core.redis import redis_client as _client
 
 RESET_EMAIL_LIMIT = 3
 RESET_IP_LIMIT = 10
@@ -37,10 +37,6 @@ class RateLimited(Exception):
 
 class RateLimitUnavailable(Exception):
     """Redis could not be consulted. The caller fails closed."""
-
-
-def _client() -> aioredis.Redis:
-    return aioredis.from_url(settings.redis_url, decode_responses=True)
 
 
 async def hit(client: aioredis.Redis, key: str, *, limit: int, window_s: int) -> None:
