@@ -17,18 +17,23 @@ from fastapi import APIRouter, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import AdminUser, CurrentUser, SessionDep
-from app.models.enums import AuditAction
+from app.models.enums import AuditAction, AuthTokenKind
 from app.models.user import User
 from app.schemas.user import (
     PasswordChange,
     PasswordReset,
     ProfileUpdate,
     UserCreate,
+    UserInvite,
     UserRead,
     UserUpdate,
 )
+from app.services import auth_tokens
+from app.services import instance_settings as settings_service
 from app.services import user as user_service
 from app.services.audit import record_audit
+from app.services.mail.templates import APP_NAME
+from app.tasks.mail import send_email as send_email_task
 
 router = APIRouter(tags=["users"])
 
@@ -73,6 +78,34 @@ def _action_for(changes: dict[str, list[object]]) -> AuditAction:
 
 def _conflict(exc: user_service.UserProtectionError) -> HTTPException:
     return HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc))
+
+
+_MAIL_NOT_CONFIGURED = (
+    "Email is not configured, so an invitation cannot be sent. "
+    "Set up SMTP and the app URL in Settings first."
+)
+
+
+async def _send_invitation(db: AsyncSession, user: User, *, inviter: User) -> None:
+    """Issue a fresh invitation token and queue the email. One place, so the
+    initial invite and a resend can never drift apart."""
+    row = await settings_service.get_instance_settings(db)
+    if not (row.smtp_enabled and row.app_url):
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=_MAIL_NOT_CONFIGURED)
+    raw = await auth_tokens.issue(
+        db, user=user, kind=AuthTokenKind.invitation, ttl=auth_tokens.INVITE_TTL
+    )
+    send_email_task.delay(
+        to=user.email,
+        template="invitation",
+        subject=f"You're invited to {APP_NAME}",
+        context={
+            "app_name": APP_NAME,
+            "inviter_name": inviter.full_name.strip() or inviter.email,
+            "accept_url": f"{row.app_url}/accept-invite?token={raw}",
+            "ttl_days": auth_tokens.INVITE_TTL.days,
+        },
+    )
 
 
 # --- self ---------------------------------------------------------------------
@@ -166,7 +199,62 @@ async def create_user(
     return UserRead.model_validate(user)
 
 
+@router.post("/invite", response_model=UserRead, status_code=status.HTTP_201_CREATED)
+async def invite_user(body: UserInvite, admin: AdminUser, db: SessionDep) -> UserRead:
+    """Create an invited user and send them the link. Admin-only.
+
+    409 on a taken address in every state — active, inactive, or already
+    invited. The fix for "they never got it" is resend, not a second invite.
+    """
+    # Check email before creating the row, so a misconfigured instance does
+    # not accumulate invited users nobody can reach.
+    row = await settings_service.get_instance_settings(db)
+    if not (row.smtp_enabled and row.app_url):
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=_MAIL_NOT_CONFIGURED)
+    try:
+        user = await user_service.invite_user(
+            db, email=body.email, full_name=body.full_name, role=body.role
+        )
+    except user_service.EmailAlreadyExistsError:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="A user with that email already exists",
+        ) from None
+    await _send_invitation(db, user, inviter=admin)
+    await _audit(
+        db,
+        actor=admin,
+        action=AuditAction.create,
+        object_id=user.id,
+        meta={"email": user.email, "role": user.role.value, "invited": True},
+    )
+    return UserRead.model_validate(user)
+
+
 # --- admin: single user -------------------------------------------------------
+
+
+@router.post("/{user_id}/invite", status_code=status.HTTP_204_NO_CONTENT)
+async def resend_invitation(user_id: int, admin: AdminUser, db: SessionDep) -> None:
+    """Send a fresh invitation to a user who has not yet accepted. Admin-only.
+
+    Refused for an accepted user: they have a password, and re-inviting them
+    would hand anyone with their inbox a way to reset it.
+    """
+    user = await _get_or_404(db, user_id)
+    if user.invited_at is None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="That user has already accepted their invitation.",
+        )
+    await _send_invitation(db, user, inviter=admin)
+    await _audit(
+        db,
+        actor=admin,
+        action=AuditAction.update,
+        object_id=user.id,
+        meta={"invitation_resent": True},
+    )
 
 
 @router.patch("/{user_id}", response_model=UserRead)

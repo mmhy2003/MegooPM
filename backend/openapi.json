@@ -1,6 +1,35 @@
 {
   "components": {
     "schemas": {
+      "AcceptInviteRequest": {
+        "description": "Body for ``POST /auth/accept-invite``.",
+        "properties": {
+          "full_name": {
+            "default": "",
+            "maxLength": 255,
+            "title": "Full Name",
+            "type": "string"
+          },
+          "password": {
+            "maxLength": 128,
+            "minLength": 8,
+            "title": "Password",
+            "type": "string"
+          },
+          "token": {
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Token",
+            "type": "string"
+          }
+        },
+        "required": [
+          "token",
+          "password"
+        ],
+        "title": "AcceptInviteRequest",
+        "type": "object"
+      },
       "AccessListAuthCreate": {
         "description": "A basic-auth credential to add to an access list (password write-only).",
         "properties": {
@@ -4849,6 +4878,31 @@
         "title": "UserCreate",
         "type": "object"
       },
+      "UserInvite": {
+        "description": "Payload to invite a user. No password: they choose one when they accept.",
+        "properties": {
+          "email": {
+            "format": "email",
+            "title": "Email",
+            "type": "string"
+          },
+          "full_name": {
+            "default": "",
+            "maxLength": 255,
+            "title": "Full Name",
+            "type": "string"
+          },
+          "role": {
+            "$ref": "#/components/schemas/UserRole",
+            "default": "member"
+          }
+        },
+        "required": [
+          "email"
+        ],
+        "title": "UserInvite",
+        "type": "object"
+      },
       "UserRead": {
         "description": "Public representation of a user.",
         "properties": {
@@ -4870,6 +4924,18 @@
           "id": {
             "title": "Id",
             "type": "integer"
+          },
+          "invited_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Invited At"
           },
           "is_active": {
             "default": true,
@@ -6096,6 +6162,41 @@
         "summary": "List Audit Log",
         "tags": [
           "audit-log"
+        ]
+      }
+    },
+    "/api/v1/auth/accept-invite": {
+      "post": {
+        "description": "Spend an invitation token: set the name and password, activate.\n\nThen the invitee goes to the login page rather than into a session, for\nthe same reason as a reset: the token arrived by email.",
+        "operationId": "accept_invite_api_v1_auth_accept_invite_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AcceptInviteRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Accept Invite",
+        "tags": [
+          "auth"
         ]
       }
     },
@@ -9646,6 +9747,53 @@
         ]
       }
     },
+    "/api/v1/users/invite": {
+      "post": {
+        "description": "Create an invited user and send them the link. Admin-only.\n\n409 on a taken address in every state — active, inactive, or already\ninvited. The fix for \"they never got it\" is resend, not a second invite.",
+        "operationId": "invite_user_api_v1_users_invite_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UserInvite"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Invite User",
+        "tags": [
+          "users"
+        ]
+      }
+    },
     "/api/v1/users/me": {
       "get": {
         "description": "Return the authenticated caller.",
@@ -9850,6 +9998,47 @@
           }
         ],
         "summary": "Update User",
+        "tags": [
+          "users"
+        ]
+      }
+    },
+    "/api/v1/users/{user_id}/invite": {
+      "post": {
+        "description": "Send a fresh invitation to a user who has not yet accepted. Admin-only.\n\nRefused for an accepted user: they have a password, and re-inviting them\nwould hand anyone with their inbox a way to reset it.",
+        "operationId": "resend_invitation_api_v1_users__user_id__invite_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "title": "User Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Resend Invitation",
         "tags": [
           "users"
         ]

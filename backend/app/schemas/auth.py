@@ -43,6 +43,14 @@ class ResetPasswordRequest(BaseModel):
     new_password: str = Field(min_length=8, max_length=128)
 
 
+class AcceptInviteRequest(BaseModel):
+    """Body for ``POST /auth/accept-invite``."""
+
+    token: str = Field(min_length=1, max_length=256)
+    full_name: str = Field(default="", max_length=255)
+    password: str = Field(min_length=8, max_length=128)
+
+
 class AuthCapabilities(BaseModel):
     """What the login page may offer before anyone is signed in."""
 
@@ -56,6 +64,7 @@ class NeutralResponse(BaseModel):
 
 
 __all__ = [
+    "AcceptInviteRequest",
     "AuthCapabilities",
     "ForgotPasswordRequest",
     "LoginRequest",

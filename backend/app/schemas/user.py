@@ -28,6 +28,14 @@ class UserCreate(UserBase):
     password: str = Field(min_length=8, max_length=128)
 
 
+class UserInvite(BaseModel):
+    """Payload to invite a user. No password: they choose one when they accept."""
+
+    email: EmailStr
+    full_name: str = Field(default="", max_length=255)
+    role: UserRole = UserRole.member
+
+
 class UserRead(UserBase):
     """Public representation of a user."""
 
@@ -36,6 +44,9 @@ class UserRead(UserBase):
     id: int
     created_at: datetime
     updated_at: datetime
+    # Set while an invitation is outstanding. The users table renders the
+    # Invited badge and the resend action from this alone.
+    invited_at: datetime | None = None
 
 
 class UserUpdate(BaseModel):
@@ -85,6 +96,7 @@ __all__ = [
     "ProfileUpdate",
     "UserBase",
     "UserCreate",
+    "UserInvite",
     "UserRead",
     "UserUpdate",
 ]

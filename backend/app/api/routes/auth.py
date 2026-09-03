@@ -15,6 +15,7 @@ from app.core.security import (
 from app.models.enums import AuditAction, AuthTokenKind
 from app.models.user import User
 from app.schemas.auth import (
+    AcceptInviteRequest,
     AuthCapabilities,
     ForgotPasswordRequest,
     LoginRequest,
@@ -218,3 +219,44 @@ async def reset_password(body: ResetPasswordRequest, request: Request, db: Sessi
         subject=f"Your {APP_NAME} password was changed",
         context={"app_name": APP_NAME},
     )
+
+
+@router.post("/accept-invite", status_code=status.HTTP_204_NO_CONTENT)
+async def accept_invite(body: AcceptInviteRequest, request: Request, db: SessionDep) -> None:
+    """Spend an invitation token: set the name and password, activate.
+
+    Then the invitee goes to the login page rather than into a session, for
+    the same reason as a reset: the token arrived by email.
+    """
+    try:
+        await rate_limit.check_password_reset_redeem(ip=client_ip(request))
+    except rate_limit.RateLimited as exc:
+        raise _limit(exc) from None
+    except rate_limit.RateLimitUnavailable:
+        raise _unavailable() from None
+
+    try:
+        row = await auth_tokens.redeem(db, raw=body.token, kind=AuthTokenKind.invitation)
+    except auth_tokens.TokenInvalid as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from None
+
+    user = await user_service.get_by_id(db, row.user_id)
+    if user is None or user.invited_at is None:
+        # Deleted (revoked) since the email went out, or already accepted.
+        # Same message as every other refusal.
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=str(auth_tokens.TokenInvalid())
+        )
+
+    await user_service.accept_invitation(
+        db, user, full_name=body.full_name, password=body.password
+    )
+    await record_audit(
+        db,
+        actor=user.email,
+        action=AuditAction.update,
+        object_type="user",
+        object_id=user.id,
+        meta={"invitation_accepted": True},
+    )
+    await db.commit()
