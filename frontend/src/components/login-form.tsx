@@ -10,16 +10,8 @@ import { APP_NAME } from "@/lib/env";
 import { ApiError } from "@/lib/api/errors";
 import { useAuth } from "@/lib/auth/context";
 import { fetchCapabilities } from "@/lib/auth/api";
-import {
-  DEFAULT_AUTHED_ROUTE,
-  FORGOT_PASSWORD_ROUTE,
-  REDIRECT_PARAM,
-} from "@/lib/auth/session";
-import {
-  forgetAccount,
-  readAccounts,
-  type RecentAccount,
-} from "@/lib/auth/recent-accounts";
+import { DEFAULT_AUTHED_ROUTE, FORGOT_PASSWORD_ROUTE, REDIRECT_PARAM } from "@/lib/auth/session";
+import { forgetAccount, readAccounts, type RecentAccount } from "@/lib/auth/recent-accounts";
 import { AccountList } from "@/components/login/account-list";
 import { ModeToggle } from "@/components/mode-toggle";
 import { Button } from "@/components/ui/button";
@@ -228,18 +220,11 @@ export function LoginForm() {
               className="size-16"
             />
             <h1 className="text-xl font-semibold">Sign in to {APP_NAME}</h1>
-            <p className="text-muted-foreground text-sm">
-              Enter your credentials to continue.
-            </p>
+            <p className="text-muted-foreground text-sm">Enter your credentials to continue.</p>
           </div>
 
           {mfaToken ? (
-            <form
-              key="mfa"
-              className="space-y-3"
-              onSubmit={onVerify}
-              noValidate
-            >
+            <form key="mfa" className="space-y-3" onSubmit={onVerify} noValidate>
               <p className="text-muted-foreground text-sm">
                 {useRecovery
                   ? "Enter one of your recovery codes."
@@ -252,9 +237,7 @@ export function LoginForm() {
                 inputMode={useRecovery ? "text" : "numeric"}
                 autoComplete="one-time-code"
                 placeholder={useRecovery ? "xxxxx-xxxxx" : "123456"}
-                aria-label={
-                  useRecovery ? "Recovery code" : "Authentication code"
-                }
+                aria-label={useRecovery ? "Recovery code" : "Authentication code"}
                 required
                 value={code}
                 onChange={(e) => setCode(e.target.value)}
@@ -265,11 +248,7 @@ export function LoginForm() {
                   {error}
                 </p>
               ) : null}
-              <Button
-                type="submit"
-                className="w-full"
-                disabled={submitting || !code}
-              >
+              <Button type="submit" className="w-full" disabled={submitting || !code}>
                 {submitting ? "Verifying…" : "Verify"}
               </Button>
               <div className="flex justify-between text-sm">
@@ -289,19 +268,12 @@ export function LoginForm() {
                   className="h-auto p-0"
                   onClick={toggleRecovery}
                 >
-                  {useRecovery
-                    ? "Use your authenticator app"
-                    : "Use a recovery code instead"}
+                  {useRecovery ? "Use your authenticator app" : "Use a recovery code instead"}
                 </Button>
               </div>
             </form>
           ) : (
-            <form
-              key="credentials"
-              className="space-y-3"
-              onSubmit={onSubmit}
-              noValidate
-            >
+            <form key="credentials" className="space-y-3" onSubmit={onSubmit} noValidate>
               <Input
                 ref={emailRef}
                 type="email"

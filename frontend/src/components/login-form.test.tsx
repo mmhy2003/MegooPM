@@ -46,11 +46,7 @@ function saveSara() {
 describe("LoginForm on a browser that has never signed in", () => {
   it("shows no account list at all", async () => {
     render(<LoginForm />);
-    await waitFor(() =>
-      expect(
-        screen.queryByText(/use another account/i),
-      ).not.toBeInTheDocument(),
-    );
+    await waitFor(() => expect(screen.queryByText(/use another account/i)).not.toBeInTheDocument());
   });
 
   it("focuses Email, because there is nothing to prefill", async () => {
@@ -65,18 +61,14 @@ describe("LoginForm with a remembered account", () => {
     saveMohamed();
     render(<LoginForm />);
 
-    await waitFor(() =>
-      expect(screen.getByLabelText("Email")).toHaveValue("mm@example.com"),
-    );
+    await waitFor(() => expect(screen.getByLabelText("Email")).toHaveValue("mm@example.com"));
   });
 
   it("focuses Password, so the returning user types only what is missing", async () => {
     saveMohamed();
     render(<LoginForm />);
 
-    await waitFor(() =>
-      expect(screen.getByLabelText("Password")).toHaveFocus(),
-    );
+    await waitFor(() => expect(screen.getByLabelText("Password")).toHaveFocus());
   });
 
   it("swaps the email and re-focuses Password when another account is picked", async () => {
@@ -86,9 +78,7 @@ describe("LoginForm with a remembered account", () => {
     render(<LoginForm />);
     await screen.findByRole("button", { name: "Sign in as Sara Ali" });
 
-    await user.click(
-      screen.getByRole("button", { name: "Sign in as Sara Ali" }),
-    );
+    await user.click(screen.getByRole("button", { name: "Sign in as Sara Ali" }));
 
     expect(screen.getByLabelText("Email")).toHaveValue("sara@example.com");
     expect(screen.getByLabelText("Password")).toHaveFocus();
@@ -104,15 +94,11 @@ describe("LoginForm with a remembered account", () => {
     render(<LoginForm />);
     await screen.findByRole("button", { name: "Sign in as Sara Ali" });
 
-    await user.click(
-      screen.getByRole("button", { name: "Sign in as Sara Ali" }),
-    );
+    await user.click(screen.getByRole("button", { name: "Sign in as Sara Ali" }));
     await user.type(screen.getByLabelText("Password"), "hunter2222");
     await user.click(screen.getByRole("button", { name: /continue/i }));
 
-    await waitFor(() =>
-      expect(login).toHaveBeenCalledWith("sara@example.com", "hunter2222"),
-    );
+    await waitFor(() => expect(login).toHaveBeenCalledWith("sara@example.com", "hunter2222"));
   });
 
   it("empties the form and focuses Email for a different account", async () => {
@@ -121,9 +107,7 @@ describe("LoginForm with a remembered account", () => {
     render(<LoginForm />);
     await screen.findByRole("button", { name: /use another account/i });
 
-    await user.click(
-      screen.getByRole("button", { name: /use another account/i }),
-    );
+    await user.click(screen.getByRole("button", { name: /use another account/i }));
 
     expect(screen.getByLabelText("Email")).toHaveValue("");
     expect(screen.getByLabelText("Email")).toHaveFocus();
@@ -138,12 +122,8 @@ describe("LoginForm with a remembered account", () => {
 
     await user.click(screen.getByRole("button", { name: "Remove Sara Ali" }));
 
-    expect(
-      screen.queryByRole("button", { name: "Sign in as Sara Ali" }),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: "Sign in as Mohamed Hammad" }),
-    ).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Sign in as Sara Ali" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Sign in as Mohamed Hammad" })).toBeInTheDocument();
   });
 
   it("clears the prefilled email when the selected account is removed", async () => {
@@ -154,9 +134,7 @@ describe("LoginForm with a remembered account", () => {
     render(<LoginForm />);
     await screen.findByRole("button", { name: "Remove Mohamed Hammad" });
 
-    await user.click(
-      screen.getByRole("button", { name: "Remove Mohamed Hammad" }),
-    );
+    await user.click(screen.getByRole("button", { name: "Remove Mohamed Hammad" }));
 
     expect(screen.getByLabelText("Email")).toHaveValue("");
   });
@@ -178,9 +156,7 @@ describe("LoginForm theme control", () => {
   it("offers the theme switcher on a browser that has never signed in", async () => {
     render(<LoginForm />);
 
-    expect(
-      await screen.findByRole("button", { name: "Change theme" }),
-    ).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "Change theme" })).toBeInTheDocument();
   });
 
   it("still offers it once the account list appears", async () => {
@@ -190,9 +166,7 @@ describe("LoginForm theme control", () => {
     render(<LoginForm />);
     await screen.findByRole("button", { name: "Sign in as Mohamed Hammad" });
 
-    expect(
-      screen.getByRole("button", { name: "Change theme" }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Change theme" })).toBeInTheDocument();
   });
 });
 
@@ -201,9 +175,10 @@ describe("LoginForm forgot-password link", () => {
     vi.mocked(fetchCapabilities).mockResolvedValue({ password_reset: true });
     render(<LoginForm />);
 
-    expect(
-      await screen.findByRole("link", { name: /forgot password/i }),
-    ).toHaveAttribute("href", "/forgot-password");
+    expect(await screen.findByRole("link", { name: /forgot password/i })).toHaveAttribute(
+      "href",
+      "/forgot-password",
+    );
   });
 
   it("hides the link when it could not work", async () => {
@@ -213,9 +188,7 @@ describe("LoginForm forgot-password link", () => {
     render(<LoginForm />);
     await screen.findByLabelText("Email");
 
-    expect(
-      screen.queryByRole("link", { name: /forgot password/i }),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /forgot password/i })).not.toBeInTheDocument();
   });
 
   it("hides the link when capabilities cannot be fetched", async () => {
@@ -223,9 +196,7 @@ describe("LoginForm forgot-password link", () => {
     render(<LoginForm />);
     await screen.findByLabelText("Email");
 
-    expect(
-      screen.queryByRole("link", { name: /forgot password/i }),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /forgot password/i })).not.toBeInTheDocument();
   });
 });
 
@@ -254,15 +225,10 @@ describe("LoginForm second factor", () => {
     render(<LoginForm />);
     const user = await submitCredentials();
 
-    await user.type(
-      await screen.findByLabelText("Authentication code"),
-      "123456",
-    );
+    await user.type(await screen.findByLabelText("Authentication code"), "123456");
     await user.click(screen.getByRole("button", { name: /verify/i }));
 
-    await waitFor(() =>
-      expect(verifyMfa).toHaveBeenCalledWith("mfa-1", "123456"),
-    );
+    await waitFor(() => expect(verifyMfa).toHaveBeenCalledWith("mfa-1", "123456"));
     await waitFor(() => expect(replace).toHaveBeenCalled());
   });
 
@@ -272,9 +238,7 @@ describe("LoginForm second factor", () => {
     const user = await submitCredentials();
     await screen.findByLabelText("Authentication code");
 
-    await user.click(
-      screen.getByRole("button", { name: /use a recovery code/i }),
-    );
+    await user.click(screen.getByRole("button", { name: /use a recovery code/i }));
 
     expect(screen.getByLabelText("Recovery code")).toBeInTheDocument();
   });
@@ -287,10 +251,7 @@ describe("LoginForm second factor", () => {
     render(<LoginForm />);
     const user = await submitCredentials();
 
-    await user.type(
-      await screen.findByLabelText("Authentication code"),
-      "000000",
-    );
+    await user.type(await screen.findByLabelText("Authentication code"), "000000");
     await user.click(screen.getByRole("button", { name: /verify/i }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent(/not valid/i);

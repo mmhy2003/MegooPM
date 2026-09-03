@@ -30,10 +30,7 @@ export function isMfaRequired(result: LoginResult): result is MfaRequired {
 }
 
 /** Exchange a challenge token plus a code for the real pair. */
-export function verifyMfa(
-  mfaToken: string,
-  code: string,
-): Promise<MfaVerifyResponse> {
+export function verifyMfa(mfaToken: string, code: string): Promise<MfaVerifyResponse> {
   return apiFetch<MfaVerifyResponse>("/api/v1/auth/mfa/verify", {
     method: "POST",
     body: { mfa_token: mfaToken, code },
@@ -78,10 +75,7 @@ export function requestPasswordReset(email: string): Promise<void> {
 }
 
 /** Spend a reset token. A refused token is a 400 with one message for every reason. */
-export function resetPassword(
-  token: string,
-  newPassword: string,
-): Promise<void> {
+export function resetPassword(token: string, newPassword: string): Promise<void> {
   return apiFetch<void>("/api/v1/auth/reset-password", {
     method: "POST",
     body: { token, new_password: newPassword },
@@ -90,11 +84,7 @@ export function resetPassword(
 }
 
 /** Spend an invitation token. Refused tokens are a 400 with one message. */
-export function acceptInvite(
-  token: string,
-  fullName: string,
-  password: string,
-): Promise<void> {
+export function acceptInvite(token: string, fullName: string, password: string): Promise<void> {
   return apiFetch<void>("/api/v1/auth/accept-invite", {
     method: "POST",
     body: { token, full_name: fullName, password },

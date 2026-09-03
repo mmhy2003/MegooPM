@@ -58,15 +58,9 @@ export interface AuthContextValue {
    * a challenge when a second factor is required; throws `ApiError` on
    * failure.
    */
-  login: (
-    email: string,
-    password: string,
-  ) => Promise<{ mfaToken: string } | null>;
+  login: (email: string, password: string) => Promise<{ mfaToken: string } | null>;
   /** Present a code for a challenge from `login`; signs in on success. */
-  verifyMfa: (
-    mfaToken: string,
-    code: string,
-  ) => Promise<{ recoveryCodesRemaining: number | null }>;
+  verifyMfa: (mfaToken: string, code: string) => Promise<{ recoveryCodesRemaining: number | null }>;
   /** Clear the session and return to the login page. */
   logout: () => void;
   /** Re-fetch `/users/me` (e.g. after a profile edit) so the shell reflects it. */
