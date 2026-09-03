@@ -215,3 +215,55 @@ describe("UsersView invitations", () => {
     expect(await screen.findByText(/withdraw/i)).toBeInTheDocument();
   });
 });
+
+describe("UsersView two-factor", () => {
+  const withTotp = {
+    ...member,
+    id: 4,
+    email: "totp@example.com",
+    full_name: "Totp User",
+    totp_enabled: true,
+  };
+
+  beforeEach(() => {
+    vi.mocked(fetchCapabilities).mockResolvedValue({ password_reset: false });
+  });
+  afterEach(() => {
+    cleanup();
+    vi.restoreAllMocks();
+  });
+
+  it("shows On for a user with 2FA and Off otherwise", async () => {
+    vi.spyOn(users, "list").mockResolvedValue([admin, withTotp]);
+    render(<UsersView />);
+    const on = (await screen.findByText("totp@example.com")).closest("tr")!;
+    const off = screen.getByText("admin@example.com").closest("tr")!;
+    expect(within(on).getByText("On")).toBeInTheDocument();
+    expect(within(off).getByText("Off")).toBeInTheDocument();
+  });
+
+  it("offers Disable 2FA only where it is on", async () => {
+    vi.spyOn(users, "list").mockResolvedValue([admin, withTotp]);
+    render(<UsersView />);
+    const on = (await screen.findByText("totp@example.com")).closest("tr")!;
+    const off = screen.getByText("admin@example.com").closest("tr")!;
+    expect(
+      within(on).getByRole("button", { name: /disable 2fa for totp@example.com/i }),
+    ).toBeInTheDocument();
+    expect(within(off).queryByRole("button", { name: /disable 2fa/i })).not.toBeInTheDocument();
+  });
+
+  it("confirms, then calls the admin route", async () => {
+    const user = userEvent.setup();
+    vi.spyOn(users, "list").mockResolvedValue([admin, withTotp]);
+    const disable = vi.spyOn(users, "adminTotpDisable").mockResolvedValue(undefined);
+    render(<UsersView />);
+    const on = (await screen.findByText("totp@example.com")).closest("tr")!;
+
+    await user.click(within(on).getByRole("button", { name: /disable 2fa for/i }));
+    expect(await screen.findByText(/Disable two-factor/)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "confirm-delete" }));
+
+    await waitFor(() => expect(disable).toHaveBeenCalledWith(4));
+  });
+});

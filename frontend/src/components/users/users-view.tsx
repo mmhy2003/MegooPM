@@ -1,7 +1,16 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { KeyRound, MailPlus, Pencil, Plus, Send, Trash2, Users as UsersIcon } from "lucide-react";
+import {
+  KeyRound,
+  MailPlus,
+  Pencil,
+  Plus,
+  Send,
+  ShieldOff,
+  Trash2,
+  Users as UsersIcon,
+} from "lucide-react";
 import { toast } from "sonner";
 
 import { USER_ROLE_LABELS, users, type User } from "@/lib/api";
@@ -78,6 +87,7 @@ export function UsersView() {
   });
   const [resetTarget, setResetTarget] = useState<User | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<User | null>(null);
+  const [totpTarget, setTotpTarget] = useState<User | null>(null);
   const [inviteOpen, setInviteOpen] = useState(false);
   const [inviteKey, setInviteKey] = useState(0);
   // Hidden until the backend says an invitation could actually be sent.
@@ -185,6 +195,7 @@ export function UsersView() {
                 <TableHead>Email</TableHead>
                 <TableHead>Role</TableHead>
                 <TableHead>Status</TableHead>
+                <TableHead>2FA</TableHead>
                 <TableHead>Created</TableHead>
                 <TableHead className="w-32 text-right">Actions</TableHead>
               </TableRow>
@@ -194,7 +205,7 @@ export function UsersView() {
                 <LoadingRows cols={6} />
               ) : rows.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="py-10 text-center text-muted-foreground">
+                  <TableCell colSpan={7} className="py-10 text-center text-muted-foreground">
                     No users yet.
                   </TableCell>
                 </TableRow>
@@ -218,11 +229,26 @@ export function UsersView() {
                       <TableCell>
                         <StatusBadge user={u} />
                       </TableCell>
+                      <TableCell>
+                        <Badge variant={u.totp_enabled ? "success" : "muted"}>
+                          {u.totp_enabled ? "On" : "Off"}
+                        </Badge>
+                      </TableCell>
                       <TableCell className="text-muted-foreground">
                         {formatDate(u.created_at)}
                       </TableCell>
                       <TableCell>
                         <div className="flex justify-end gap-1">
+                          {u.totp_enabled ? (
+                            <Button
+                              variant="ghost"
+                              size="icon-sm"
+                              aria-label={`Disable 2FA for ${u.email}`}
+                              onClick={() => setTotpTarget(u)}
+                            >
+                              <ShieldOff />
+                            </Button>
+                          ) : null}
                           {u.invited_at ? (
                             <Button
                               variant="ghost"
@@ -310,6 +336,24 @@ export function UsersView() {
         }
         onConfirm={async () => {
           if (deleteTarget) await users.remove(deleteTarget.id);
+        }}
+        onDeleted={refresh}
+      />
+      {/* The generic confirm-with-a-destructive-button is exactly the shape
+          this needs; the copy is what makes it a different act. */}
+      <ConfirmDeleteDialog
+        open={totpTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) setTotpTarget(null);
+        }}
+        title="Disable two-factor authentication?"
+        description={
+          totpTarget
+            ? `Turn off two-factor authentication for ${displayName(totpTarget)} (${totpTarget.email})? They will be signed out everywhere and emailed that you did this. Use this only when they have lost their authenticator and their recovery codes.`
+            : ""
+        }
+        onConfirm={async () => {
+          if (totpTarget) await users.adminTotpDisable(totpTarget.id);
         }}
         onDeleted={refresh}
       />
