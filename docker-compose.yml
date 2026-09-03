@@ -87,9 +87,10 @@ services:
     command:
       - sh
       - -c
-      - "mkdir -p /data/nginx/conf.d/stream /data/nginx/default /data/certs/_acme-challenge /data/crowdsec/whitelists && { [ -f /data/crowdsec/whitelists/megoopm.yaml ] || echo '# Managed by MegooPM - no whitelists defined.' > /data/crowdsec/whitelists/megoopm.yaml; } && chown -R 1000:1000 /data || { echo 'data-init: cannot prepare /data for uid 1000' >&2; exit 1; }"
+      - "mkdir -p /data/nginx/conf.d/stream /data/nginx/default /data/certs/_acme-challenge /data/crowdsec/whitelists && { [ -f /data/crowdsec/whitelists/megoopm.yaml ] || echo '# Managed by MegooPM - no whitelists defined.' > /data/crowdsec/whitelists/megoopm.yaml; } && { [ -f /data/crowdsec/config.yaml.local ] || cp /seed/config.yaml.local /data/crowdsec/config.yaml.local; } && chown -R 1000:1000 /data || { echo 'data-init: cannot prepare /data for uid 1000' >&2; exit 1; }"
     volumes:
       - app_data:/data
+      - ./infra/crowdsec/config.yaml.local:/seed/config.yaml.local:ro
 
   backend:
     build: ./backend
@@ -214,6 +215,9 @@ services:
     restart: unless-stopped
     environment:
       DISABLE_ONLINE_API: "true"
+      # The community blocklist inserts ~15k rows; CrowdSec warns LAPI may stall
+      # without WAL.
+      USE_WAL: "true"
       BOUNCER_KEY_megoopm: ${CROWDSEC_BOUNCER_KEY:?CROWDSEC_BOUNCER_KEY is required}
       CROWDSEC_REGISTRATION_TOKEN: ${CROWDSEC_REGISTRATION_TOKEN:?CROWDSEC_REGISTRATION_TOKEN is required}
       COLLECTIONS: "crowdsecurity/appsec-virtual-patching crowdsecurity/appsec-generic-rules crowdsecurity/nginx"
@@ -226,8 +230,15 @@ services:
       - crowdsec_data:/var/lib/crowdsec/data
       - ./infra/crowdsec/acquis/appsec.yaml:/etc/crowdsec/acquis.d/appsec.yaml:ro
       - ./infra/crowdsec/acquis/nginx-syslog.yaml:/etc/crowdsec/acquis.d/nginx-syslog.yaml:ro
-      # LAPI machine auto-registration (token from the env above).
-      - ./infra/crowdsec/config.yaml.local:/etc/crowdsec/config.yaml.local:ro
+      # The app-owned config override: LAPI machine auto-registration, plus the
+      # community-blocklist block when Security → Updates switches it on. A
+      # single FILE out of the shared volume, seeded by data-init.
+      - type: volume
+        source: app_data
+        target: /etc/crowdsec/config.yaml.local
+        read_only: true
+        volume:
+          subpath: crowdsec/config.yaml.local
       # Whitelists authored in the UI. A single FILE out of the shared
       # volume: s02-enrich also holds hub-installed parsers and mounting a
       # directory over it would mask them. `subpath` needs Docker Engine 26+

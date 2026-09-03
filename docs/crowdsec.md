@@ -76,7 +76,7 @@ reference the Lua handler, so they are untouched. The switch is
 | Manual bans | Security page → **Ban**, or `cscli decisions add` | always |
 | AppSec / inline WAF | malicious request payloads on protected hosts | `CROWDSEC_APPSEC_URL` (global, see below) |
 | nginx log scenarios (`crowdsecurity/nginx`: probing, bad user agents, sensitive files, brute force, …) | the managed nginx ships access + error logs to the CrowdSec agent over **syslog/UDP** (`access_log syslog:server=$CROWDSEC_SYSLOG_ADDR,tag=nginx`, rendered by `infra/nginx/docker-entrypoint.sh`); `infra/crowdsec/acquis/nginx-syslog.yaml` listens on `:514/udp`; the syslog parser sets `program=nginx` so the nginx parsers/scenarios apply | `CROWDSEC_SYSLOG_ADDR` (set in every compose file; per node in HA) |
-| Community blocklist (CAPI) | CrowdSec's shared threat intel | off (`DISABLE_ONLINE_API=true`) — enable and `cscli capi register` if wanted |
+| Community blocklist (CAPI) | CrowdSec's shared threat intel | off by default; switch it on in **Security → Updates** (registers with CAPI and restarts CrowdSec — see *Updates tab* below) |
 
 **Client IP behind a CDN / tunnel / load balancer.** nginx sees the proxy's
 address unless `NGINX_REAL_IP_HEADER` (e.g. `CF-Connecting-IP`) and
@@ -373,6 +373,8 @@ correctly but renders an expression unreadable in the dialog's preview.
 - `CROWDSEC_RELOAD_HEALTH_TIMEOUT_SECONDS` — how long to wait for LAPI after a
   restart before rolling back (default 60).
 - `DOCKER_SOCKET_PATH` — default `/var/run/docker.sock`.
+- `CROWDSEC_CONFIG_LOCAL_PATH` — the app-owned `config.yaml.local` (default
+  `/data/crowdsec/config.yaml.local`); see *Updates tab* below.
 
 The socket is mounted on the **worker** service only, never on `backend`. It is
 root-equivalent on the host, and `backend` is the process taking internet
@@ -393,6 +395,90 @@ docker compose logs crowdsec | grep "99-megoopm-whitelist"
 
 Then save a whitelist unchanged and confirm the container's uptime does **not**
 reset (`docker ps`): a no-op save must not restart CrowdSec.
+
+## Updates tab (hub refresh + community blocklist)
+
+Security → **Updates** owns two things the image does not do on its own.
+
+### Hub refresh
+
+CrowdSec's parsers, scenarios, collections and AppSec rules come from its hub,
+and the official image refreshes them **only when the container starts**
+(`cscli hub update` if the index is older than 24 h, then `cscli hub
+upgrade`). A container that stays up for a month has month-old
+virtual-patching rules.
+
+- **Schedule.** Beat fires `app.tasks.crowdsec.hub_update_tick` at five past
+  every hour. The tick reads the settings (`crowdsec_hub_auto_update`,
+  `crowdsec_hub_update_frequency` daily/weekly, `crowdsec_hub_update_weekday`
+  Monday = 0, `crowdsec_hub_update_hour_utc`) and runs the job when the hour
+  (and, weekly, the weekday) match and it has not already run this hour.
+  Defaults: on, daily, 03:00 UTC. The UI picks the hour in browser-local time.
+- **The job** (`app.tasks.crowdsec.update_hub`, also **Update now**) runs in
+  the container over the docker socket: `cscli hub list -o json`, a tarball
+  of the hub and item directories to `/var/lib/crowdsec/data/megoopm-hub-backup.tgz`,
+  `cscli hub update`, `cscli hub upgrade`, `cscli hub list` again. **Nothing
+  changed → no restart.** Something changed → restart, wait for LAPI; if it
+  does not come back, untar the backup *over* the item directories (the
+  whitelist file is a bind mount and cannot be deleted) and restart again.
+  Rollback is best effort: it restores every file that existed, not files the
+  upgrade added.
+- **Outcome** lives in `crowdsec_job_run` (`kind=hub_update`) and shows on
+  the tab: when, which items changed, whether CrowdSec restarted, the agent
+  version, and the hub's "newer agent available" warning. The image is
+  pinned; items that need a newer agent are skipped silently by `cscli`, so
+  bump the image when the tab says a newer release exists.
+- A Redis lock (`megoopm:crowdsec:hub-update`) stops the schedule and Update
+  now from overlapping; Update now is 409 while a run is open.
+
+### Community blocklist
+
+`DISABLE_ONLINE_API=true` stays in every compose file. The switch works by
+having the app own `config.yaml.local`, which CrowdSec merges over
+`config.yaml` at load time — *after* the entrypoint has deleted
+`online_client`. `app/services/crowdsec/capi.py` renders the file:
+
+- always the `auto_registration` block (the same text as
+  `infra/crowdsec/config.yaml.local`, which `data-init` uses to seed the
+  file — **keep the two in step**);
+- plus, when on, an `online_client` block pointing at
+  `/etc/crowdsec/online_api_credentials.yaml` with `sharing: true` and
+  `pull.community/blocklists: true`.
+
+Turning it on (`app.tasks.crowdsec.apply_capi`): write the file, run `cscli
+capi register -f …` if no credentials exist yet (the override must already be
+on disk — `cscli` refuses otherwise), restart, wait for LAPI, and require
+`cscli capi status` to say "You can successfully interact". Any failure puts
+the previous file back and restarts. Never reference a credentials file that
+does not exist: CrowdSec then fails to start. Turning off removes the block
+and restarts. Credentials persist in the `crowdsec_config` volume, so
+re-enabling does not register a second identity. Once on, the agent pulls
+the blocklist every two hours by itself.
+
+`crowdsec_capi_enabled` is the **desired** state; `crowdsec_job_run
+(kind=capi_apply)` is what was achieved. The tab shows both when they differ.
+
+### Wiring
+
+- `config.yaml.local` is a single-FILE mount out of the data path, seeded by
+  `data-init` from the repo template (mounted read-only at `/seed`):
+  production and dev use an `app_data` volume `subpath` (Docker Engine 26+),
+  HA binds `${SHARED_DATA_PATH}/crowdsec/config.yaml.local`.
+- The worker needs the docker socket and the data path in every stack (dev
+  gained both with this feature).
+- `USE_WAL: "true"` on CrowdSec: inserting the blocklist into a non-WAL
+  SQLite can stall LAPI.
+- Under HA both tasks are routed to `CROWDSEC_CONTROL_NODE_ID`'s queue; unset,
+  the API refuses with 409 and the tab explains why.
+
+### Verifying on a live stack
+
+```bash
+docker compose exec crowdsec cscli hub list          # versions after a run
+docker compose exec crowdsec cscli capi status       # "successfully interact" when on
+docker compose exec crowdsec cat /etc/crowdsec/config.yaml.local
+docker ps --format '{{.Names}} {{.Status}}' | grep crowdsec   # uptime unchanged after an idle run
+```
 
 ## Verifying (QA / live stack)
 

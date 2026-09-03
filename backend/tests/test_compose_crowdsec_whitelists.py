@@ -184,3 +184,56 @@ def test_crowdsec_waits_for_the_seed(compose_file: str) -> None:
     depends = _services(compose_file)["crowdsec"].get("depends_on", {})
     assert "data-init" in depends, f"crowdsec does not wait for data-init in {compose_file}"
     assert depends["data-init"]["condition"] == "service_completed_successfully"
+
+
+# --- Security → Updates: the app-owned config override --------------------------
+
+ALL_COMPOSE = ["docker-compose.yml", "docker-compose.dev.yml", "docker-compose.ha.yml"]
+CONFIG_LOCAL_TARGET = "/etc/crowdsec/config.yaml.local"
+
+
+def _sources_for(mounts: list, target: str) -> list[str]:
+    """The source (host path, volume, or volume+subpath) of every mount at ``target``."""
+    out = []
+    for m in mounts:
+        if isinstance(m, str):
+            # `${SHARED_DATA_PATH:?}/x:/etc/x:ro` — the source can carry a ":" of
+            # its own, so find the target segment and take everything before it.
+            parts = m.split(":")
+            if target in parts:
+                out.append(":".join(parts[: parts.index(target)]))
+        elif m.get("target") == target:
+            out.append(f"{m.get('source')}:{(m.get('volume') or {}).get('subpath', '')}")
+    return out
+
+
+@pytest.mark.parametrize("compose_file", ALL_COMPOSE)
+def test_crowdsec_mounts_the_app_owned_config_local(compose_file: str) -> None:
+    services = _services(compose_file)
+    sources = _sources_for(services["crowdsec"]["volumes"], CONFIG_LOCAL_TARGET)
+    assert len(sources) == 1, sources
+    # The app-owned file under the data path, never the repo template.
+    assert "infra/crowdsec" not in sources[0]
+    assert "crowdsec/config.yaml.local" in sources[0]
+
+
+@pytest.mark.parametrize("compose_file", ALL_COMPOSE)
+def test_data_init_seeds_config_local(compose_file: str) -> None:
+    services = _services(compose_file)
+    command = " ".join(services["data-init"]["command"])
+    assert "config.yaml.local" in command
+    # Seeded from the repo template, mounted read-only for that purpose.
+    assert any(v.endswith("/seed/config.yaml.local:ro") for v in services["data-init"]["volumes"])
+
+
+@pytest.mark.parametrize("compose_file", ALL_COMPOSE)
+def test_crowdsec_uses_wal(compose_file: str) -> None:
+    services = _services(compose_file)
+    assert services["crowdsec"]["environment"]["USE_WAL"] == "true"
+
+
+def test_dev_worker_can_reach_the_socket_and_the_data_path() -> None:
+    services = _services("docker-compose.dev.yml")
+    volumes = services["worker"]["volumes"]
+    assert "/var/run/docker.sock:/var/run/docker.sock:ro" in volumes
+    assert "app_data:/data" in volumes
