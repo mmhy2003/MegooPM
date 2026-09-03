@@ -69,22 +69,32 @@ def _create_token(
     return jwt.encode(payload, settings.secret_key, algorithm=settings.jwt_algorithm)
 
 
-def create_access_token(subject: str | int, role: str) -> str:
-    """Issue a short-lived access token carrying the user's ``role``."""
+def create_access_token(subject: str | int, role: str, *, token_version: int) -> str:
+    """Issue a short-lived access token carrying the user's ``role``.
+
+    ``tv`` is the user's token_version at issue. Access tokens are not checked
+    against it — they live minutes — but carrying it keeps both token types the
+    same shape, and a future check costs no re-issue.
+    """
     return _create_token(
         subject=str(subject),
         token_type="access",
         expires_delta=timedelta(minutes=settings.access_token_expire_minutes),
-        extra_claims={"role": role},
+        extra_claims={"role": role, "tv": token_version},
     )
 
 
-def create_refresh_token(subject: str | int) -> str:
-    """Issue a longer-lived refresh token (no role claim; role is re-read on use)."""
+def create_refresh_token(subject: str | int, *, token_version: int) -> str:
+    """Issue a longer-lived refresh token (no role claim; role is re-read on use).
+
+    ``tv`` is what lets a password change end this session: refresh refuses a
+    token whose version no longer matches the user's.
+    """
     return _create_token(
         subject=str(subject),
         token_type="refresh",
         expires_delta=timedelta(minutes=settings.refresh_token_expire_minutes),
+        extra_claims={"tv": token_version},
     )
 
 

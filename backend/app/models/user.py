@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import enum
 
-from sqlalchemy import Boolean, Enum, String
+from sqlalchemy import Boolean, Enum, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
@@ -45,6 +45,13 @@ class User(IdMixin, TimestampMixin, Base):
     )
     is_active: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=True, server_default="true"
+    )
+    # Bumped on every password change. Both token types carry the value at
+    # issue; refresh refuses a mismatch, so a reset ends every session the
+    # user had open instead of leaving them for seven days. (Deactivation is
+    # handled separately: refresh already refuses an inactive user.)
+    token_version: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default="0"
     )
 
     @property

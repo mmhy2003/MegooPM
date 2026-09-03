@@ -11,6 +11,7 @@ from app.core.security import (
     create_refresh_token,
     decode_token,
 )
+from app.models.user import User
 from app.schemas.auth import LoginRequest, RefreshRequest, TokenPair
 from app.schemas.user import UserRead
 from app.services import user as user_service
@@ -18,10 +19,12 @@ from app.services import user as user_service
 router = APIRouter(tags=["auth"])
 
 
-def _issue_tokens(user_id: int, role: str) -> TokenPair:
+def _issue_tokens(user: User) -> TokenPair:
     return TokenPair(
-        access_token=create_access_token(user_id, role),
-        refresh_token=create_refresh_token(user_id),
+        access_token=create_access_token(
+            user.id, user.role.value, token_version=user.token_version
+        ),
+        refresh_token=create_refresh_token(user.id, token_version=user.token_version),
     )
 
 
@@ -38,7 +41,7 @@ async def login(
             detail="Incorrect email or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    return _issue_tokens(user.id, user.role.value)
+    return _issue_tokens(user)
 
 
 @router.post("/refresh", response_model=TokenPair)
@@ -65,7 +68,12 @@ async def refresh(
     user = await user_service.get_by_id(db, user_id)
     if user is None or not user.is_active:
         raise invalid
-    return _issue_tokens(user.id, user.role.value)
+    # A password change bumps the user's version; a refresh token minted
+    # before it carries the old one. Refusing here is what makes "reset my
+    # password" also mean "end the sessions I did not start".
+    if payload.get("tv") != user.token_version:
+        raise invalid
+    return _issue_tokens(user)
 
 
 @router.get("/me", response_model=UserRead)

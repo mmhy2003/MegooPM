@@ -102,3 +102,106 @@ async def test_access_token_cannot_be_used_as_bearer_when_deactivated(
 
     resp = await db_client.get(ME, headers={"Authorization": f"Bearer {member_token}"})
     assert resp.status_code == 401
+
+
+# --- token_version: a password change ends existing sessions ---------------
+
+
+async def _login(db_client: AsyncClient, email: str, password: str) -> dict:
+    resp = await db_client.post(LOGIN, json={"email": email, "password": password})
+    assert resp.status_code == 200, resp.text
+    return resp.json()
+
+
+async def test_refresh_is_refused_after_the_password_changes(
+    db_client: AsyncClient, admin_user: User, session_factory
+) -> None:
+    # The scenario this exists for: someone resets their password because they
+    # believe they are compromised. The attacker's refresh token must die.
+    tokens = await _login(db_client, admin_user.email, "adminpass123")
+
+    from app.services import user as user_service
+
+    async with session_factory() as session:
+        user = await user_service.get_by_id(session, admin_user.id)
+        await user_service.set_password(session, user, "newpass12345")
+
+    resp = await db_client.post(REFRESH, json={"refresh_token": tokens["refresh_token"]})
+    assert resp.status_code == 401
+
+
+async def test_refresh_still_works_when_nothing_changed(
+    db_client: AsyncClient, admin_user: User
+) -> None:
+    tokens = await _login(db_client, admin_user.email, "adminpass123")
+    resp = await db_client.post(REFRESH, json={"refresh_token": tokens["refresh_token"]})
+    assert resp.status_code == 200, resp.text
+
+
+async def test_self_service_change_ends_other_sessions(
+    db_client: AsyncClient, admin_user: User
+) -> None:
+    first = await _login(db_client, admin_user.email, "adminpass123")
+    second = await _login(db_client, admin_user.email, "adminpass123")
+
+    resp = await db_client.put(
+        "/api/v1/users/me/password",
+        headers={"Authorization": f"Bearer {second['access_token']}"},
+        json={"new_password": "newpass12345"},
+    )
+    assert resp.status_code == 204, resp.text
+
+    # The *other* session's refresh is dead.
+    resp = await db_client.post(REFRESH, json={"refresh_token": first["refresh_token"]})
+    assert resp.status_code == 401
+
+
+async def test_admin_reset_ends_the_target_users_sessions(
+    db_client: AsyncClient, admin_user: User, member_user: User, admin_token: str
+) -> None:
+    member = await _login(db_client, member_user.email, "memberpass123")
+
+    resp = await db_client.put(
+        f"/api/v1/users/{member_user.id}/password",
+        headers={"Authorization": f"Bearer {admin_token}"},
+        json={"password": "newpass12345"},
+    )
+    assert resp.status_code == 204, resp.text
+
+    resp = await db_client.post(REFRESH, json={"refresh_token": member["refresh_token"]})
+    assert resp.status_code == 401
+
+
+async def test_deactivation_ends_sessions(
+    db_client: AsyncClient, admin_user: User, member_user: User, admin_token: str
+) -> None:
+    # Already true before token_version existed: refresh refuses an inactive
+    # user outright. Kept as a guard so the guarantee is stated, not assumed.
+    member = await _login(db_client, member_user.email, "memberpass123")
+
+    resp = await db_client.patch(
+        f"/api/v1/users/{member_user.id}",
+        headers={"Authorization": f"Bearer {admin_token}"},
+        json={"is_active": False},
+    )
+    assert resp.status_code == 200, resp.text
+
+    resp = await db_client.post(REFRESH, json={"refresh_token": member["refresh_token"]})
+    assert resp.status_code == 401
+
+
+async def test_access_token_is_not_checked_against_the_version(
+    db_client: AsyncClient, admin_user: User, session_factory
+) -> None:
+    # Deliberate: a database read on every authenticated request is not worth
+    # it for a token that lives minutes. The spec records this as a known limit.
+    tokens = await _login(db_client, admin_user.email, "adminpass123")
+
+    from app.services import user as user_service
+
+    async with session_factory() as session:
+        user = await user_service.get_by_id(session, admin_user.id)
+        await user_service.set_password(session, user, "newpass12345")
+
+    resp = await db_client.get(ME, headers={"Authorization": f"Bearer {tokens['access_token']}"})
+    assert resp.status_code == 200

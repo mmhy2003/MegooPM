@@ -219,16 +219,35 @@ async def update_user(
     return user, changes
 
 
+async def bump_token_version(db: AsyncSession, user: User) -> None:
+    """End every session ``user`` has open. Commits.
+
+    Refresh refuses a token whose ``tv`` claim no longer matches. Called from
+    every path that changes a password — three ways to change a password where
+    one ends sessions and two do not is a rule nobody would remember.
+    """
+    user.token_version += 1
+    await db.commit()
+
+
 async def set_password(db: AsyncSession, user: User, password: str) -> None:
-    """Replace ``user``'s password (admin reset — no current-password check)."""
+    """Replace ``user``'s password (admin reset — no current-password check).
+
+    Bumps ``token_version``: a new password must also end the sessions that
+    were opened with the old one."""
     user.hashed_password = hash_password(password)
+    user.token_version += 1
     await db.commit()
 
 
 async def change_own_password(db: AsyncSession, user: User, *, new_password: str) -> None:
     """Self-service change. No current-password check by design: holding a
-    valid session for ``user`` is the only proof required."""
+    valid session for ``user`` is the only proof required.
+
+    Bumps ``token_version`` so every *other* session ends; the caller's own
+    access token keeps working until it expires."""
     user.hashed_password = hash_password(new_password)
+    user.token_version += 1
     await db.commit()
 
 
@@ -244,6 +263,7 @@ __all__ = [
     "UserProtectionError",
     "assert_no_lockout",
     "authenticate",
+    "bump_token_version",
     "change_own_password",
     "count_active_admins",
     "create_user",

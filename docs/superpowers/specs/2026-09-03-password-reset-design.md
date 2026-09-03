@@ -166,11 +166,12 @@ Today the attacker's session survives it for up to seven days.
   reset, `PUT /users/me/password`, and `PUT /users/{id}/password`. Three ways to
   change a password, one of which ends sessions and two of which do not, is a
   rule nobody would remember.
-- It is **also bumped when a user is deactivated**. Not in the approved design,
-  added here because it is the same hole — `is_active = false` today leaves the
-  session running until the refresh token expires — and it is one line inside
-  a code path this project already touches. Flagged so the reviewer can strike
-  it.
+- It is **not** bumped on deactivation, and does not need to be: `/auth/refresh`
+  already refuses an inactive user outright, so `is_active = false` ends
+  refresh today. An earlier draft of this spec claimed otherwise; the test
+  written for it passed before any implementation existed, which is how the
+  claim was found to be wrong. The test stays, as a guard on a guarantee that
+  was previously only assumed.
 
 A stale `tv` on refresh is indistinguishable, to the client, from an expired
 refresh token: it lands on the login page. That is the intended outcome.
@@ -248,8 +249,8 @@ from one IP is 429; both counters expire; Redis unreachable is 503, not 202.
 forwarded address; a public one ignores the header.
 
 **`token_version`**: a refresh with a stale `tv` is 401; each of the three
-password paths bumps it; deactivation bumps it; an access token with a stale
-`tv` still works until it expires.
+password paths bumps it; deactivation ends refresh (already true, now
+guarded); an access token with a stale `tv` still works until it expires.
 
 **The task is registered.** The existing guard in `test_analytics_tasks.py`
 checks only tasks named in `beat_schedule`; this one is dispatched with
@@ -273,8 +274,7 @@ refuses mismatched passwords before sending anything.
 - `app/core/client_ip.py` (new)
 - `app/services/auth_tokens.py` (new) — issue, redeem, supersede
 - `app/services/rate_limit.py` (new)
-- `app/services/user.py` — bump on `set_password`, `change_own_password`,
-  and deactivation
+- `app/services/user.py` — bump on `set_password`, `change_own_password`
 - `app/api/routes/auth.py` — the three routes; the `tv` check on refresh
 - `app/tasks/mail.py` (new); `app/core/celery_app.py` — `TASK_MODULES`
 - `app/services/mail/templates/password_reset.{html,txt}.j2`,
