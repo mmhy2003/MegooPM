@@ -129,7 +129,6 @@ class AuditAction(enum.StrEnum):
     disable = "disable"
 
 
-
 class SmtpSecurity(enum.StrEnum):
     """How the SMTP connection is secured."""
 
@@ -147,6 +146,26 @@ class AuthTokenKind(enum.StrEnum):
     password_reset = "password_reset"
     invitation = "invitation"
 
+
+class HubUpdateFrequency(enum.StrEnum):
+    """How often the CrowdSec hub is refreshed."""
+
+    daily = "daily"
+    weekly = "weekly"
+
+
+class CrowdSecJobKind(enum.StrEnum):
+    """The maintenance jobs that record an outcome in ``crowdsec_job_run``."""
+
+    hub_update = "hub_update"
+    capi_apply = "capi_apply"
+
+
+class CrowdSecJobTrigger(enum.StrEnum):
+    scheduled = "scheduled"
+    manual = "manual"
+
+
 __all__ = [
     "LoadBalanceMethod",
     "WhitelistKind",
@@ -159,4 +178,7 @@ __all__ = [
     "AuditAction",
     "SmtpSecurity",
     "AuthTokenKind",
+    "HubUpdateFrequency",
+    "CrowdSecJobKind",
+    "CrowdSecJobTrigger",
 ]

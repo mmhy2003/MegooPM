@@ -16,7 +16,12 @@ from sqlalchemy import BigInteger, Boolean, CheckConstraint, Enum, ForeignKey, I
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
-from app.models.enums import CrowdSecBanMode, DefaultSiteMode, SmtpSecurity
+from app.models.enums import (
+    CrowdSecBanMode,
+    DefaultSiteMode,
+    HubUpdateFrequency,
+    SmtpSecurity,
+)
 from app.models.mixins import TimestampMixin
 
 
@@ -136,6 +141,35 @@ class InstanceSettings(TimestampMixin, Base):
     # sets it in the same sitting as the mail server. Password reset and
     # invitations will build links with it; passkeys derive the RP ID from it.
     app_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    # --- CrowdSec maintenance (Security → Updates) ---------------------------
+    # The hub refresh schedule. Hour is UTC; the UI converts. Defaults give a
+    # fresh install current rules at a quiet hour without visiting the tab.
+    crowdsec_hub_auto_update: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=True, server_default="true"
+    )
+    crowdsec_hub_update_frequency: Mapped[HubUpdateFrequency] = mapped_column(
+        Enum(
+            HubUpdateFrequency,
+            name="hub_update_frequency",
+            values_callable=lambda e: [m.value for m in e],
+        ),
+        nullable=False,
+        default=HubUpdateFrequency.daily,
+        server_default="daily",
+    )
+    # Monday = 0. Only consulted when the frequency is weekly.
+    crowdsec_hub_update_weekday: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=6, server_default="6"
+    )
+    crowdsec_hub_update_hour_utc: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=3, server_default="3"
+    )
+    # Desired state of the community blocklist. What was *achieved* lives in
+    # crowdsec_job_run(kind=capi_apply); the UI shows both when they differ.
+    crowdsec_capi_enabled: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default="false"
+    )
 
 
 __all__ = ["InstanceSettings"]

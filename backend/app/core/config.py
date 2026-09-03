@@ -197,6 +197,10 @@ class Settings(BaseSettings):
     # docs/crowdsec.md. Written in place, never replaced, because the mount is
     # pinned to the inode the container saw at start.
     crowdsec_whitelist_path: str = "/data/crowdsec/whitelists/megoopm.yaml"
+    # The app-owned CrowdSec config override (merged over config.yaml at load).
+    # Seeded by data-init from infra/crowdsec/config.yaml.local and bind-mounted
+    # into the container; the community-blocklist switch rewrites it.
+    crowdsec_config_local_path: str = "/data/crowdsec/config.yaml.local"
     # Applying a whitelist restarts CrowdSec so it re-reads its parsers. That
     # container runs only on the control-plane node (compose profile
     # "control-plane") while workers run everywhere, so this names the node

@@ -21,6 +21,7 @@ from app.main import app
 from app.models.audit_log import AuditLog
 from app.models.auth_token import AuthToken
 from app.models.crowdsec import CrowdSecCredential
+from app.models.crowdsec_job_run import CrowdSecJobRun
 from app.models.dns_credential import DnsProviderCredential
 from app.models.instance_settings import InstanceSettings
 from app.models.passkey import Passkey
@@ -99,6 +100,7 @@ async def session_factory() -> AsyncIterator[async_sessionmaker]:
                 InstanceSettings.__table__,
                 RecoveryCode.__table__,
                 Passkey.__table__,
+                CrowdSecJobRun.__table__,
             ],
         )
 

@@ -19,6 +19,7 @@ from app.models.cluster_state import (  # noqa: F401
     ClusterSweep,
 )
 from app.models.crowdsec import CrowdSecCredential  # noqa: F401
+from app.models.crowdsec_job_run import CrowdSecJobRun  # noqa: F401
 from app.models.crowdsec_whitelist import (  # noqa: F401
     CrowdSecWhitelist,
     CrowdSecWhitelistApply,
@@ -49,6 +50,7 @@ __all__ = [
     "ClusterState",
     "ClusterSweep",
     "CrowdSecCredential",
+    "CrowdSecJobRun",
     "CrowdSecWhitelist",
     "CrowdSecWhitelistApply",
     "CustomPage",
