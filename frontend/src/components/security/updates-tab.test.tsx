@@ -57,6 +57,10 @@ describe("UpdatesTab schedule", () => {
     render(<UpdatesTab />);
     const save = await screen.findByRole("button", { name: /save schedule/i });
     expect(save).toBeDisabled();
+    // The triggers show labels, not raw values ("daily", "6").
+    expect(screen.getByText("Daily")).toBeInTheDocument();
+    expect(screen.queryByText(/^daily$/)).not.toBeInTheDocument();
+    expect(screen.getByText(/^\d\d:00$/)).toBeInTheDocument();
     await user.click(screen.getByRole("switch", { name: /update detection rules automatically/i }));
     expect(save).toBeEnabled();
   });

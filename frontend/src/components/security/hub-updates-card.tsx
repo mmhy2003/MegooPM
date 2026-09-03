@@ -43,6 +43,15 @@ function pad(h: number): string {
   return `${String(h).padStart(2, "0")}:00`;
 }
 
+// base-ui's SelectValue shows the raw value unless the root knows the labels.
+const FREQUENCY_LABELS: Record<HubUpdateFrequency, string> = { daily: "Daily", weekly: "Weekly" };
+const WEEKDAY_ITEMS: Record<string, string> = Object.fromEntries(
+  WEEKDAYS.map((n, i) => [String(i), n]),
+);
+const HOUR_ITEMS: Record<string, string> = Object.fromEntries(
+  HOURS.map((h) => [String(h), pad(h)]),
+);
+
 export function HubUpdatesCard({
   settings,
   run,
@@ -123,7 +132,11 @@ export function HubUpdatesCard({
         <div className="grid gap-3 sm:grid-cols-3">
           <div className="space-y-1.5">
             <Label htmlFor="hub-frequency">Frequency</Label>
-            <Select value={frequency} onValueChange={(v) => setFrequency(v as HubUpdateFrequency)}>
+            <Select
+              value={frequency}
+              onValueChange={(v) => setFrequency(v as HubUpdateFrequency)}
+              items={FREQUENCY_LABELS}
+            >
               <SelectTrigger id="hub-frequency" disabled={!auto || saving}>
                 <SelectValue />
               </SelectTrigger>
@@ -136,7 +149,11 @@ export function HubUpdatesCard({
           {frequency === "weekly" ? (
             <div className="space-y-1.5">
               <Label htmlFor="hub-weekday">Day</Label>
-              <Select value={String(weekday)} onValueChange={(v) => setWeekday(Number(v))}>
+              <Select
+                value={String(weekday)}
+                onValueChange={(v) => setWeekday(Number(v))}
+                items={WEEKDAY_ITEMS}
+              >
                 <SelectTrigger id="hub-weekday" disabled={!auto || saving}>
                   <SelectValue />
                 </SelectTrigger>
@@ -152,7 +169,11 @@ export function HubUpdatesCard({
           ) : null}
           <div className="space-y-1.5">
             <Label htmlFor="hub-hour">Time</Label>
-            <Select value={String(hourLocal)} onValueChange={(v) => setHourLocal(Number(v))}>
+            <Select
+              value={String(hourLocal)}
+              onValueChange={(v) => setHourLocal(Number(v))}
+              items={HOUR_ITEMS}
+            >
               <SelectTrigger id="hub-hour" disabled={!auto || saving}>
                 <SelectValue />
               </SelectTrigger>

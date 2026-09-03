@@ -237,3 +237,11 @@ def test_dev_worker_can_reach_the_socket_and_the_data_path() -> None:
     volumes = services["worker"]["volumes"]
     assert "/var/run/docker.sock:/var/run/docker.sock:ro" in volumes
     assert "app_data:/data" in volumes
+
+
+@pytest.mark.parametrize("compose_file", ALL_COMPOSE)
+def test_worker_carries_the_docker_socket_group(compose_file: str) -> None:
+    # uid 1000 + a root:docker 0660 socket = EACCES on every reload without this.
+    services = _services(compose_file)
+    groups = services["worker"].get("group_add") or []
+    assert any("DOCKER_GID" in str(g) for g in groups), groups

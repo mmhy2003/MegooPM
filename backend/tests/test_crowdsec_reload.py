@@ -212,9 +212,7 @@ def test_a_failed_restart_puts_the_previous_file_back(tmp_path: Path) -> None:
 def test_invalid_entry_never_reaches_the_file(tmp_path: Path) -> None:
     path = tmp_path / "megoopm.yaml"
     path.write_text("# seed\n", encoding="utf-8")
-    bad = WhitelistDoc(
-        name="bad", reason="typo", description="", ips=["10.10.0.999"], cidrs=[]
-    )
+    bad = WhitelistDoc(name="bad", reason="typo", description="", ips=["10.10.0.999"], cidrs=[])
     rec = _Recorder(healthy=True)
 
     result = apply_whitelists_to_disk(
@@ -225,3 +223,18 @@ def test_invalid_entry_never_reaches_the_file(tmp_path: Path) -> None:
     assert "10.10.0.999" in result.error
     assert path.read_text(encoding="utf-8") == "# seed\n"
     assert rec.restarts == 0
+
+
+def test_permission_denied_names_the_fix() -> None:
+    # Seen on a real HA host: the socket is mounted, the worker is uid 1000,
+    # and the errno alone sent the operator to check the container name.
+    def handler(request: httpx.Request) -> httpx.Response:
+        raise httpx.ConnectError("[Errno 13] Permission denied")
+
+    with pytest.raises(CrowdSecReloadError, match="DOCKER_GID"):
+        restart_container(
+            "megoopm-crowdsec-1",
+            socket_path="/var/run/docker.sock",
+            timeout_seconds=30,
+            transport=httpx.MockTransport(handler),
+        )

@@ -28,6 +28,29 @@ class CrowdSecReloadError(RuntimeError):
     """The CrowdSec container could not be restarted."""
 
 
+_EACCES_HINT = (
+    " The worker cannot open the socket: it runs as uid 1000 and the socket is "
+    "root:docker. Set DOCKER_GID to the socket's group id "
+    "(stat -c %g /var/run/docker.sock) and recreate the worker."
+)
+
+
+def _connect_failure(where: str, verb: str, exc: httpx.HTTPError) -> CrowdSecReloadError:
+    """One wording for every failure to reach the daemon, with the EACCES fix named.
+
+    "Permission denied" on the socket has exactly one cause in this stack, and
+    a bare errno would send the operator to the wrong place (the container
+    name, the mount) first.
+    """
+    detail = str(exc) or "no detail"
+    message = (
+        f"Could not reach the docker daemon to {verb} {where}: {type(exc).__name__} — {detail}"
+    )
+    if "Permission denied" in detail or "Errno 13" in detail:
+        message += _EACCES_HINT
+    return CrowdSecReloadError(message)
+
+
 def restart_container(
     name: str,
     *,
@@ -56,10 +79,7 @@ def restart_container(
                 params={"t": _STOP_GRACE_SECONDS},
             )
     except httpx.HTTPError as exc:
-        detail = str(exc) or "no detail"
-        raise CrowdSecReloadError(
-            f"Could not reach the docker daemon to restart {where}: {type(exc).__name__} — {detail}"
-        ) from exc
+        raise _connect_failure(where, "restart", exc) from exc
 
     # 204 = restarting; 304 = already in the requested state.
     if resp.status_code not in (httpx.codes.NO_CONTENT, httpx.codes.NOT_MODIFIED):
@@ -119,10 +139,7 @@ def exec_in_container(
             inspected = client.get(f"/{_DOCKER_API}/exec/{exec_id}/json")
             exit_code = int(inspected.json().get("ExitCode") or 0)
     except httpx.HTTPError as exc:
-        detail = str(exc) or "no detail"
-        raise CrowdSecReloadError(
-            f"Could not reach the docker daemon to exec in {where}: {type(exc).__name__} — {detail}"
-        ) from exc
+        raise _connect_failure(where, "exec in", exc) from exc
     return ExecResult(exit_code=exit_code, output=output)
 
 

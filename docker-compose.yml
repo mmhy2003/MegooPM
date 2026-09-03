@@ -120,6 +120,11 @@ services:
     build: ./backend
     restart: unless-stopped
     command: ["celery", "-A", "app.core.celery_app.celery_app", "worker", "--loglevel=info"]
+    # The worker runs as uid 1000 and the host's docker socket is root:docker
+    # 0660, so the worker must carry the socket's group or every reload and
+    # cscli call fails with EACCES. DOCKER_GID = `stat -c %g /var/run/docker.sock`.
+    group_add:
+      - "${DOCKER_GID:-999}"
     environment:
       <<: *backend-env
       RUN_MIGRATIONS: "0"

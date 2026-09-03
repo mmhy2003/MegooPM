@@ -373,6 +373,10 @@ correctly but renders an expression unreadable in the dialog's preview.
 - `CROWDSEC_RELOAD_HEALTH_TIMEOUT_SECONDS` — how long to wait for LAPI after a
   restart before rolling back (default 60).
 - `DOCKER_SOCKET_PATH` — default `/var/run/docker.sock`.
+- `DOCKER_GID` — the socket's group id (`stat -c %g /var/run/docker.sock`,
+  usually 999 or 998). The worker runs as uid 1000 and the socket is
+  `root:docker 0660`; without the group every reload and `cscli` call fails
+  with `[Errno 13] Permission denied`. Recreate the worker after changing it.
 - `CROWDSEC_CONFIG_LOCAL_PATH` — the app-owned `config.yaml.local` (default
   `/data/crowdsec/config.yaml.local`); see *Updates tab* below.
 
