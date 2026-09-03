@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   CircleCheck,
   LayoutDashboard,
@@ -43,7 +43,9 @@ import { WhitelistsTable } from "@/components/security/whitelists-table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { SearchInput } from "@/components/ui/search-input";
 import { Skeleton } from "@/components/ui/skeleton";
+import { filterBySearch } from "@/lib/search";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsList, TabsPanel, TabsTab } from "@/components/ui/tabs";
 import {
@@ -181,6 +183,14 @@ export function SecurityView() {
   const [whitelists, setWhitelists] = useState<Whitelist[]>([]);
   const [wlStatus, setWlStatus] = useState<WhitelistApplyStatus | null>(null);
   const [wlDialog, setWlDialog] = useState<{ row: Whitelist | null } | null>(null);
+  const [wlQuery, setWlQuery] = useState("");
+
+  // Name and expressions: an expression whitelist's name rarely says what it
+  // actually matches, so the rule text has to be searchable.
+  const visibleWhitelists = useMemo(
+    () => filterBySearch(whitelists, wlQuery, (w) => [w.name, ...w.expressions]),
+    [whitelists, wlQuery],
+  );
 
   // Restore the persisted toggle once, after mount. SSR renders the OFF default
   // (no `window`), so this post-mount read is the correct place to hydrate a
@@ -591,13 +601,21 @@ export function SecurityView() {
           {wlStatus ? (
             <WhitelistStatusBanner status={wlStatus} onRetry={retryWhitelistApply} />
           ) : null}
-          <div className="flex justify-end">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <SearchInput
+              value={wlQuery}
+              onValueChange={setWlQuery}
+              label="Search whitelists"
+              placeholder="Name or expression"
+            />
             <Button size="sm" onClick={() => setWlDialog({ row: null })}>
               <Plus /> Add whitelist
             </Button>
           </div>
           <WhitelistsTable
-            rows={whitelists}
+            rows={visibleWhitelists}
+            query={wlQuery}
+            onClearSearch={() => setWlQuery("")}
             onToggle={toggleWhitelist}
             onEdit={(row) => setWlDialog({ row })}
             onDelete={deleteWhitelist}

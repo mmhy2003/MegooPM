@@ -223,3 +223,66 @@ describe("SecurityView dashboard tab", () => {
     expect(screen.getByText("LAPI unreachable")).toBeInTheDocument();
   });
 });
+
+describe("SecurityView whitelist search", () => {
+  beforeEach(() => {
+    vi.spyOn(crowdsec, "health").mockResolvedValue(healthOk as never);
+    vi.spyOn(crowdsec, "listDecisions").mockResolvedValue(decisionList(120) as never);
+    vi.spyOn(crowdsec, "listAlerts").mockResolvedValue(emptyAlerts as never);
+    vi.spyOn(crowdsec, "whitelistStatus").mockResolvedValue({
+      ok: true,
+      error: null,
+      applied_at: null,
+      reload_configured: true,
+    } as never);
+  });
+
+  afterEach(() => {
+    cleanup();
+    vi.restoreAllMocks();
+  });
+
+  it("narrows the whitelists table", async () => {
+    const user = userEvent.setup();
+    vi.spyOn(crowdsec, "listWhitelists").mockResolvedValue([
+      {
+        id: 1,
+        name: "office",
+        kind: "ip_cidr",
+        reason: "our egress",
+        description: "",
+        ips: ["203.0.113.4"],
+        cidrs: [],
+        filter: null,
+        expressions: [],
+        enabled: true,
+        created_at: "2026-09-01T00:00:00Z",
+        updated_at: "2026-09-01T00:00:00Z",
+      },
+      {
+        id: 2,
+        name: "monitoring",
+        kind: "expression",
+        reason: "uptime checks",
+        description: "",
+        ips: [],
+        cidrs: [],
+        filter: null,
+        expressions: ["evt.Parsed.http_user_agent contains 'uptime'"],
+        enabled: true,
+        created_at: "2026-09-01T00:00:00Z",
+        updated_at: "2026-09-01T00:00:00Z",
+      },
+    ] as never);
+    render(<SecurityView />);
+    await user.click(await screen.findByRole("tab", { name: /whitelists/i }));
+    const box = await screen.findByRole("searchbox", { name: "Search whitelists" });
+
+    // Matching the expression, not the name: an expression whitelist's name
+    // rarely says what it actually matches.
+    await user.type(box, "uptime");
+
+    expect(screen.getByText("monitoring")).toBeInTheDocument();
+    expect(screen.queryByText("office")).not.toBeInTheDocument();
+  });
+});

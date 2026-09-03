@@ -112,3 +112,50 @@ describe("WhitelistsTable", () => {
     expect(screen.getByText(/No whitelists yet/i)).toBeInTheDocument();
   });
 });
+
+describe("WhitelistsTable empty states", () => {
+  const noop = async () => {};
+
+  afterEach(() => cleanup());
+
+  it("says 'none yet' when nothing is filtered", () => {
+    render(
+      <WhitelistsTable rows={[]} onToggle={noop} onEdit={() => {}} onDelete={() => {}} />,
+    );
+    expect(screen.getByText(/no whitelists yet/i)).toBeInTheDocument();
+  });
+
+  it("says a search is hiding the rows when one is active", () => {
+    render(
+      <WhitelistsTable
+        rows={[]}
+        query="office"
+        onClearSearch={() => {}}
+        onToggle={noop}
+        onEdit={() => {}}
+        onDelete={() => {}}
+      />,
+    );
+    expect(screen.getByText(/no whitelists match/i)).toBeInTheDocument();
+    expect(screen.queryByText(/no whitelists yet/i)).not.toBeInTheDocument();
+  });
+
+  it("offers a way out of a filter that matches nothing", async () => {
+    const user = userEvent.setup();
+    const onClearSearch = vi.fn();
+    render(
+      <WhitelistsTable
+        rows={[]}
+        query="office"
+        onClearSearch={onClearSearch}
+        onToggle={noop}
+        onEdit={() => {}}
+        onDelete={() => {}}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Clear search" }));
+
+    expect(onClearSearch).toHaveBeenCalled();
+  });
+});

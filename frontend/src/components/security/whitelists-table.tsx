@@ -30,20 +30,39 @@ function coverage(row: Whitelist): string {
 
 export function WhitelistsTable({
   rows,
+  query = "",
+  onClearSearch,
   onToggle,
   onEdit,
   onDelete,
 }: {
   rows: Whitelist[];
+  /** The active search, so the empty state can say which kind of empty it is. */
+  query?: string;
+  onClearSearch?: () => void;
   onToggle: (row: Whitelist, next: boolean) => Promise<void>;
   onEdit: (row: Whitelist) => void;
   onDelete: (row: Whitelist) => void;
 }) {
   if (rows.length === 0) {
+    const searching = query.trim();
     return (
       <p className="text-muted-foreground rounded-lg border border-dashed p-8 text-center text-sm">
-        No whitelists yet. Add one to stop CrowdSec acting on traffic from an
-        address you trust.
+        {searching ? (
+          <>
+            No whitelists match “{searching}”.{" "}
+            <Button
+              variant="link"
+              size="sm"
+              className="h-auto p-0 align-baseline"
+              onClick={onClearSearch}
+            >
+              Clear search
+            </Button>
+          </>
+        ) : (
+          "No whitelists yet. Add one to stop CrowdSec acting on traffic from an address you trust."
+        )}
       </p>
     );
   }
