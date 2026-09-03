@@ -20,17 +20,27 @@ import asyncio
 import time
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from pathlib import Path
 
+import redis
 from sqlalchemy import Connection, select
 
 from app.core.celery_app import celery_app
 from app.core.config import settings
 from app.models.crowdsec_whitelist import CrowdSecWhitelist
+from app.models.enums import CrowdSecJobKind, CrowdSecJobTrigger, HubUpdateFrequency
+from app.models.instance_settings import InstanceSettings
 from app.services.cluster import sync_engine
-from app.services.crowdsec import CrowdSecClient, CrowdSecError
+from app.services.crowdsec import CrowdSecClient, CrowdSecError, capi, hub
 from app.services.crowdsec.apply_state import read_apply_state, record_apply
-from app.services.crowdsec.reload import CrowdSecReloadError, restart_container
+from app.services.crowdsec.job_run import finish_job_run, read_job_run, start_job_run
+from app.services.crowdsec.reload import (
+    CrowdSecReloadError,
+    ExecResult,
+    exec_in_container,
+    restart_container,
+)
 from app.services.crowdsec.whitelists import (
     WhitelistDoc,
     WhitelistValidationError,
@@ -121,9 +131,7 @@ def apply_whitelists_to_disk(
 def _load_docs(conn: Connection) -> list[WhitelistDoc]:
     """Every enabled whitelist, in id order so the render is byte-stable."""
     table = CrowdSecWhitelist.__table__
-    rows = conn.execute(
-        select(table).where(table.c.enabled.is_(True)).order_by(table.c.id)
-    ).all()
+    rows = conn.execute(select(table).where(table.c.enabled.is_(True)).order_by(table.c.id)).all()
     return [
         WhitelistDoc(
             name=row.name,
@@ -184,4 +192,184 @@ def apply_crowdsec_whitelists() -> dict:
         engine.dispose()
 
 
-__all__ = ["ApplyResult", "apply_crowdsec_whitelists", "apply_whitelists_to_disk"]
+# --- maintenance: hub refresh and the community blocklist ------------------------
+
+HUB_LOCK_KEY = "megoopm:crowdsec:hub-update"
+CAPI_LOCK_KEY = "megoopm:crowdsec:capi-apply"
+#: Both jobs talk to the internet and restart a container; well under this.
+_LOCK_TIMEOUT_S = 900
+_EXEC_TIMEOUT_S = 120
+
+
+@dataclass(frozen=True, slots=True)
+class MaintenanceSettings:
+    auto_update: bool
+    frequency: HubUpdateFrequency
+    weekday: int
+    hour_utc: int
+    capi_enabled: bool
+
+
+def _load_maintenance_settings(conn: Connection) -> MaintenanceSettings:
+    table = InstanceSettings.__table__
+    row = conn.execute(select(table).where(table.c.id == 1)).one()
+    return MaintenanceSettings(
+        auto_update=row.crowdsec_hub_auto_update,
+        frequency=HubUpdateFrequency(row.crowdsec_hub_update_frequency),
+        weekday=row.crowdsec_hub_update_weekday,
+        hour_utc=row.crowdsec_hub_update_hour_utc,
+        capi_enabled=row.crowdsec_capi_enabled,
+    )
+
+
+def _now() -> datetime:
+    return datetime.now(UTC)
+
+
+def _lock_client() -> redis.Redis:
+    return redis.Redis.from_url(settings.redis_url)
+
+
+def _container_exec(argv: list[str]) -> ExecResult:
+    return exec_in_container(
+        settings.crowdsec_container_name,
+        argv,
+        socket_path=settings.docker_socket_path,
+        timeout_seconds=_EXEC_TIMEOUT_S,
+    )
+
+
+def _container_restart() -> None:
+    restart_container(
+        settings.crowdsec_container_name,
+        socket_path=settings.docker_socket_path,
+        timeout_seconds=settings.crowdsec_reload_health_timeout_seconds,
+    )
+
+
+def _run_locked(key: str, fn: Callable[[], dict]) -> dict:
+    """Run ``fn`` under a Redis lock, or report that it is already running."""
+    client = _lock_client()
+    lock = client.lock(key, timeout=_LOCK_TIMEOUT_S)
+    try:
+        if not lock.acquire(blocking=False):
+            return {"ran": False, "reason": "already running"}
+        try:
+            return fn()
+        finally:
+            lock.release()
+    finally:
+        client.close()
+
+
+@celery_app.task(name="app.tasks.crowdsec.update_hub")
+def update_hub(trigger: str = "manual") -> dict:
+    """Refresh hub items; restart only if something changed; record the outcome."""
+
+    def _go() -> dict:
+        engine = sync_engine()
+        try:
+            with engine.begin() as conn:
+                start_job_run(
+                    conn,
+                    CrowdSecJobKind.hub_update,
+                    trigger=CrowdSecJobTrigger(trigger),
+                    started_at=_now(),
+                )
+            result = hub.run_hub_update(
+                exec=_container_exec, restart=_container_restart, healthy=_wait_for_lapi
+            )
+            with engine.begin() as conn:
+                finish_job_run(
+                    conn,
+                    CrowdSecJobKind.hub_update,
+                    ok=result.ok,
+                    error=result.error,
+                    restarted=result.restarted,
+                    detail={
+                        "updated": result.updated,
+                        "agent_version": result.agent_version,
+                        "latest_agent_version": result.latest_agent_version,
+                    },
+                    finished_at=_now(),
+                )
+            return result.as_dict()
+        finally:
+            engine.dispose()
+
+    return _run_locked(HUB_LOCK_KEY, _go)
+
+
+@celery_app.task(name="app.tasks.crowdsec.hub_update_tick")
+def hub_update_tick() -> dict:
+    """Hourly: run the hub refresh if this is the configured slot."""
+    engine = sync_engine()
+    try:
+        with engine.begin() as conn:
+            conf = _load_maintenance_settings(conn)
+            last = read_job_run(conn, CrowdSecJobKind.hub_update)
+    finally:
+        engine.dispose()
+    due, reason = hub.is_due(
+        now=_now(),
+        auto_update=conf.auto_update,
+        frequency=conf.frequency,
+        weekday=conf.weekday,
+        hour_utc=conf.hour_utc,
+        last_started_at=last.started_at if last else None,
+    )
+    if not due:
+        return {"ran": False, "reason": reason}
+    outcome = update_hub.run("scheduled")
+    return {"ran": True, **outcome}
+
+
+@celery_app.task(name="app.tasks.crowdsec.apply_capi")
+def apply_capi() -> dict:
+    """Make the container's config match the desired blocklist state."""
+
+    def _go() -> dict:
+        engine = sync_engine()
+        try:
+            with engine.begin() as conn:
+                conf = _load_maintenance_settings(conn)
+                start_job_run(
+                    conn,
+                    CrowdSecJobKind.capi_apply,
+                    trigger=CrowdSecJobTrigger.manual,
+                    started_at=_now(),
+                )
+            result = capi.run_capi_apply(
+                enabled=conf.capi_enabled,
+                path=Path(settings.crowdsec_config_local_path),
+                exec=_container_exec,
+                restart=_container_restart,
+                healthy=_wait_for_lapi,
+            )
+            with engine.begin() as conn:
+                finish_job_run(
+                    conn,
+                    CrowdSecJobKind.capi_apply,
+                    ok=result.ok,
+                    error=result.error,
+                    restarted=result.restarted,
+                    detail={"enabled": result.enabled},
+                    finished_at=_now(),
+                )
+            return result.as_dict()
+        finally:
+            engine.dispose()
+
+    return _run_locked(CAPI_LOCK_KEY, _go)
+
+
+__all__ = [
+    "CAPI_LOCK_KEY",
+    "HUB_LOCK_KEY",
+    "ApplyResult",
+    "apply_capi",
+    "apply_crowdsec_whitelists",
+    "apply_whitelists_to_disk",
+    "hub_update_tick",
+    "update_hub",
+]

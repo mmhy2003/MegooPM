@@ -87,6 +87,13 @@ def create_celery() -> Celery:
             "task": "app.tasks.analytics.prune_visitor_days",
             "schedule": crontab(hour=3, minute=30),
         },
+        "hub-update-tick-hourly": {
+            "task": "app.tasks.crowdsec.hub_update_tick",
+            # The tick decides whether this hour is the configured slot; a
+            # tick that could not run within the hour is worthless.
+            "schedule": crontab(minute=5),
+            "options": {"expires": 3000},
+        },
         "scrape-nginx-metrics": {
             "task": "app.tasks.metrics.scrape_local_nginx",
             "schedule": settings.metrics_scrape_interval_seconds,
@@ -162,6 +169,17 @@ def _configure_ha(celery_app: Celery) -> None:
         # never sampled and the other is counted twice.
         "app.tasks.metrics.scrape_local_nginx": {"queue": own_queue},
     }
+    # CrowdSec maintenance runs where the container and the docker socket
+    # are: the control-plane node. Unset → these stay on the default queue,
+    # which nobody consumes under HA; the API refuses with 409 in that case.
+    if settings.crowdsec_control_node_id:
+        control_queue = node_queue(settings.crowdsec_control_node_id)
+        for name in (
+            "app.tasks.crowdsec.hub_update_tick",
+            "app.tasks.crowdsec.update_hub",
+            "app.tasks.crowdsec.apply_capi",
+        ):
+            celery_app.conf.task_routes[name] = {"queue": control_queue}
     celery_app.conf.beat_schedule["reconcile-nginx-across-nodes"] = {
         "task": "app.tasks.nginx.reconcile_local_nginx",
         "schedule": settings.ha_reconcile_interval_seconds,
