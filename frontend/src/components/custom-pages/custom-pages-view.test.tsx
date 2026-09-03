@@ -73,3 +73,51 @@ describe("CustomPagesView", () => {
     await waitFor(() => expect(customPages.remove).toHaveBeenCalledWith(1));
   });
 });
+
+describe("CustomPagesView search", () => {
+  afterEach(() => {
+    cleanup();
+    vi.restoreAllMocks();
+  });
+
+  it("matches a page by name or description", async () => {
+    const user = userEvent.setup();
+    vi.spyOn(customPages, "list").mockResolvedValue([
+      makeSummary({ id: 1, name: "Maintenance", description: "shown during deploys" }),
+      makeSummary({ id: 2, name: "Banned", description: undefined }),
+    ]);
+    render(<CustomPagesView />);
+    await screen.findByRole("searchbox", { name: "Search custom pages" });
+
+    await user.type(screen.getByRole("searchbox"), "deploys");
+
+    expect(screen.getByText("Maintenance")).toBeInTheDocument();
+    expect(screen.queryByText("Banned")).not.toBeInTheDocument();
+  });
+
+  it("does not choke on a page with no description", async () => {
+    // `description` is optional; a naive matcher throws on the row without one.
+    const user = userEvent.setup();
+    vi.spyOn(customPages, "list").mockResolvedValue([
+      makeSummary({ id: 2, name: "Banned", description: undefined }),
+    ]);
+    render(<CustomPagesView />);
+    await screen.findByRole("searchbox", { name: "Search custom pages" });
+
+    await user.type(screen.getByRole("searchbox"), "banned");
+
+    expect(screen.getByText("Banned")).toBeInTheDocument();
+  });
+
+  it("distinguishes a filtered-empty table from an empty instance", async () => {
+    const user = userEvent.setup();
+    vi.spyOn(customPages, "list").mockResolvedValue([]);
+    render(<CustomPagesView />);
+    await screen.findByRole("searchbox", { name: "Search custom pages" });
+    expect(screen.getByText(/no custom pages yet/i)).toBeInTheDocument();
+
+    await user.type(screen.getByRole("searchbox"), "nonesuch");
+
+    expect(screen.getByText(/no custom pages match/i)).toBeInTheDocument();
+  });
+});

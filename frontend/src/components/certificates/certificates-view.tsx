@@ -34,7 +34,9 @@ import {
 import { DnsCredentialsView } from "@/components/dns-providers/dns-credentials-view";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { SearchInput } from "@/components/ui/search-input";
 import { Skeleton } from "@/components/ui/skeleton";
+import { filterBySearch } from "@/lib/search";
 import { Tabs, TabsList, TabsPanel, TabsTab } from "@/components/ui/tabs";
 import {
   Table,
@@ -105,6 +107,14 @@ export function CertificatesView() {
   const [deleteCert, setDeleteCert] = useState<Certificate | null>(null);
   const [renewingId, setRenewingId] = useState<number | null>(null);
   const [pending, setPending] = useState<PendingTask[]>([]);
+  const [query, setQuery] = useState("");
+
+  // Name and domains — not the provider or status columns, which would make
+  // "active" and "custom" each return a third of the table.
+  const visible = useMemo(
+    () => filterBySearch(certs, query, (c) => [c.name, ...c.domain_names]),
+    [certs, query],
+  );
 
   const abortRef = useRef<AbortController | null>(null);
 
@@ -247,6 +257,15 @@ export function CertificatesView() {
         </div>
       ) : null}
 
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <SearchInput
+          value={query}
+          onValueChange={setQuery}
+          label="Search certificates"
+          placeholder="Certificate name or domain"
+        />
+      </div>
+
       <div className="rounded-xl border">
         <Table>
           <TableHeader>
@@ -263,14 +282,28 @@ export function CertificatesView() {
           <TableBody>
             {loading ? (
               <LoadingRows cols={7} />
-            ) : certs.length === 0 ? (
+            ) : visible.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={7} className="py-10 text-center text-muted-foreground">
-                  No certificates yet. Request one from Let&apos;s Encrypt or upload your own.
+                  {query.trim() ? (
+                    <>
+                      No certificates match “{query.trim()}”.{" "}
+                      <Button
+                        variant="link"
+                        size="sm"
+                        className="h-auto p-0 align-baseline"
+                        onClick={() => setQuery("")}
+                      >
+                        Clear search
+                      </Button>
+                    </>
+                  ) : (
+                    "No certificates yet. Request one from Let’s Encrypt or upload your own."
+                  )}
                 </TableCell>
               </TableRow>
             ) : (
-              certs.map((cert) => {
+              visible.map((cert) => {
                 const canRenew = cert.provider === "letsencrypt";
                 const renewing = renewingId === cert.id;
                 return (

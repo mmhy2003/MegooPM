@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { FileCode2, Pencil, Plus, Trash2 } from "lucide-react";
 
@@ -8,7 +8,9 @@ import { customPages, type CustomPageSummary } from "@/lib/api";
 import { describeError, formatBytes } from "@/components/custom-pages/lib";
 import { ConfirmDeleteDialog } from "@/components/proxy-hosts/confirm-delete-dialog";
 import { Button } from "@/components/ui/button";
+import { SearchInput } from "@/components/ui/search-input";
 import { Skeleton } from "@/components/ui/skeleton";
+import { filterBySearch } from "@/lib/search";
 import {
   Table,
   TableBody,
@@ -53,6 +55,12 @@ export function CustomPagesView() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [deletePage, setDeletePage] = useState<CustomPageSummary | null>(null);
+  const [query, setQuery] = useState("");
+
+  const visible = useMemo(
+    () => filterBySearch(pages, query, (p) => [p.name, p.description]),
+    [pages, query],
+  );
 
   const load = useCallback(async () => {
     try {
@@ -107,6 +115,15 @@ export function CustomPagesView() {
         </div>
       ) : null}
 
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <SearchInput
+          value={query}
+          onValueChange={setQuery}
+          label="Search custom pages"
+          placeholder="Page name or description"
+        />
+      </div>
+
       <div className="rounded-xl border">
         <Table>
           <TableHeader>
@@ -121,15 +138,28 @@ export function CustomPagesView() {
           <TableBody>
             {loading ? (
               <LoadingRows cols={5} />
-            ) : pages.length === 0 ? (
+            ) : visible.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={5} className="py-10 text-center text-muted-foreground">
-                  No custom pages yet. Create one to design a page you can point
-                  at later.
+                  {query.trim() ? (
+                    <>
+                      No custom pages match “{query.trim()}”.{" "}
+                      <Button
+                        variant="link"
+                        size="sm"
+                        className="h-auto p-0 align-baseline"
+                        onClick={() => setQuery("")}
+                      >
+                        Clear search
+                      </Button>
+                    </>
+                  ) : (
+                    "No custom pages yet. Create one to design a page you can point a host at."
+                  )}
                 </TableCell>
               </TableRow>
             ) : (
-              pages.map((page) => (
+              visible.map((page) => (
                 <TableRow key={page.id}>
                   <TableCell className="font-medium">{page.name}</TableCell>
                   <TableCell className="text-muted-foreground">
