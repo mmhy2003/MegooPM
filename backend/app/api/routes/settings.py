@@ -20,6 +20,9 @@ here pays the 3.49s the package costs to load.
 
 from __future__ import annotations
 
+import asyncio
+import time
+
 from fastapi import APIRouter, HTTPException, Response, status
 
 from app.api.deps import AdminUser, SessionDep
@@ -32,10 +35,17 @@ from app.schemas.instance_settings import (
     LlmSettingsUpdate,
     LlmTestRequest,
     LlmTestResult,
+    MailTestRequest,
+    MailTestResult,
+    SmtpSettingsUpdate,
 )
 from app.services import instance_settings as settings_service
 from app.services.audit import record_audit
 from app.services.llm import LlmConfig, check_connection
+from app.services.mail import sender as mail_sender
+from app.services.mail.config import MailNotConfigured
+from app.services.mail.templates import APP_NAME
+from app.services.mail.templates import render as render_email
 
 router = APIRouter(tags=["settings"])
 
@@ -178,6 +188,75 @@ async def test_llm_connection(
         reply=result.reply,
         error=result.error,
         latency_ms=result.latency_ms,
+    )
+
+
+@router.patch("/smtp", response_model=InstanceSettingsRead)
+async def update_smtp_settings(
+    body: SmtpSettingsUpdate, admin: AdminUser, db: SessionDep
+) -> InstanceSettingsRead:
+    """Configure outbound email. Admin-only.
+
+    ``exclude_unset`` is load-bearing: it is what tells the service the
+    difference between "the client did not send a password" and "the client
+    cleared the password".
+    """
+    changes = body.model_dump(exclude_unset=True)
+    row = await settings_service.update_smtp_settings(db, changes)
+    await record_audit(
+        db,
+        actor=admin.email,
+        action=AuditAction.update,
+        object_type="instance_settings",
+        object_id=row.id,
+        # Field names and non-secret values only — never the password.
+        meta={
+            "smtp_enabled": row.smtp_enabled,
+            "smtp_host": row.smtp_host,
+            "smtp_password_changed": "smtp_password" in changes,
+        },
+    )
+    await db.commit()
+    return InstanceSettingsRead.from_row(row)
+
+
+@router.post("/smtp/test", response_model=MailTestResult)
+async def send_test_email(
+    body: MailTestRequest, admin: AdminUser, db: SessionDep
+) -> MailTestResult:
+    """Send one themed test message. Admin-only.
+
+    Synchronous on purpose. The operator is on the Settings page waiting and
+    needs the actual SMTP error — "authentication failed", "connection refused"
+    — not a task id to go and poll. Real notifications will go through Celery
+    instead, so a slow mail server never fails a user-facing action.
+
+    A failed send returns **200 with ``ok: false``**, not a 4xx or 5xx: the API
+    call succeeded, the mail server did not. An error status would make a
+    working endpoint indistinguishable from a broken one in monitoring.
+    """
+    row = await settings_service.get_instance_settings(db)
+    config = settings_service.mail_config_from_row(row)
+    recipient = body.to or admin.email
+    email = render_email("test_email", subject=f"{APP_NAME} test email", app_name=APP_NAME)
+
+    started = time.perf_counter()
+    try:
+        # to_thread because smtplib blocks: without it a slow mail server would
+        # stall the whole event loop, not just this request.
+        await asyncio.to_thread(mail_sender.send_email, config, to=recipient, email=email)
+    except MailNotConfigured as exc:
+        return MailTestResult(ok=False, detail=str(exc))
+    except Exception as exc:  # noqa: BLE001 - any SMTP failure is a result here
+        return MailTestResult(
+            ok=False,
+            detail=f"{type(exc).__name__}: {exc}",
+            latency_ms=int((time.perf_counter() - started) * 1000),
+        )
+    return MailTestResult(
+        ok=True,
+        detail=f"Sent to {recipient}.",
+        latency_ms=int((time.perf_counter() - started) * 1000),
     )
 
 

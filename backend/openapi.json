@@ -2240,8 +2240,19 @@
         "type": "string"
       },
       "InstanceSettingsRead": {
-        "description": "Public representation of the settings singleton.\n\nThe LLM API key is deliberately absent. ``llm_api_key_set`` says whether one\nis stored; the value itself is never returned by any endpoint, so a\ncompromised browser session cannot read it back out.",
+        "description": "Public representation of the settings singleton.\n\nThe LLM API key and the SMTP password are deliberately absent.\n``llm_api_key_set`` and ``smtp_password_set`` say whether one is stored; the\nvalues themselves are never returned by any endpoint, so a compromised\nbrowser session cannot read them back out.",
         "properties": {
+          "app_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "App Url"
+          },
           "crowdsec_ban_mode": {
             "$ref": "#/components/schemas/CrowdSecBanMode"
           },
@@ -2311,6 +2322,65 @@
             ],
             "title": "Llm Model"
           },
+          "smtp_enabled": {
+            "title": "Smtp Enabled",
+            "type": "boolean"
+          },
+          "smtp_from": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Smtp From"
+          },
+          "smtp_from_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Smtp From Name"
+          },
+          "smtp_host": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Smtp Host"
+          },
+          "smtp_password_set": {
+            "title": "Smtp Password Set",
+            "type": "boolean"
+          },
+          "smtp_port": {
+            "title": "Smtp Port",
+            "type": "integer"
+          },
+          "smtp_security": {
+            "$ref": "#/components/schemas/SmtpSecurity"
+          },
+          "smtp_username": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Smtp Username"
+          },
           "updated_at": {
             "format": "date-time",
             "title": "Updated At",
@@ -2327,6 +2397,15 @@
           "llm_model",
           "llm_api_base",
           "llm_api_key_set",
+          "smtp_enabled",
+          "smtp_host",
+          "smtp_port",
+          "smtp_security",
+          "smtp_username",
+          "smtp_password_set",
+          "smtp_from",
+          "smtp_from_name",
+          "app_url",
           "updated_at"
         ],
         "title": "InstanceSettingsRead",
@@ -2610,6 +2689,49 @@
           "password"
         ],
         "title": "LoginRequest",
+        "type": "object"
+      },
+      "MailTestRequest": {
+        "description": "Where to send the test. Omitted means the requesting admin's own address.",
+        "properties": {
+          "to": {
+            "anyOf": [
+              {
+                "format": "email",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "To"
+          }
+        },
+        "title": "MailTestRequest",
+        "type": "object"
+      },
+      "MailTestResult": {
+        "description": "The send's outcome. ``ok: false`` still returns HTTP 200 — see the route.",
+        "properties": {
+          "detail": {
+            "default": "",
+            "title": "Detail",
+            "type": "string"
+          },
+          "latency_ms": {
+            "default": 0,
+            "title": "Latency Ms",
+            "type": "integer"
+          },
+          "ok": {
+            "title": "Ok",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "ok"
+        ],
+        "title": "MailTestResult",
         "type": "object"
       },
       "NginxConfigFile": {
@@ -3900,6 +4022,107 @@
           "top_scenarios"
         ],
         "title": "SecuritySummary",
+        "type": "object"
+      },
+      "SmtpSecurity": {
+        "description": "How the SMTP connection is secured.",
+        "enum": [
+          "starttls",
+          "ssl",
+          "none"
+        ],
+        "title": "SmtpSecurity",
+        "type": "string"
+      },
+      "SmtpSettingsUpdate": {
+        "description": "Set the SMTP group. Carries the whole card; the password is the exception.\n\n``smtp_enabled`` is required for the same reason ``default_site_mode`` is on\nits sibling: \"enabled needs a host\" cannot be checked against a payload that\nomits it, and a schema never sees the stored row.\n\n``smtp_password`` is never returned, so a client has nothing to send back.\nAbsent keeps the stored password; a string replaces it; an explicit ``null``\nclears it — distinguished with ``model_fields_set``, which is why the service\nis handed ``model_dump(exclude_unset=True)``.",
+        "properties": {
+          "app_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "App Url"
+          },
+          "smtp_enabled": {
+            "title": "Smtp Enabled",
+            "type": "boolean"
+          },
+          "smtp_from": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Smtp From"
+          },
+          "smtp_from_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Smtp From Name"
+          },
+          "smtp_host": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Smtp Host"
+          },
+          "smtp_password": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Smtp Password"
+          },
+          "smtp_port": {
+            "default": 587,
+            "maximum": 65535.0,
+            "minimum": 1.0,
+            "title": "Smtp Port",
+            "type": "integer"
+          },
+          "smtp_security": {
+            "$ref": "#/components/schemas/SmtpSecurity",
+            "default": "starttls"
+          },
+          "smtp_username": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Smtp Username"
+          }
+        },
+        "required": [
+          "smtp_enabled"
+        ],
+        "title": "SmtpSettingsUpdate",
         "type": "object"
       },
       "StreamCreate": {
@@ -8387,6 +8610,100 @@
           }
         ],
         "summary": "Test Llm Connection",
+        "tags": [
+          "settings"
+        ]
+      }
+    },
+    "/api/v1/settings/smtp": {
+      "patch": {
+        "description": "Configure outbound email. Admin-only.\n\n``exclude_unset`` is load-bearing: it is what tells the service the\ndifference between \"the client did not send a password\" and \"the client\ncleared the password\".",
+        "operationId": "update_smtp_settings_api_v1_settings_smtp_patch",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SmtpSettingsUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InstanceSettingsRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Update Smtp Settings",
+        "tags": [
+          "settings"
+        ]
+      }
+    },
+    "/api/v1/settings/smtp/test": {
+      "post": {
+        "description": "Send one themed test message. Admin-only.\n\nSynchronous on purpose. The operator is on the Settings page waiting and\nneeds the actual SMTP error — \"authentication failed\", \"connection refused\"\n— not a task id to go and poll. Real notifications will go through Celery\ninstead, so a slow mail server never fails a user-facing action.\n\nA failed send returns **200 with ``ok: false``**, not a 4xx or 5xx: the API\ncall succeeded, the mail server did not. An error status would make a\nworking endpoint indistinguishable from a broken one in monitoring.",
+        "operationId": "send_test_email_api_v1_settings_smtp_test_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MailTestRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MailTestResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Send Test Email",
         "tags": [
           "settings"
         ]

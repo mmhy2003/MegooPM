@@ -21,6 +21,7 @@ from app.main import app
 from app.models.user import UserRole
 from app.schemas.tasks import TaskEnqueued
 from app.services import user as user_service
+from app.services.mail import sender as mail_sender
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
@@ -582,3 +583,180 @@ async def test_switching_away_from_custom_page_clears_the_reference(
         )
     ).json()
     assert body["crowdsec_ban_page_id"] is None
+
+
+# --- SMTP settings ---------------------------------------------------------
+
+SMTP_PASSWORD = "EXAMPLE-not-a-real-credential-2"
+
+
+def _smtp_payload(**over: object) -> dict[str, object]:
+    base: dict[str, object] = {
+        "smtp_enabled": True,
+        "smtp_host": "mail.example.com",
+        "smtp_port": 587,
+        "smtp_security": "starttls",
+        "smtp_username": "user",
+        "smtp_password": SMTP_PASSWORD,
+        "smtp_from": "megoopm@example.com",
+        "smtp_from_name": "MegooPM",
+        "app_url": "https://pm.example.com",
+    }
+    base.update(over)
+    return base
+
+
+@pytest.fixture
+async def member_auth(pg_conn, client: AsyncClient) -> dict[str, str]:
+    """A non-admin token, for the one test that proves the gate is on."""
+    factory = async_sessionmaker(
+        bind=pg_conn, expire_on_commit=False, join_transaction_mode="create_savepoint"
+    )
+    async with factory() as session:
+        await user_service.create_user(
+            session,
+            email="settings-member@example.com",
+            password="memberpass123",
+            role=UserRole.member,
+        )
+    resp = await client.post(
+        "/api/v1/auth/login",
+        json={"email": "settings-member@example.com", "password": "memberpass123"},
+    )
+    assert resp.status_code == 200, resp.text
+    return {"Authorization": f"Bearer {resp.json()['access_token']}"}
+
+
+async def test_smtp_is_off_on_a_fresh_instance(pg_conn) -> None:
+    result = await pg_conn.execute(
+        text(
+            "SELECT smtp_enabled, smtp_host, smtp_password_enc "
+            "FROM instance_settings WHERE id = 1"
+        )
+    )
+    row = result.one()
+    assert row.smtp_enabled is False
+    assert row.smtp_host is None
+    assert row.smtp_password_enc is None
+
+
+async def test_enabling_smtp_without_a_host_is_rejected_by_the_database(pg_conn) -> None:
+    with pytest.raises(IntegrityError):
+        await pg_conn.execute(
+            text("UPDATE instance_settings SET smtp_enabled = true, smtp_host = NULL WHERE id = 1")
+        )
+
+
+async def test_saving_smtp_settings_returns_them_without_the_password(
+    client: AsyncClient, auth
+) -> None:
+    resp = await client.patch("/api/v1/settings/smtp", headers=auth, json=_smtp_payload())
+
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["smtp_host"] == "mail.example.com"
+    assert body["smtp_password_set"] is True
+    # The value itself is never returned, so a compromised session cannot read
+    # it back out.
+    assert "smtp_password" not in body
+    assert SMTP_PASSWORD not in resp.text
+
+
+async def test_omitting_the_password_keeps_the_stored_one(client: AsyncClient, auth) -> None:
+    await client.patch("/api/v1/settings/smtp", headers=auth, json=_smtp_payload())
+
+    without = _smtp_payload()
+    del without["smtp_password"]
+    resp = await client.patch("/api/v1/settings/smtp", headers=auth, json=without)
+
+    assert resp.json()["smtp_password_set"] is True
+
+
+async def test_an_explicit_null_clears_the_stored_password(client: AsyncClient, auth) -> None:
+    await client.patch("/api/v1/settings/smtp", headers=auth, json=_smtp_payload())
+
+    resp = await client.patch(
+        "/api/v1/settings/smtp", headers=auth, json=_smtp_payload(smtp_password=None)
+    )
+
+    assert resp.json()["smtp_password_set"] is False
+
+
+async def test_enabling_without_a_host_is_rejected_by_the_api(client: AsyncClient, auth) -> None:
+    resp = await client.patch(
+        "/api/v1/settings/smtp", headers=auth, json=_smtp_payload(smtp_host=None)
+    )
+    assert resp.status_code == 422
+
+
+async def test_smtp_settings_are_admin_only(client: AsyncClient, member_auth) -> None:
+    resp = await client.patch("/api/v1/settings/smtp", headers=member_auth, json=_smtp_payload())
+    assert resp.status_code == 403
+
+
+async def test_a_successful_test_send_reports_ok(
+    client: AsyncClient, auth, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    sent: dict[str, object] = {}
+
+    def fake_send(config, *, to, email, timeout=15.0):
+        sent["to"] = to
+        sent["subject"] = email.subject
+
+    monkeypatch.setattr(mail_sender, "send_email", fake_send)
+    await client.patch("/api/v1/settings/smtp", headers=auth, json=_smtp_payload())
+
+    resp = await client.post(
+        "/api/v1/settings/smtp/test", headers=auth, json={"to": "ops@example.com"}
+    )
+
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["ok"] is True
+    assert sent["to"] == "ops@example.com"
+    assert "test email" in str(sent["subject"])
+
+
+async def test_the_test_send_defaults_to_the_requesting_admin(
+    client: AsyncClient, auth, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # "Send it to me" is the common case and should need no typing.
+    sent: dict[str, object] = {}
+    monkeypatch.setattr(
+        mail_sender,
+        "send_email",
+        lambda config, *, to, email, timeout=15.0: sent.update(to=to),
+    )
+    await client.patch("/api/v1/settings/smtp", headers=auth, json=_smtp_payload())
+
+    resp = await client.post("/api/v1/settings/smtp/test", headers=auth, json={})
+
+    assert resp.status_code == 200, resp.text
+    assert sent["to"] == "settings-admin@example.com"
+
+
+async def test_a_failed_send_returns_200_with_ok_false(
+    client: AsyncClient, auth, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # The API call succeeded; the mail server did not. An error status would
+    # make a working endpoint indistinguishable from a broken one in monitoring.
+    def boom(config, *, to, email, timeout=15.0):
+        raise OSError("Connection refused")
+
+    monkeypatch.setattr(mail_sender, "send_email", boom)
+    await client.patch("/api/v1/settings/smtp", headers=auth, json=_smtp_payload())
+
+    resp = await client.post("/api/v1/settings/smtp/test", headers=auth, json={})
+
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["ok"] is False
+    assert "Connection refused" in body["detail"]
+
+
+async def test_testing_with_nothing_configured_reports_it(client: AsyncClient, auth) -> None:
+    resp = await client.post("/api/v1/settings/smtp/test", headers=auth, json={})
+
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["ok"] is False
+    assert "configured" in body["detail"].lower()
