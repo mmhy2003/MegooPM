@@ -12,6 +12,8 @@ and the API process is the one taking internet traffic.
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+
 import httpx
 
 # Pinned API version: the daemon serves any version it supports, and pinning
@@ -56,8 +58,7 @@ def restart_container(
     except httpx.HTTPError as exc:
         detail = str(exc) or "no detail"
         raise CrowdSecReloadError(
-            f"Could not reach the docker daemon to restart {where}: "
-            f"{type(exc).__name__} — {detail}"
+            f"Could not reach the docker daemon to restart {where}: {type(exc).__name__} — {detail}"
         ) from exc
 
     # 204 = restarting; 304 = already in the requested state.
@@ -68,4 +69,61 @@ def restart_container(
         )
 
 
-__all__ = ["CrowdSecReloadError", "restart_container"]
+@dataclass(frozen=True, slots=True)
+class ExecResult:
+    """What a command in the container produced."""
+
+    exit_code: int
+    output: str
+
+
+def exec_in_container(
+    name: str,
+    argv: list[str],
+    *,
+    socket_path: str,
+    timeout_seconds: float,
+    transport: httpx.BaseTransport | None = None,
+) -> ExecResult:
+    """Run ``argv`` inside ``name`` and return its exit code and output.
+
+    Three calls: create the exec, start it (with a TTY, so the stream is
+    plain text rather than docker's multiplexed frames), inspect it for the
+    exit code. A non-zero exit is a result, not an error: the caller reads
+    the output. Errors are for the daemon being unreachable or refusing.
+    """
+    client_transport = transport or httpx.HTTPTransport(uds=socket_path)
+    where = f"container {name!r} via {socket_path}"
+    try:
+        with httpx.Client(
+            transport=client_transport, base_url="http://docker", timeout=timeout_seconds
+        ) as client:
+            created = client.post(
+                f"/{_DOCKER_API}/containers/{name}/exec",
+                json={"AttachStdout": True, "AttachStderr": True, "Tty": True, "Cmd": argv},
+            )
+            if created.status_code != httpx.codes.CREATED:
+                raise CrowdSecReloadError(
+                    f"Docker refused to exec in {where}: HTTP {created.status_code} — "
+                    f"{created.text.strip() or 'no body'}"
+                )
+            exec_id = created.json()["Id"]
+            started = client.post(
+                f"/{_DOCKER_API}/exec/{exec_id}/start", json={"Detach": False, "Tty": True}
+            )
+            if started.status_code != httpx.codes.OK:
+                raise CrowdSecReloadError(
+                    f"Docker could not start the exec in {where}: HTTP {started.status_code}"
+                )
+            output = started.content.decode("utf-8", errors="replace")
+            inspected = client.get(f"/{_DOCKER_API}/exec/{exec_id}/json")
+            exit_code = int(inspected.json().get("ExitCode") or 0)
+    except httpx.HTTPError as exc:
+        detail = str(exc) or "no detail"
+        raise CrowdSecReloadError(
+            f"Could not reach the docker daemon to exec in {where}: {type(exc).__name__} — {detail}"
+        ) from exc
+    return ExecResult(exit_code=exit_code, output=output)
+
+
+__all__ = ["CrowdSecReloadError", "ExecResult", "exec_in_container", "restart_container"]
