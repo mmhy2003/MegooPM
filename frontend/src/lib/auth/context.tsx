@@ -39,6 +39,7 @@ import {
   LOGIN_ROUTE,
   persistSession,
 } from "@/lib/auth/session";
+import { rememberAccount } from "@/lib/auth/recent-accounts";
 
 // Registered at module load so the client attaches the session token even for
 // requests that fire before the provider mounts.
@@ -120,6 +121,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const me = await fetchCurrentUser();
     setUser(me);
     setStatus("authenticated");
+    // Here rather than in the form: this is the only point where both facts
+    // are known — the credentials were accepted, and this is the account's
+    // display name. A failed attempt must never leave an address behind.
+    rememberAccount(me);
   }, []);
 
   const logout = useCallback(() => {
