@@ -1,0 +1,16 @@
+{% extends "base.html.j2" %}
+{% block subject_text %}{{ app_name }} test email{% endblock %}
+{% block body %}
+{# The brand teal, so the message actually carries the app's colour rather
+   than being a grey box with a logo on top. #}
+<p class="m-accent" style="margin:0 0 16px 0;font-size:18px;font-weight:600;
+                           color:{{ light.primary }};">Your mail server works.</p>
+<p style="margin:0 0 16px 0;">
+  This message was sent from {{ app_name }} to confirm the SMTP settings you just
+  saved. Nothing else was changed.
+</p>
+<p class="m-muted" style="margin:0;color:{{ light.muted_foreground }};font-size:13px;">
+  If you did not ask for this, someone with administrator access to
+  {{ app_name }} did.
+</p>
+{% endblock %}

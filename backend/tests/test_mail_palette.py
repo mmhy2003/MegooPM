@@ -52,7 +52,7 @@ def oklch_to_hex(lightness: float, chroma: float, hue_deg: float) -> str:
         srgb = 1.055 * (channel ** (1 / 2.4)) - 0.055 if channel > 0.0031308 else 12.92 * channel
         return max(0, min(255, round(srgb * 255)))
 
-    return "#%02x%02x%02x" % (encode(red), encode(green), encode(blue))
+    return f"#{encode(red):02x}{encode(green):02x}{encode(blue):02x}"
 
 
 def test_light_palette_matches_its_oklch_source() -> None:

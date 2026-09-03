@@ -1,0 +1,72 @@
+{# Every cross-client workaround lives in this file.
+
+   Tables, not flexbox: Outlook renders with the Word engine, which supports
+   neither flex nor grid. Widths in px, not %, for the same reason.
+
+   Colours are inlined; the <style> block below carries ONLY the dark-mode
+   overrides, because Gmail strips <style> in most contexts and applies its own
+   inversion instead. A light design that Gmail inverts reads acceptably, which
+   is why light is the base and dark is the override. #}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<meta name="supported-color-schemes" content="light dark">
+<title>{% block subject_text %}{{ app_name }}{% endblock %}</title>
+<style>
+  @media (prefers-color-scheme: dark) {
+    .m-page  { background: {{ dark.background }} !important; }
+    .m-card  { background: {{ dark.card }} !important;
+               border-color: {{ dark.border }} !important; }
+    .m-text  { color: {{ dark.foreground }} !important; }
+    .m-muted { color: {{ dark.muted_foreground }} !important; }
+    .m-accent{ color: {{ dark.primary }} !important; }
+    .m-btn   { background: {{ dark.primary }} !important;
+               color: {{ dark.primary_foreground }} !important; }
+  }
+</style>
+</head>
+<body class="m-page" style="margin:0;padding:0;background:{{ light.background }};">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
+       class="m-page" style="background:{{ light.background }};">
+  <tr>
+    <td align="center" style="padding:32px 16px;">
+      <table role="presentation" width="560" cellpadding="0" cellspacing="0" border="0"
+             class="m-card"
+             style="width:560px;max-width:100%;background:{{ light.card }};
+                    border:1px solid {{ light.border }};border-radius:12px;">
+        <tr>
+          <td align="center" style="padding:28px 32px 8px 32px;">
+            {# cid:, not a URL: remote images are blocked until the reader opts
+               in, and a self-hosted instance is unreachable from their client. #}
+            <img src="cid:{{ logo_cid }}" alt="{{ app_name }}" width="48" height="48"
+                 style="display:block;border:0;width:48px;height:48px;">
+          </td>
+        </tr>
+        <tr>
+          <td class="m-text"
+              style="padding:8px 32px 28px 32px;color:{{ light.foreground }};
+                     font-family:-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+                     font-size:15px;line-height:1.6;">
+            {% block body %}{% endblock %}
+          </td>
+        </tr>
+      </table>
+      <table role="presentation" width="560" cellpadding="0" cellspacing="0" border="0"
+             style="width:560px;max-width:100%;">
+        <tr>
+          <td class="m-muted" align="center"
+              style="padding:16px 32px;color:{{ light.muted_foreground }};
+                     font-family:-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+                     font-size:12px;line-height:1.5;">
+            Sent by {{ app_name }}.
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+</table>
+</body>
+</html>
