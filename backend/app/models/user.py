@@ -10,7 +10,7 @@ from __future__ import annotations
 import enum
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, Enum, Integer, String
+from sqlalchemy import BigInteger, Boolean, DateTime, Enum, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
@@ -58,6 +58,25 @@ class User(IdMixin, TimestampMixin, Base):
     # one definition of "invited" — no status enum beside is_active, because
     # two sources of truth is how "off" and "invited" drift apart.
     invited_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    # --- Two-factor authentication ---------------------------------------
+    # Fernet token (app.core.crypto), never plaintext. A secret with no
+    # enabled_at is a *pending* enrolment: shown, but never proven to work.
+    # Login ignores it entirely, so an abandoned setup locks nobody out.
+    totp_secret_enc: Mapped[str | None] = mapped_column(Text, nullable=True)
+    totp_enabled_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    # The time-step of the last code accepted. A code whose step is not later
+    # is refused even if correct: a code is valid for up to ninety seconds
+    # under the drift window, which is ninety seconds to replay one seen over
+    # a shoulder. PyOTP does not track this; the service does.
+    totp_last_step: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+
+    @property
+    def totp_enabled(self) -> bool:
+        """Whether a second factor is required at login."""
+        return self.totp_enabled_at is not None
 
     @property
     def is_admin(self) -> bool:
