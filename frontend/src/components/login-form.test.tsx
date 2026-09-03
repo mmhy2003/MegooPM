@@ -10,8 +10,9 @@ vi.mock("next/navigation", () => ({
 
 const login = vi.fn();
 const verifyMfa = vi.fn();
+const verifyPasskey = vi.fn();
 vi.mock("@/lib/auth/context", () => ({
-  useAuth: () => ({ login, verifyMfa }),
+  useAuth: () => ({ login, verifyMfa, verifyPasskey }),
 }));
 vi.mock("@/lib/auth/api", () => ({ fetchCapabilities: vi.fn() }));
 
@@ -22,10 +23,11 @@ import { rememberAccount } from "@/lib/auth/recent-accounts";
 
 beforeEach(() => {
   window.localStorage.clear();
-  vi.mocked(fetchCapabilities).mockResolvedValue({ password_reset: false });
+  vi.mocked(fetchCapabilities).mockResolvedValue({ password_reset: false, passkeys: false });
   // `null` is "signed in"; a challenge object is "ask for a code".
   login.mockReset().mockResolvedValue(null);
   verifyMfa.mockReset().mockResolvedValue({ recoveryCodesRemaining: null });
+  verifyPasskey.mockReset().mockResolvedValue(undefined);
   replace.mockReset();
 });
 
@@ -172,7 +174,7 @@ describe("LoginForm theme control", () => {
 
 describe("LoginForm forgot-password link", () => {
   it("offers the link when the backend can send email", async () => {
-    vi.mocked(fetchCapabilities).mockResolvedValue({ password_reset: true });
+    vi.mocked(fetchCapabilities).mockResolvedValue({ password_reset: true, passkeys: false });
     render(<LoginForm />);
 
     expect(await screen.findByRole("link", { name: /forgot password/i })).toHaveAttribute(
@@ -184,7 +186,7 @@ describe("LoginForm forgot-password link", () => {
   it("hides the link when it could not work", async () => {
     // Clicking through to a page that says "check your inbox" when no email
     // will ever arrive is worse than no link.
-    vi.mocked(fetchCapabilities).mockResolvedValue({ password_reset: false });
+    vi.mocked(fetchCapabilities).mockResolvedValue({ password_reset: false, passkeys: false });
     render(<LoginForm />);
     await screen.findByLabelText("Email");
 
@@ -210,7 +212,7 @@ describe("LoginForm second factor", () => {
   }
 
   it("swaps to a code field when the backend asks for one", async () => {
-    login.mockResolvedValue({ mfaToken: "mfa-1" });
+    login.mockResolvedValue({ mfaToken: "mfa-1", methods: ["totp"] });
     render(<LoginForm />);
 
     await submitCredentials();
@@ -221,7 +223,7 @@ describe("LoginForm second factor", () => {
   });
 
   it("sends the code with the challenge token and then signs in", async () => {
-    login.mockResolvedValue({ mfaToken: "mfa-1" });
+    login.mockResolvedValue({ mfaToken: "mfa-1", methods: ["totp"] });
     render(<LoginForm />);
     const user = await submitCredentials();
 
@@ -233,7 +235,7 @@ describe("LoginForm second factor", () => {
   });
 
   it("offers a recovery-code mode that relabels the field", async () => {
-    login.mockResolvedValue({ mfaToken: "mfa-1" });
+    login.mockResolvedValue({ mfaToken: "mfa-1", methods: ["totp"] });
     render(<LoginForm />);
     const user = await submitCredentials();
     await screen.findByLabelText("Authentication code");
@@ -244,7 +246,7 @@ describe("LoginForm second factor", () => {
   });
 
   it("shows the refusal and stays on the code step", async () => {
-    login.mockResolvedValue({ mfaToken: "mfa-1" });
+    login.mockResolvedValue({ mfaToken: "mfa-1", methods: ["totp"] });
     verifyMfa.mockRejectedValue(
       new ApiError(401, "Unauthorized", { detail: "That code is not valid." }),
     );
@@ -259,7 +261,7 @@ describe("LoginForm second factor", () => {
   });
 
   it("goes back to the password step on Back", async () => {
-    login.mockResolvedValue({ mfaToken: "mfa-1" });
+    login.mockResolvedValue({ mfaToken: "mfa-1", methods: ["totp"] });
     render(<LoginForm />);
     const user = await submitCredentials();
     await screen.findByLabelText("Authentication code");
@@ -267,5 +269,60 @@ describe("LoginForm second factor", () => {
     await user.click(screen.getByRole("button", { name: /back/i }));
 
     expect(screen.getByLabelText("Password")).toBeInTheDocument();
+  });
+});
+
+describe("LoginForm passkeys", () => {
+  async function reachChallenge(methods: Array<"totp" | "passkey">) {
+    login.mockResolvedValue({ mfaToken: "mfa-1", methods });
+    render(<LoginForm />);
+    const user = userEvent.setup();
+    await user.type(screen.getByLabelText("Email"), "me@example.com");
+    await user.type(screen.getByLabelText("Password"), "hunter2222");
+    await user.click(screen.getByRole("button", { name: /continue/i }));
+    await screen.findByLabelText("Authentication code");
+    return user;
+  }
+
+  it("shows the passkey button only when the challenge offers it", async () => {
+    await reachChallenge(["totp"]);
+    expect(screen.queryByRole("button", { name: /use a passkey/i })).not.toBeInTheDocument();
+    cleanup();
+    await reachChallenge(["totp", "passkey"]);
+    expect(screen.getByRole("button", { name: /use a passkey/i })).toBeInTheDocument();
+    // The code field still has focus: reaching for the phone stays fast.
+    expect(screen.getByLabelText("Authentication code")).toHaveFocus();
+  });
+
+  it("runs the passkey ceremony and signs in", async () => {
+    const user = await reachChallenge(["totp", "passkey"]);
+    await user.click(screen.getByRole("button", { name: /use a passkey/i }));
+    await waitFor(() => expect(verifyPasskey).toHaveBeenCalledWith("mfa-1"));
+    await waitFor(() => expect(replace).toHaveBeenCalled());
+  });
+
+  it("a dismissed prompt returns quietly to the code field", async () => {
+    verifyPasskey.mockRejectedValue(Object.assign(new Error("x"), { name: "NotAllowedError" }));
+    const user = await reachChallenge(["totp", "passkey"]);
+    await user.click(screen.getByRole("button", { name: /use a passkey/i }));
+    await waitFor(() => expect(verifyPasskey).toHaveBeenCalled());
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Authentication code")).toBeInTheDocument();
+  });
+
+  it("a refusal shows the backend's message", async () => {
+    verifyPasskey.mockRejectedValue(
+      new ApiError(401, "Unauthorized", { detail: "That passkey was not accepted." }),
+    );
+    const user = await reachChallenge(["totp", "passkey"]);
+    await user.click(screen.getByRole("button", { name: /use a passkey/i }));
+    expect(await screen.findByRole("alert")).toHaveTextContent(/not accepted/i);
+  });
+
+  it("an origin mismatch explains itself", async () => {
+    verifyPasskey.mockRejectedValue(Object.assign(new Error("x"), { name: "SecurityError" }));
+    const user = await reachChallenge(["totp", "passkey"]);
+    await user.click(screen.getByRole("button", { name: /use a passkey/i }));
+    expect(await screen.findByRole("alert")).toHaveTextContent(/app URL/i);
   });
 });

@@ -25,6 +25,31 @@ export function login(email: string, password: string): Promise<LoginResult> {
   });
 }
 
+export type MfaMethod = NonNullable<MfaRequired["methods"]>[number];
+export type PasskeyOptions = Schemas["PasskeyOptions"];
+
+/** Options for answering the challenge with a passkey. */
+export function passkeyOptions(mfaToken: string): Promise<PasskeyOptions> {
+  return apiFetch<PasskeyOptions>("/api/v1/auth/mfa/passkey/options", {
+    method: "POST",
+    body: { mfa_token: mfaToken },
+    token: null,
+  });
+}
+
+/** Exchange the challenge token plus an assertion for the real pair. */
+export function passkeyVerify(
+  mfaToken: string,
+  nonce: string,
+  credential: unknown,
+): Promise<MfaVerifyResponse> {
+  return apiFetch<MfaVerifyResponse>("/api/v1/auth/mfa/passkey/verify", {
+    method: "POST",
+    body: { mfa_token: mfaToken, nonce, credential },
+    token: null,
+  });
+}
+
 export function isMfaRequired(result: LoginResult): result is MfaRequired {
   return "mfa_required" in result && result.mfa_required === true;
 }

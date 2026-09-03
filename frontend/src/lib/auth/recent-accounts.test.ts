@@ -66,10 +66,7 @@ describe("rememberAccount", () => {
     rememberAccount({ email: "first@example.com", full_name: "First" });
     rememberAccount({ email: "second@example.com", full_name: "Second" });
 
-    expect(readAccounts().map((a) => a.email)).toEqual([
-      "second@example.com",
-      "first@example.com",
-    ]);
+    expect(readAccounts().map((a) => a.email)).toEqual(["second@example.com", "first@example.com"]);
   });
 
   it("moves a returning account to the top instead of adding a twin", () => {
@@ -77,10 +74,7 @@ describe("rememberAccount", () => {
     rememberAccount({ email: "other@example.com", full_name: "Other" });
     rememberAccount({ email: "mm@example.com", full_name: "Mohamed" });
 
-    expect(readAccounts().map((a) => a.email)).toEqual([
-      "mm@example.com",
-      "other@example.com",
-    ]);
+    expect(readAccounts().map((a) => a.email)).toEqual(["mm@example.com", "other@example.com"]);
   });
 
   it("treats a differently-cased email as the same account", () => {
@@ -116,9 +110,7 @@ describe("rememberAccount", () => {
       throw new Error("QuotaExceededError");
     });
 
-    expect(() =>
-      rememberAccount({ email: "mm@example.com", full_name: "Mohamed" }),
-    ).not.toThrow();
+    expect(() => rememberAccount({ email: "mm@example.com", full_name: "Mohamed" })).not.toThrow();
   });
 });
 

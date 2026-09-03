@@ -23,6 +23,8 @@ import {
   type ReactNode,
 } from "react";
 import { useRouter } from "next/navigation";
+import { startAuthentication } from "@simplewebauthn/browser";
+import type { PublicKeyCredentialRequestOptionsJSON } from "@simplewebauthn/browser";
 
 import { setAuthTokenProvider, setTokenRefresher } from "@/lib/api/client";
 import {
@@ -30,7 +32,10 @@ import {
   isMfaRequired,
   login as loginRequest,
   refresh as refreshRequest,
+  passkeyOptions,
+  passkeyVerify,
   verifyMfa as verifyMfaRequest,
+  type MfaMethod,
   type CurrentUser,
 } from "@/lib/auth/api";
 import {
@@ -58,9 +63,18 @@ export interface AuthContextValue {
    * a challenge when a second factor is required; throws `ApiError` on
    * failure.
    */
-  login: (email: string, password: string) => Promise<{ mfaToken: string } | null>;
+  login: (
+    email: string,
+    password: string,
+  ) => Promise<{ mfaToken: string; methods: MfaMethod[] } | null>;
   /** Present a code for a challenge from `login`; signs in on success. */
   verifyMfa: (mfaToken: string, code: string) => Promise<{ recoveryCodesRemaining: number | null }>;
+  /**
+   * Answer a challenge with a passkey: fetch options, run the browser
+   * ceremony, verify, sign in. Throws the browser's error untouched on a
+   * dismissed or failed prompt, and `ApiError` on a backend refusal.
+   */
+  verifyPasskey: (mfaToken: string) => Promise<void>;
   /** Clear the session and return to the login page. */
   logout: () => void;
   /** Re-fetch `/users/me` (e.g. after a profile edit) so the shell reflects it. */
@@ -144,7 +158,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (isMfaRequired(result)) {
         // Nothing is persisted and nothing is remembered: an abandoned
         // challenge must leave no trace of the account.
-        return { mfaToken: result.mfa_token };
+        return { mfaToken: result.mfa_token, methods: result.methods ?? ["totp"] };
       }
       await finishLogin(result);
       return null;
@@ -163,6 +177,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [finishLogin],
   );
 
+  const verifyPasskey = useCallback(
+    async (mfaToken: string) => {
+      const { nonce, options } = await passkeyOptions(mfaToken);
+      const credential = await startAuthentication({
+        optionsJSON: options as unknown as PublicKeyCredentialRequestOptionsJSON,
+      });
+      const tokens = await passkeyVerify(mfaToken, nonce, credential);
+      await finishLogin(tokens);
+    },
+    [finishLogin],
+  );
+
   const logout = useCallback(() => {
     endSession();
     router.replace(LOGIN_ROUTE);
@@ -174,8 +200,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const value = useMemo<AuthContextValue>(
-    () => ({ user, status, login, verifyMfa, logout, refreshUser }),
-    [user, status, login, verifyMfa, logout, refreshUser],
+    () => ({ user, status, login, verifyMfa, verifyPasskey, logout, refreshUser }),
+    [user, status, login, verifyMfa, verifyPasskey, logout, refreshUser],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

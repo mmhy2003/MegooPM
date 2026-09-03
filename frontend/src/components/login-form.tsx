@@ -4,12 +4,14 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
+import { KeyRound } from "lucide-react";
 import { toast } from "sonner";
 
 import { APP_NAME } from "@/lib/env";
 import { ApiError } from "@/lib/api/errors";
 import { useAuth } from "@/lib/auth/context";
-import { fetchCapabilities } from "@/lib/auth/api";
+import { fetchCapabilities, type MfaMethod } from "@/lib/auth/api";
+import { classifyWebAuthnError, ORIGIN_MISMATCH_MESSAGE } from "@/lib/auth/webauthn";
 import { DEFAULT_AUTHED_ROUTE, FORGOT_PASSWORD_ROUTE, REDIRECT_PARAM } from "@/lib/auth/session";
 import { forgetAccount, readAccounts, type RecentAccount } from "@/lib/auth/recent-accounts";
 import { AccountList } from "@/components/login/account-list";
@@ -27,7 +29,7 @@ function safeRedirect(next: string | null): string {
 
 /** Credential form that authenticates against the backend JWT endpoint. */
 export function LoginForm() {
-  const { login, verifyMfa } = useAuth();
+  const { login, verifyMfa, verifyPasskey } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -39,6 +41,7 @@ export function LoginForm() {
   // Set when the backend wants a second factor. While set, the form shows a
   // code field instead of the credentials.
   const [mfaToken, setMfaToken] = useState<string | null>(null);
+  const [mfaMethods, setMfaMethods] = useState<MfaMethod[]>([]);
   const [code, setCode] = useState("");
   const [useRecovery, setUseRecovery] = useState(false);
   const codeRef = useRef<HTMLInputElement>(null);
@@ -118,6 +121,7 @@ export function LoginForm() {
       const challenge = await login(email, password);
       if (challenge) {
         setMfaToken(challenge.mfaToken);
+        setMfaMethods(challenge.methods);
         setSubmitting(false);
         return;
       }
@@ -161,6 +165,7 @@ export function LoginForm() {
 
   function cancelMfa() {
     setMfaToken(null);
+    setMfaMethods([]);
     setCode("");
     setUseRecovery(false);
     setError(null);
@@ -168,6 +173,31 @@ export function LoginForm() {
     // The password field remounts with the credential form; focus it once
     // it exists.
     setTimeout(() => passwordRef.current?.focus(), 0);
+  }
+
+  async function onPasskey() {
+    if (!mfaToken) return;
+    setError(null);
+    setSubmitting(true);
+    try {
+      await verifyPasskey(mfaToken);
+      router.replace(safeRedirect(searchParams.get(REDIRECT_PARAM)));
+    } catch (err) {
+      if (err instanceof ApiError) {
+        setError(
+          err.status === 429 ? "Too many attempts. Please wait a while and try again." : err.detail,
+        );
+      } else {
+        const kind = classifyWebAuthnError(err);
+        // A dismissed prompt is not an error: the user changed their mind
+        // and the code field is right there.
+        if (kind === "origin") setError(ORIGIN_MISMATCH_MESSAGE);
+        else if (kind === "unsupported") setError("This browser does not support passkeys.");
+        else if (kind === "other") setError("The passkey could not be used. Try a code instead.");
+      }
+      setSubmitting(false);
+      codeRef.current?.focus();
+    }
   }
 
   function toggleRecovery() {
@@ -230,6 +260,17 @@ export function LoginForm() {
                   ? "Enter one of your recovery codes."
                   : "Enter the code from your authenticator app."}
               </p>
+              {mfaMethods.includes("passkey") ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => void onPasskey()}
+                  disabled={submitting}
+                >
+                  <KeyRound /> Use a passkey
+                </Button>
+              ) : null}
               <Input
                 ref={codeRef}
                 name="code"

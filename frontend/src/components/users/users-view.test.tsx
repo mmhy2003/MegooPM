@@ -81,7 +81,7 @@ vi.mock("@/components/proxy-hosts/confirm-delete-dialog", () => ({
 
 describe("UsersView", () => {
   beforeEach(() => {
-    vi.mocked(fetchCapabilities).mockResolvedValue({ password_reset: false });
+    vi.mocked(fetchCapabilities).mockResolvedValue({ password_reset: false, passkeys: false });
     vi.spyOn(users, "list").mockResolvedValue([admin, member]);
     vi.spyOn(users, "remove").mockResolvedValue(undefined);
   });
@@ -145,7 +145,7 @@ describe("UsersView invitations", () => {
   };
 
   beforeEach(() => {
-    vi.mocked(fetchCapabilities).mockResolvedValue({ password_reset: true });
+    vi.mocked(fetchCapabilities).mockResolvedValue({ password_reset: true, passkeys: false });
   });
   afterEach(() => {
     cleanup();
@@ -161,7 +161,7 @@ describe("UsersView invitations", () => {
   it("hides Invite user when email is not configured", async () => {
     // An admin who can see Invite and then learns nothing can be sent has been
     // misled by the UI.
-    vi.mocked(fetchCapabilities).mockResolvedValue({ password_reset: false });
+    vi.mocked(fetchCapabilities).mockResolvedValue({ password_reset: false, passkeys: false });
     vi.spyOn(users, "list").mockResolvedValue([admin]);
     render(<UsersView />);
     await screen.findByText("admin@example.com");
@@ -226,7 +226,7 @@ describe("UsersView two-factor", () => {
   };
 
   beforeEach(() => {
-    vi.mocked(fetchCapabilities).mockResolvedValue({ password_reset: false });
+    vi.mocked(fetchCapabilities).mockResolvedValue({ password_reset: false, passkeys: false });
   });
   afterEach(() => {
     cleanup();

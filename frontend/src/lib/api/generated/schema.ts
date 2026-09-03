@@ -285,6 +285,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/auth/mfa/passkey/options": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Mfa Passkey Options
+         * @description Options for answering the challenge with a passkey.
+         */
+        post: operations["mfa_passkey_options_api_v1_auth_mfa_passkey_options_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/mfa/passkey/verify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Mfa Passkey Verify
+         * @description Exchange the challenge token plus a passkey assertion for the real pair.
+         */
+        post: operations["mfa_passkey_verify_api_v1_auth_mfa_passkey_verify_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/mfa/verify": {
         parameters: {
             query?: never;
@@ -1576,6 +1616,67 @@ export interface paths {
         patch: operations["update_current_user_api_v1_users_me_patch"];
         trace?: never;
     };
+    "/api/v1/users/me/passkeys": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Passkey List */
+        get: operations["passkey_list_api_v1_users_me_passkeys_get"];
+        put?: never;
+        /**
+         * Passkey Register
+         * @description Finish registering: verify the browser's credential against the stored challenge.
+         */
+        post: operations["passkey_register_api_v1_users_me_passkeys_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/users/me/passkeys/options": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Passkey Options
+         * @description Start registering a passkey. Requires a valid code and the app URL.
+         */
+        post: operations["passkey_options_api_v1_users_me_passkeys_options_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/users/me/passkeys/{passkey_id}/remove": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Passkey Remove
+         * @description Remove one passkey. A POST with a body: DELETE bodies are dropped by some proxies.
+         */
+        post: operations["passkey_remove_api_v1_users_me_passkeys__passkey_id__remove_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/users/me/password": {
         parameters: {
             query?: never;
@@ -2126,6 +2227,8 @@ export interface components {
          * @description What the login page may offer before anyone is signed in.
          */
         AuthCapabilities: {
+            /** Passkeys */
+            passkeys: boolean;
             /** Password Reset */
             password_reset: boolean;
         };
@@ -3140,9 +3243,12 @@ export interface components {
          * @description What ``POST /auth/login`` returns when a second factor is needed.
          *
          *     ``mfa_required`` is a literal so the frontend can discriminate the union
-         *     without inspecting which keys are present.
+         *     without inspecting which keys are present. ``methods`` tells the form
+         *     what to offer without a second request.
          */
         MfaRequired: {
+            /** Methods */
+            methods?: ("totp" | "passkey")[];
             /**
              * Mfa Required
              * @default true
@@ -3264,6 +3370,74 @@ export interface components {
             end: number;
             /** Start */
             start: number;
+        };
+        /**
+         * PasskeyAssertRequest
+         * @description Body for ``POST /auth/mfa/passkey/verify``.
+         */
+        PasskeyAssertRequest: {
+            /** Credential */
+            credential: {
+                [key: string]: unknown;
+            };
+            /** Mfa Token */
+            mfa_token: string;
+            /** Nonce */
+            nonce: string;
+        };
+        /**
+         * PasskeyOptions
+         * @description A ceremony's options, plus the nonce that names its stored challenge.
+         */
+        PasskeyOptions: {
+            /** Nonce */
+            nonce: string;
+            /** Options */
+            options: {
+                [key: string]: unknown;
+            };
+        };
+        /**
+         * PasskeyOptionsRequest
+         * @description Body for ``POST /auth/mfa/passkey/options``.
+         */
+        PasskeyOptionsRequest: {
+            /** Mfa Token */
+            mfa_token: string;
+        };
+        /**
+         * PasskeyRead
+         * @description One registered passkey. Never the key, never the credential id.
+         */
+        PasskeyRead: {
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Id */
+            id: number;
+            /** Last Used At */
+            last_used_at?: string | null;
+            /** Name */
+            name: string;
+        };
+        /**
+         * PasskeyRegisterRequest
+         * @description Body for ``POST /users/me/passkeys``: the browser's credential and a name.
+         */
+        PasskeyRegisterRequest: {
+            /** Credential */
+            credential: {
+                [key: string]: unknown;
+            };
+            /**
+             * Name
+             * @default
+             */
+            name: string;
+            /** Nonce */
+            nonce: string;
         };
         /**
          * PasswordChange
@@ -5149,6 +5323,72 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["UserRead"];
+                };
+            };
+        };
+    };
+    mfa_passkey_options_api_v1_auth_mfa_passkey_options_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PasskeyOptionsRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PasskeyOptions"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    mfa_passkey_verify_api_v1_auth_mfa_passkey_verify_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PasskeyAssertRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MfaVerifyResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -7536,6 +7776,125 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["UserRead"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    passkey_list_api_v1_users_me_passkeys_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PasskeyRead"][];
+                };
+            };
+        };
+    };
+    passkey_register_api_v1_users_me_passkeys_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PasskeyRegisterRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PasskeyRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    passkey_options_api_v1_users_me_passkeys_options_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TotpCodeRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PasskeyOptions"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    passkey_remove_api_v1_users_me_passkeys__passkey_id__remove_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                passkey_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TotpCodeRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {
