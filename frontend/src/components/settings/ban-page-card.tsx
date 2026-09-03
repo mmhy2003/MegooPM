@@ -55,6 +55,12 @@ export function BanPageCard({
   const [pageId, setPageId] = useState<number | null>(settings.crowdsec_ban_page_id);
   const [saving, setSaving] = useState(false);
 
+  // Nothing to save until something differs from what is stored. A live button
+  // on an unchanged form invites a PATCH that writes back the values already
+  // there, and tells the operator nothing about whether their edit took.
+  const dirty =
+    mode !== settings.crowdsec_ban_mode || pageId !== settings.crowdsec_ban_page_id;
+
   async function handleSave() {
     setSaving(true);
     try {
@@ -133,12 +139,14 @@ export function BanPageCard({
         </div>
       ) : null}
 
-      <Button
-        onClick={handleSave}
-        disabled={saving || (mode === "custom_page" && pageId === null)}
-      >
-        {saving ? "Saving…" : "Save ban page"}
-      </Button>
+      <div className="flex justify-end">
+        <Button
+          onClick={handleSave}
+          disabled={saving || !dirty || (mode === "custom_page" && pageId === null)}
+        >
+          {saving ? "Saving…" : "Save ban page"}
+        </Button>
+      </div>
     </section>
   );
 }

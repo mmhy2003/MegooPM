@@ -89,6 +89,48 @@ describe("BanPageCard", () => {
     expect(await screen.findByText(/takes effect on the next/i)).toBeInTheDocument();
   });
 
+  it("has nothing to save until something changes", async () => {
+    // A live button on an unchanged form invites a PATCH that writes back the
+    // values already stored, and says nothing about whether an edit took.
+    renderCard();
+
+    expect(screen.getByRole("button", { name: "Save ban page" })).toBeDisabled();
+  });
+
+  it("enables saving once the mode differs from what is stored", async () => {
+    const user = userEvent.setup();
+    renderCard();
+
+    await user.click(screen.getByRole("radio", { name: new RegExp("^No page") }));
+
+    expect(screen.getByRole("button", { name: "Save ban page" })).toBeEnabled();
+  });
+
+  it("enables saving when only the chosen page differs", async () => {
+    // The mode is unchanged here; the page underneath it is the whole edit.
+    const user = userEvent.setup();
+    renderCard(
+      makeSettings({ crowdsec_ban_mode: "custom_page", crowdsec_ban_page_id: 4 }),
+      [PAGE, { ...PAGE, id: 5, name: "Denied" } as CustomPageSummary],
+    );
+    expect(screen.getByRole("button", { name: "Save ban page" })).toBeDisabled();
+
+    await user.click(screen.getByRole("combobox", { name: "Page to serve" }));
+    await user.click(await screen.findByRole("option", { name: "Denied" }));
+
+    expect(screen.getByRole("button", { name: "Save ban page" })).toBeEnabled();
+  });
+
+  it("goes back to having nothing to save when the choice is reverted", async () => {
+    const user = userEvent.setup();
+    renderCard();
+
+    await user.click(screen.getByRole("radio", { name: new RegExp("^No page") }));
+    await user.click(screen.getByRole("radio", { name: new RegExp("^MegooPM page") }));
+
+    expect(screen.getByRole("button", { name: "Save ban page" })).toBeDisabled();
+  });
+
   it("will not save the custom-page mode with no page chosen", async () => {
     // The API rejects it with a 422; refusing here is the better error.
     const user = userEvent.setup();
