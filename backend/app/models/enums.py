@@ -145,6 +145,7 @@ class AuthTokenKind(enum.StrEnum):
     """What a single-use ``auth_token`` row is for."""
 
     password_reset = "password_reset"
+    invitation = "invitation"
 
 __all__ = [
     "LoadBalanceMethod",

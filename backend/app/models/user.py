@@ -8,8 +8,9 @@ access control: :attr:`UserRole.admin` may perform privileged actions;
 from __future__ import annotations
 
 import enum
+from datetime import datetime
 
-from sqlalchemy import Boolean, Enum, Integer, String
+from sqlalchemy import Boolean, DateTime, Enum, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
@@ -53,6 +54,10 @@ class User(IdMixin, TimestampMixin, Base):
     token_version: Mapped[int] = mapped_column(
         Integer, nullable=False, default=0, server_default="0"
     )
+    # Set while an invitation is outstanding; cleared on accept. This is the
+    # one definition of "invited" — no status enum beside is_active, because
+    # two sources of truth is how "off" and "invited" drift apart.
+    invited_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     @property
     def is_admin(self) -> bool:

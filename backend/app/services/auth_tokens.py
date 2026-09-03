@@ -21,6 +21,10 @@ from app.models.user import User
 #: a link found in a mailbox next week is dead.
 RESET_TTL = timedelta(hours=1)
 
+#: A reset is a same-hour action by someone at the keyboard; an invitation is
+#: opened when the invitee gets to it, which is next week as often as not.
+INVITE_TTL = timedelta(days=7)
+
 
 class TokenInvalid(Exception):
     """The token is absent, expired, spent, or of the wrong kind.
@@ -94,4 +98,4 @@ async def redeem(db: AsyncSession, *, raw: str, kind: AuthTokenKind) -> AuthToke
     return row
 
 
-__all__ = ["RESET_TTL", "TokenInvalid", "hash_token", "issue", "redeem"]
+__all__ = ["INVITE_TTL", "RESET_TTL", "TokenInvalid", "hash_token", "issue", "redeem"]

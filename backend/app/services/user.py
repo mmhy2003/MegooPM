@@ -7,6 +7,8 @@ callers pass an :class:`~sqlalchemy.ext.asyncio.AsyncSession` and plain values.
 from __future__ import annotations
 
 import logging
+import secrets
+from datetime import UTC, datetime
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -78,6 +80,51 @@ async def create_user(
     await db.refresh(user)
     return user
 
+
+
+async def invite_user(db: AsyncSession, *, email: str, full_name: str, role: UserRole) -> User:
+    """Create an inactive row that reserves the address until they accept.
+
+    A real row, not a pending-invitation table: two admins inviting the same
+    person, or an invite racing a direct create, collide on the existing unique
+    email constraint rather than on new logic.
+
+    The password is a genuine Argon2 hash of random bytes. Login verifies it
+    like any other, so there is no timing shortcut announcing "this account has
+    no real password". Raises :class:`EmailAlreadyExistsError`. Commits.
+    """
+    normalized = email.lower()
+    if await get_by_email(db, normalized) is not None:
+        raise EmailAlreadyExistsError(normalized)
+
+    user = User(
+        email=normalized,
+        hashed_password=hash_password(secrets.token_urlsafe(32)),
+        full_name=full_name,
+        role=role,
+        is_active=False,
+        invited_at=datetime.now(UTC),
+    )
+    db.add(user)
+    await db.commit()
+    await db.refresh(user)
+    return user
+
+
+async def accept_invitation(db: AsyncSession, user: User, *, full_name: str, password: str) -> None:
+    """Turn an invited row into a real account. Commits.
+
+    Clears ``invited_at`` and activates in the same write, so there is never a
+    row that is active and still invited.
+    """
+    user.full_name = full_name
+    user.hashed_password = hash_password(password)
+    user.invited_at = None
+    user.is_active = True
+    # No sessions exist yet, but "a password was set, therefore the version
+    # moved" should hold everywhere a password is set.
+    user.token_version += 1
+    await db.commit()
 
 async def _any_user_exists(db: AsyncSession) -> bool:
     result = await db.execute(select(User.id).limit(1))
@@ -262,6 +309,7 @@ __all__ = [
     "EmailAlreadyExistsError",
     "UserProtectionError",
     "assert_no_lockout",
+    "accept_invitation",
     "authenticate",
     "bump_token_version",
     "change_own_password",
@@ -271,6 +319,7 @@ __all__ = [
     "ensure_first_admin",
     "get_by_email",
     "get_by_id",
+    "invite_user",
     "list_users",
     "set_password",
     "update_user",
