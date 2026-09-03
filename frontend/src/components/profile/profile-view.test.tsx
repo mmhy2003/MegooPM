@@ -16,6 +16,7 @@ const me = {
   is_active: true,
   created_at: "2026-08-27T09:00:00Z",
   updated_at: "2026-08-27T09:00:00Z",
+  totp_enabled: false,
 };
 
 vi.mock("@/lib/auth/context", () => ({
@@ -30,7 +31,10 @@ vi.mock("@/lib/auth/context", () => ({
 
 describe("ProfileView", () => {
   beforeEach(() => {
-    vi.spyOn(users, "updateMe").mockResolvedValue({ ...me, full_name: "Renamed" });
+    vi.spyOn(users, "updateMe").mockResolvedValue({
+      ...me,
+      full_name: "Renamed",
+    });
     vi.spyOn(users, "changeMyPassword").mockResolvedValue(undefined);
   });
   afterEach(() => {
@@ -69,7 +73,9 @@ describe("ProfileView", () => {
     await user.type(screen.getByLabelText("Confirm new password"), "brandnew123");
     await user.click(screen.getByRole("button", { name: "Change password" }));
     await waitFor(() =>
-      expect(users.changeMyPassword).toHaveBeenCalledWith({ new_password: "brandnew123" }),
+      expect(users.changeMyPassword).toHaveBeenCalledWith({
+        new_password: "brandnew123",
+      }),
     );
   });
 

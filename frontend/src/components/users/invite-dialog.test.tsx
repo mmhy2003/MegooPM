@@ -16,6 +16,7 @@ const INVITED = {
   invited_at: "2026-09-03T00:00:00Z",
   created_at: "2026-09-03T00:00:00Z",
   updated_at: "2026-09-03T00:00:00Z",
+  totp_enabled: false,
 };
 
 beforeEach(() => {
@@ -37,7 +38,10 @@ describe("InviteDialog", () => {
     await user.click(screen.getByRole("button", { name: /send invitation/i }));
 
     await waitFor(() => expect(invite).toHaveBeenCalled());
-    expect(invite.mock.calls[0][0]).toMatchObject({ email: "new@example.com", role: "member" });
+    expect(invite.mock.calls[0][0]).toMatchObject({
+      email: "new@example.com",
+      role: "member",
+    });
     expect(onSaved).toHaveBeenCalled();
   });
 
@@ -55,7 +59,9 @@ describe("InviteDialog", () => {
   it("surfaces the backend's reason for a refusal", async () => {
     const user = userEvent.setup();
     vi.spyOn(users, "invite").mockRejectedValue(
-      new ApiError(409, "Conflict", { detail: "A user with that email already exists" }),
+      new ApiError(409, "Conflict", {
+        detail: "A user with that email already exists",
+      }),
     );
     render(<InviteDialog open onOpenChange={() => {}} onSaved={() => {}} />);
 

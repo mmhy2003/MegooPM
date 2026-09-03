@@ -16,6 +16,8 @@ export type PasswordChange = Schemas["PasswordChange"];
 export type ProfileUpdate = Schemas["ProfileUpdate"];
 export type UserRole = Schemas["UserRole"];
 export type UserInvite = Schemas["UserInvite"];
+export type TotpSetup = Schemas["TotpSetup"];
+export type TotpCodes = Schemas["TotpCodes"];
 
 const BASE = "/api/v1/users";
 
@@ -23,8 +25,7 @@ export const users = {
   list: () => api.get<User[]>(BASE),
   create: (body: UserCreate) => api.post<User>(BASE, body),
   update: (id: number, body: UserUpdate) => api.patch<User>(`${BASE}/${id}`, body),
-  resetPassword: (id: number, body: PasswordReset) =>
-    api.put<void>(`${BASE}/${id}/password`, body),
+  resetPassword: (id: number, body: PasswordReset) => api.put<void>(`${BASE}/${id}/password`, body),
   remove: (id: number) => api.delete<void>(`${BASE}/${id}`),
   /** Create an invited (inactive) user and email them the link. 409 if taken or mail is off. */
   invite: (body: UserInvite) => api.post<User>(`${BASE}/invite`, body),
@@ -34,6 +35,16 @@ export const users = {
   updateMe: (body: ProfileUpdate) => api.patch<User>(`${BASE}/me`, body),
   /** The caller's own password; 400 when the current password is wrong. */
   changeMyPassword: (body: PasswordChange) => api.put<void>(`${BASE}/me/password`, body),
+  /** Start enrolling an authenticator app. 2FA stays off until confirmed. */
+  totpSetup: () => api.post<TotpSetup>(`${BASE}/me/totp/setup`, {}),
+  /** Prove the app works; returns the recovery codes exactly once. */
+  totpEnable: (code: string) => api.post<TotpCodes>(`${BASE}/me/totp/enable`, { code }),
+  /** Turn 2FA off. A valid code is required. */
+  totpDisable: (code: string) => api.post<void>(`${BASE}/me/totp/disable`, { code }),
+  /** Replace every recovery code. A valid code is required. */
+  totpRegenerate: (code: string) => api.post<TotpCodes>(`${BASE}/me/totp/recovery-codes`, { code }),
+  /** Admin: turn off another user's 2FA. No code — the lost-phone backstop. */
+  adminTotpDisable: (id: number) => api.post<void>(`${BASE}/${id}/totp/disable`, {}),
 } as const;
 
 export const USER_ROLES: readonly UserRole[] = ["admin", "member"] as const;

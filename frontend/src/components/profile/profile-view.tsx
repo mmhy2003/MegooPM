@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { TotpCard } from "@/components/profile/totp-card";
 
 export function ProfileView() {
   const { user, refreshUser, logout } = useAuth();
@@ -154,6 +155,8 @@ export function ProfileView() {
           </Button>
         </CardFooter>
       </Card>
+
+      <TotpCard enabled={user?.totp_enabled ?? false} onChanged={() => void refreshUser()} />
     </div>
   );
 }

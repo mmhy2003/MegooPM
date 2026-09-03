@@ -14,6 +14,7 @@ const admin = {
   is_active: true,
   created_at: "2026-08-27T09:00:00Z",
   updated_at: "2026-08-27T09:00:00Z",
+  totp_enabled: false,
 };
 const member = {
   ...admin,

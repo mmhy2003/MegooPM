@@ -5,12 +5,7 @@
  * re-export them here so callers import from a single, stable path:
  * `import { api, apiFetch } from "@/lib/api"`.
  */
-export {
-  api,
-  apiFetch,
-  setAuthTokenProvider,
-  setTokenRefresher,
-} from "@/lib/api/client";
+export { api, apiFetch, setAuthTokenProvider, setTokenRefresher } from "@/lib/api/client";
 export type { ApiRequestOptions, QueryValue } from "@/lib/api/client";
 export { ApiError } from "@/lib/api/errors";
 
@@ -22,11 +17,7 @@ export type {
   HttpScheme,
 } from "@/lib/api/resources/proxy-hosts";
 
-export {
-  upstreams,
-  LB_METHODS,
-  LB_METHOD_LABELS,
-} from "@/lib/api/resources/upstreams";
+export { upstreams, LB_METHODS, LB_METHOD_LABELS } from "@/lib/api/resources/upstreams";
 export type {
   Upstream,
   UpstreamCreate,
@@ -166,14 +157,16 @@ export type {
 
 export { users, USER_ROLES, USER_ROLE_LABELS } from "@/lib/api/resources/users";
 export type {
+  PasswordChange,
+  PasswordReset,
+  ProfileUpdate,
+  TotpCodes,
+  TotpSetup,
   User,
   UserCreate,
-  UserUpdate,
-  PasswordReset,
-  PasswordChange,
-  ProfileUpdate,
-  UserRole,
   UserInvite,
+  UserRole,
+  UserUpdate,
 } from "@/lib/api/resources/users";
 
 export { dnsProviders, dnsCredentials } from "@/lib/api/resources/dns-providers";
