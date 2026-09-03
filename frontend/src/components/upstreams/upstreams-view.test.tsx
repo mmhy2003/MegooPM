@@ -87,3 +87,56 @@ describe("UpstreamsView context column", () => {
     ).toBeInTheDocument();
   });
 });
+
+describe("UpstreamsView search", () => {
+  afterEach(() => {
+    cleanup();
+    vi.restoreAllMocks();
+  });
+
+  it("matches a pool by name and by backend host", async () => {
+    const user = userEvent.setup();
+    vi.spyOn(upstreams, "list").mockResolvedValue([
+      makePool({
+        id: 1,
+        name: "api-pool",
+        backends: [
+          {
+            id: 1,
+            upstream_id: 1,
+            host: "10.0.0.5",
+            port: 8080,
+            weight: 1,
+            max_fails: 1,
+            fail_timeout_seconds: 10,
+            backup: false,
+            down: false,
+            enabled: true,
+            created_at: "2026-09-01T00:00:00Z",
+            updated_at: "2026-09-01T00:00:00Z",
+          },
+        ],
+      }),
+      makePool({ id: 2, name: "blog-pool", backends: [] }),
+    ] as Upstream[]);
+    render(<UpstreamsView />);
+    await screen.findByRole("searchbox", { name: "Search upstream pools" });
+
+    await user.type(screen.getByRole("searchbox"), "10.0.0.5");
+
+    expect(screen.getByText("api-pool")).toBeInTheDocument();
+    expect(screen.queryByText("blog-pool")).not.toBeInTheDocument();
+  });
+
+  it("distinguishes a filtered-empty table from an empty instance", async () => {
+    const user = userEvent.setup();
+    vi.spyOn(upstreams, "list").mockResolvedValue([]);
+    render(<UpstreamsView />);
+    await screen.findByRole("searchbox", { name: "Search upstream pools" });
+    expect(screen.getByText(/no upstream pools yet/i)).toBeInTheDocument();
+
+    await user.type(screen.getByRole("searchbox"), "nonesuch");
+
+    expect(screen.getByText(/no upstream pools match/i)).toBeInTheDocument();
+  });
+});

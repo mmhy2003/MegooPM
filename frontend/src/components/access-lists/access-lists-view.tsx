@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { KeyRound, ListChecks, Network, Pencil, Plus, Trash2 } from "lucide-react";
 
 import { accessLists, type AccessList } from "@/lib/api";
@@ -9,7 +9,9 @@ import { AccessListDialog } from "@/components/access-lists/access-list-dialog";
 import { ConfirmDeleteDialog } from "@/components/proxy-hosts/confirm-delete-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { SearchInput } from "@/components/ui/search-input";
 import { Skeleton } from "@/components/ui/skeleton";
+import { filterBySearch } from "@/lib/search";
 import {
   Table,
   TableBody,
@@ -43,6 +45,14 @@ export function AccessListsView() {
   // `null` closes the dialog; `undefined` opens it in create mode.
   const [editing, setEditing] = useState<AccessList | null | undefined>(null);
   const [deleteList, setDeleteList] = useState<AccessList | null>(null);
+  const [query, setQuery] = useState("");
+
+  // Name only: the users and IP rules are nested collections, and matching
+  // them would make a search for "10." return every list with a private range.
+  const visible = useMemo(
+    () => filterBySearch(lists, query, (l) => [l.name]),
+    [lists, query],
+  );
 
   const load = useCallback(async () => {
     try {
@@ -100,6 +110,15 @@ export function AccessListsView() {
         </div>
       ) : null}
 
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <SearchInput
+          value={query}
+          onValueChange={setQuery}
+          label="Search access lists"
+          placeholder="List name"
+        />
+      </div>
+
       <div className="rounded-xl border">
         <Table>
           <TableHeader>
@@ -115,18 +134,31 @@ export function AccessListsView() {
           <TableBody>
             {loading ? (
               <LoadingRows cols={6} />
-            ) : lists.length === 0 ? (
+            ) : visible.length === 0 ? (
               <TableRow>
                 <TableCell
                   colSpan={6}
                   className="py-10 text-center text-muted-foreground"
                 >
-                  No access lists yet. Create one, then attach it to a proxy host
-                  to gate access.
+                  {query.trim() ? (
+                    <>
+                      No access lists match “{query.trim()}”.{" "}
+                      <Button
+                        variant="link"
+                        size="sm"
+                        className="h-auto p-0 align-baseline"
+                        onClick={() => setQuery("")}
+                      >
+                        Clear search
+                      </Button>
+                    </>
+                  ) : (
+                    "No access lists yet. Create one, then attach it to a proxy host to gate access."
+                  )}
                 </TableCell>
               </TableRow>
             ) : (
-              lists.map((list) => (
+              visible.map((list) => (
                 <TableRow key={list.id}>
                   <TableCell className="font-medium">{list.name}</TableCell>
                   <TableCell>

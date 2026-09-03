@@ -2,7 +2,7 @@
 
 import { toast } from "sonner";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Pencil, Plus, Server, Trash2 } from "lucide-react";
 
 import {
@@ -17,7 +17,9 @@ import { UpstreamDialog } from "@/components/upstreams/upstream-dialog";
 import { Badge } from "@/components/ui/badge";
 import { EnabledToggle } from "@/components/hosts/enabled-toggle";
 import { Button } from "@/components/ui/button";
+import { SearchInput } from "@/components/ui/search-input";
 import { Skeleton } from "@/components/ui/skeleton";
+import { filterBySearch } from "@/lib/search";
 import {
   Table,
   TableBody,
@@ -65,6 +67,19 @@ export function UpstreamsView() {
     pool: null,
   });
   const [deletePool, setDeletePool] = useState<Upstream | null>(null);
+  const [query, setQuery] = useState("");
+
+  // Backend hosts too: "which pool holds 10.0.0.6?" is the real question.
+  const visible = useMemo(
+    // `backends` is optional in the schema, and a pool created without one
+    // still has to be findable by name.
+    () =>
+      filterBySearch(pools, query, (p) => [
+        p.name,
+        ...(p.backends ?? []).map((b) => b.host),
+      ]),
+    [pools, query],
+  );
 
   // `load` performs no synchronous setState, so it is safe to call from an
   // effect body; `refresh` (event handlers) shows the skeleton while reloading.
@@ -134,7 +149,13 @@ export function UpstreamsView() {
       ) : null}
 
       <div className="space-y-3">
-        <div className="flex justify-end">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <SearchInput
+            value={query}
+            onValueChange={setQuery}
+            label="Search upstream pools"
+            placeholder="Pool name or backend host"
+          />
           <Button size="sm" onClick={() => setPoolDialog({ open: true, pool: null })}>
             <Plus /> New upstream pool
           </Button>
@@ -154,14 +175,28 @@ export function UpstreamsView() {
             <TableBody>
               {loading ? (
                 <LoadingRows cols={6} />
-              ) : pools.length === 0 ? (
+              ) : visible.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={6} className="py-10 text-center text-muted-foreground">
-                    No upstream pools yet. Create one to define a load-balanced backend set.
+                    {query.trim() ? (
+                      <>
+                        No upstream pools match “{query.trim()}”.{" "}
+                        <Button
+                          variant="link"
+                          size="sm"
+                          className="h-auto p-0 align-baseline"
+                          onClick={() => setQuery("")}
+                        >
+                          Clear search
+                        </Button>
+                      </>
+                    ) : (
+                      "No upstream pools yet. Create one to define a load-balanced backend set."
+                    )}
                   </TableCell>
                 </TableRow>
               ) : (
-                pools.map((pool) => {
+                visible.map((pool) => {
                   const backends = pool.backends ?? [];
                   const up = backends.filter(
                     (b) => (b.enabled ?? true) && !(b.down ?? false),
