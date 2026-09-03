@@ -127,3 +127,43 @@ def test_changed_notice_has_no_link() -> None:
     email = render("password_changed", subject="Changed", app_name="MegooPM")
     assert "href=" not in email.html
     assert "http" not in email.text
+
+
+# --- invitation -----------------------------------------------------------
+
+
+def _invitation(**over):
+    context = {
+        "app_name": "MegooPM",
+        "inviter_name": "Mohamed Hammad",
+        "accept_url": "https://pm.example.com/accept-invite?token=abc",
+        "ttl_days": 7,
+    }
+    context.update(over)
+    return render("invitation", subject="You're invited", **context)
+
+
+def test_invitation_carries_the_link_in_both_bodies() -> None:
+    email = _invitation()
+    assert "https://pm.example.com/accept-invite?token=abc" in email.html
+    assert "https://pm.example.com/accept-invite?token=abc" in email.text
+
+
+def test_invitation_names_who_sent_it() -> None:
+    # "You've been invited to MegooPM" with no human attached is what phishing
+    # looks like.
+    email = _invitation(inviter_name="Sara Ali")
+    assert "Sara Ali" in email.html
+    assert "Sara Ali" in email.text
+
+
+def test_invitation_states_the_expiry_in_days() -> None:
+    email = _invitation(ttl_days=7)
+    assert "7 days" in email.text
+
+
+def test_inviter_name_is_escaped_in_the_html_body() -> None:
+    # The inviter is an admin, but an admin's display name is still user input.
+    email = _invitation(inviter_name="<b>x</b>")
+    assert "<b>x</b>" not in email.html
+    assert "&lt;b&gt;" in email.html
