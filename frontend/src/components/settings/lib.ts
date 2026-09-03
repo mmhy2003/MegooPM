@@ -14,6 +14,8 @@ import type {
   InstanceSettings,
   LlmSettingsUpdate,
   LlmTestRequest,
+  SmtpSecurity,
+  SmtpSettingsUpdate,
 } from "@/lib/api";
 
 export { describeError } from "@/components/proxy-hosts/lib";
@@ -153,5 +155,72 @@ export function buildLlmTestPayload(state: LlmFormState): LlmTestRequest {
   if (state.model.trim()) payload.model = state.model.trim();
   if (state.apiBase.trim()) payload.api_base = state.apiBase.trim();
   if (state.apiKey.trim()) payload.api_key = state.apiKey.trim();
+  return payload;
+}
+
+
+// --- SMTP -------------------------------------------------------------------
+
+export type SmtpFormState = {
+  enabled: boolean;
+  host: string;
+  port: string;
+  security: SmtpSecurity;
+  /** Always starts empty: the stored password is never returned. */
+  password: string;
+  passwordIsSet: boolean;
+  /** True once the operator removed the stored password, so we send null. */
+  passwordCleared: boolean;
+  username: string;
+  from: string;
+  fromName: string;
+  appUrl: string;
+};
+
+export function smtpStateFromSettings(settings: InstanceSettings): SmtpFormState {
+  return {
+    enabled: settings.smtp_enabled,
+    host: settings.smtp_host ?? "",
+    port: String(settings.smtp_port ?? 587),
+    security: settings.smtp_security ?? "starttls",
+    username: settings.smtp_username ?? "",
+    password: "",
+    passwordIsSet: settings.smtp_password_set,
+    passwordCleared: false,
+    from: settings.smtp_from ?? "",
+    fromName: settings.smtp_from_name ?? "",
+    appUrl: settings.app_url ?? "",
+  };
+}
+
+export function validateSmtpForm(state: SmtpFormState): string | null {
+  const port = Number(state.port);
+  if (!Number.isInteger(port) || port < 1 || port > 65535) {
+    return "Port must be a whole number between 1 and 65535.";
+  }
+  // Only when delivery is on: a switched-off card should not nag for fields
+  // nothing is going to use.
+  if (!state.enabled) return null;
+  if (!state.host.trim()) return "A host is required to send mail.";
+  if (!state.from.trim()) return "A from address is required to send mail.";
+  return null;
+}
+
+export function buildSmtpPayload(state: SmtpFormState): SmtpSettingsUpdate {
+  const payload: SmtpSettingsUpdate = {
+    smtp_enabled: state.enabled,
+    smtp_host: state.host.trim() || null,
+    smtp_port: Number(state.port),
+    smtp_security: state.security,
+    smtp_username: state.username.trim() || null,
+    smtp_from: state.from.trim() || null,
+    smtp_from_name: state.fromName.trim() || null,
+    app_url: state.appUrl.trim() || null,
+  };
+  // Three states, not two. Absent keeps the stored password; a string replaces
+  // it; an explicit null clears it. Always sending the key would wipe a working
+  // password every time the card is saved.
+  if (state.password) payload.smtp_password = state.password;
+  else if (state.passwordCleared) payload.smtp_password = null;
   return payload;
 }

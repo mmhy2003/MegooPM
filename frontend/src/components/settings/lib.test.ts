@@ -10,6 +10,10 @@ import {
   buildLlmPayload,
   buildLlmTestPayload,
   emptyLlmState,
+  buildSmtpPayload,
+  smtpStateFromSettings,
+  validateSmtpForm,
+  type SmtpFormState,
   llmStateFromSettings,
   validateLlmForm,
   type LlmFormState,
@@ -27,6 +31,15 @@ const SETTINGS: InstanceSettings = {
   llm_model: null,
   llm_api_base: null,
   llm_api_key_set: false,
+  smtp_enabled: false,
+  smtp_host: null,
+  smtp_port: 587,
+  smtp_security: "starttls",
+  smtp_username: null,
+  smtp_password_set: false,
+  smtp_from: null,
+  smtp_from_name: null,
+  app_url: null,
   updated_at: "2026-09-01T00:00:00Z",
 };
 
@@ -143,6 +156,15 @@ const LLM_SETTINGS: InstanceSettings = {
   llm_model: "gpt-4o",
   llm_api_base: "https://gw.example.com",
   llm_api_key_set: true,
+  smtp_enabled: false,
+  smtp_host: null,
+  smtp_port: 587,
+  smtp_security: "starttls",
+  smtp_username: null,
+  smtp_password_set: false,
+  smtp_from: null,
+  smtp_from_name: null,
+  app_url: null,
 };
 
 function llm(overrides: Partial<LlmFormState> = {}): LlmFormState {
@@ -166,6 +188,15 @@ describe("llmStateFromSettings", () => {
       llm_model: null,
       llm_api_base: null,
       llm_api_key_set: false,
+      smtp_enabled: false,
+      smtp_host: null,
+      smtp_port: 587,
+      smtp_security: "starttls",
+      smtp_username: null,
+      smtp_password_set: false,
+      smtp_from: null,
+      smtp_from_name: null,
+      app_url: null,
     });
     expect(seeded.model).toBe("");
     expect(seeded.apiBase).toBe("");
@@ -229,5 +260,110 @@ describe("buildLlmTestPayload", () => {
       model: "gpt-4o",
       api_key: "sk-typed",
     });
+  });
+});
+
+describe("smtpStateFromSettings", () => {
+  const settings = {
+    smtp_enabled: true,
+    smtp_host: "mail.example.com",
+    smtp_port: 587,
+    smtp_security: "starttls",
+    smtp_username: "user",
+    smtp_password_set: true,
+    smtp_from: "megoopm@example.com",
+    smtp_from_name: "MegooPM",
+    app_url: "https://pm.example.com",
+  } as unknown as InstanceSettings;
+
+  it("starts the password field empty even when one is stored", () => {
+    // The password is never returned, so there is nothing to prefill.
+    const state = smtpStateFromSettings(settings);
+    expect(state.password).toBe("");
+    expect(state.passwordIsSet).toBe(true);
+  });
+
+  it("carries the rest of the configuration through", () => {
+    const state = smtpStateFromSettings(settings);
+    expect(state.host).toBe("mail.example.com");
+    expect(state.port).toBe("587");
+    expect(state.security).toBe("starttls");
+  });
+});
+
+describe("validateSmtpForm", () => {
+  function state(over: Partial<SmtpFormState> = {}): SmtpFormState {
+    return {
+      enabled: true,
+      host: "mail.example.com",
+      port: "587",
+      security: "starttls",
+      username: "",
+      password: "",
+      passwordIsSet: false,
+      passwordCleared: false,
+      from: "megoopm@example.com",
+      fromName: "",
+      appUrl: "",
+      ...over,
+    };
+  }
+
+  it("accepts a complete configuration", () => {
+    expect(validateSmtpForm(state())).toBeNull();
+  });
+
+  it("refuses enabling without a host", () => {
+    expect(validateSmtpForm(state({ host: "" }))).toMatch(/host/i);
+  });
+
+  it("refuses enabling without a from address", () => {
+    expect(validateSmtpForm(state({ from: "" }))).toMatch(/from/i);
+  });
+
+  it("refuses a port outside the valid range", () => {
+    expect(validateSmtpForm(state({ port: "70000" }))).toMatch(/port/i);
+  });
+
+  it("asks for nothing while delivery is switched off", () => {
+    expect(validateSmtpForm(state({ enabled: false, host: "", from: "" }))).toBeNull();
+  });
+});
+
+describe("buildSmtpPayload", () => {
+  function state(over: Partial<SmtpFormState> = {}): SmtpFormState {
+    return {
+      enabled: true,
+      host: "mail.example.com",
+      port: "587",
+      security: "starttls",
+      username: "user",
+      password: "",
+      passwordIsSet: true,
+      passwordCleared: false,
+      from: "megoopm@example.com",
+      fromName: "MegooPM",
+      appUrl: "https://pm.example.com",
+      ...over,
+    };
+  }
+
+  it("omits the password entirely when the field was left blank", () => {
+    // Sending null would wipe a working password on every save.
+    expect("smtp_password" in buildSmtpPayload(state())).toBe(false);
+  });
+
+  it("sends a typed password", () => {
+    expect(buildSmtpPayload(state({ password: "hunter2" })).smtp_password).toBe("hunter2");
+  });
+
+  it("sends an explicit null when the stored password was removed", () => {
+    const payload = buildSmtpPayload(state({ passwordCleared: true, passwordIsSet: false }));
+    expect("smtp_password" in payload).toBe(true);
+    expect(payload.smtp_password).toBeNull();
+  });
+
+  it("sends the port as a number", () => {
+    expect(buildSmtpPayload(state()).smtp_port).toBe(587);
   });
 });

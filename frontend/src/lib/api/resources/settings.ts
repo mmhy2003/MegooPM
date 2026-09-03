@@ -20,6 +20,10 @@ export type CrowdSecBanMode = Schemas["CrowdSecBanMode"];
 export type LlmSettingsUpdate = Schemas["LlmSettingsUpdate"];
 export type LlmTestRequest = Schemas["LlmTestRequest"];
 export type LlmTestResult = Schemas["LlmTestResult"];
+export type SmtpSettingsUpdate = Schemas["SmtpSettingsUpdate"];
+export type SmtpSecurity = Schemas["SmtpSecurity"];
+export type MailTestRequest = Schemas["MailTestRequest"];
+export type MailTestResult = Schemas["MailTestResult"];
 
 const BASE = "/api/v1/settings";
 
@@ -37,4 +41,11 @@ export const instanceSettings = {
    * succeeded, the upstream did not.
    */
   testLlm: (body: LlmTestRequest) => api.post<LlmTestResult>(`${BASE}/llm/test`, body),
+  updateSmtp: (body: SmtpSettingsUpdate) => api.patch<InstanceSettings>(`${BASE}/smtp`, body),
+  /**
+   * Sends one real message using the *stored* settings, so save first. A
+   * failure comes back as `ok: false` with HTTP 200 — the API call
+   * succeeded, the mail server did not.
+   */
+  testSmtp: (body: MailTestRequest) => api.post<MailTestResult>(`${BASE}/smtp/test`, body),
 } as const;

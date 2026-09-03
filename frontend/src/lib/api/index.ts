@@ -105,6 +105,10 @@ export type {
   LlmSettingsUpdate,
   LlmTestRequest,
   LlmTestResult,
+  SmtpSettingsUpdate,
+  SmtpSecurity,
+  MailTestRequest,
+  MailTestResult,
 } from "@/lib/api/resources/settings";
 
 export { streams } from "@/lib/api/resources/streams";

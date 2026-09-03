@@ -1143,6 +1143,59 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/settings/smtp": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Update Smtp Settings
+         * @description Configure outbound email. Admin-only.
+         *
+         *     ``exclude_unset`` is load-bearing: it is what tells the service the
+         *     difference between "the client did not send a password" and "the client
+         *     cleared the password".
+         */
+        patch: operations["update_smtp_settings_api_v1_settings_smtp_patch"];
+        trace?: never;
+    };
+    "/api/v1/settings/smtp/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send Test Email
+         * @description Send one themed test message. Admin-only.
+         *
+         *     Synchronous on purpose. The operator is on the Settings page waiting and
+         *     needs the actual SMTP error — "authentication failed", "connection refused"
+         *     — not a task id to go and poll. Real notifications will go through Celery
+         *     instead, so a slow mail server never fails a user-facing action.
+         *
+         *     A failed send returns **200 with ``ok: false``**, not a 4xx or 5xx: the API
+         *     call succeeded, the mail server did not. An error status would make a
+         *     working endpoint indistinguishable from a broken one in monitoring.
+         */
+        post: operations["send_test_email_api_v1_settings_smtp_test_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/streams": {
         parameters: {
             query?: never;
@@ -2572,11 +2625,14 @@ export interface components {
          * InstanceSettingsRead
          * @description Public representation of the settings singleton.
          *
-         *     The LLM API key is deliberately absent. ``llm_api_key_set`` says whether one
-         *     is stored; the value itself is never returned by any endpoint, so a
-         *     compromised browser session cannot read it back out.
+         *     The LLM API key and the SMTP password are deliberately absent.
+         *     ``llm_api_key_set`` and ``smtp_password_set`` say whether one is stored; the
+         *     values themselves are never returned by any endpoint, so a compromised
+         *     browser session cannot read them back out.
          */
         InstanceSettingsRead: {
+            /** App Url */
+            app_url: string | null;
             crowdsec_ban_mode: components["schemas"]["CrowdSecBanMode"];
             /** Crowdsec Ban Page Id */
             crowdsec_ban_page_id: number | null;
@@ -2593,6 +2649,21 @@ export interface components {
             llm_enabled: boolean;
             /** Llm Model */
             llm_model: string | null;
+            /** Smtp Enabled */
+            smtp_enabled: boolean;
+            /** Smtp From */
+            smtp_from: string | null;
+            /** Smtp From Name */
+            smtp_from_name: string | null;
+            /** Smtp Host */
+            smtp_host: string | null;
+            /** Smtp Password Set */
+            smtp_password_set: boolean;
+            /** Smtp Port */
+            smtp_port: number;
+            smtp_security: components["schemas"]["SmtpSecurity"];
+            /** Smtp Username */
+            smtp_username: string | null;
             /**
              * Updated At
              * Format: date-time
@@ -2734,6 +2805,32 @@ export interface components {
             email: string;
             /** Password */
             password: string;
+        };
+        /**
+         * MailTestRequest
+         * @description Where to send the test. Omitted means the requesting admin's own address.
+         */
+        MailTestRequest: {
+            /** To */
+            to?: string | null;
+        };
+        /**
+         * MailTestResult
+         * @description The send's outcome. ``ok: false`` still returns HTTP 200 — see the route.
+         */
+        MailTestResult: {
+            /**
+             * Detail
+             * @default
+             */
+            detail: string;
+            /**
+             * Latency Ms
+             * @default 0
+             */
+            latency_ms: number;
+            /** Ok */
+            ok: boolean;
         };
         /**
          * NginxConfigFile
@@ -3407,6 +3504,48 @@ export interface components {
             alerts_24h: number;
             /** Top Scenarios */
             top_scenarios: string[];
+        };
+        /**
+         * SmtpSecurity
+         * @description How the SMTP connection is secured.
+         * @enum {string}
+         */
+        SmtpSecurity: "starttls" | "ssl" | "none";
+        /**
+         * SmtpSettingsUpdate
+         * @description Set the SMTP group. Carries the whole card; the password is the exception.
+         *
+         *     ``smtp_enabled`` is required for the same reason ``default_site_mode`` is on
+         *     its sibling: "enabled needs a host" cannot be checked against a payload that
+         *     omits it, and a schema never sees the stored row.
+         *
+         *     ``smtp_password`` is never returned, so a client has nothing to send back.
+         *     Absent keeps the stored password; a string replaces it; an explicit ``null``
+         *     clears it — distinguished with ``model_fields_set``, which is why the service
+         *     is handed ``model_dump(exclude_unset=True)``.
+         */
+        SmtpSettingsUpdate: {
+            /** App Url */
+            app_url?: string | null;
+            /** Smtp Enabled */
+            smtp_enabled: boolean;
+            /** Smtp From */
+            smtp_from?: string | null;
+            /** Smtp From Name */
+            smtp_from_name?: string | null;
+            /** Smtp Host */
+            smtp_host?: string | null;
+            /** Smtp Password */
+            smtp_password?: string | null;
+            /**
+             * Smtp Port
+             * @default 587
+             */
+            smtp_port: number;
+            /** @default starttls */
+            smtp_security: components["schemas"]["SmtpSecurity"];
+            /** Smtp Username */
+            smtp_username?: string | null;
         };
         /**
          * StreamCreate
@@ -6166,6 +6305,72 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["LlmTestResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_smtp_settings_api_v1_settings_smtp_patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SmtpSettingsUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InstanceSettingsRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    send_test_email_api_v1_settings_smtp_test_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MailTestRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MailTestResult"];
                 };
             };
             /** @description Validation Error */

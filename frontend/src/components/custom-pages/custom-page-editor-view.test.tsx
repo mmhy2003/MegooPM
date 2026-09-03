@@ -48,6 +48,15 @@ function makeSettings(llmEnabled: boolean): InstanceSettings {
     llm_model: llmEnabled ? "gpt-4o" : null,
     llm_api_base: null,
     llm_api_key_set: llmEnabled,
+    smtp_enabled: false,
+    smtp_host: null,
+    smtp_port: 587,
+    smtp_security: "starttls",
+    smtp_username: null,
+    smtp_password_set: false,
+    smtp_from: null,
+    smtp_from_name: null,
+    app_url: null,
     updated_at: "2026-09-01T00:00:00Z",
   };
 }
