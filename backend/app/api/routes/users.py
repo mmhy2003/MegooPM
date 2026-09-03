@@ -19,7 +19,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import AdminUser, CurrentUser, SessionDep
 from app.models.enums import AuditAction, AuthTokenKind
 from app.models.user import User
+from app.schemas.auth import PasskeyOptions
 from app.schemas.user import (
+    PasskeyRead,
+    PasskeyRegisterRequest,
     PasswordChange,
     PasswordReset,
     ProfileUpdate,
@@ -31,7 +34,7 @@ from app.schemas.user import (
     UserRead,
     UserUpdate,
 )
-from app.services import auth_tokens, totp
+from app.services import auth_tokens, passkeys, totp, webauthn_challenge
 from app.services import instance_settings as settings_service
 from app.services import user as user_service
 from app.services.audit import record_audit
@@ -240,6 +243,128 @@ async def totp_regenerate(
         meta={"totp": "codes_regenerated"},
     )
     return TotpCodes(codes=codes)
+
+
+# --- self: passkeys ----------------------------------------------------------------
+
+
+async def _relying_party(db: AsyncSession) -> passkeys.RelyingParty:
+    row = await settings_service.get_instance_settings(db)
+    try:
+        return passkeys.relying_party(row.app_url)
+    except passkeys.PasskeysUnavailable:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Set the app URL in Settings before adding passkeys.",
+        ) from None
+
+
+def _passkey_not_added() -> HTTPException:
+    return HTTPException(
+        status_code=status.HTTP_400_BAD_REQUEST,
+        detail="That passkey could not be added. Try again.",
+    )
+
+
+def _store_unavailable() -> HTTPException:
+    return HTTPException(
+        status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Try again in a moment."
+    )
+
+
+def _too_many_passkeys() -> HTTPException:
+    return HTTPException(
+        status_code=status.HTTP_409_CONFLICT,
+        detail=f"You can have up to {passkeys.MAX_PASSKEYS} passkeys.",
+    )
+
+
+async def _require_code(db: AsyncSession, user: User, code: str) -> None:
+    """The gate on adding or removing a second factor: prove you hold one."""
+    if not user.totp_enabled:
+        raise _totp_off()
+    if not await totp.verify_code(db, user, code):
+        raise _invalid_code()
+
+
+@router.post("/me/passkeys/options", response_model=PasskeyOptions)
+async def passkey_options(
+    body: TotpCodeRequest, current_user: CurrentUser, db: SessionDep
+) -> PasskeyOptions:
+    """Start registering a passkey. Requires a valid code and the app URL."""
+    await _require_code(db, current_user, body.code)
+    rp = await _relying_party(db)
+    existing = await passkeys.list_for(db, current_user)
+    if len(existing) >= passkeys.MAX_PASSKEYS:
+        raise _too_many_passkeys()
+    options, challenge = passkeys.registration_options(rp, user=current_user, existing=existing)
+    try:
+        nonce = await webauthn_challenge.put(
+            kind="register", user_id=current_user.id, challenge=challenge
+        )
+    except webauthn_challenge.ChallengeStoreUnavailable:
+        raise _store_unavailable() from None
+    return PasskeyOptions(nonce=nonce, options=options)
+
+
+@router.post("/me/passkeys", response_model=PasskeyRead, status_code=status.HTTP_201_CREATED)
+async def passkey_register(
+    body: PasskeyRegisterRequest, current_user: CurrentUser, db: SessionDep
+) -> PasskeyRead:
+    """Finish registering: verify the browser's credential against the stored challenge."""
+    if not current_user.totp_enabled:
+        raise _totp_off()
+    rp = await _relying_party(db)
+    try:
+        stored = await webauthn_challenge.take(kind="register", nonce=body.nonce)
+    except webauthn_challenge.ChallengeStoreUnavailable:
+        raise _store_unavailable() from None
+    if stored is None or stored[0] != current_user.id:
+        raise _passkey_not_added()
+    try:
+        registered = passkeys.verify_registration(
+            rp, credential=body.credential, challenge=stored[1]
+        )
+    except passkeys.PasskeyRejected:
+        raise _passkey_not_added() from None
+    try:
+        row = await passkeys.add(db, current_user, registered, name=body.name)
+    except passkeys.PasskeyLimitReached:
+        raise _too_many_passkeys() from None
+    except passkeys.PasskeyDuplicate:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail="That passkey is already registered."
+        ) from None
+    await _audit(
+        db,
+        actor=current_user,
+        action=AuditAction.update,
+        object_id=current_user.id,
+        meta={"passkey": "added", "name": row.name},
+    )
+    return PasskeyRead.model_validate(row)
+
+
+@router.get("/me/passkeys", response_model=list[PasskeyRead])
+async def passkey_list(current_user: CurrentUser, db: SessionDep) -> list[PasskeyRead]:
+    return [PasskeyRead.model_validate(p) for p in await passkeys.list_for(db, current_user)]
+
+
+@router.post("/me/passkeys/{passkey_id}/remove", status_code=status.HTTP_204_NO_CONTENT)
+async def passkey_remove(
+    passkey_id: int, body: TotpCodeRequest, current_user: CurrentUser, db: SessionDep
+) -> None:
+    """Remove one passkey. A POST with a body: DELETE bodies are dropped by some proxies."""
+    await _require_code(db, current_user, body.code)
+    if not await passkeys.remove(db, current_user, passkey_id):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Passkey not found")
+    await _audit(
+        db,
+        actor=current_user,
+        action=AuditAction.update,
+        object_id=current_user.id,
+        meta={"passkey": "removed"},
+    )
 
 
 # --- admin: collection --------------------------------------------------------

@@ -719,13 +719,18 @@
       "AuthCapabilities": {
         "description": "What the login page may offer before anyone is signed in.",
         "properties": {
+          "passkeys": {
+            "title": "Passkeys",
+            "type": "boolean"
+          },
           "password_reset": {
             "title": "Password Reset",
             "type": "boolean"
           }
         },
         "required": [
-          "password_reset"
+          "password_reset",
+          "passkeys"
         ],
         "title": "AuthCapabilities",
         "type": "object"
@@ -2793,8 +2798,19 @@
         "type": "object"
       },
       "MfaRequired": {
-        "description": "What ``POST /auth/login`` returns when a second factor is needed.\n\n``mfa_required`` is a literal so the frontend can discriminate the union\nwithout inspecting which keys are present.",
+        "description": "What ``POST /auth/login`` returns when a second factor is needed.\n\n``mfa_required`` is a literal so the frontend can discriminate the union\nwithout inspecting which keys are present. ``methods`` tells the form\nwhat to offer without a second request.",
         "properties": {
+          "methods": {
+            "items": {
+              "enum": [
+                "totp",
+                "passkey"
+              ],
+              "type": "string"
+            },
+            "title": "Methods",
+            "type": "array"
+          },
           "mfa_required": {
             "const": true,
             "default": true,
@@ -2995,6 +3011,134 @@
           "after"
         ],
         "title": "PageEditChange",
+        "type": "object"
+      },
+      "PasskeyAssertRequest": {
+        "description": "Body for ``POST /auth/mfa/passkey/verify``.",
+        "properties": {
+          "credential": {
+            "additionalProperties": true,
+            "title": "Credential",
+            "type": "object"
+          },
+          "mfa_token": {
+            "minLength": 1,
+            "title": "Mfa Token",
+            "type": "string"
+          },
+          "nonce": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Nonce",
+            "type": "string"
+          }
+        },
+        "required": [
+          "mfa_token",
+          "nonce",
+          "credential"
+        ],
+        "title": "PasskeyAssertRequest",
+        "type": "object"
+      },
+      "PasskeyOptions": {
+        "description": "A ceremony's options, plus the nonce that names its stored challenge.",
+        "properties": {
+          "nonce": {
+            "title": "Nonce",
+            "type": "string"
+          },
+          "options": {
+            "additionalProperties": true,
+            "title": "Options",
+            "type": "object"
+          }
+        },
+        "required": [
+          "nonce",
+          "options"
+        ],
+        "title": "PasskeyOptions",
+        "type": "object"
+      },
+      "PasskeyOptionsRequest": {
+        "description": "Body for ``POST /auth/mfa/passkey/options``.",
+        "properties": {
+          "mfa_token": {
+            "minLength": 1,
+            "title": "Mfa Token",
+            "type": "string"
+          }
+        },
+        "required": [
+          "mfa_token"
+        ],
+        "title": "PasskeyOptionsRequest",
+        "type": "object"
+      },
+      "PasskeyRead": {
+        "description": "One registered passkey. Never the key, never the credential id.",
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "last_used_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Used At"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "created_at"
+        ],
+        "title": "PasskeyRead",
+        "type": "object"
+      },
+      "PasskeyRegisterRequest": {
+        "description": "Body for ``POST /users/me/passkeys``: the browser's credential and a name.",
+        "properties": {
+          "credential": {
+            "additionalProperties": true,
+            "title": "Credential",
+            "type": "object"
+          },
+          "name": {
+            "default": "",
+            "maxLength": 64,
+            "title": "Name",
+            "type": "string"
+          },
+          "nonce": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Nonce",
+            "type": "string"
+          }
+        },
+        "required": [
+          "nonce",
+          "credential"
+        ],
+        "title": "PasskeyRegisterRequest",
         "type": "object"
       },
       "PasswordChange": {
@@ -6470,6 +6614,90 @@
           }
         ],
         "summary": "Read Me",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/v1/auth/mfa/passkey/options": {
+      "post": {
+        "description": "Options for answering the challenge with a passkey.",
+        "operationId": "mfa_passkey_options_api_v1_auth_mfa_passkey_options_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PasskeyOptionsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PasskeyOptions"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Mfa Passkey Options",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/v1/auth/mfa/passkey/verify": {
+      "post": {
+        "description": "Exchange the challenge token plus a passkey assertion for the real pair.",
+        "operationId": "mfa_passkey_verify_api_v1_auth_mfa_passkey_verify_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PasskeyAssertRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MfaVerifyResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Mfa Passkey Verify",
         "tags": [
           "auth"
         ]
@@ -10045,6 +10273,179 @@
           }
         ],
         "summary": "Update Current User",
+        "tags": [
+          "users"
+        ]
+      }
+    },
+    "/api/v1/users/me/passkeys": {
+      "get": {
+        "operationId": "passkey_list_api_v1_users_me_passkeys_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/PasskeyRead"
+                  },
+                  "title": "Response Passkey List Api V1 Users Me Passkeys Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Passkey List",
+        "tags": [
+          "users"
+        ]
+      },
+      "post": {
+        "description": "Finish registering: verify the browser's credential against the stored challenge.",
+        "operationId": "passkey_register_api_v1_users_me_passkeys_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PasskeyRegisterRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PasskeyRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Passkey Register",
+        "tags": [
+          "users"
+        ]
+      }
+    },
+    "/api/v1/users/me/passkeys/options": {
+      "post": {
+        "description": "Start registering a passkey. Requires a valid code and the app URL.",
+        "operationId": "passkey_options_api_v1_users_me_passkeys_options_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TotpCodeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PasskeyOptions"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Passkey Options",
+        "tags": [
+          "users"
+        ]
+      }
+    },
+    "/api/v1/users/me/passkeys/{passkey_id}/remove": {
+      "post": {
+        "description": "Remove one passkey. A POST with a body: DELETE bodies are dropped by some proxies.",
+        "operationId": "passkey_remove_api_v1_users_me_passkeys__passkey_id__remove_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "passkey_id",
+            "required": true,
+            "schema": {
+              "title": "Passkey Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TotpCodeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Passkey Remove",
         "tags": [
           "users"
         ]

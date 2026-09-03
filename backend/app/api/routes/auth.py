@@ -24,12 +24,15 @@ from app.schemas.auth import (
     MfaVerifyRequest,
     MfaVerifyResponse,
     NeutralResponse,
+    PasskeyAssertRequest,
+    PasskeyOptions,
+    PasskeyOptionsRequest,
     RefreshRequest,
     ResetPasswordRequest,
     TokenPair,
 )
 from app.schemas.user import UserRead
-from app.services import auth_tokens, rate_limit, totp
+from app.services import auth_tokens, passkeys, rate_limit, totp, webauthn_challenge
 from app.services import instance_settings as settings_service
 from app.services import user as user_service
 from app.services.audit import record_audit
@@ -68,7 +71,13 @@ async def login(
             headers={"WWW-Authenticate": "Bearer"},
         )
     if user.totp_enabled:
-        return MfaRequired(mfa_token=create_mfa_token(user.id, token_version=user.token_version))
+        methods: list[str] = ["totp"]
+        if await passkeys.list_for(db, user):
+            methods.append("passkey")
+        return MfaRequired(
+            mfa_token=create_mfa_token(user.id, token_version=user.token_version),
+            methods=methods,  # type: ignore[arg-type]
+        )
     return _issue_tokens(user)
 
 
@@ -176,8 +185,15 @@ async def capabilities(db: SessionDep) -> AuthCapabilities:
     clicking "forgot password", being told to check their inbox, and nothing
     ever arriving.
     """
-    available, _ = await _reset_available(db)
-    return AuthCapabilities(password_reset=available)
+    row = await settings_service.get_instance_settings(db)
+    try:
+        passkeys.relying_party(row.app_url)
+        passkeys_available = True
+    except passkeys.PasskeysUnavailable:
+        passkeys_available = False
+    return AuthCapabilities(
+        password_reset=bool(row.smtp_enabled and row.app_url), passkeys=passkeys_available
+    )
 
 
 def _limit(exc: rate_limit.RateLimited) -> HTTPException:
@@ -315,3 +331,104 @@ async def accept_invite(body: AcceptInviteRequest, request: Request, db: Session
         meta={"invitation_accepted": True},
     )
     await db.commit()
+
+
+# --- second factor: passkeys ------------------------------------------------------
+
+PASSKEY_REFUSED = "That passkey was not accepted."
+
+
+def _passkey_refused() -> HTTPException:
+    return HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail=PASSKEY_REFUSED,
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+
+
+def _store_unavailable() -> HTTPException:
+    return HTTPException(
+        status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Try again in a moment."
+    )
+
+
+async def _mfa_subject(body_token: str, request: Request, db: SessionDep) -> User:
+    """Decode an mfa token, apply the limiter, and load a live user — or refuse.
+
+    Shared by the two passkey routes. One message for every failure.
+    """
+    try:
+        payload = decode_token(body_token, expected_type="mfa")
+        user_id = int(payload["sub"])
+    except (jwt.PyJWTError, KeyError, ValueError):
+        raise _passkey_refused() from None
+    try:
+        await rate_limit.check_mfa_verify(user_id=user_id, ip=client_ip(request))
+    except rate_limit.RateLimited as exc:
+        raise _limit(exc) from None
+    except rate_limit.RateLimitUnavailable:
+        raise _unavailable() from None
+    user = await user_service.get_by_id(db, user_id)
+    if user is None or not user.is_active or payload.get("tv") != user.token_version:
+        raise _passkey_refused()
+    return user
+
+
+async def _login_relying_party(db: SessionDep) -> passkeys.RelyingParty:
+    row = await settings_service.get_instance_settings(db)
+    try:
+        return passkeys.relying_party(row.app_url)
+    except passkeys.PasskeysUnavailable:
+        raise _passkey_refused() from None
+
+
+@router.post("/mfa/passkey/options", response_model=PasskeyOptions)
+async def mfa_passkey_options(
+    body: PasskeyOptionsRequest, request: Request, db: SessionDep
+) -> PasskeyOptions:
+    """Options for answering the challenge with a passkey."""
+    user = await _mfa_subject(body.mfa_token, request, db)
+    rows = await passkeys.list_for(db, user)
+    if not rows:
+        raise _passkey_refused()
+    rp = await _login_relying_party(db)
+    options, challenge = passkeys.authentication_options(rp, passkeys=rows)
+    try:
+        nonce = await webauthn_challenge.put(
+            kind="authenticate", user_id=user.id, challenge=challenge
+        )
+    except webauthn_challenge.ChallengeStoreUnavailable:
+        raise _store_unavailable() from None
+    return PasskeyOptions(nonce=nonce, options=options)
+
+
+@router.post("/mfa/passkey/verify", response_model=MfaVerifyResponse)
+async def mfa_passkey_verify(
+    body: PasskeyAssertRequest, request: Request, db: SessionDep
+) -> MfaVerifyResponse:
+    """Exchange the challenge token plus a passkey assertion for the real pair."""
+    user = await _mfa_subject(body.mfa_token, request, db)
+    rp = await _login_relying_party(db)
+    try:
+        stored = await webauthn_challenge.take(kind="authenticate", nonce=body.nonce)
+    except webauthn_challenge.ChallengeStoreUnavailable:
+        raise _store_unavailable() from None
+    if stored is None or stored[0] != user.id:
+        raise _passkey_refused()
+    wanted = passkeys.credential_id_of(body.credential)
+    row = next((p for p in await passkeys.list_for(db, user) if p.credential_id == wanted), None)
+    if row is None:
+        raise _passkey_refused()
+    try:
+        new_count = passkeys.verify_authentication(
+            rp, credential=body.credential, challenge=stored[1], passkey=row
+        )
+    except passkeys.PasskeyRejected:
+        raise _passkey_refused() from None
+    await passkeys.touch(db, row, new_count)
+    pair = _issue_tokens(user)
+    return MfaVerifyResponse(
+        access_token=pair.access_token,
+        refresh_token=pair.refresh_token,
+        recovery_codes_remaining=None,
+    )

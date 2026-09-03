@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, EmailStr, Field
 
@@ -32,15 +32,41 @@ class TokenPair(BaseModel):
     token_type: str = "bearer"
 
 
+MfaMethod = Literal["totp", "passkey"]
+
+
 class MfaRequired(BaseModel):
     """What ``POST /auth/login`` returns when a second factor is needed.
 
     ``mfa_required`` is a literal so the frontend can discriminate the union
-    without inspecting which keys are present.
+    without inspecting which keys are present. ``methods`` tells the form
+    what to offer without a second request.
     """
 
     mfa_required: Literal[True] = True
     mfa_token: str
+    methods: list[MfaMethod] = Field(default_factory=lambda: ["totp"])
+
+
+class PasskeyOptionsRequest(BaseModel):
+    """Body for ``POST /auth/mfa/passkey/options``."""
+
+    mfa_token: str = Field(min_length=1)
+
+
+class PasskeyOptions(BaseModel):
+    """A ceremony's options, plus the nonce that names its stored challenge."""
+
+    nonce: str
+    options: dict[str, Any]
+
+
+class PasskeyAssertRequest(BaseModel):
+    """Body for ``POST /auth/mfa/passkey/verify``."""
+
+    mfa_token: str = Field(min_length=1)
+    nonce: str = Field(min_length=1, max_length=128)
+    credential: dict[str, Any]
 
 
 class MfaVerifyRequest(BaseModel):
@@ -81,6 +107,8 @@ class AuthCapabilities(BaseModel):
     """What the login page may offer before anyone is signed in."""
 
     password_reset: bool
+    # Whether the backend can act as a WebAuthn relying party (app URL set).
+    passkeys: bool
 
 
 class NeutralResponse(BaseModel):
@@ -94,10 +122,14 @@ __all__ = [
     "AuthCapabilities",
     "ForgotPasswordRequest",
     "LoginRequest",
+    "MfaMethod",
     "MfaRequired",
     "MfaVerifyRequest",
     "MfaVerifyResponse",
     "NeutralResponse",
+    "PasskeyAssertRequest",
+    "PasskeyOptions",
+    "PasskeyOptionsRequest",
     "RefreshRequest",
     "ResetPasswordRequest",
     "TokenPair",

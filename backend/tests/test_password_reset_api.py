@@ -101,12 +101,12 @@ async def test_capabilities_true_when_smtp_and_app_url_are_set(
 ) -> None:
     resp = await db_client.get(CAPABILITIES)
     assert resp.status_code == 200
-    assert resp.json() == {"password_reset": True}
+    assert resp.json()["password_reset"] is True
 
 
 async def test_capabilities_false_without_smtp(db_client: AsyncClient, mail_unconfigured) -> None:
     resp = await db_client.get(CAPABILITIES)
-    assert resp.json() == {"password_reset": False}
+    assert resp.json()["password_reset"] is False
 
 
 async def test_capabilities_needs_no_auth(db_client: AsyncClient, mail_configured) -> None:

@@ -193,3 +193,10 @@ async def test_a_pending_enrolment_does_not_challenge(
 
     resp = await db_client.post(LOGIN, json={"email": admin_user.email, "password": "adminpass123"})
     assert "access_token" in resp.json()
+
+
+async def test_the_challenge_lists_totp_as_a_method(
+    db_client: AsyncClient, admin_user: User, enabled
+) -> None:
+    resp = await db_client.post(LOGIN, json={"email": admin_user.email, "password": "adminpass123"})
+    assert resp.json()["methods"] == ["totp"]
