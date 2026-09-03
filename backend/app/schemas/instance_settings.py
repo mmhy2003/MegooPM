@@ -27,7 +27,7 @@ from pydantic import (
     model_validator,
 )
 
-from app.models.enums import CrowdSecBanMode, DefaultSiteMode, SmtpSecurity
+from app.models.enums import CrowdSecBanMode, DefaultSiteMode, HubUpdateFrequency, SmtpSecurity
 
 _ALLOWED_SCHEMES = {"http", "https"}
 
@@ -123,6 +123,11 @@ class InstanceSettingsRead(BaseModel):
     smtp_from: str | None
     smtp_from_name: str | None
     app_url: str | None
+    crowdsec_hub_auto_update: bool
+    crowdsec_hub_update_frequency: HubUpdateFrequency
+    crowdsec_hub_update_weekday: int
+    crowdsec_hub_update_hour_utc: int
+    crowdsec_capi_enabled: bool
     updated_at: datetime
 
     @classmethod
@@ -152,6 +157,11 @@ class InstanceSettingsRead(BaseModel):
             smtp_from=row.smtp_from,
             smtp_from_name=row.smtp_from_name,
             app_url=row.app_url,
+            crowdsec_hub_auto_update=row.crowdsec_hub_auto_update,
+            crowdsec_hub_update_frequency=row.crowdsec_hub_update_frequency,
+            crowdsec_hub_update_weekday=row.crowdsec_hub_update_weekday,
+            crowdsec_hub_update_hour_utc=row.crowdsec_hub_update_hour_utc,
+            crowdsec_capi_enabled=row.crowdsec_capi_enabled,
             updated_at=row.updated_at,
         )
 
@@ -210,6 +220,21 @@ class CrowdSecBanUpdate(BaseModel):
         ):
             raise ValueError("crowdsec_ban_page_id is required when the mode is 'custom_page'")
         return self
+
+
+class CrowdSecHubUpdate(BaseModel):
+    """The hub refresh schedule. ``hour_utc`` is UTC; the UI converts."""
+
+    auto_update: bool
+    frequency: HubUpdateFrequency
+    weekday: int = Field(ge=0, le=6, description="Monday = 0; used when weekly")
+    hour_utc: int = Field(ge=0, le=23)
+
+
+class CrowdSecCapiUpdate(BaseModel):
+    """Desired state of the community blocklist. Applying it restarts CrowdSec."""
+
+    enabled: bool
 
 
 class LlmSettingsUpdate(BaseModel):
@@ -341,6 +366,8 @@ class MailTestResult(BaseModel):
 
 
 __all__ = [
+    "CrowdSecCapiUpdate",
+    "CrowdSecHubUpdate",
     "InstanceSettingsRead",
     "MailTestRequest",
     "MailTestResult",

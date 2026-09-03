@@ -158,12 +158,35 @@ def mail_config_from_row(row: InstanceSettings) -> MailConfig:
     )
 
 
+async def update_crowdsec_hub(db: AsyncSession, changes: dict[str, Any]) -> InstanceSettings:
+    """Apply the hub refresh schedule."""
+    row = await get_instance_settings(db)
+    row.crowdsec_hub_auto_update = changes["auto_update"]
+    row.crowdsec_hub_update_frequency = changes["frequency"]
+    row.crowdsec_hub_update_weekday = changes["weekday"]
+    row.crowdsec_hub_update_hour_utc = changes["hour_utc"]
+    await db.commit()
+    await db.refresh(row)
+    return row
+
+
+async def update_crowdsec_capi(db: AsyncSession, *, enabled: bool) -> InstanceSettings:
+    """Record the desired blocklist state. The apply task makes it real."""
+    row = await get_instance_settings(db)
+    row.crowdsec_capi_enabled = enabled
+    await db.commit()
+    await db.refresh(row)
+    return row
+
+
 __all__ = [
     "SETTINGS_ID",
     "UnknownCustomPageError",
     "get_instance_settings",
     "llm_config_from_row",
     "mail_config_from_row",
+    "update_crowdsec_capi",
+    "update_crowdsec_hub",
     "update_default_site",
     "update_llm_settings",
     "update_smtp_settings",

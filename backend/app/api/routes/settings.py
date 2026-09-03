@@ -27,9 +27,12 @@ from fastapi import APIRouter, HTTPException, Response, status
 
 from app.api.deps import AdminUser, SessionDep
 from app.api.routes._config_writes import after_config_write
+from app.api.routes.crowdsec import RELOADS_NOT_CONFIGURED, enqueue_control_task
 from app.models.enums import AuditAction
 from app.schemas.instance_settings import (
     CrowdSecBanUpdate,
+    CrowdSecCapiUpdate,
+    CrowdSecHubUpdate,
     InstanceSettingsRead,
     InstanceSettingsUpdate,
     LlmSettingsUpdate,
@@ -258,6 +261,53 @@ async def send_test_email(
         detail=f"Sent to {recipient}.",
         latency_ms=int((time.perf_counter() - started) * 1000),
     )
+
+
+# --- CrowdSec maintenance (Security → Updates) ----------------------------------------
+
+
+@router.patch("/crowdsec-hub", response_model=InstanceSettingsRead)
+async def update_crowdsec_hub_settings(
+    body: CrowdSecHubUpdate, admin: AdminUser, db: SessionDep
+) -> InstanceSettingsRead:
+    """The hub refresh schedule. Admin-only. Takes effect at the next hourly tick."""
+    row = await settings_service.update_crowdsec_hub(db, body.model_dump())
+    await record_audit(
+        db,
+        actor=admin.email,
+        action=AuditAction.update,
+        object_type="instance_settings",
+        object_id=row.id,
+        meta={"crowdsec_hub": body.model_dump(mode="json")},
+    )
+    await db.commit()
+    return InstanceSettingsRead.from_row(row)
+
+
+@router.patch(
+    "/crowdsec-capi", response_model=InstanceSettingsRead, status_code=status.HTTP_202_ACCEPTED
+)
+async def update_crowdsec_capi_settings(
+    body: CrowdSecCapiUpdate, admin: AdminUser, db: SessionDep
+) -> InstanceSettingsRead:
+    """Desired state of the community blocklist; enqueues the apply. Admin-only.
+
+    Saved even when the apply cannot be enqueued, so the choice is not lost;
+    the 409 tells the operator why nothing happened.
+    """
+    row = await settings_service.update_crowdsec_capi(db, enabled=body.enabled)
+    await record_audit(
+        db,
+        actor=admin.email,
+        action=AuditAction.enable if body.enabled else AuditAction.disable,
+        object_type="instance_settings",
+        object_id=row.id,
+        meta={"crowdsec_capi_enabled": body.enabled},
+    )
+    await db.commit()
+    if not enqueue_control_task("app.tasks.crowdsec.apply_capi"):
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=RELOADS_NOT_CONFIGURED)
+    return InstanceSettingsRead.from_row(row)
 
 
 __all__ = ["router"]

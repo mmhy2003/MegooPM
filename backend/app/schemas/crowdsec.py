@@ -8,9 +8,12 @@ mirror the LAPI JSON so mapping stays mechanical.
 
 from __future__ import annotations
 
-from typing import Annotated, Literal
+from datetime import datetime
+from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+from app.models.enums import CrowdSecJobKind, CrowdSecJobTrigger
 
 
 class Decision(BaseModel):
@@ -116,7 +119,33 @@ class CrowdSecHealth(BaseModel):
     detail: str | None = None
 
 
+class CrowdSecJobRunRead(BaseModel):
+    """The last run of one maintenance job."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    kind: CrowdSecJobKind
+    started_at: datetime
+    finished_at: datetime | None
+    ok: bool
+    error: str | None
+    trigger: CrowdSecJobTrigger
+    restarted: bool
+    detail: dict[str, Any]
+
+
+class CrowdSecMaintenance(BaseModel):
+    """What the Updates tab needs in one call."""
+
+    hub: CrowdSecJobRunRead | None
+    capi: CrowdSecJobRunRead | None
+    reload_configured: bool
+    running: dict[str, bool]
+
+
 __all__ = [
+    "CrowdSecJobRunRead",
+    "CrowdSecMaintenance",
     "Alert",
     "AlertList",
     "AlertSource",

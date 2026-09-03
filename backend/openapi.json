@@ -1342,6 +1342,20 @@
         "title": "CrowdSecBanUpdate",
         "type": "object"
       },
+      "CrowdSecCapiUpdate": {
+        "description": "Desired state of the community blocklist. Applying it restarts CrowdSec.",
+        "properties": {
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "enabled"
+        ],
+        "title": "CrowdSecCapiUpdate",
+        "type": "object"
+      },
       "CrowdSecHealth": {
         "description": "Whether the LAPI integration is configured, reachable, and has a machine.",
         "properties": {
@@ -1380,6 +1394,164 @@
           "lapi_url"
         ],
         "title": "CrowdSecHealth",
+        "type": "object"
+      },
+      "CrowdSecHubUpdate": {
+        "description": "The hub refresh schedule. ``hour_utc`` is UTC; the UI converts.",
+        "properties": {
+          "auto_update": {
+            "title": "Auto Update",
+            "type": "boolean"
+          },
+          "frequency": {
+            "$ref": "#/components/schemas/HubUpdateFrequency"
+          },
+          "hour_utc": {
+            "maximum": 23.0,
+            "minimum": 0.0,
+            "title": "Hour Utc",
+            "type": "integer"
+          },
+          "weekday": {
+            "description": "Monday = 0; used when weekly",
+            "maximum": 6.0,
+            "minimum": 0.0,
+            "title": "Weekday",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "auto_update",
+          "frequency",
+          "weekday",
+          "hour_utc"
+        ],
+        "title": "CrowdSecHubUpdate",
+        "type": "object"
+      },
+      "CrowdSecJobKind": {
+        "description": "The maintenance jobs that record an outcome in ``crowdsec_job_run``.",
+        "enum": [
+          "hub_update",
+          "capi_apply"
+        ],
+        "title": "CrowdSecJobKind",
+        "type": "string"
+      },
+      "CrowdSecJobRunRead": {
+        "description": "The last run of one maintenance job.",
+        "properties": {
+          "detail": {
+            "additionalProperties": true,
+            "title": "Detail",
+            "type": "object"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/CrowdSecJobKind"
+          },
+          "ok": {
+            "title": "Ok",
+            "type": "boolean"
+          },
+          "restarted": {
+            "title": "Restarted",
+            "type": "boolean"
+          },
+          "started_at": {
+            "format": "date-time",
+            "title": "Started At",
+            "type": "string"
+          },
+          "trigger": {
+            "$ref": "#/components/schemas/CrowdSecJobTrigger"
+          }
+        },
+        "required": [
+          "kind",
+          "started_at",
+          "finished_at",
+          "ok",
+          "error",
+          "trigger",
+          "restarted",
+          "detail"
+        ],
+        "title": "CrowdSecJobRunRead",
+        "type": "object"
+      },
+      "CrowdSecJobTrigger": {
+        "enum": [
+          "scheduled",
+          "manual"
+        ],
+        "title": "CrowdSecJobTrigger",
+        "type": "string"
+      },
+      "CrowdSecMaintenance": {
+        "description": "What the Updates tab needs in one call.",
+        "properties": {
+          "capi": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CrowdSecJobRunRead"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "hub": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CrowdSecJobRunRead"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "reload_configured": {
+            "title": "Reload Configured",
+            "type": "boolean"
+          },
+          "running": {
+            "additionalProperties": {
+              "type": "boolean"
+            },
+            "title": "Running",
+            "type": "object"
+          }
+        },
+        "required": [
+          "hub",
+          "capi",
+          "reload_configured",
+          "running"
+        ],
+        "title": "CrowdSecMaintenance",
         "type": "object"
       },
       "CustomCertificateCreate": {
@@ -2302,6 +2474,15 @@
         "title": "HttpScheme",
         "type": "string"
       },
+      "HubUpdateFrequency": {
+        "description": "How often the CrowdSec hub is refreshed.",
+        "enum": [
+          "daily",
+          "weekly"
+        ],
+        "title": "HubUpdateFrequency",
+        "type": "string"
+      },
       "InstanceSettingsRead": {
         "description": "Public representation of the settings singleton.\n\nThe LLM API key and the SMTP password are deliberately absent.\n``llm_api_key_set`` and ``smtp_password_set`` say whether one is stored; the\nvalues themselves are never returned by any endpoint, so a compromised\nbrowser session cannot read them back out.",
         "properties": {
@@ -2329,6 +2510,25 @@
               }
             ],
             "title": "Crowdsec Ban Page Id"
+          },
+          "crowdsec_capi_enabled": {
+            "title": "Crowdsec Capi Enabled",
+            "type": "boolean"
+          },
+          "crowdsec_hub_auto_update": {
+            "title": "Crowdsec Hub Auto Update",
+            "type": "boolean"
+          },
+          "crowdsec_hub_update_frequency": {
+            "$ref": "#/components/schemas/HubUpdateFrequency"
+          },
+          "crowdsec_hub_update_hour_utc": {
+            "title": "Crowdsec Hub Update Hour Utc",
+            "type": "integer"
+          },
+          "crowdsec_hub_update_weekday": {
+            "title": "Crowdsec Hub Update Weekday",
+            "type": "integer"
           },
           "default_site_mode": {
             "$ref": "#/components/schemas/DefaultSiteMode"
@@ -2469,6 +2669,11 @@
           "smtp_from",
           "smtp_from_name",
           "app_url",
+          "crowdsec_hub_auto_update",
+          "crowdsec_hub_update_frequency",
+          "crowdsec_hub_update_weekday",
+          "crowdsec_hub_update_hour_utc",
+          "crowdsec_capi_enabled",
           "updated_at"
         ],
         "title": "InstanceSettingsRead",
@@ -7425,6 +7630,64 @@
         ]
       }
     },
+    "/api/v1/crowdsec/hub/update": {
+      "post": {
+        "description": "Refresh the hub now. 409 while a run is in progress or reloads are unwired.",
+        "operationId": "hub_update_now_api_v1_crowdsec_hub_update_post",
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "boolean"
+                  },
+                  "title": "Response Hub Update Now Api V1 Crowdsec Hub Update Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Hub Update Now",
+        "tags": [
+          "crowdsec"
+        ]
+      }
+    },
+    "/api/v1/crowdsec/maintenance": {
+      "get": {
+        "description": "Both maintenance jobs' last runs, and whether one is running now.",
+        "operationId": "maintenance_api_v1_crowdsec_maintenance_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CrowdSecMaintenance"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Maintenance",
+        "tags": [
+          "crowdsec"
+        ]
+      }
+    },
     "/api/v1/crowdsec/whitelists": {
       "get": {
         "description": "Every whitelist, enabled or not, oldest first.",
@@ -9147,6 +9410,100 @@
           }
         ],
         "summary": "Update Ban Page Settings",
+        "tags": [
+          "settings"
+        ]
+      }
+    },
+    "/api/v1/settings/crowdsec-capi": {
+      "patch": {
+        "description": "Desired state of the community blocklist; enqueues the apply. Admin-only.\n\nSaved even when the apply cannot be enqueued, so the choice is not lost;\nthe 409 tells the operator why nothing happened.",
+        "operationId": "update_crowdsec_capi_settings_api_v1_settings_crowdsec_capi_patch",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CrowdSecCapiUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InstanceSettingsRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Update Crowdsec Capi Settings",
+        "tags": [
+          "settings"
+        ]
+      }
+    },
+    "/api/v1/settings/crowdsec-hub": {
+      "patch": {
+        "description": "The hub refresh schedule. Admin-only. Takes effect at the next hourly tick.",
+        "operationId": "update_crowdsec_hub_settings_api_v1_settings_crowdsec_hub_patch",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CrowdSecHubUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InstanceSettingsRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Update Crowdsec Hub Settings",
         "tags": [
           "settings"
         ]

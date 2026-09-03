@@ -26,11 +26,15 @@ from sqlalchemy import select
 from app.api.deps import AdminUser, SessionDep
 from app.core.celery_app import celery_app, node_queue
 from app.core.config import settings
+from app.core.redis import redis_client
+from app.models.crowdsec_job_run import CrowdSecJobRun
 from app.models.crowdsec_whitelist import CrowdSecWhitelist, CrowdSecWhitelistApply
-from app.models.enums import AuditAction
+from app.models.enums import AuditAction, CrowdSecJobKind
 from app.schemas.crowdsec import (
     AlertList,
     CrowdSecHealth,
+    CrowdSecJobRunRead,
+    CrowdSecMaintenance,
     Decision,
     DecisionCreate,
     DecisionList,
@@ -65,6 +69,7 @@ from app.services.crowdsec.whitelists import (
     slugify,
 )
 from app.services.events import publish
+from app.tasks.crowdsec import CAPI_LOCK_KEY, HUB_LOCK_KEY
 
 router = APIRouter(tags=["crowdsec"])
 
@@ -274,12 +279,23 @@ def _reload_configured() -> bool:
     return not settings.ha_enabled or bool(settings.crowdsec_control_node_id)
 
 
-def _enqueue_apply() -> bool:
-    """Queue the apply. False when no worker would run it.
+RELOADS_NOT_CONFIGURED = (
+    "CrowdSec reloads are not configured: set CROWDSEC_CONTROL_NODE_ID "
+    "to the node whose worker has the docker socket (HA only; a "
+    "single-node deployment needs no node id)."
+)
+
+
+def reload_configured() -> bool:
+    return _reload_configured()
+
+
+def enqueue_control_task(name: str, **kwargs) -> bool:
+    """Send ``name`` to the worker that holds the docker socket, or say it cannot.
 
     Returning False rather than enqueueing blindly matters: under HA a task
     addressed to a queue no worker consumes sits there forever, and the
-    operator would see a whitelist that never takes effect with nothing
+    operator would see a change that never takes effect with nothing
     anywhere explaining why.
     """
     if not _reload_configured():
@@ -288,13 +304,23 @@ def _enqueue_apply() -> bool:
         # Default queue: the single worker consumes it. Addressing a per-node
         # queue here would be worse than useless — `_configure_ha` never ran,
         # so nothing is listening on it.
-        celery_app.send_task("app.tasks.crowdsec.apply_crowdsec_whitelists")
+        celery_app.send_task(name, **kwargs)
         return True
-    celery_app.send_task(
-        "app.tasks.crowdsec.apply_crowdsec_whitelists",
-        queue=node_queue(settings.crowdsec_control_node_id),
-    )
+    celery_app.send_task(name, queue=node_queue(settings.crowdsec_control_node_id), **kwargs)
     return True
+
+
+def _enqueue_apply() -> bool:
+    """Queue the whitelist apply. False when no worker would run it."""
+    return enqueue_control_task("app.tasks.crowdsec.apply_crowdsec_whitelists")
+
+
+async def _job_running(key: str) -> bool:
+    client = redis_client()
+    try:
+        return bool(await client.exists(key))
+    finally:
+        await client.aclose()
 
 
 async def _guard_slug_unique(db: SessionDep, name: str, *, exclude_id: int | None) -> None:
@@ -437,13 +463,48 @@ async def apply_whitelists(_: AdminUser) -> dict[str, bool]:
     if not _enqueue_apply():
         raise HTTPException(
             status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=(
-                "CrowdSec reloads are not configured: set CROWDSEC_CONTROL_NODE_ID "
-                "to the node whose worker has the docker socket (HA only; a "
-                "single-node deployment needs no node id)."
-            ),
+            detail=RELOADS_NOT_CONFIGURED,
         )
     return {"queued": True}
 
 
-__all__ = ["router"]
+# --- maintenance: the Updates tab ---------------------------------------------------
+
+
+@router.get("/maintenance", response_model=CrowdSecMaintenance)
+async def maintenance(_: AdminUser, db: SessionDep) -> CrowdSecMaintenance:
+    """Both maintenance jobs' last runs, and whether one is running now."""
+    hub_row = await db.get(CrowdSecJobRun, CrowdSecJobKind.hub_update)
+    capi_row = await db.get(CrowdSecJobRun, CrowdSecJobKind.capi_apply)
+    return CrowdSecMaintenance(
+        hub=CrowdSecJobRunRead.model_validate(hub_row) if hub_row else None,
+        capi=CrowdSecJobRunRead.model_validate(capi_row) if capi_row else None,
+        reload_configured=_reload_configured(),
+        running={
+            "hub": await _job_running(HUB_LOCK_KEY),
+            "capi": await _job_running(CAPI_LOCK_KEY),
+        },
+    )
+
+
+@router.post("/hub/update", status_code=status.HTTP_202_ACCEPTED)
+async def hub_update_now(admin: AdminUser, db: SessionDep) -> dict[str, bool]:
+    """Refresh the hub now. 409 while a run is in progress or reloads are unwired."""
+    if await _job_running(HUB_LOCK_KEY):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail="An update is already running."
+        )
+    if not enqueue_control_task("app.tasks.crowdsec.update_hub", kwargs={"trigger": "manual"}):
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=RELOADS_NOT_CONFIGURED)
+    await audit_service.record_audit(
+        db,
+        actor=admin.email,
+        action=AuditAction.update,
+        object_type="crowdsec_hub",
+        meta={"update_now": True},
+    )
+    await db.commit()
+    return {"queued": True}
+
+
+__all__ = ["RELOADS_NOT_CONFIGURED", "enqueue_control_task", "reload_configured", "router"]
