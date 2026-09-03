@@ -63,6 +63,40 @@ def is_community_alert(alert: Alert) -> bool:
     return any(is_community_origin(d.origin) for d in alert.decisions)
 
 
+def normalise_query(q: str | None) -> str:
+    """Trim and lower-case a search query; ``""`` means "no filter".
+
+    A box the operator selected and hit space in is not a filter that matches
+    nothing — it is no filter at all.
+    """
+    return (q or "").strip().lower()
+
+
+def _contains(needle: str, *fields: str | None) -> bool:
+    """True if ``needle`` (already lower-cased) is a substring of any field."""
+    return any(field and needle in field.lower() for field in fields)
+
+
+def matches_decision(decision: Decision, needle: str) -> bool:
+    """Match a decision on the banned value or the scenario that fired it."""
+    return _contains(needle, decision.value, decision.scenario)
+
+
+def matches_alert(alert: Alert, needle: str) -> bool:
+    """Match an alert on its source IP or the scenario that fired it.
+
+    AppSec detections arrive with no ``source`` block at all, so the attribute
+    reads are guarded rather than assumed.
+    """
+    source = alert.source
+    return _contains(
+        needle,
+        source.value if source else None,
+        source.ip if source else None,
+        alert.scenario,
+    )
+
+
 def paginate[T](items: Sequence[T], *, page: int, page_size: int) -> tuple[list[T], int]:
     """Return ``(slice, total)`` for 1-based ``page`` of size ``page_size``."""
     total = len(items)
@@ -76,5 +110,8 @@ __all__ = [
     "is_community_alert",
     "is_community_decision",
     "is_community_origin",
+    "matches_alert",
+    "matches_decision",
+    "normalise_query",
     "paginate",
 ]

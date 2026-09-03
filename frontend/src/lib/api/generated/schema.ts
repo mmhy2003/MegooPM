@@ -856,6 +856,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Stream Events
+         * @description Relay dashboard events until the client disconnects.
+         */
+        get: operations["stream_events_api_v1_events_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/nginx/preview": {
         parameters: {
             query?: never;
@@ -4733,6 +4753,8 @@ export interface operations {
                 page_size?: number;
                 /** @description Include community/CAPI/blocklist-origin records (default: local only) */
                 include_community?: boolean;
+                /** @description Case-insensitive substring filter, applied before pagination */
+                q?: string | null;
             };
             header?: never;
             path?: never;
@@ -4769,6 +4791,8 @@ export interface operations {
                 page_size?: number;
                 /** @description Include community/CAPI/blocklist-origin records (default: local only) */
                 include_community?: boolean;
+                /** @description Case-insensitive substring filter, applied before pagination */
+                q?: string | null;
             };
             header?: never;
             path?: never;
@@ -5643,6 +5667,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DnsProviderInfoRead"][];
+                };
+            };
+        };
+    };
+    stream_events_api_v1_events_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
                 };
             };
         };

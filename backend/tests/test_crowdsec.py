@@ -572,3 +572,163 @@ async def test_reading_decisions_without_a_bouncer_key_says_so() -> None:
             await client.list_decisions()
     finally:
         await client.aclose()
+
+
+async def test_decisions_q_filters_before_pagination(
+    db_client: AsyncClient, admin_token: str, override_crowdsec
+) -> None:
+    # The trap this exists for: filtering the *page* instead of the whole set
+    # tells an operator "no matches" while the match sits on page 3.
+    decisions = [
+        {
+            "origin": "megoopm",
+            "type": "ban",
+            "scope": "Ip",
+            "value": f"10.0.0.{i}",
+            "duration": "1h",
+            "scenario": "crowdsecurity/http-probing",
+        }
+        for i in range(1, 6)
+    ]
+    decisions.append(
+        {
+            "origin": "megoopm",
+            "type": "ban",
+            "scope": "Ip",
+            "value": "203.0.113.7",
+            "duration": "1h",
+            "scenario": "crowdsecurity/ssh-bf",
+        }
+    )
+    override_crowdsec(lambda r: httpx.Response(200, json=decisions))
+    hdr = {"Authorization": f"Bearer {admin_token}"}
+
+    # 203.0.113.7 is the sixth record — page 2 with page_size=5, so a filter
+    # applied after pagination would find nothing on page 1.
+    resp = await db_client.get(
+        "/api/v1/crowdsec/decisions?q=203.0.113.7&page=1&page_size=5", headers=hdr
+    )
+    assert resp.status_code == 200, resp.text
+    assert [d["value"] for d in resp.json()["items"]] == ["203.0.113.7"]
+
+
+async def test_decisions_q_total_is_the_filtered_count(
+    db_client: AsyncClient, admin_token: str, override_crowdsec
+) -> None:
+    # ``total`` drives the pager. Returning the unfiltered count offers pages
+    # that no longer exist, which reads as data loss.
+    decisions = [
+        {"origin": "megoopm", "type": "ban", "scope": "Ip", "value": "10.0.0.1", "duration": "1h"},
+        {"origin": "megoopm", "type": "ban", "scope": "Ip", "value": "10.0.0.2", "duration": "1h"},
+        {
+            "origin": "megoopm",
+            "type": "ban",
+            "scope": "Ip",
+            "value": "203.0.113.7",
+            "duration": "1h",
+        },
+    ]
+    override_crowdsec(lambda r: httpx.Response(200, json=decisions))
+    hdr = {"Authorization": f"Bearer {admin_token}"}
+
+    resp = await db_client.get("/api/v1/crowdsec/decisions?q=203.0", headers=hdr)
+    assert resp.json()["total"] == 1
+
+
+async def test_decisions_q_matches_scenario_case_insensitively(
+    db_client: AsyncClient, admin_token: str, override_crowdsec
+) -> None:
+    decisions = [
+        {
+            "origin": "megoopm",
+            "type": "ban",
+            "scope": "Ip",
+            "value": "10.0.0.1",
+            "duration": "1h",
+            "scenario": "crowdsecurity/SSH-bf",
+        },
+        {
+            "origin": "megoopm",
+            "type": "ban",
+            "scope": "Ip",
+            "value": "10.0.0.2",
+            "duration": "1h",
+            "scenario": "crowdsecurity/http-probing",
+        },
+    ]
+    override_crowdsec(lambda r: httpx.Response(200, json=decisions))
+    hdr = {"Authorization": f"Bearer {admin_token}"}
+
+    resp = await db_client.get("/api/v1/crowdsec/decisions?q=ssh-BF", headers=hdr)
+    assert [d["value"] for d in resp.json()["items"]] == ["10.0.0.1"]
+
+
+async def test_blank_q_is_not_a_filter(
+    db_client: AsyncClient, admin_token: str, override_crowdsec
+) -> None:
+    # A box the operator selected and hit space in must not empty the table.
+    decisions = [
+        {"origin": "megoopm", "type": "ban", "scope": "Ip", "value": "10.0.0.1", "duration": "1h"},
+    ]
+    override_crowdsec(lambda r: httpx.Response(200, json=decisions))
+    hdr = {"Authorization": f"Bearer {admin_token}"}
+
+    resp = await db_client.get("/api/v1/crowdsec/decisions?q=%20%20", headers=hdr)
+    assert resp.json()["total"] == 1
+
+
+async def test_alerts_q_matches_source_ip_and_scenario(
+    db_client: AsyncClient, admin_token: str, override_crowdsec
+) -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/v1/watchers/login":
+            return httpx.Response(200, json={"token": "jwt"})
+        return httpx.Response(
+            200,
+            json=[
+                {
+                    "id": 1,
+                    "scenario": "crowdsecurity/ssh-bf",
+                    "decisions": None,
+                    "source": {"value": "203.0.113.7", "ip": "203.0.113.7"},
+                },
+                {
+                    "id": 2,
+                    "scenario": "crowdsecurity/http-probing",
+                    "decisions": None,
+                    "source": {"value": "198.51.100.2", "ip": "198.51.100.2"},
+                },
+            ],
+        )
+
+    override_crowdsec(handler)
+    hdr = {"Authorization": f"Bearer {admin_token}"}
+
+    by_ip = await db_client.get("/api/v1/crowdsec/alerts?q=203.0.113.7", headers=hdr)
+    assert by_ip.status_code == 200, by_ip.text
+    assert by_ip.json()["total"] == 1
+    assert by_ip.json()["items"][0]["id"] == 1
+
+    by_scenario = await db_client.get("/api/v1/crowdsec/alerts?q=probing", headers=hdr)
+    assert by_scenario.json()["total"] == 1
+    assert by_scenario.json()["items"][0]["id"] == 2
+
+
+async def test_alerts_q_survives_an_alert_with_no_source(
+    db_client: AsyncClient, admin_token: str, override_crowdsec
+) -> None:
+    # AppSec detections arrive with no source block; matching must not blow up.
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/v1/watchers/login":
+            return httpx.Response(200, json={"token": "jwt"})
+        return httpx.Response(
+            200,
+            json=[{"id": 1, "scenario": "crowdsecurity/vpatch-env-access", "decisions": None}],
+        )
+
+    override_crowdsec(handler)
+    hdr = {"Authorization": f"Bearer {admin_token}"}
+
+    resp = await db_client.get("/api/v1/crowdsec/alerts?q=vpatch", headers=hdr)
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["total"] == 1

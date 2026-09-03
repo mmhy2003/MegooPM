@@ -53,6 +53,9 @@ from app.services.crowdsec.filtering import (
     ALERT_FETCH_CAP,
     is_community_alert,
     is_community_decision,
+    matches_alert,
+    matches_decision,
+    normalise_query,
     paginate,
 )
 from app.services.crowdsec.whitelists import (
@@ -76,6 +79,10 @@ PageSizeArg = Annotated[
 CommunityArg = Annotated[
     bool,
     Query(description="Include community/CAPI/blocklist-origin records (default: local only)"),
+]
+QueryArg = Annotated[
+    str | None,
+    Query(description="Case-insensitive substring filter, applied before pagination"),
 ]
 
 
@@ -139,6 +146,7 @@ async def list_decisions(
     page: PageArg = 1,
     page_size: PageSizeArg = 50,
     include_community: CommunityArg = False,
+    q: QueryArg = None,
 ) -> DecisionList:
     """List active decisions, paginated. Hides community origins by default."""
     try:
@@ -147,6 +155,12 @@ async def list_decisions(
         raise _handle(exc) from exc
     if not include_community:
         items = [d for d in items if not is_community_decision(d)]
+    # Before paginate, deliberately: filtering the page instead of the whole
+    # set would report "no matches" while the match sat on page 3, and would
+    # leave ``total`` offering pages that no longer exist.
+    needle = normalise_query(q)
+    if needle:
+        items = [d for d in items if matches_decision(d, needle)]
     page_items, total = paginate(items, page=page, page_size=page_size)
     return DecisionList(items=page_items, total=total, page=page, page_size=page_size)
 
@@ -158,6 +172,7 @@ async def list_alerts(
     page: PageArg = 1,
     page_size: PageSizeArg = 50,
     include_community: CommunityArg = False,
+    q: QueryArg = None,
 ) -> AlertList:
     """List recent alerts (newest first), paginated. Hides community by default.
 
@@ -170,6 +185,9 @@ async def list_alerts(
         raise _handle(exc) from exc
     if not include_community:
         items = [a for a in items if not is_community_alert(a)]
+    needle = normalise_query(q)
+    if needle:
+        items = [a for a in items if matches_alert(a, needle)]
     page_items, total = paginate(items, page=page, page_size=page_size)
     return AlertList(items=page_items, total=total, page=page, page_size=page_size)
 

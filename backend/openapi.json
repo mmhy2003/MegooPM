@@ -6251,6 +6251,24 @@
               "title": "Include Community",
               "type": "boolean"
             }
+          },
+          {
+            "description": "Case-insensitive substring filter, applied before pagination",
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Case-insensitive substring filter, applied before pagination",
+              "title": "Q"
+            }
           }
         ],
         "responses": {
@@ -6328,6 +6346,24 @@
               "description": "Include community/CAPI/blocklist-origin records (default: local only)",
               "title": "Include Community",
               "type": "boolean"
+            }
+          },
+          {
+            "description": "Case-insensitive substring filter, applied before pagination",
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Case-insensitive substring filter, applied before pagination",
+              "title": "Q"
             }
           }
         ],

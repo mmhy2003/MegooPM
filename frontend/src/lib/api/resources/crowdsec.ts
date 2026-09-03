@@ -87,6 +87,8 @@ export interface ListParams {
   page?: number;
   pageSize?: number;
   includeCommunity?: boolean;
+  /** Case-insensitive substring filter, applied server-side before paging. */
+  q?: string;
 }
 
 /** Default records per page; matches the backend default. */
@@ -95,11 +97,14 @@ export const DEFAULT_PAGE_SIZE = 50;
 /** Page sizes offered in the pagination controls. */
 export const PAGE_SIZE_OPTIONS: readonly number[] = [10, 25, 50, 100] as const;
 
-function listQuery(params?: ListParams): Record<string, number | boolean> {
-  const query: Record<string, number | boolean> = {};
+function listQuery(params?: ListParams): Record<string, string | number | boolean> {
+  const query: Record<string, string | number | boolean> = {};
   if (params?.page != null) query.page = params.page;
   if (params?.pageSize != null) query.page_size = params.pageSize;
   if (params?.includeCommunity != null) query.include_community = params.includeCommunity;
+  // Only when non-blank: an empty `q` is no filter, and sending it would make
+  // every default page request carry a meaningless parameter.
+  if (params?.q?.trim()) query.q = params.q.trim();
   return query;
 }
 
