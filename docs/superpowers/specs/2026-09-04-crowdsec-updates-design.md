@@ -5,7 +5,7 @@
 CrowdSec's detection rules come from its hub: parsers, scenarios, collections
 and AppSec rules. The official image refreshes them only when the container
 starts. The community blocklist — CrowdSec's shared threat intelligence — is
-switched off in both compose files. This project gives an admin a scheduled
+switched off in every compose file. This project gives an admin a scheduled
 hub refresh, an Update now button, and a switch for the blocklist, in a new
 **Updates** tab on the Security page.
 
@@ -77,12 +77,13 @@ containers on 2026-09-03:
   `megoopm.node.<id>` queues and every node runs beat.
 - The Security page is four tabs (`dashboard`, `decisions`, `alerts`,
   `whitelists`) built on `Tabs`/`TabsList`/`TabsTab`/`TabsPanel`.
-- Compose: HA mounts the docker socket and `${SHARED_DATA_PATH}` on the
-  worker and bind-mounts the whitelist FILE into CrowdSec, seeded by
+- Compose: production and HA mount the docker socket and a data path on
+  the worker and mount the whitelist FILE into CrowdSec (production as a
+  `subpath` of the `app_data` volume, HA as a host-path bind), seeded by
   `data-init` because a missing bind source becomes a directory. Dev mounts
-  neither the socket nor a crowdsec data path on the worker, so reloads
-  cannot work in dev today. Both files mount
-  `./infra/crowdsec/config.yaml.local` read-only from the repo.
+  neither the socket nor a data path on the worker, so reloads cannot work
+  in dev today. All three mount `./infra/crowdsec/config.yaml.local`
+  read-only from the repo.
 
 ## Storage
 
@@ -274,13 +275,21 @@ render their controls disabled with the whitelist banner's explanation.
 
 ## Compose changes
 
-- **Dev:** the worker gains `/var/run/docker.sock:ro` and a
-  `crowdsec_data:/data/crowdsec` volume; `data-init` seeds
-  `/data/crowdsec/config.yaml.local` from the template and the whitelist
-  file as HA does; CrowdSec mounts that file instead of the repo file.
-- **HA:** `data-init` also seeds `config.yaml.local`; CrowdSec mounts
+There are three stacks. Production (`docker-compose.yml`) already has the
+worker on the docker socket and mounts the whitelist as a single-file
+`subpath` out of the `app_data` volume; HA binds host paths under
+`${SHARED_DATA_PATH}`; dev has neither the socket nor a data path on the
+worker.
+
+- **Production:** `data-init` seeds `config.yaml.local` from the repo
+  template (mounted read-only at `/seed`); CrowdSec mounts it as a second
+  `subpath` file instead of the repo file.
+- **Dev:** mirrors production — an `app_data` volume, the same `data-init`
+  seeding, the socket and `app_data:/data` on the worker, and the two
+  subpath mounts (whitelist and config override) on CrowdSec.
+- **HA:** `data-init` seeds the file; CrowdSec binds
   `${SHARED_DATA_PATH}/crowdsec/config.yaml.local` instead of the repo file.
-- **Both:** `USE_WAL: "true"` on the CrowdSec service.
+- **All three:** `USE_WAL: "true"` on the CrowdSec service.
 - `docs/crowdsec.md` — the CAPI row and the whitelist section updated; a new
   section for the Updates tab.
 
@@ -350,7 +359,7 @@ render their controls disabled with the whitelist banner's explanation.
 
 **Infra**
 
-- `docker-compose.dev.yml`, `docker-compose.ha.yml`, `docs/crowdsec.md`
+- `docker-compose.yml`, `docker-compose.dev.yml`, `docker-compose.ha.yml`, `docs/crowdsec.md`
 
 ## Non-goals
 
