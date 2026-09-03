@@ -157,6 +157,9 @@ export type {
 
 export { users, USER_ROLES, USER_ROLE_LABELS } from "@/lib/api/resources/users";
 export type {
+  Passkey,
+  PasskeyOptions,
+  PasskeyRegister,
   PasswordChange,
   PasswordReset,
   ProfileUpdate,

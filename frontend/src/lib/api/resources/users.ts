@@ -18,6 +18,9 @@ export type UserRole = Schemas["UserRole"];
 export type UserInvite = Schemas["UserInvite"];
 export type TotpSetup = Schemas["TotpSetup"];
 export type TotpCodes = Schemas["TotpCodes"];
+export type Passkey = Schemas["PasskeyRead"];
+export type PasskeyRegister = Schemas["PasskeyRegisterRequest"];
+export type PasskeyOptions = Schemas["PasskeyOptions"];
 
 const BASE = "/api/v1/users";
 
@@ -45,6 +48,16 @@ export const users = {
   totpRegenerate: (code: string) => api.post<TotpCodes>(`${BASE}/me/totp/recovery-codes`, { code }),
   /** Admin: turn off another user's 2FA. No code — the lost-phone backstop. */
   adminTotpDisable: (id: number) => api.post<void>(`${BASE}/${id}/totp/disable`, {}),
+  /** Registered passkeys: name and dates only. */
+  passkeys: () => api.get<Passkey[]>(`${BASE}/me/passkeys`),
+  /** Start registering a passkey. A valid code is required. */
+  passkeyOptions: (code: string) =>
+    api.post<PasskeyOptions>(`${BASE}/me/passkeys/options`, { code }),
+  /** Finish registering with the browser's credential. */
+  registerPasskey: (body: PasskeyRegister) => api.post<Passkey>(`${BASE}/me/passkeys`, body),
+  /** Remove one. A valid code is required; a POST so the body survives proxies. */
+  removePasskey: (id: number, code: string) =>
+    api.post<void>(`${BASE}/me/passkeys/${id}/remove`, { code }),
 } as const;
 
 export const USER_ROLES: readonly UserRole[] = ["admin", "member"] as const;

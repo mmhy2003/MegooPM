@@ -19,6 +19,7 @@ const me = {
   totp_enabled: false,
 };
 
+vi.mock("@/components/profile/passkeys-card", () => ({ PasskeysCard: () => null }));
 vi.mock("@/lib/auth/context", () => ({
   useAuth: () => ({
     user: me,

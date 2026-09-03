@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { PasskeysCard } from "@/components/profile/passkeys-card";
 import { TotpCard } from "@/components/profile/totp-card";
 
 export function ProfileView() {
@@ -157,6 +158,7 @@ export function ProfileView() {
       </Card>
 
       <TotpCard enabled={user?.totp_enabled ?? false} onChanged={() => void refreshUser()} />
+      <PasskeysCard enabled={user?.totp_enabled ?? false} />
     </div>
   );
 }
