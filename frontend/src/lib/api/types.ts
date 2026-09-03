@@ -7,11 +7,7 @@
  * module) instead of hand-authoring types that can silently drift from the
  * backend contract.
  */
-import type {
-  components,
-  operations,
-  paths,
-} from "@/lib/api/generated/schema";
+import type { components, operations, paths } from "@/lib/api/generated/schema";
 
 /** All named response/request schemas from the backend (`components.schemas`). */
 export type Schemas = components["schemas"];

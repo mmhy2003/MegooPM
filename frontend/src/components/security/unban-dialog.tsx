@@ -53,8 +53,9 @@ export function UnbanDialog({
         <DialogHeader>
           <DialogTitle>Lift this decision?</DialogTitle>
           <DialogDescription>
-            {decision.value} will no longer be {decision.type === "ban" ? "banned" : `subject to ${decision.type}`}.
-            The removal is recorded in the audit log.
+            {decision.value} will no longer be{" "}
+            {decision.type === "ban" ? "banned" : `subject to ${decision.type}`}. The removal is
+            recorded in the audit log.
           </DialogDescription>
         </DialogHeader>
         <DialogFooter>

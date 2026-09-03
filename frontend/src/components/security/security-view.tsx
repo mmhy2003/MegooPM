@@ -5,6 +5,7 @@ import {
   CircleCheck,
   LayoutDashboard,
   Plus,
+  RefreshCw,
   ShieldAlert,
   ShieldCheck,
   ShieldX,
@@ -39,6 +40,7 @@ import { SecurityMetrics } from "@/components/security/security-metrics";
 import { UnbanDialog } from "@/components/security/unban-dialog";
 import { WhitelistDialog } from "@/components/security/whitelist-dialog";
 import { WhitelistStatusBanner } from "@/components/security/whitelist-status-banner";
+import { UpdatesTab } from "@/components/security/updates-tab";
 import { WhitelistsTable } from "@/components/security/whitelists-table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -326,7 +328,6 @@ export function SecurityView() {
   const decTotal = decList?.total ?? 0;
   const alertTotal = alertList?.total ?? 0;
 
-
   const loadWhitelists = useCallback(async () => {
     try {
       const [rows, status] = await Promise.all([
@@ -441,6 +442,9 @@ export function SecurityView() {
           <TabsTab value="whitelists">
             <ShieldCheck /> Whitelists
           </TabsTab>
+          <TabsTab value="updates">
+            <RefreshCw /> Updates
+          </TabsTab>
         </TabsList>
 
         {/* ---- Dashboard ---- */}
@@ -518,7 +522,10 @@ export function SecurityView() {
                           <TableCell>
                             <Badge variant={typeBadgeVariant(d.type)}>{d.type}</Badge>
                           </TableCell>
-                          <TableCell className="max-w-48 truncate text-muted-foreground" title={d.scenario ?? ""}>
+                          <TableCell
+                            className="max-w-48 truncate text-muted-foreground"
+                            title={d.scenario ?? ""}
+                          >
                             {d.scenario ?? "—"}
                           </TableCell>
                           <TableCell className="text-muted-foreground">{d.origin ?? "—"}</TableCell>
@@ -530,7 +537,11 @@ export function SecurityView() {
                                 size="icon-sm"
                                 aria-label={`Lift decision on ${d.value}`}
                                 disabled={d.id == null}
-                                title={d.id == null ? "This decision has no id and can't be lifted" : "Lift decision"}
+                                title={
+                                  d.id == null
+                                    ? "This decision has no id and can't be lifted"
+                                    : "Lift decision"
+                                }
                                 onClick={() => setUnban(d)}
                               >
                                 <Trash2 />
@@ -622,10 +633,15 @@ export function SecurityView() {
                             <TableCell className="max-w-48 truncate" title={a.scenario ?? ""}>
                               {a.scenario ?? "—"}
                             </TableCell>
-                            <TableCell className="max-w-64 truncate text-muted-foreground" title={a.message ?? ""}>
+                            <TableCell
+                              className="max-w-64 truncate text-muted-foreground"
+                              title={a.message ?? ""}
+                            >
                               {a.message ?? "—"}
                             </TableCell>
-                            <TableCell className="text-right tabular-nums">{a.events_count ?? "—"}</TableCell>
+                            <TableCell className="text-right tabular-nums">
+                              {a.events_count ?? "—"}
+                            </TableCell>
                             <TableCell className="text-muted-foreground">
                               {formatRelativeTime(a.start_at ?? a.created_at, nowMs)}
                             </TableCell>
@@ -690,6 +706,11 @@ export function SecurityView() {
             onEdit={(row) => setWlDialog({ row })}
             onDelete={deleteWhitelist}
           />
+        </TabsPanel>
+
+        {/* ---- Updates ---- */}
+        <TabsPanel value="updates" className="space-y-3">
+          <UpdatesTab />
         </TabsPanel>
       </Tabs>
 

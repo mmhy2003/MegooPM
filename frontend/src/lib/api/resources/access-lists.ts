@@ -27,8 +27,7 @@ export const accessLists = {
   list: () => api.get<AccessList[]>(BASE),
   get: (id: number) => api.get<AccessList>(`${BASE}/${id}`),
   create: (body: AccessListCreate) => api.post<AccessList>(BASE, body),
-  update: (id: number, body: AccessListUpdate) =>
-    api.patch<AccessList>(`${BASE}/${id}`, body),
+  update: (id: number, body: AccessListUpdate) => api.patch<AccessList>(`${BASE}/${id}`, body),
   remove: (id: number) => api.delete<void>(`${BASE}/${id}`),
 
   /** Basic-auth users guarding the list. Passwords are write-only. */
@@ -37,10 +36,7 @@ export const accessLists = {
       api.post<AccessListAuthUser>(`${BASE}/${listId}/auth-users`, body),
     /** Reset an existing user's password (the only mutable field). */
     resetPassword: (listId: number, userId: number, body: AccessListAuthUpdate) =>
-      api.patch<AccessListAuthUser>(
-        `${BASE}/${listId}/auth-users/${userId}`,
-        body,
-      ),
+      api.patch<AccessListAuthUser>(`${BASE}/${listId}/auth-users/${userId}`, body),
     remove: (listId: number, userId: number) =>
       api.delete<void>(`${BASE}/${listId}/auth-users/${userId}`),
   },
@@ -50,19 +46,13 @@ export const accessLists = {
     add: (listId: number, body: AccessListClientCreate) =>
       api.post<AccessListClientRule>(`${BASE}/${listId}/clients`, body),
     update: (listId: number, ruleId: number, body: AccessListClientUpdate) =>
-      api.patch<AccessListClientRule>(
-        `${BASE}/${listId}/clients/${ruleId}`,
-        body,
-      ),
+      api.patch<AccessListClientRule>(`${BASE}/${listId}/clients/${ruleId}`, body),
     remove: (listId: number, ruleId: number) =>
       api.delete<void>(`${BASE}/${listId}/clients/${ruleId}`),
   },
 } as const;
 
-export const ACCESS_LIST_DIRECTIVES: readonly AccessListDirective[] = [
-  "allow",
-  "deny",
-] as const;
+export const ACCESS_LIST_DIRECTIVES: readonly AccessListDirective[] = ["allow", "deny"] as const;
 
 /** Human labels for the client-rule directive enum. */
 export const DIRECTIVE_LABELS: Record<AccessListDirective, string> = {

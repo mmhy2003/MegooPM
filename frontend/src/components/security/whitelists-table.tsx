@@ -23,8 +23,7 @@ function coverage(row: Whitelist): string {
   }
   const parts: string[] = [];
   if (row.ips.length) parts.push(`${row.ips.length} IP${row.ips.length === 1 ? "" : "s"}`);
-  if (row.cidrs.length)
-    parts.push(`${row.cidrs.length} CIDR${row.cidrs.length === 1 ? "" : "s"}`);
+  if (row.cidrs.length) parts.push(`${row.cidrs.length} CIDR${row.cidrs.length === 1 ? "" : "s"}`);
   return parts.join(", ");
 }
 

@@ -1,11 +1,6 @@
 "use client";
 
-import {
-  ChevronLeft,
-  ChevronRight,
-  ChevronsLeft,
-  ChevronsRight,
-} from "lucide-react";
+import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from "lucide-react";
 
 import { PAGE_SIZE_OPTIONS } from "@/lib/api";
 import { pageCount, rangeLabel } from "@/components/security/lib";
@@ -55,10 +50,7 @@ export function PaginationControls({
         <Label htmlFor={`${idPrefix}-page-size`} className="text-xs text-muted-foreground">
           Rows per page
         </Label>
-        <Select
-          value={String(pageSize)}
-          onValueChange={(v) => v && onPageSizeChange(Number(v))}
-        >
+        <Select value={String(pageSize)} onValueChange={(v) => v && onPageSizeChange(Number(v))}>
           <SelectTrigger
             id={`${idPrefix}-page-size`}
             size="sm"
@@ -78,10 +70,7 @@ export function PaginationControls({
       </div>
 
       <div className="flex items-center gap-3">
-        <span
-          className="text-xs tabular-nums text-muted-foreground"
-          aria-live="polite"
-        >
+        <span className="text-xs tabular-nums text-muted-foreground" aria-live="polite">
           {rangeLabel(page, pageSize, total)}
         </span>
         <div className="flex items-center gap-1">

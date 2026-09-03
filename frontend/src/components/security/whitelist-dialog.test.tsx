@@ -20,14 +20,7 @@ afterEach(() => {
 });
 
 function open(onSubmit = vi.fn().mockResolvedValue(undefined)) {
-  render(
-    <WhitelistDialog
-      open
-      onOpenChange={() => {}}
-      whitelist={null}
-      onSubmit={onSubmit}
-    />,
-  );
+  render(<WhitelistDialog open onOpenChange={() => {}} whitelist={null} onSubmit={onSubmit} />);
   return onSubmit;
 }
 
@@ -41,9 +34,7 @@ describe("WhitelistDialog", () => {
     await user.type(screen.getByLabelText("IP addresses"), "10.10.0.999");
     await user.click(screen.getByRole("button", { name: "Save" }));
 
-    expect(
-      await screen.findByText("'10.10.0.999' is not a valid IP address."),
-    ).toBeInTheDocument();
+    expect(await screen.findByText("'10.10.0.999' is not a valid IP address.")).toBeInTheDocument();
     expect(onSubmit).not.toHaveBeenCalled();
   });
 
@@ -70,9 +61,7 @@ describe("WhitelistDialog", () => {
     await user.type(screen.getByLabelText("Reason"), "internal backends");
     await user.click(screen.getByRole("button", { name: "Save" }));
 
-    expect(
-      await screen.findByText(/at least one IP address or CIDR range/),
-    ).toBeInTheDocument();
+    expect(await screen.findByText(/at least one IP address or CIDR range/)).toBeInTheDocument();
     expect(onSubmit).not.toHaveBeenCalled();
   });
 
@@ -181,10 +170,7 @@ describe("WhitelistDialog — expression kind", () => {
         ips: [],
         cidrs: [],
         filter: "evt.Meta.service == 'http'",
-        expressions: [
-          "evt.Meta.http_path == '/health'",
-          "evt.Meta.http_verb == 'GET'",
-        ],
+        expressions: ["evt.Meta.http_path == '/health'", "evt.Meta.http_verb == 'GET'"],
       }),
     );
   });

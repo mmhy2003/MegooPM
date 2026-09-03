@@ -158,7 +158,6 @@ export function buildLlmTestPayload(state: LlmFormState): LlmTestRequest {
   return payload;
 }
 
-
 // --- SMTP -------------------------------------------------------------------
 
 export type SmtpFormState = {

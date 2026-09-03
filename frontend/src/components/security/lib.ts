@@ -19,10 +19,7 @@ export function parseTimestamp(iso: string | null | undefined): number | null {
 }
 
 /** Compact "5m ago" style relative time; `nowMs` is injected for determinism. */
-export function formatRelativeTime(
-  iso: string | null | undefined,
-  nowMs: number,
-): string {
+export function formatRelativeTime(iso: string | null | undefined, nowMs: number): string {
   const t = parseTimestamp(iso);
   if (t == null) return "—";
   const diff = nowMs - t;
@@ -103,9 +100,7 @@ export function topOffenders(alerts: Alert[], limit = 5): Offender[] {
 
 /** Stable React key for a decision row (LAPI id is optional). */
 export function decisionRowKey(decision: Decision, index: number): string {
-  return decision.id != null
-    ? `id-${decision.id}`
-    : `${decision.scope}:${decision.value}:${index}`;
+  return decision.id != null ? `id-${decision.id}` : `${decision.scope}:${decision.value}:${index}`;
 }
 
 // ---- Server-side pagination helpers -----------------------------------------

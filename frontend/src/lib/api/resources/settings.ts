@@ -24,6 +24,9 @@ export type SmtpSettingsUpdate = Schemas["SmtpSettingsUpdate"];
 export type SmtpSecurity = Schemas["SmtpSecurity"];
 export type MailTestRequest = Schemas["MailTestRequest"];
 export type MailTestResult = Schemas["MailTestResult"];
+export type CrowdSecHubUpdate = Schemas["CrowdSecHubUpdate"];
+export type CrowdSecCapiUpdate = Schemas["CrowdSecCapiUpdate"];
+export type HubUpdateFrequency = Schemas["HubUpdateFrequency"];
 
 const BASE = "/api/v1/settings";
 
@@ -31,8 +34,7 @@ export const instanceSettings = {
   get: () => api.get<InstanceSettings>(BASE),
   updateDefaultSite: (body: DefaultSiteUpdate) =>
     api.patch<InstanceSettings>(`${BASE}/default-site`, body),
-  updateBanPage: (body: CrowdSecBanUpdate) =>
-    api.patch<InstanceSettings>(`${BASE}/ban-page`, body),
+  updateBanPage: (body: CrowdSecBanUpdate) => api.patch<InstanceSettings>(`${BASE}/ban-page`, body),
   updateLlm: (body: LlmSettingsUpdate) => api.patch<InstanceSettings>(`${BASE}/llm`, body),
   /**
    * Runs a real completion. Overrides win over stored values, so a key can be
@@ -48,4 +50,10 @@ export const instanceSettings = {
    * succeeded, the mail server did not.
    */
   testSmtp: (body: MailTestRequest) => api.post<MailTestResult>(`${BASE}/smtp/test`, body),
+  /** The hub refresh schedule; takes effect at the next hourly tick. */
+  updateCrowdSecHub: (body: CrowdSecHubUpdate) =>
+    api.patch<InstanceSettings>(`${BASE}/crowdsec-hub`, body),
+  /** Desired blocklist state; 202 and an apply is queued (CrowdSec restarts). */
+  updateCrowdSecCapi: (body: CrowdSecCapiUpdate) =>
+    api.patch<InstanceSettings>(`${BASE}/crowdsec-capi`, body),
 } as const;

@@ -24,6 +24,11 @@ function makeSettings(overrides: Partial<InstanceSettings> = {}): InstanceSettin
     smtp_password_set: false,
     smtp_from: null,
     smtp_from_name: null,
+    crowdsec_hub_auto_update: true,
+    crowdsec_hub_update_frequency: "daily" as const,
+    crowdsec_hub_update_weekday: 6,
+    crowdsec_hub_update_hour_utc: 3,
+    crowdsec_capi_enabled: false,
     app_url: null,
     updated_at: "2026-09-02T00:00:00Z",
     ...overrides,
@@ -118,10 +123,10 @@ describe("BanPageCard", () => {
   it("enables saving when only the chosen page differs", async () => {
     // The mode is unchanged here; the page underneath it is the whole edit.
     const user = userEvent.setup();
-    renderCard(
-      makeSettings({ crowdsec_ban_mode: "custom_page", crowdsec_ban_page_id: 4 }),
-      [PAGE, { ...PAGE, id: 5, name: "Denied" } as CustomPageSummary],
-    );
+    renderCard(makeSettings({ crowdsec_ban_mode: "custom_page", crowdsec_ban_page_id: 4 }), [
+      PAGE,
+      { ...PAGE, id: 5, name: "Denied" } as CustomPageSummary,
+    ]);
     expect(screen.getByRole("button", { name: "Save ban page" })).toBeDisabled();
 
     await user.click(screen.getByRole("combobox", { name: "Page to serve" }));

@@ -23,8 +23,7 @@ export const certificates = {
   list: () => api.get<Certificate[]>(BASE),
   get: (id: number) => api.get<Certificate>(`${BASE}/${id}`),
   /** Validate + store an uploaded PEM certificate (returns the stored cert). */
-  uploadCustom: (body: CustomCertificateCreate) =>
-    api.post<Certificate>(`${BASE}/custom`, body),
+  uploadCustom: (body: CustomCertificateCreate) => api.post<Certificate>(`${BASE}/custom`, body),
   /** Enqueue ACME issuance; the response carries a `task_id` to poll. */
   requestLetsEncrypt: (body: LetsEncryptCertificateCreate) =>
     api.post<CertificateIssued>(`${BASE}/letsencrypt`, body),

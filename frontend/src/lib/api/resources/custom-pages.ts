@@ -31,8 +31,7 @@ export const customPages = {
   list: () => api.get<CustomPageSummary[]>(BASE),
   get: (id: number) => api.get<CustomPage>(`${BASE}/${id}`),
   create: (body: CustomPageCreate) => api.post<CustomPage>(BASE, body),
-  update: (id: number, body: CustomPageUpdate) =>
-    api.patch<CustomPage>(`${BASE}/${id}`, body),
+  update: (id: number, body: CustomPageUpdate) => api.patch<CustomPage>(`${BASE}/${id}`, body),
   remove: (id: number) => api.delete<void>(`${BASE}/${id}`),
 
   /**

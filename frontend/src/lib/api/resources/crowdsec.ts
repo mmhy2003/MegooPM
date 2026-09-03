@@ -25,6 +25,8 @@ export type WhitelistUpdate = Schemas["WhitelistUpdate"];
 export type WhitelistPreview = Schemas["WhitelistPreview"];
 export type WhitelistApplyStatus = Schemas["WhitelistApplyStatus"];
 export type WhitelistKind = Schemas["WhitelistKind"];
+export type CrowdSecMaintenance = Schemas["CrowdSecMaintenance"];
+export type CrowdSecJobRun = Schemas["CrowdSecJobRunRead"];
 
 /**
  * What a whitelist matches on.
@@ -47,11 +49,7 @@ export type DecisionScope = DecisionCreate["scope"];
 export type DecisionType = DecisionCreate["type"];
 
 export const DECISION_SCOPES: readonly DecisionScope[] = ["Ip", "Range"] as const;
-export const DECISION_TYPES: readonly DecisionType[] = [
-  "ban",
-  "captcha",
-  "throttle",
-] as const;
+export const DECISION_TYPES: readonly DecisionType[] = ["ban", "captcha", "throttle"] as const;
 
 export const DECISION_SCOPE_LABELS: Record<DecisionScope, string> = {
   Ip: "IP address",
@@ -117,8 +115,7 @@ export const crowdsec = {
   /** Push a manual operator decision (ban/captcha/throttle). */
   addDecision: (body: DecisionCreate) => api.post<Decision>(`${BASE}/decisions`, body),
   /** Lift a decision by its LAPI id. */
-  deleteDecision: (id: number) =>
-    api.delete<Record<string, number>>(`${BASE}/decisions/${id}`),
+  deleteDecision: (id: number) => api.delete<Record<string, number>>(`${BASE}/decisions/${id}`),
   /** A page of recent alerts, newest first. */
   listAlerts: (params?: ListParams) =>
     api.get<AlertList>(`${BASE}/alerts`, { query: listQuery(params) }),
@@ -132,8 +129,7 @@ export const crowdsec = {
   /** Every whitelist, enabled or not, oldest first. */
   listWhitelists: () => api.get<Whitelist[]>(`${BASE}/whitelists`),
   /** Create a whitelist and queue the apply. */
-  createWhitelist: (body: WhitelistCreate) =>
-    api.post<Whitelist>(`${BASE}/whitelists`, body),
+  createWhitelist: (body: WhitelistCreate) => api.post<Whitelist>(`${BASE}/whitelists`, body),
   /** Replace a whitelist and queue the apply. */
   updateWhitelist: (id: number, body: WhitelistUpdate) =>
     api.patch<Whitelist>(`${BASE}/whitelists/${id}`, body),
@@ -152,4 +148,8 @@ export const crowdsec = {
   whitelistStatus: () => api.get<WhitelistApplyStatus>(`${BASE}/whitelists/status`),
   /** Re-run the apply — the retry path after a failed reload. */
   applyWhitelists: () => api.post<{ queued: boolean }>(`${BASE}/whitelists/apply`, {}),
+  /** Both maintenance jobs' last runs, and whether one is running now. */
+  maintenance: () => api.get<CrowdSecMaintenance>(`${BASE}/maintenance`),
+  /** 202 and a run is queued; 409 while one is running or reloads are unwired. */
+  hubUpdateNow: () => api.post<{ queued: boolean }>(`${BASE}/hub/update`, {}),
 } as const;

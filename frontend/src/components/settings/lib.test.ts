@@ -39,6 +39,11 @@ const SETTINGS: InstanceSettings = {
   smtp_password_set: false,
   smtp_from: null,
   smtp_from_name: null,
+  crowdsec_hub_auto_update: true,
+  crowdsec_hub_update_frequency: "daily" as const,
+  crowdsec_hub_update_weekday: 6,
+  crowdsec_hub_update_hour_utc: 3,
+  crowdsec_capi_enabled: false,
   app_url: null,
   updated_at: "2026-09-01T00:00:00Z",
 };
@@ -164,6 +169,11 @@ const LLM_SETTINGS: InstanceSettings = {
   smtp_password_set: false,
   smtp_from: null,
   smtp_from_name: null,
+  crowdsec_hub_auto_update: true,
+  crowdsec_hub_update_frequency: "daily" as const,
+  crowdsec_hub_update_weekday: 6,
+  crowdsec_hub_update_hour_utc: 3,
+  crowdsec_capi_enabled: false,
   app_url: null,
 };
 
@@ -196,6 +206,11 @@ describe("llmStateFromSettings", () => {
       smtp_password_set: false,
       smtp_from: null,
       smtp_from_name: null,
+      crowdsec_hub_auto_update: true,
+      crowdsec_hub_update_frequency: "daily" as const,
+      crowdsec_hub_update_weekday: 6,
+      crowdsec_hub_update_hour_utc: 3,
+      crowdsec_capi_enabled: false,
       app_url: null,
     });
     expect(seeded.model).toBe("");
@@ -273,6 +288,11 @@ describe("smtpStateFromSettings", () => {
     smtp_password_set: true,
     smtp_from: "megoopm@example.com",
     smtp_from_name: "MegooPM",
+    crowdsec_hub_auto_update: true,
+    crowdsec_hub_update_frequency: "daily" as const,
+    crowdsec_hub_update_weekday: 6,
+    crowdsec_hub_update_hour_utc: 3,
+    crowdsec_capi_enabled: false,
     app_url: "https://pm.example.com",
   } as unknown as InstanceSettings;
 

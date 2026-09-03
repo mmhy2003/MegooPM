@@ -88,18 +88,21 @@ export type {
 } from "@/lib/api/resources/dashboard";
 export { instanceSettings } from "@/lib/api/resources/settings";
 export type {
-  InstanceSettings,
-  DefaultSiteUpdate,
   CrowdSecBanMode,
   CrowdSecBanUpdate,
+  CrowdSecCapiUpdate,
+  CrowdSecHubUpdate,
   DefaultSiteMode,
+  DefaultSiteUpdate,
+  HubUpdateFrequency,
+  InstanceSettings,
   LlmSettingsUpdate,
   LlmTestRequest,
   LlmTestResult,
-  SmtpSettingsUpdate,
-  SmtpSecurity,
   MailTestRequest,
   MailTestResult,
+  SmtpSecurity,
+  SmtpSettingsUpdate,
 } from "@/lib/api/resources/settings";
 
 export { streams } from "@/lib/api/resources/streams";
@@ -137,22 +140,24 @@ export {
   WHITELIST_KIND_LABELS,
 } from "@/lib/api/resources/crowdsec";
 export type {
-  CrowdSecHealth,
-  Decision,
-  DecisionCreate,
-  DecisionList,
   Alert,
   AlertList,
   AlertSource,
+  CrowdSecHealth,
+  CrowdSecJobRun,
+  CrowdSecMaintenance,
+  Decision,
+  DecisionCreate,
+  DecisionList,
   DecisionScope,
   DecisionType,
   ListParams,
   Whitelist,
-  WhitelistCreate,
-  WhitelistUpdate,
-  WhitelistPreview,
   WhitelistApplyStatus,
+  WhitelistCreate,
   WhitelistKind,
+  WhitelistPreview,
+  WhitelistUpdate,
 } from "@/lib/api/resources/crowdsec";
 
 export { users, USER_ROLES, USER_ROLE_LABELS } from "@/lib/api/resources/users";

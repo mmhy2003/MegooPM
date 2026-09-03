@@ -37,7 +37,12 @@ afterEach(cleanup);
 describe("WhitelistsTable", () => {
   it("shows the name, reason and how many addresses it covers", () => {
     render(
-      <WhitelistsTable rows={[ROW]} onToggle={async () => {}} onEdit={() => {}} onDelete={() => {}} />,
+      <WhitelistsTable
+        rows={[ROW]}
+        onToggle={async () => {}}
+        onEdit={() => {}}
+        onDelete={() => {}}
+      />,
     );
     expect(screen.getByText("Internal Backends")).toBeInTheDocument();
     expect(screen.getByText(/1 IP, 1 CIDR/)).toBeInTheDocument();
@@ -70,7 +75,12 @@ describe("WhitelistsTable", () => {
     const onDelete = vi.fn();
     const user = userEvent.setup();
     render(
-      <WhitelistsTable rows={[ROW]} onToggle={async () => {}} onEdit={onEdit} onDelete={onDelete} />,
+      <WhitelistsTable
+        rows={[ROW]}
+        onToggle={async () => {}}
+        onEdit={onEdit}
+        onDelete={onDelete}
+      />,
     );
     await user.click(screen.getByRole("button", { name: "Edit Internal Backends" }));
     await user.click(screen.getByRole("button", { name: "Delete Internal Backends" }));
@@ -119,9 +129,7 @@ describe("WhitelistsTable empty states", () => {
   afterEach(() => cleanup());
 
   it("says 'none yet' when nothing is filtered", () => {
-    render(
-      <WhitelistsTable rows={[]} onToggle={noop} onEdit={() => {}} onDelete={() => {}} />,
-    );
+    render(<WhitelistsTable rows={[]} onToggle={noop} onEdit={() => {}} onDelete={() => {}} />);
     expect(screen.getByText(/no whitelists yet/i)).toBeInTheDocument();
   });
 

@@ -25,16 +25,10 @@ export const redirectionHosts = {
 } as const;
 
 /** Target-scheme options; `auto` keeps the incoming request's scheme. */
-export const REDIRECT_SCHEMES: readonly RedirectScheme[] = [
-  "auto",
-  "http",
-  "https",
-] as const;
+export const REDIRECT_SCHEMES: readonly RedirectScheme[] = ["auto", "http", "https"] as const;
 
 /** Valid HTTP redirect status codes (300–308). */
-export const REDIRECT_HTTP_CODES: readonly number[] = [
-  300, 301, 302, 303, 307, 308,
-] as const;
+export const REDIRECT_HTTP_CODES: readonly number[] = [300, 301, 302, 303, 307, 308] as const;
 
 /** Human labels for the redirect status codes offered in the UI. */
 export const REDIRECT_CODE_LABELS: Record<number, string> = {

@@ -4,8230 +4,8511 @@
  */
 
 export interface paths {
-    "/api/v1/access-lists": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List Access Lists
-         * @description List all access lists with their users and rules. Admin-only.
-         */
-        get: operations["list_access_lists_api_v1_access_lists_get"];
-        put?: never;
-        /**
-         * Create Access List
-         * @description Create an access list, optionally seeding users and rules inline. Admin-only.
-         */
-        post: operations["create_access_list_api_v1_access_lists_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/access-lists/{access_list_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get Access List
-         * @description Fetch a single access list. Admin-only.
-         */
-        get: operations["get_access_list_api_v1_access_lists__access_list_id__get"];
-        put?: never;
-        post?: never;
-        /**
-         * Delete Access List
-         * @description Delete an access list. Attached hosts are detached (FK SET NULL).
-         */
-        delete: operations["delete_access_list_api_v1_access_lists__access_list_id__delete"];
-        options?: never;
-        head?: never;
-        /**
-         * Update Access List
-         * @description Update an access list, optionally replacing its users and/or rules.
-         *
-         *     ``auth_users`` and ``clients`` are whole-collection replacements; omitting a
-         *     key leaves that collection alone. A whole-form save therefore costs one
-         *     request, one audit entry and one nginx reload.
-         */
-        patch: operations["update_access_list_api_v1_access_lists__access_list_id__patch"];
-        trace?: never;
-    };
-    "/api/v1/access-lists/{access_list_id}/auth-users": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Add Auth User
-         * @description Add a basic-auth user to an access list. Admin-only.
-         */
-        post: operations["add_auth_user_api_v1_access_lists__access_list_id__auth_users_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/access-lists/{access_list_id}/auth-users/{user_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        /**
-         * Remove Auth User
-         * @description Remove a basic-auth user from an access list. Admin-only.
-         */
-        delete: operations["remove_auth_user_api_v1_access_lists__access_list_id__auth_users__user_id__delete"];
-        options?: never;
-        head?: never;
-        /**
-         * Set Auth Password
-         * @description Reset a basic-auth user's password. Admin-only.
-         */
-        patch: operations["set_auth_password_api_v1_access_lists__access_list_id__auth_users__user_id__patch"];
-        trace?: never;
-    };
-    "/api/v1/access-lists/{access_list_id}/clients": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Add Client Rule
-         * @description Add an allow/deny client rule to an access list. Admin-only.
-         */
-        post: operations["add_client_rule_api_v1_access_lists__access_list_id__clients_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/access-lists/{access_list_id}/clients/{rule_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        /**
-         * Remove Client Rule
-         * @description Remove a client rule from an access list. Admin-only.
-         */
-        delete: operations["remove_client_rule_api_v1_access_lists__access_list_id__clients__rule_id__delete"];
-        options?: never;
-        head?: never;
-        /**
-         * Update Client Rule
-         * @description Update a client rule within an access list. Admin-only.
-         */
-        patch: operations["update_client_rule_api_v1_access_lists__access_list_id__clients__rule_id__patch"];
-        trace?: never;
-    };
-    "/api/v1/audit-log": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List Audit Log
-         * @description List audit-log entries, newest first. Admin-only.
-         */
-        get: operations["list_audit_log_api_v1_audit_log_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/auth/accept-invite": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Accept Invite
-         * @description Spend an invitation token: set the name and password, activate.
-         *
-         *     Then the invitee goes to the login page rather than into a session, for
-         *     the same reason as a reset: the token arrived by email.
-         */
-        post: operations["accept_invite_api_v1_auth_accept_invite_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/auth/capabilities": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Capabilities
-         * @description What the login page may offer. Unauthenticated by necessity.
-         *
-         *     Leaks one bit — whether email is configured — which is cheaper than a user
-         *     clicking "forgot password", being told to check their inbox, and nothing
-         *     ever arriving.
-         */
-        get: operations["capabilities_api_v1_auth_capabilities_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/auth/forgot-password": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Forgot Password
-         * @description Issue a reset link if the address belongs to an active account.
-         *
-         *     Returns the same status and body whether or not it does. Otherwise this
-         *     page is a directory of who has an account, for anyone who can reach it.
-         *     Response *timing* still differs slightly; the spec records that as a
-         *     known, accepted gap.
-         */
-        post: operations["forgot_password_api_v1_auth_forgot_password_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/auth/login": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Login
-         * @description Authenticate with email + password.
-         *
-         *     Returns a token pair — or, for a user with 2FA on, a five-minute
-         *     ``mfa_token`` to present with a code at ``/auth/mfa/verify``. A wrong
-         *     password is 401 either way: the challenge must not leak that the password
-         *     was right.
-         */
-        post: operations["login_api_v1_auth_login_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/auth/me": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Read Me
-         * @description Return the currently authenticated user.
-         */
-        get: operations["read_me_api_v1_auth_me_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/auth/mfa/passkey/options": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Mfa Passkey Options
-         * @description Options for answering the challenge with a passkey.
-         */
-        post: operations["mfa_passkey_options_api_v1_auth_mfa_passkey_options_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/auth/mfa/passkey/verify": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Mfa Passkey Verify
-         * @description Exchange the challenge token plus a passkey assertion for the real pair.
-         */
-        post: operations["mfa_passkey_verify_api_v1_auth_mfa_passkey_verify_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/auth/mfa/verify": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Mfa Verify
-         * @description Exchange a challenge token plus a code for the real token pair.
-         *
-         *     One message for every refusal — bad token, expired token, wrong code,
-         *     replayed code, spent recovery code. Any distinction tells an attacker
-         *     which part they got right.
-         */
-        post: operations["mfa_verify_api_v1_auth_mfa_verify_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/auth/refresh": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Refresh
-         * @description Exchange a valid refresh token for a fresh access/refresh pair.
-         *
-         *     The refresh token is rotated. The user's role is re-read from the database
-         *     so privilege changes take effect on the next refresh.
-         */
-        post: operations["refresh_api_v1_auth_refresh_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/auth/reset-password": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Reset Password
-         * @description Spend a reset token and set the new password. Ends every open session.
-         */
-        post: operations["reset_password_api_v1_auth_reset_password_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/certificates": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List Certificates
-         * @description List all certificates. Admin-only.
-         */
-        get: operations["list_certificates_api_v1_certificates_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/certificates/custom": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Upload Custom Certificate
-         * @description Validate and store an uploaded custom certificate. Admin-only.
-         */
-        post: operations["upload_custom_certificate_api_v1_certificates_custom_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/certificates/letsencrypt": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Request Letsencrypt Certificate
-         * @description Create a pending Let's Encrypt cert and enqueue ACME issuance. Admin-only.
-         *
-         *     DNS-01 requires saved DNS provider credentials (``dns_credential_id``);
-         *     HTTP-01 must not carry one. Both are validated before the row is created.
-         */
-        post: operations["request_letsencrypt_certificate_api_v1_certificates_letsencrypt_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/certificates/{cert_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get Certificate
-         * @description Return one certificate. Admin-only.
-         */
-        get: operations["get_certificate_api_v1_certificates__cert_id__get"];
-        put?: never;
-        post?: never;
-        /**
-         * Delete Certificate
-         * @description Delete a certificate and its on-disk material. Admin-only.
-         */
-        delete: operations["delete_certificate_api_v1_certificates__cert_id__delete"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/certificates/{cert_id}/renew": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Renew Certificate
-         * @description Enqueue renewal/re-issuance for a certificate. Admin-only.
-         */
-        post: operations["renew_certificate_api_v1_certificates__cert_id__renew_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/cluster/status": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Cluster Status
-         * @description Report the shared config version and how far each node has converged.
-         *
-         *     The computation lives in the service so the dashboard reuses it rather than
-         *     growing a second, divergent copy.
-         */
-        get: operations["cluster_status_api_v1_cluster_status_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/crowdsec/alerts": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List Alerts
-         * @description List recent alerts (newest first), paginated. Hides community by default.
-         *
-         *     Up to ``ALERT_FETCH_CAP`` alerts are fetched from LAPI before server-side
-         *     filtering/pagination, so ``total`` is relative to that bounded window.
-         */
-        get: operations["list_alerts_api_v1_crowdsec_alerts_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/crowdsec/decisions": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List Decisions
-         * @description List active decisions, paginated. Hides community origins by default.
-         */
-        get: operations["list_decisions_api_v1_crowdsec_decisions_get"];
-        put?: never;
-        /**
-         * Add Decision
-         * @description Push a manual decision (operator ban) and record it in the audit log.
-         */
-        post: operations["add_decision_api_v1_crowdsec_decisions_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/crowdsec/decisions/{decision_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        /**
-         * Delete Decision
-         * @description Lift a decision by id; records the removal in the audit log.
-         */
-        delete: operations["delete_decision_api_v1_crowdsec_decisions__decision_id__delete"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/crowdsec/health": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Crowdsec Health
-         * @description Report whether LAPI is configured, reachable, and has our machine (never errors).
-         */
-        get: operations["crowdsec_health_api_v1_crowdsec_health_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/crowdsec/whitelists": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List Whitelists
-         * @description Every whitelist, enabled or not, oldest first.
-         */
-        get: operations["list_whitelists_api_v1_crowdsec_whitelists_get"];
-        put?: never;
-        /**
-         * Create Whitelist
-         * @description Create a whitelist and queue the apply.
-         */
-        post: operations["create_whitelist_api_v1_crowdsec_whitelists_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/crowdsec/whitelists/apply": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Apply Whitelists
-         * @description Re-run the apply — the retry path after a failed reload.
-         */
-        post: operations["apply_whitelists_api_v1_crowdsec_whitelists_apply_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/crowdsec/whitelists/preview": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Preview Whitelist
-         * @description Render one whitelist exactly as the writer would.
-         *
-         *     The dialog shows this rather than re-implementing the renderer in
-         *     TypeScript: a second renderer would drift, and the preview's whole value is
-         *     being the same bytes that reach CrowdSec.
-         */
-        post: operations["preview_whitelist_api_v1_crowdsec_whitelists_preview_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/crowdsec/whitelists/status": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Whitelist Status
-         * @description Whether the last apply reached CrowdSec, and whether reloads are wired.
-         */
-        get: operations["whitelist_status_api_v1_crowdsec_whitelists_status_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/crowdsec/whitelists/{whitelist_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        /**
-         * Delete Whitelist
-         * @description Delete a whitelist and queue the apply.
-         */
-        delete: operations["delete_whitelist_api_v1_crowdsec_whitelists__whitelist_id__delete"];
-        options?: never;
-        head?: never;
-        /**
-         * Update Whitelist
-         * @description Replace a whitelist and queue the apply.
-         */
-        patch: operations["update_whitelist_api_v1_crowdsec_whitelists__whitelist_id__patch"];
-        trace?: never;
-    };
-    "/api/v1/custom-pages": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List Custom Pages
-         * @description List every page, without their documents. Admin-only.
-         */
-        get: operations["list_custom_pages_api_v1_custom_pages_get"];
-        put?: never;
-        /**
-         * Create Custom Page
-         * @description Create a page. Admin-only.
-         */
-        post: operations["create_custom_page_api_v1_custom_pages_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/custom-pages/assist": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Assist Custom Page
-         * @description Write or revise a page with the configured model. Admin-only.
-         *
-         *     Stateless: it takes the document rather than a page id, so it works on a
-         *     page that has never been saved.
-         *
-         *     ``html`` arrives already elided and the response is re-hydrated in the
-         *     browser, which is why nothing here knows about images.
-         *
-         *     A provider failure is **502**, not 422: the request was well-formed and the
-         *     client can do nothing about it, so blurring it into the 4xx that mean
-         *     "you sent something invalid" would lose that distinction in the logs. This
-         *     is the opposite of the settings probe, which reports a provider failure as
-         *     200 with ``ok: false`` — there, reporting on the connection *is* the job.
-         */
-        post: operations["assist_custom_page_api_v1_custom_pages_assist_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/custom-pages/{page_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get Custom Page
-         * @description Fetch one page including its document. Admin-only.
-         */
-        get: operations["get_custom_page_api_v1_custom_pages__page_id__get"];
-        put?: never;
-        post?: never;
-        /**
-         * Delete Custom Page
-         * @description Delete a page. Admin-only.
-         */
-        delete: operations["delete_custom_page_api_v1_custom_pages__page_id__delete"];
-        options?: never;
-        head?: never;
-        /**
-         * Update Custom Page
-         * @description Update a page's name, description and/or document. Admin-only.
-         */
-        patch: operations["update_custom_page_api_v1_custom_pages__page_id__patch"];
-        trace?: never;
-    };
-    "/api/v1/dashboard/summary": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Dashboard Summary
-         * @description Every card's numbers in one payload.
-         *
-         *     One request rather than five list endpoints the browser would have to count
-         *     itself — and one shape that a push transport can later deliver unchanged.
-         */
-        get: operations["dashboard_summary_api_v1_dashboard_summary_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/dashboard/threats": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Dashboard Threats
-         * @description Attack origins by country.
-         *
-         *     Separate from the summary because it is the only part that needs CrowdSec,
-         *     so an outage empties the map rather than the page. An unreachable CrowdSec
-         *     returns an empty list for the same reason the summary returns null security:
-         *     the caller must be able to render "unavailable" rather than "no attacks".
-         */
-        get: operations["dashboard_threats_api_v1_dashboard_threats_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/dashboard/visitors": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Dashboard Visitors
-         * @description Recorded visitors and countries. Admin-only.
-         *
-         *     Inclusive of today, so days=1 is today. Clamped to the retention window,
-         *     because rows older than that have been deleted and a larger window would
-         *     silently describe a shorter one.
-         */
-        get: operations["dashboard_visitors_api_v1_dashboard_visitors_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/dead-hosts": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List Dead Hosts
-         * @description List all dead hosts. Admin-only.
-         */
-        get: operations["list_dead_hosts_api_v1_dead_hosts_get"];
-        put?: never;
-        /**
-         * Create Dead Host
-         * @description Create a dead host. Admin-only.
-         */
-        post: operations["create_dead_host_api_v1_dead_hosts_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/dead-hosts/{host_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get Dead Host
-         * @description Fetch a single dead host. Admin-only.
-         */
-        get: operations["get_dead_host_api_v1_dead_hosts__host_id__get"];
-        put?: never;
-        post?: never;
-        /**
-         * Delete Dead Host
-         * @description Delete a dead host. Admin-only.
-         */
-        delete: operations["delete_dead_host_api_v1_dead_hosts__host_id__delete"];
-        options?: never;
-        head?: never;
-        /**
-         * Update Dead Host
-         * @description Update a dead host. Admin-only.
-         */
-        patch: operations["update_dead_host_api_v1_dead_hosts__host_id__patch"];
-        trace?: never;
-    };
-    "/api/v1/dns-credentials": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List Dns Credentials
-         * @description Saved credentials with their usage. Admin-only.
-         */
-        get: operations["list_dns_credentials_api_v1_dns_credentials_get"];
-        put?: never;
-        /**
-         * Create Dns Credential
-         * @description Save a credential set. 422 on unknown provider/field or no secret; 409 on duplicate name.
-         */
-        post: operations["create_dns_credential_api_v1_dns_credentials_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/dns-credentials/{credential_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        /**
-         * Delete Dns Credential
-         * @description Delete a credential set; 409 while certificates still reference it.
-         */
-        delete: operations["delete_dns_credential_api_v1_dns_credentials__credential_id__delete"];
-        options?: never;
-        head?: never;
-        /**
-         * Update Dns Credential
-         * @description Rename and/or replace options (blank secrets keep their value). Admin-only.
-         */
-        patch: operations["update_dns_credential_api_v1_dns_credentials__credential_id__patch"];
-        trace?: never;
-    };
-    "/api/v1/dns-credentials/{credential_id}/verify": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Verify Dns Credential
-         * @description Write and remove a probe TXT record with the real provider (30 s cap).
-         */
-        post: operations["verify_dns_credential_api_v1_dns_credentials__credential_id__verify_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/dns-providers": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List Dns Providers
-         * @description The generated dns-lexicon provider catalog. Admin-only.
-         */
-        get: operations["list_dns_providers_api_v1_dns_providers_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/events": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Stream Events
-         * @description Relay dashboard events until the client disconnects.
-         */
-        get: operations["stream_events_api_v1_events_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/nginx/preview": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Preview Nginx Config
-         * @description Render the config for current DB state without writing or reloading.
-         */
-        get: operations["preview_nginx_config_api_v1_nginx_preview_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/nginx/reload": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Reload Nginx
-         * @description Enqueue a config regeneration + nginx reload; returns a task id to poll.
-         */
-        post: operations["reload_nginx_api_v1_nginx_reload_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/proxy-hosts": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List Proxy Hosts
-         * @description List all proxy hosts. Admin-only.
-         */
-        get: operations["list_proxy_hosts_api_v1_proxy_hosts_get"];
-        put?: never;
-        /**
-         * Create Proxy Host
-         * @description Create a proxy host forwarding to an upstream pool. Admin-only.
-         */
-        post: operations["create_proxy_host_api_v1_proxy_hosts_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/proxy-hosts/{host_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get Proxy Host
-         * @description Fetch a single proxy host. Admin-only.
-         */
-        get: operations["get_proxy_host_api_v1_proxy_hosts__host_id__get"];
-        put?: never;
-        post?: never;
-        /**
-         * Delete Proxy Host
-         * @description Delete a proxy host. Admin-only.
-         */
-        delete: operations["delete_proxy_host_api_v1_proxy_hosts__host_id__delete"];
-        options?: never;
-        head?: never;
-        /**
-         * Update Proxy Host
-         * @description Update a proxy host. Admin-only.
-         */
-        patch: operations["update_proxy_host_api_v1_proxy_hosts__host_id__patch"];
-        trace?: never;
-    };
-    "/api/v1/redirection-hosts": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List Redirection Hosts
-         * @description List all redirection hosts. Admin-only.
-         */
-        get: operations["list_redirection_hosts_api_v1_redirection_hosts_get"];
-        put?: never;
-        /**
-         * Create Redirection Host
-         * @description Create a redirection host. Admin-only.
-         */
-        post: operations["create_redirection_host_api_v1_redirection_hosts_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/redirection-hosts/{host_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get Redirection Host
-         * @description Fetch a single redirection host. Admin-only.
-         */
-        get: operations["get_redirection_host_api_v1_redirection_hosts__host_id__get"];
-        put?: never;
-        post?: never;
-        /**
-         * Delete Redirection Host
-         * @description Delete a redirection host. Admin-only.
-         */
-        delete: operations["delete_redirection_host_api_v1_redirection_hosts__host_id__delete"];
-        options?: never;
-        head?: never;
-        /**
-         * Update Redirection Host
-         * @description Update a redirection host. Admin-only.
-         */
-        patch: operations["update_redirection_host_api_v1_redirection_hosts__host_id__patch"];
-        trace?: never;
-    };
-    "/api/v1/settings": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Read Settings
-         * @description Read the instance settings. Admin-only.
-         */
-        get: operations["read_settings_api_v1_settings_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/settings/ban-page": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        /**
-         * Update Ban Page Settings
-         * @description Choose what a CrowdSec-blocked visitor is served. Admin-only.
-         *
-         *     ``after_config_write``, not a bare audit: this changes a file nginx serves,
-         *     so the config has to be rewritten and reloaded for the choice to take
-         *     effect at all.
-         */
-        patch: operations["update_ban_page_settings_api_v1_settings_ban_page_patch"];
-        trace?: never;
-    };
-    "/api/v1/settings/default-site": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        /**
-         * Update Settings
-         * @description Set the default site. Admin-only.
-         *
-         *     ``default_site_mode`` is required; the columns the chosen mode does not use
-         *     are cleared, so the stored row always describes exactly one configuration.
-         */
-        patch: operations["update_settings_api_v1_settings_default_site_patch"];
-        trace?: never;
-    };
-    "/api/v1/settings/llm": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        /**
-         * Update Llm Settings
-         * @description Configure the LLM integration. Admin-only.
-         *
-         *     ``exclude_unset`` is load-bearing: it is what tells the service the
-         *     difference between "the client did not send a key" and "the client cleared
-         *     the key".
-         */
-        patch: operations["update_llm_settings_api_v1_settings_llm_patch"];
-        trace?: never;
-    };
-    "/api/v1/settings/llm/test": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Test Llm Connection
-         * @description Probe the LLM configuration end to end. Admin-only.
-         *
-         *     Overrides in the body win over the stored row, so a key can be checked
-         *     before it is saved.
-         *
-         *     This deliberately ignores ``llm_enabled``. That flag stops *feature* code
-         *     running when the operator has switched the integration off; requiring it
-         *     here would invert the order an operator actually works in — configure,
-         *     prove it works, then enable.
-         *
-         *     A failed probe returns **200 with ``ok: false``**, not a 4xx or 5xx: the API
-         *     call succeeded, the upstream did not. An error status would make a working
-         *     endpoint indistinguishable from a broken one in logs and monitoring.
-         */
-        post: operations["test_llm_connection_api_v1_settings_llm_test_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/settings/smtp": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        /**
-         * Update Smtp Settings
-         * @description Configure outbound email. Admin-only.
-         *
-         *     ``exclude_unset`` is load-bearing: it is what tells the service the
-         *     difference between "the client did not send a password" and "the client
-         *     cleared the password".
-         */
-        patch: operations["update_smtp_settings_api_v1_settings_smtp_patch"];
-        trace?: never;
-    };
-    "/api/v1/settings/smtp/test": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Send Test Email
-         * @description Send one themed test message. Admin-only.
-         *
-         *     Synchronous on purpose. The operator is on the Settings page waiting and
-         *     needs the actual SMTP error — "authentication failed", "connection refused"
-         *     — not a task id to go and poll. Real notifications will go through Celery
-         *     instead, so a slow mail server never fails a user-facing action.
-         *
-         *     A failed send returns **200 with ``ok: false``**, not a 4xx or 5xx: the API
-         *     call succeeded, the mail server did not. An error status would make a
-         *     working endpoint indistinguishable from a broken one in monitoring.
-         */
-        post: operations["send_test_email_api_v1_settings_smtp_test_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/streams": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List Streams
-         * @description List all streams. Admin-only.
-         */
-        get: operations["list_streams_api_v1_streams_get"];
-        put?: never;
-        /**
-         * Create Stream
-         * @description Create a TCP/UDP stream forward. Admin-only.
-         */
-        post: operations["create_stream_api_v1_streams_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/streams/{stream_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get Stream
-         * @description Fetch a single stream. Admin-only.
-         */
-        get: operations["get_stream_api_v1_streams__stream_id__get"];
-        put?: never;
-        post?: never;
-        /**
-         * Delete Stream
-         * @description Delete a stream. Admin-only.
-         */
-        delete: operations["delete_stream_api_v1_streams__stream_id__delete"];
-        options?: never;
-        head?: never;
-        /**
-         * Update Stream
-         * @description Update a stream. Admin-only.
-         */
-        patch: operations["update_stream_api_v1_streams__stream_id__patch"];
-        trace?: never;
-    };
-    "/api/v1/tasks/sample": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Enqueue Sample
-         * @description Enqueue the sample ``add`` task; returns a task id to poll.
-         */
-        post: operations["enqueue_sample_api_v1_tasks_sample_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/tasks/{task_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Task Status
-         * @description Return the status (and result, once ready) of a background task.
-         */
-        get: operations["task_status_api_v1_tasks__task_id__get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/upstreams": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List Upstreams
-         * @description List all upstream pools with their backends. Admin-only.
-         */
-        get: operations["list_upstreams_api_v1_upstreams_get"];
-        put?: never;
-        /**
-         * Create Upstream
-         * @description Create an upstream pool, optionally seeding backends inline. Admin-only.
-         */
-        post: operations["create_upstream_api_v1_upstreams_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/upstreams/{upstream_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get Upstream
-         * @description Fetch a single upstream pool. Admin-only.
-         */
-        get: operations["get_upstream_api_v1_upstreams__upstream_id__get"];
-        put?: never;
-        post?: never;
-        /**
-         * Delete Upstream
-         * @description Delete a pool (and its backends). 409 if still referenced by a host.
-         */
-        delete: operations["delete_upstream_api_v1_upstreams__upstream_id__delete"];
-        options?: never;
-        head?: never;
-        /**
-         * Update Upstream
-         * @description Update a pool's own attributes (name/description/lb_method/enabled).
-         */
-        patch: operations["update_upstream_api_v1_upstreams__upstream_id__patch"];
-        trace?: never;
-    };
-    "/api/v1/upstreams/{upstream_id}/backends": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Add Backend
-         * @description Add a backend server to a pool. Admin-only.
-         */
-        post: operations["add_backend_api_v1_upstreams__upstream_id__backends_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/upstreams/{upstream_id}/backends/{backend_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        /**
-         * Remove Backend
-         * @description Remove a backend from a pool. Admin-only.
-         */
-        delete: operations["remove_backend_api_v1_upstreams__upstream_id__backends__backend_id__delete"];
-        options?: never;
-        head?: never;
-        /**
-         * Update Backend
-         * @description Update a backend within a pool. Admin-only.
-         */
-        patch: operations["update_backend_api_v1_upstreams__upstream_id__backends__backend_id__patch"];
-        trace?: never;
-    };
-    "/api/v1/users": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List Users
-         * @description List all users. Admin-only.
-         */
-        get: operations["list_users_api_v1_users_get"];
-        put?: never;
-        /**
-         * Create User
-         * @description Create a user with an explicit role. Admin-only.
-         */
-        post: operations["create_user_api_v1_users_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/users/invite": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Invite User
-         * @description Create an invited user and send them the link. Admin-only.
-         *
-         *     409 on a taken address in every state — active, inactive, or already
-         *     invited. The fix for "they never got it" is resend, not a second invite.
-         */
-        post: operations["invite_user_api_v1_users_invite_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/users/me": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Read Current User
-         * @description Return the authenticated caller.
-         */
-        get: operations["read_current_user_api_v1_users_me_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        /**
-         * Update Current User
-         * @description Edit the caller's own display name.
-         */
-        patch: operations["update_current_user_api_v1_users_me_patch"];
-        trace?: never;
-    };
-    "/api/v1/users/me/passkeys": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Passkey List */
-        get: operations["passkey_list_api_v1_users_me_passkeys_get"];
-        put?: never;
-        /**
-         * Passkey Register
-         * @description Finish registering: verify the browser's credential against the stored challenge.
-         */
-        post: operations["passkey_register_api_v1_users_me_passkeys_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/users/me/passkeys/options": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Passkey Options
-         * @description Start registering a passkey. Requires a valid code and the app URL.
-         */
-        post: operations["passkey_options_api_v1_users_me_passkeys_options_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/users/me/passkeys/{passkey_id}/remove": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Passkey Remove
-         * @description Remove one passkey. A POST with a body: DELETE bodies are dropped by some proxies.
-         */
-        post: operations["passkey_remove_api_v1_users_me_passkeys__passkey_id__remove_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/users/me/password": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        /**
-         * Change Current User Password
-         * @description Change the caller's own password (no current-password check; the session is the proof).
-         */
-        put: operations["change_current_user_password_api_v1_users_me_password_put"];
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/users/me/totp/disable": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Totp Disable
-         * @description Turn 2FA off. A valid code is required: a stolen session must not be
-         *     able to strip the second factor.
-         */
-        post: operations["totp_disable_api_v1_users_me_totp_disable_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/users/me/totp/enable": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Totp Enable
-         * @description Prove the app works, then turn 2FA on. Returns the recovery codes once.
-         */
-        post: operations["totp_enable_api_v1_users_me_totp_enable_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/users/me/totp/recovery-codes": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Totp Regenerate
-         * @description Replace every recovery code. A valid code is required.
-         */
-        post: operations["totp_regenerate_api_v1_users_me_totp_recovery_codes_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/users/me/totp/setup": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Totp Setup
-         * @description Start enrolling an authenticator app. 2FA stays off until confirmed.
-         */
-        post: operations["totp_setup_api_v1_users_me_totp_setup_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/users/{user_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        /**
-         * Delete User
-         * @description Hard-delete a user. Admin-only. 409 under the lock-out rules.
-         */
-        delete: operations["delete_user_api_v1_users__user_id__delete"];
-        options?: never;
-        head?: never;
-        /**
-         * Update User
-         * @description Partially update another user (name, role, active). Admin-only.
-         *
-         *     409 when the change would lock the caller out or remove the last admin.
-         */
-        patch: operations["update_user_api_v1_users__user_id__patch"];
-        trace?: never;
-    };
-    "/api/v1/users/{user_id}/invite": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Resend Invitation
-         * @description Send a fresh invitation to a user who has not yet accepted. Admin-only.
-         *
-         *     Refused for an accepted user: they have a password, and re-inviting them
-         *     would hand anyone with their inbox a way to reset it.
-         */
-        post: operations["resend_invitation_api_v1_users__user_id__invite_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/users/{user_id}/password": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        /**
-         * Reset Password
-         * @description Set a new password for another user. Admin-only.
-         */
-        put: operations["reset_password_api_v1_users__user_id__password_put"];
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/users/{user_id}/totp/disable": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Admin Totp Disable
-         * @description Turn off another user's 2FA. Admin-only; no code — this is the
-         *     lost-phone backstop. The user is told by email, naming the admin.
-         */
-        post: operations["admin_totp_disable_api_v1_users__user_id__totp_disable_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/health": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Health
-         * @description Return service liveness.
-         */
-        get: operations["health_health_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
+  "/api/v1/access-lists": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * List Access Lists
+     * @description List all access lists with their users and rules. Admin-only.
+     */
+    get: operations["list_access_lists_api_v1_access_lists_get"];
+    put?: never;
+    /**
+     * Create Access List
+     * @description Create an access list, optionally seeding users and rules inline. Admin-only.
+     */
+    post: operations["create_access_list_api_v1_access_lists_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/access-lists/{access_list_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Get Access List
+     * @description Fetch a single access list. Admin-only.
+     */
+    get: operations["get_access_list_api_v1_access_lists__access_list_id__get"];
+    put?: never;
+    post?: never;
+    /**
+     * Delete Access List
+     * @description Delete an access list. Attached hosts are detached (FK SET NULL).
+     */
+    delete: operations["delete_access_list_api_v1_access_lists__access_list_id__delete"];
+    options?: never;
+    head?: never;
+    /**
+     * Update Access List
+     * @description Update an access list, optionally replacing its users and/or rules.
+     *
+     *     ``auth_users`` and ``clients`` are whole-collection replacements; omitting a
+     *     key leaves that collection alone. A whole-form save therefore costs one
+     *     request, one audit entry and one nginx reload.
+     */
+    patch: operations["update_access_list_api_v1_access_lists__access_list_id__patch"];
+    trace?: never;
+  };
+  "/api/v1/access-lists/{access_list_id}/auth-users": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Add Auth User
+     * @description Add a basic-auth user to an access list. Admin-only.
+     */
+    post: operations["add_auth_user_api_v1_access_lists__access_list_id__auth_users_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/access-lists/{access_list_id}/auth-users/{user_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    /**
+     * Remove Auth User
+     * @description Remove a basic-auth user from an access list. Admin-only.
+     */
+    delete: operations["remove_auth_user_api_v1_access_lists__access_list_id__auth_users__user_id__delete"];
+    options?: never;
+    head?: never;
+    /**
+     * Set Auth Password
+     * @description Reset a basic-auth user's password. Admin-only.
+     */
+    patch: operations["set_auth_password_api_v1_access_lists__access_list_id__auth_users__user_id__patch"];
+    trace?: never;
+  };
+  "/api/v1/access-lists/{access_list_id}/clients": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Add Client Rule
+     * @description Add an allow/deny client rule to an access list. Admin-only.
+     */
+    post: operations["add_client_rule_api_v1_access_lists__access_list_id__clients_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/access-lists/{access_list_id}/clients/{rule_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    /**
+     * Remove Client Rule
+     * @description Remove a client rule from an access list. Admin-only.
+     */
+    delete: operations["remove_client_rule_api_v1_access_lists__access_list_id__clients__rule_id__delete"];
+    options?: never;
+    head?: never;
+    /**
+     * Update Client Rule
+     * @description Update a client rule within an access list. Admin-only.
+     */
+    patch: operations["update_client_rule_api_v1_access_lists__access_list_id__clients__rule_id__patch"];
+    trace?: never;
+  };
+  "/api/v1/audit-log": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * List Audit Log
+     * @description List audit-log entries, newest first. Admin-only.
+     */
+    get: operations["list_audit_log_api_v1_audit_log_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/auth/accept-invite": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Accept Invite
+     * @description Spend an invitation token: set the name and password, activate.
+     *
+     *     Then the invitee goes to the login page rather than into a session, for
+     *     the same reason as a reset: the token arrived by email.
+     */
+    post: operations["accept_invite_api_v1_auth_accept_invite_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/auth/capabilities": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Capabilities
+     * @description What the login page may offer. Unauthenticated by necessity.
+     *
+     *     Leaks one bit — whether email is configured — which is cheaper than a user
+     *     clicking "forgot password", being told to check their inbox, and nothing
+     *     ever arriving.
+     */
+    get: operations["capabilities_api_v1_auth_capabilities_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/auth/forgot-password": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Forgot Password
+     * @description Issue a reset link if the address belongs to an active account.
+     *
+     *     Returns the same status and body whether or not it does. Otherwise this
+     *     page is a directory of who has an account, for anyone who can reach it.
+     *     Response *timing* still differs slightly; the spec records that as a
+     *     known, accepted gap.
+     */
+    post: operations["forgot_password_api_v1_auth_forgot_password_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/auth/login": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Login
+     * @description Authenticate with email + password.
+     *
+     *     Returns a token pair — or, for a user with 2FA on, a five-minute
+     *     ``mfa_token`` to present with a code at ``/auth/mfa/verify``. A wrong
+     *     password is 401 either way: the challenge must not leak that the password
+     *     was right.
+     */
+    post: operations["login_api_v1_auth_login_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/auth/me": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Read Me
+     * @description Return the currently authenticated user.
+     */
+    get: operations["read_me_api_v1_auth_me_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/auth/mfa/passkey/options": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Mfa Passkey Options
+     * @description Options for answering the challenge with a passkey.
+     */
+    post: operations["mfa_passkey_options_api_v1_auth_mfa_passkey_options_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/auth/mfa/passkey/verify": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Mfa Passkey Verify
+     * @description Exchange the challenge token plus a passkey assertion for the real pair.
+     */
+    post: operations["mfa_passkey_verify_api_v1_auth_mfa_passkey_verify_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/auth/mfa/verify": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Mfa Verify
+     * @description Exchange a challenge token plus a code for the real token pair.
+     *
+     *     One message for every refusal — bad token, expired token, wrong code,
+     *     replayed code, spent recovery code. Any distinction tells an attacker
+     *     which part they got right.
+     */
+    post: operations["mfa_verify_api_v1_auth_mfa_verify_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/auth/refresh": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Refresh
+     * @description Exchange a valid refresh token for a fresh access/refresh pair.
+     *
+     *     The refresh token is rotated. The user's role is re-read from the database
+     *     so privilege changes take effect on the next refresh.
+     */
+    post: operations["refresh_api_v1_auth_refresh_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/auth/reset-password": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Reset Password
+     * @description Spend a reset token and set the new password. Ends every open session.
+     */
+    post: operations["reset_password_api_v1_auth_reset_password_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/certificates": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * List Certificates
+     * @description List all certificates. Admin-only.
+     */
+    get: operations["list_certificates_api_v1_certificates_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/certificates/custom": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Upload Custom Certificate
+     * @description Validate and store an uploaded custom certificate. Admin-only.
+     */
+    post: operations["upload_custom_certificate_api_v1_certificates_custom_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/certificates/letsencrypt": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Request Letsencrypt Certificate
+     * @description Create a pending Let's Encrypt cert and enqueue ACME issuance. Admin-only.
+     *
+     *     DNS-01 requires saved DNS provider credentials (``dns_credential_id``);
+     *     HTTP-01 must not carry one. Both are validated before the row is created.
+     */
+    post: operations["request_letsencrypt_certificate_api_v1_certificates_letsencrypt_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/certificates/{cert_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Get Certificate
+     * @description Return one certificate. Admin-only.
+     */
+    get: operations["get_certificate_api_v1_certificates__cert_id__get"];
+    put?: never;
+    post?: never;
+    /**
+     * Delete Certificate
+     * @description Delete a certificate and its on-disk material. Admin-only.
+     */
+    delete: operations["delete_certificate_api_v1_certificates__cert_id__delete"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/certificates/{cert_id}/renew": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Renew Certificate
+     * @description Enqueue renewal/re-issuance for a certificate. Admin-only.
+     */
+    post: operations["renew_certificate_api_v1_certificates__cert_id__renew_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/cluster/status": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Cluster Status
+     * @description Report the shared config version and how far each node has converged.
+     *
+     *     The computation lives in the service so the dashboard reuses it rather than
+     *     growing a second, divergent copy.
+     */
+    get: operations["cluster_status_api_v1_cluster_status_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/crowdsec/alerts": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * List Alerts
+     * @description List recent alerts (newest first), paginated. Hides community by default.
+     *
+     *     Up to ``ALERT_FETCH_CAP`` alerts are fetched from LAPI before server-side
+     *     filtering/pagination, so ``total`` is relative to that bounded window.
+     */
+    get: operations["list_alerts_api_v1_crowdsec_alerts_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/crowdsec/decisions": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * List Decisions
+     * @description List active decisions, paginated. Hides community origins by default.
+     */
+    get: operations["list_decisions_api_v1_crowdsec_decisions_get"];
+    put?: never;
+    /**
+     * Add Decision
+     * @description Push a manual decision (operator ban) and record it in the audit log.
+     */
+    post: operations["add_decision_api_v1_crowdsec_decisions_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/crowdsec/decisions/{decision_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    /**
+     * Delete Decision
+     * @description Lift a decision by id; records the removal in the audit log.
+     */
+    delete: operations["delete_decision_api_v1_crowdsec_decisions__decision_id__delete"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/crowdsec/health": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Crowdsec Health
+     * @description Report whether LAPI is configured, reachable, and has our machine (never errors).
+     */
+    get: operations["crowdsec_health_api_v1_crowdsec_health_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/crowdsec/hub/update": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Hub Update Now
+     * @description Refresh the hub now. 409 while a run is in progress or reloads are unwired.
+     */
+    post: operations["hub_update_now_api_v1_crowdsec_hub_update_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/crowdsec/maintenance": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Maintenance
+     * @description Both maintenance jobs' last runs, and whether one is running now.
+     */
+    get: operations["maintenance_api_v1_crowdsec_maintenance_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/crowdsec/whitelists": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * List Whitelists
+     * @description Every whitelist, enabled or not, oldest first.
+     */
+    get: operations["list_whitelists_api_v1_crowdsec_whitelists_get"];
+    put?: never;
+    /**
+     * Create Whitelist
+     * @description Create a whitelist and queue the apply.
+     */
+    post: operations["create_whitelist_api_v1_crowdsec_whitelists_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/crowdsec/whitelists/apply": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Apply Whitelists
+     * @description Re-run the apply — the retry path after a failed reload.
+     */
+    post: operations["apply_whitelists_api_v1_crowdsec_whitelists_apply_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/crowdsec/whitelists/preview": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Preview Whitelist
+     * @description Render one whitelist exactly as the writer would.
+     *
+     *     The dialog shows this rather than re-implementing the renderer in
+     *     TypeScript: a second renderer would drift, and the preview's whole value is
+     *     being the same bytes that reach CrowdSec.
+     */
+    post: operations["preview_whitelist_api_v1_crowdsec_whitelists_preview_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/crowdsec/whitelists/status": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Whitelist Status
+     * @description Whether the last apply reached CrowdSec, and whether reloads are wired.
+     */
+    get: operations["whitelist_status_api_v1_crowdsec_whitelists_status_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/crowdsec/whitelists/{whitelist_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    /**
+     * Delete Whitelist
+     * @description Delete a whitelist and queue the apply.
+     */
+    delete: operations["delete_whitelist_api_v1_crowdsec_whitelists__whitelist_id__delete"];
+    options?: never;
+    head?: never;
+    /**
+     * Update Whitelist
+     * @description Replace a whitelist and queue the apply.
+     */
+    patch: operations["update_whitelist_api_v1_crowdsec_whitelists__whitelist_id__patch"];
+    trace?: never;
+  };
+  "/api/v1/custom-pages": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * List Custom Pages
+     * @description List every page, without their documents. Admin-only.
+     */
+    get: operations["list_custom_pages_api_v1_custom_pages_get"];
+    put?: never;
+    /**
+     * Create Custom Page
+     * @description Create a page. Admin-only.
+     */
+    post: operations["create_custom_page_api_v1_custom_pages_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/custom-pages/assist": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Assist Custom Page
+     * @description Write or revise a page with the configured model. Admin-only.
+     *
+     *     Stateless: it takes the document rather than a page id, so it works on a
+     *     page that has never been saved.
+     *
+     *     ``html`` arrives already elided and the response is re-hydrated in the
+     *     browser, which is why nothing here knows about images.
+     *
+     *     A provider failure is **502**, not 422: the request was well-formed and the
+     *     client can do nothing about it, so blurring it into the 4xx that mean
+     *     "you sent something invalid" would lose that distinction in the logs. This
+     *     is the opposite of the settings probe, which reports a provider failure as
+     *     200 with ``ok: false`` — there, reporting on the connection *is* the job.
+     */
+    post: operations["assist_custom_page_api_v1_custom_pages_assist_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/custom-pages/{page_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Get Custom Page
+     * @description Fetch one page including its document. Admin-only.
+     */
+    get: operations["get_custom_page_api_v1_custom_pages__page_id__get"];
+    put?: never;
+    post?: never;
+    /**
+     * Delete Custom Page
+     * @description Delete a page. Admin-only.
+     */
+    delete: operations["delete_custom_page_api_v1_custom_pages__page_id__delete"];
+    options?: never;
+    head?: never;
+    /**
+     * Update Custom Page
+     * @description Update a page's name, description and/or document. Admin-only.
+     */
+    patch: operations["update_custom_page_api_v1_custom_pages__page_id__patch"];
+    trace?: never;
+  };
+  "/api/v1/dashboard/summary": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Dashboard Summary
+     * @description Every card's numbers in one payload.
+     *
+     *     One request rather than five list endpoints the browser would have to count
+     *     itself — and one shape that a push transport can later deliver unchanged.
+     */
+    get: operations["dashboard_summary_api_v1_dashboard_summary_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/dashboard/threats": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Dashboard Threats
+     * @description Attack origins by country.
+     *
+     *     Separate from the summary because it is the only part that needs CrowdSec,
+     *     so an outage empties the map rather than the page. An unreachable CrowdSec
+     *     returns an empty list for the same reason the summary returns null security:
+     *     the caller must be able to render "unavailable" rather than "no attacks".
+     */
+    get: operations["dashboard_threats_api_v1_dashboard_threats_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/dashboard/visitors": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Dashboard Visitors
+     * @description Recorded visitors and countries. Admin-only.
+     *
+     *     Inclusive of today, so days=1 is today. Clamped to the retention window,
+     *     because rows older than that have been deleted and a larger window would
+     *     silently describe a shorter one.
+     */
+    get: operations["dashboard_visitors_api_v1_dashboard_visitors_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/dead-hosts": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * List Dead Hosts
+     * @description List all dead hosts. Admin-only.
+     */
+    get: operations["list_dead_hosts_api_v1_dead_hosts_get"];
+    put?: never;
+    /**
+     * Create Dead Host
+     * @description Create a dead host. Admin-only.
+     */
+    post: operations["create_dead_host_api_v1_dead_hosts_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/dead-hosts/{host_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Get Dead Host
+     * @description Fetch a single dead host. Admin-only.
+     */
+    get: operations["get_dead_host_api_v1_dead_hosts__host_id__get"];
+    put?: never;
+    post?: never;
+    /**
+     * Delete Dead Host
+     * @description Delete a dead host. Admin-only.
+     */
+    delete: operations["delete_dead_host_api_v1_dead_hosts__host_id__delete"];
+    options?: never;
+    head?: never;
+    /**
+     * Update Dead Host
+     * @description Update a dead host. Admin-only.
+     */
+    patch: operations["update_dead_host_api_v1_dead_hosts__host_id__patch"];
+    trace?: never;
+  };
+  "/api/v1/dns-credentials": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * List Dns Credentials
+     * @description Saved credentials with their usage. Admin-only.
+     */
+    get: operations["list_dns_credentials_api_v1_dns_credentials_get"];
+    put?: never;
+    /**
+     * Create Dns Credential
+     * @description Save a credential set. 422 on unknown provider/field or no secret; 409 on duplicate name.
+     */
+    post: operations["create_dns_credential_api_v1_dns_credentials_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/dns-credentials/{credential_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    /**
+     * Delete Dns Credential
+     * @description Delete a credential set; 409 while certificates still reference it.
+     */
+    delete: operations["delete_dns_credential_api_v1_dns_credentials__credential_id__delete"];
+    options?: never;
+    head?: never;
+    /**
+     * Update Dns Credential
+     * @description Rename and/or replace options (blank secrets keep their value). Admin-only.
+     */
+    patch: operations["update_dns_credential_api_v1_dns_credentials__credential_id__patch"];
+    trace?: never;
+  };
+  "/api/v1/dns-credentials/{credential_id}/verify": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Verify Dns Credential
+     * @description Write and remove a probe TXT record with the real provider (30 s cap).
+     */
+    post: operations["verify_dns_credential_api_v1_dns_credentials__credential_id__verify_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/dns-providers": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * List Dns Providers
+     * @description The generated dns-lexicon provider catalog. Admin-only.
+     */
+    get: operations["list_dns_providers_api_v1_dns_providers_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/events": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Stream Events
+     * @description Relay dashboard events until the client disconnects.
+     */
+    get: operations["stream_events_api_v1_events_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/nginx/preview": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Preview Nginx Config
+     * @description Render the config for current DB state without writing or reloading.
+     */
+    get: operations["preview_nginx_config_api_v1_nginx_preview_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/nginx/reload": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Reload Nginx
+     * @description Enqueue a config regeneration + nginx reload; returns a task id to poll.
+     */
+    post: operations["reload_nginx_api_v1_nginx_reload_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/proxy-hosts": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * List Proxy Hosts
+     * @description List all proxy hosts. Admin-only.
+     */
+    get: operations["list_proxy_hosts_api_v1_proxy_hosts_get"];
+    put?: never;
+    /**
+     * Create Proxy Host
+     * @description Create a proxy host forwarding to an upstream pool. Admin-only.
+     */
+    post: operations["create_proxy_host_api_v1_proxy_hosts_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/proxy-hosts/{host_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Get Proxy Host
+     * @description Fetch a single proxy host. Admin-only.
+     */
+    get: operations["get_proxy_host_api_v1_proxy_hosts__host_id__get"];
+    put?: never;
+    post?: never;
+    /**
+     * Delete Proxy Host
+     * @description Delete a proxy host. Admin-only.
+     */
+    delete: operations["delete_proxy_host_api_v1_proxy_hosts__host_id__delete"];
+    options?: never;
+    head?: never;
+    /**
+     * Update Proxy Host
+     * @description Update a proxy host. Admin-only.
+     */
+    patch: operations["update_proxy_host_api_v1_proxy_hosts__host_id__patch"];
+    trace?: never;
+  };
+  "/api/v1/redirection-hosts": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * List Redirection Hosts
+     * @description List all redirection hosts. Admin-only.
+     */
+    get: operations["list_redirection_hosts_api_v1_redirection_hosts_get"];
+    put?: never;
+    /**
+     * Create Redirection Host
+     * @description Create a redirection host. Admin-only.
+     */
+    post: operations["create_redirection_host_api_v1_redirection_hosts_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/redirection-hosts/{host_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Get Redirection Host
+     * @description Fetch a single redirection host. Admin-only.
+     */
+    get: operations["get_redirection_host_api_v1_redirection_hosts__host_id__get"];
+    put?: never;
+    post?: never;
+    /**
+     * Delete Redirection Host
+     * @description Delete a redirection host. Admin-only.
+     */
+    delete: operations["delete_redirection_host_api_v1_redirection_hosts__host_id__delete"];
+    options?: never;
+    head?: never;
+    /**
+     * Update Redirection Host
+     * @description Update a redirection host. Admin-only.
+     */
+    patch: operations["update_redirection_host_api_v1_redirection_hosts__host_id__patch"];
+    trace?: never;
+  };
+  "/api/v1/settings": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Read Settings
+     * @description Read the instance settings. Admin-only.
+     */
+    get: operations["read_settings_api_v1_settings_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/settings/ban-page": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    /**
+     * Update Ban Page Settings
+     * @description Choose what a CrowdSec-blocked visitor is served. Admin-only.
+     *
+     *     ``after_config_write``, not a bare audit: this changes a file nginx serves,
+     *     so the config has to be rewritten and reloaded for the choice to take
+     *     effect at all.
+     */
+    patch: operations["update_ban_page_settings_api_v1_settings_ban_page_patch"];
+    trace?: never;
+  };
+  "/api/v1/settings/crowdsec-capi": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    /**
+     * Update Crowdsec Capi Settings
+     * @description Desired state of the community blocklist; enqueues the apply. Admin-only.
+     *
+     *     Saved even when the apply cannot be enqueued, so the choice is not lost;
+     *     the 409 tells the operator why nothing happened.
+     */
+    patch: operations["update_crowdsec_capi_settings_api_v1_settings_crowdsec_capi_patch"];
+    trace?: never;
+  };
+  "/api/v1/settings/crowdsec-hub": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    /**
+     * Update Crowdsec Hub Settings
+     * @description The hub refresh schedule. Admin-only. Takes effect at the next hourly tick.
+     */
+    patch: operations["update_crowdsec_hub_settings_api_v1_settings_crowdsec_hub_patch"];
+    trace?: never;
+  };
+  "/api/v1/settings/default-site": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    /**
+     * Update Settings
+     * @description Set the default site. Admin-only.
+     *
+     *     ``default_site_mode`` is required; the columns the chosen mode does not use
+     *     are cleared, so the stored row always describes exactly one configuration.
+     */
+    patch: operations["update_settings_api_v1_settings_default_site_patch"];
+    trace?: never;
+  };
+  "/api/v1/settings/llm": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    /**
+     * Update Llm Settings
+     * @description Configure the LLM integration. Admin-only.
+     *
+     *     ``exclude_unset`` is load-bearing: it is what tells the service the
+     *     difference between "the client did not send a key" and "the client cleared
+     *     the key".
+     */
+    patch: operations["update_llm_settings_api_v1_settings_llm_patch"];
+    trace?: never;
+  };
+  "/api/v1/settings/llm/test": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Test Llm Connection
+     * @description Probe the LLM configuration end to end. Admin-only.
+     *
+     *     Overrides in the body win over the stored row, so a key can be checked
+     *     before it is saved.
+     *
+     *     This deliberately ignores ``llm_enabled``. That flag stops *feature* code
+     *     running when the operator has switched the integration off; requiring it
+     *     here would invert the order an operator actually works in — configure,
+     *     prove it works, then enable.
+     *
+     *     A failed probe returns **200 with ``ok: false``**, not a 4xx or 5xx: the API
+     *     call succeeded, the upstream did not. An error status would make a working
+     *     endpoint indistinguishable from a broken one in logs and monitoring.
+     */
+    post: operations["test_llm_connection_api_v1_settings_llm_test_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/settings/smtp": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    /**
+     * Update Smtp Settings
+     * @description Configure outbound email. Admin-only.
+     *
+     *     ``exclude_unset`` is load-bearing: it is what tells the service the
+     *     difference between "the client did not send a password" and "the client
+     *     cleared the password".
+     */
+    patch: operations["update_smtp_settings_api_v1_settings_smtp_patch"];
+    trace?: never;
+  };
+  "/api/v1/settings/smtp/test": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Send Test Email
+     * @description Send one themed test message. Admin-only.
+     *
+     *     Synchronous on purpose. The operator is on the Settings page waiting and
+     *     needs the actual SMTP error — "authentication failed", "connection refused"
+     *     — not a task id to go and poll. Real notifications will go through Celery
+     *     instead, so a slow mail server never fails a user-facing action.
+     *
+     *     A failed send returns **200 with ``ok: false``**, not a 4xx or 5xx: the API
+     *     call succeeded, the mail server did not. An error status would make a
+     *     working endpoint indistinguishable from a broken one in monitoring.
+     */
+    post: operations["send_test_email_api_v1_settings_smtp_test_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/streams": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * List Streams
+     * @description List all streams. Admin-only.
+     */
+    get: operations["list_streams_api_v1_streams_get"];
+    put?: never;
+    /**
+     * Create Stream
+     * @description Create a TCP/UDP stream forward. Admin-only.
+     */
+    post: operations["create_stream_api_v1_streams_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/streams/{stream_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Get Stream
+     * @description Fetch a single stream. Admin-only.
+     */
+    get: operations["get_stream_api_v1_streams__stream_id__get"];
+    put?: never;
+    post?: never;
+    /**
+     * Delete Stream
+     * @description Delete a stream. Admin-only.
+     */
+    delete: operations["delete_stream_api_v1_streams__stream_id__delete"];
+    options?: never;
+    head?: never;
+    /**
+     * Update Stream
+     * @description Update a stream. Admin-only.
+     */
+    patch: operations["update_stream_api_v1_streams__stream_id__patch"];
+    trace?: never;
+  };
+  "/api/v1/tasks/sample": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Enqueue Sample
+     * @description Enqueue the sample ``add`` task; returns a task id to poll.
+     */
+    post: operations["enqueue_sample_api_v1_tasks_sample_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/tasks/{task_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Task Status
+     * @description Return the status (and result, once ready) of a background task.
+     */
+    get: operations["task_status_api_v1_tasks__task_id__get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/upstreams": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * List Upstreams
+     * @description List all upstream pools with their backends. Admin-only.
+     */
+    get: operations["list_upstreams_api_v1_upstreams_get"];
+    put?: never;
+    /**
+     * Create Upstream
+     * @description Create an upstream pool, optionally seeding backends inline. Admin-only.
+     */
+    post: operations["create_upstream_api_v1_upstreams_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/upstreams/{upstream_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Get Upstream
+     * @description Fetch a single upstream pool. Admin-only.
+     */
+    get: operations["get_upstream_api_v1_upstreams__upstream_id__get"];
+    put?: never;
+    post?: never;
+    /**
+     * Delete Upstream
+     * @description Delete a pool (and its backends). 409 if still referenced by a host.
+     */
+    delete: operations["delete_upstream_api_v1_upstreams__upstream_id__delete"];
+    options?: never;
+    head?: never;
+    /**
+     * Update Upstream
+     * @description Update a pool's own attributes (name/description/lb_method/enabled).
+     */
+    patch: operations["update_upstream_api_v1_upstreams__upstream_id__patch"];
+    trace?: never;
+  };
+  "/api/v1/upstreams/{upstream_id}/backends": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Add Backend
+     * @description Add a backend server to a pool. Admin-only.
+     */
+    post: operations["add_backend_api_v1_upstreams__upstream_id__backends_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/upstreams/{upstream_id}/backends/{backend_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    /**
+     * Remove Backend
+     * @description Remove a backend from a pool. Admin-only.
+     */
+    delete: operations["remove_backend_api_v1_upstreams__upstream_id__backends__backend_id__delete"];
+    options?: never;
+    head?: never;
+    /**
+     * Update Backend
+     * @description Update a backend within a pool. Admin-only.
+     */
+    patch: operations["update_backend_api_v1_upstreams__upstream_id__backends__backend_id__patch"];
+    trace?: never;
+  };
+  "/api/v1/users": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * List Users
+     * @description List all users. Admin-only.
+     */
+    get: operations["list_users_api_v1_users_get"];
+    put?: never;
+    /**
+     * Create User
+     * @description Create a user with an explicit role. Admin-only.
+     */
+    post: operations["create_user_api_v1_users_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/users/invite": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Invite User
+     * @description Create an invited user and send them the link. Admin-only.
+     *
+     *     409 on a taken address in every state — active, inactive, or already
+     *     invited. The fix for "they never got it" is resend, not a second invite.
+     */
+    post: operations["invite_user_api_v1_users_invite_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/users/me": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Read Current User
+     * @description Return the authenticated caller.
+     */
+    get: operations["read_current_user_api_v1_users_me_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    /**
+     * Update Current User
+     * @description Edit the caller's own display name.
+     */
+    patch: operations["update_current_user_api_v1_users_me_patch"];
+    trace?: never;
+  };
+  "/api/v1/users/me/passkeys": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Passkey List */
+    get: operations["passkey_list_api_v1_users_me_passkeys_get"];
+    put?: never;
+    /**
+     * Passkey Register
+     * @description Finish registering: verify the browser's credential against the stored challenge.
+     */
+    post: operations["passkey_register_api_v1_users_me_passkeys_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/users/me/passkeys/options": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Passkey Options
+     * @description Start registering a passkey. Requires a valid code and the app URL.
+     */
+    post: operations["passkey_options_api_v1_users_me_passkeys_options_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/users/me/passkeys/{passkey_id}/remove": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Passkey Remove
+     * @description Remove one passkey. A POST with a body: DELETE bodies are dropped by some proxies.
+     */
+    post: operations["passkey_remove_api_v1_users_me_passkeys__passkey_id__remove_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/users/me/password": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    /**
+     * Change Current User Password
+     * @description Change the caller's own password (no current-password check; the session is the proof).
+     */
+    put: operations["change_current_user_password_api_v1_users_me_password_put"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/users/me/totp/disable": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Totp Disable
+     * @description Turn 2FA off. A valid code is required: a stolen session must not be
+     *     able to strip the second factor.
+     */
+    post: operations["totp_disable_api_v1_users_me_totp_disable_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/users/me/totp/enable": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Totp Enable
+     * @description Prove the app works, then turn 2FA on. Returns the recovery codes once.
+     */
+    post: operations["totp_enable_api_v1_users_me_totp_enable_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/users/me/totp/recovery-codes": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Totp Regenerate
+     * @description Replace every recovery code. A valid code is required.
+     */
+    post: operations["totp_regenerate_api_v1_users_me_totp_recovery_codes_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/users/me/totp/setup": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Totp Setup
+     * @description Start enrolling an authenticator app. 2FA stays off until confirmed.
+     */
+    post: operations["totp_setup_api_v1_users_me_totp_setup_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/users/{user_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    /**
+     * Delete User
+     * @description Hard-delete a user. Admin-only. 409 under the lock-out rules.
+     */
+    delete: operations["delete_user_api_v1_users__user_id__delete"];
+    options?: never;
+    head?: never;
+    /**
+     * Update User
+     * @description Partially update another user (name, role, active). Admin-only.
+     *
+     *     409 when the change would lock the caller out or remove the last admin.
+     */
+    patch: operations["update_user_api_v1_users__user_id__patch"];
+    trace?: never;
+  };
+  "/api/v1/users/{user_id}/invite": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Resend Invitation
+     * @description Send a fresh invitation to a user who has not yet accepted. Admin-only.
+     *
+     *     Refused for an accepted user: they have a password, and re-inviting them
+     *     would hand anyone with their inbox a way to reset it.
+     */
+    post: operations["resend_invitation_api_v1_users__user_id__invite_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/users/{user_id}/password": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    /**
+     * Reset Password
+     * @description Set a new password for another user. Admin-only.
+     */
+    put: operations["reset_password_api_v1_users__user_id__password_put"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/users/{user_id}/totp/disable": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Admin Totp Disable
+     * @description Turn off another user's 2FA. Admin-only; no code — this is the
+     *     lost-phone backstop. The user is told by email, naming the admin.
+     */
+    post: operations["admin_totp_disable_api_v1_users__user_id__totp_disable_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/health": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Health
+     * @description Return service liveness.
+     */
+    get: operations["health_health_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
 }
 export type webhooks = Record<string, never>;
 export interface components {
-    schemas: {
-        /**
-         * AcceptInviteRequest
-         * @description Body for ``POST /auth/accept-invite``.
-         */
-        AcceptInviteRequest: {
-            /**
-             * Full Name
-             * @default
-             */
-            full_name: string;
-            /** Password */
-            password: string;
-            /** Token */
-            token: string;
-        };
-        /**
-         * AccessListAuthCreate
-         * @description A basic-auth credential to add to an access list (password write-only).
-         */
-        AccessListAuthCreate: {
-            /**
-             * Password
-             * @description Plaintext; stored hashed, never returned
-             */
-            password: string;
-            /** Username */
-            username: string;
-        };
-        /**
-         * AccessListAuthRead
-         * @description Public representation of a basic-auth user (no credential material).
-         */
-        AccessListAuthRead: {
-            /**
-             * Created At
-             * Format: date-time
-             */
-            created_at: string;
-            /** Id */
-            id: number;
-            /**
-             * Updated At
-             * Format: date-time
-             */
-            updated_at: string;
-            /** Username */
-            username: string;
-        };
-        /**
-         * AccessListAuthReplace
-         * @description A basic-auth user within a whole-collection replacement.
-         *
-         *     Unlike :class:`AccessListAuthCreate` the password is optional, because the
-         *     API never returns credential material: a client editing an existing list has
-         *     no hash to send back. Omit it to keep the stored hash for a username that is
-         *     already present; it is required to introduce a new one.
-         */
-        AccessListAuthReplace: {
-            /**
-             * Password
-             * @description Omit to keep the existing user's password unchanged
-             */
-            password?: string | null;
-            /** Username */
-            username: string;
-        };
-        /**
-         * AccessListAuthUpdate
-         * @description Reset a basic-auth user's password.
-         */
-        AccessListAuthUpdate: {
-            /** Password */
-            password: string;
-        };
-        /**
-         * AccessListClientCreate
-         * @description An allow/deny rule for an IP address, CIDR range, or ``all``.
-         */
-        AccessListClientCreate: {
-            /**
-             * Address
-             * @description IP, CIDR, or 'all'
-             */
-            address: string;
-            /** @description allow or deny */
-            directive: components["schemas"]["AccessListDirective"];
-        };
-        /**
-         * AccessListClientRead
-         * @description Public representation of an IP client rule.
-         */
-        AccessListClientRead: {
-            /** Address */
-            address: string;
-            /**
-             * Created At
-             * Format: date-time
-             */
-            created_at: string;
-            directive: components["schemas"]["AccessListDirective"];
-            /** Id */
-            id: number;
-            /**
-             * Updated At
-             * Format: date-time
-             */
-            updated_at: string;
-        };
-        /**
-         * AccessListClientUpdate
-         * @description Partial update of a client rule.
-         */
-        AccessListClientUpdate: {
-            /** Address */
-            address?: string | null;
-            directive?: components["schemas"]["AccessListDirective"] | null;
-        };
-        /**
-         * AccessListCreate
-         * @description Payload to create an access list, optionally seeding users and rules inline.
-         */
-        AccessListCreate: {
-            /** Auth Users */
-            auth_users?: components["schemas"]["AccessListAuthCreate"][];
-            /** Clients */
-            clients?: components["schemas"]["AccessListClientCreate"][];
-            /**
-             * Name
-             * @description Human-readable name
-             */
-            name: string;
-            /**
-             * Pass Auth
-             * @description Forward the Authorization header to the upstream
-             * @default false
-             */
-            pass_auth: boolean;
-            /**
-             * Satisfy Any
-             * @description Pass if EITHER gate (auth OR ip) is satisfied; false requires both
-             * @default false
-             */
-            satisfy_any: boolean;
-        };
-        /**
-         * AccessListDirective
-         * @description Client-rule directive for an access list entry.
-         * @enum {string}
-         */
-        AccessListDirective: "allow" | "deny";
-        /**
-         * AccessListRead
-         * @description Public representation of an access list, including users and rules.
-         */
-        AccessListRead: {
-            /** Auth Users */
-            auth_users?: components["schemas"]["AccessListAuthRead"][];
-            /** Client Rules */
-            client_rules?: components["schemas"]["AccessListClientRead"][];
-            /**
-             * Created At
-             * Format: date-time
-             */
-            created_at: string;
-            /** Id */
-            id: number;
-            /**
-             * Name
-             * @description Human-readable name
-             */
-            name: string;
-            /**
-             * Pass Auth
-             * @description Forward the Authorization header to the upstream
-             * @default false
-             */
-            pass_auth: boolean;
-            /**
-             * Satisfy Any
-             * @description Pass if EITHER gate (auth OR ip) is satisfied; false requires both
-             * @default false
-             */
-            satisfy_any: boolean;
-            /**
-             * Updated At
-             * Format: date-time
-             */
-            updated_at: string;
-        };
-        /**
-         * AccessListUpdate
-         * @description Partial update of an access list, optionally replacing its collections.
-         *
-         *     ``auth_users`` and ``clients`` are **whole-collection replacements**: omit
-         *     the key to leave that collection alone, or send the complete desired set to
-         *     replace it (``[]`` clears it). This lets an editing UI save the entire form
-         *     in one request — one transaction, one audit entry, one nginx reload — rather
-         *     than one round trip per user and rule.
-         */
-        AccessListUpdate: {
-            /**
-             * Auth Users
-             * @description Full replacement of the basic-auth users; omit to keep
-             */
-            auth_users?: components["schemas"]["AccessListAuthReplace"][] | null;
-            /**
-             * Clients
-             * @description Full replacement of the IP rules; omit to keep
-             */
-            clients?: components["schemas"]["AccessListClientCreate"][] | null;
-            /** Name */
-            name?: string | null;
-            /** Pass Auth */
-            pass_auth?: boolean | null;
-            /** Satisfy Any */
-            satisfy_any?: boolean | null;
-        };
-        /**
-         * Alert
-         * @description A detection event CrowdSec raised, with any decisions it triggered.
-         */
-        Alert: {
-            /** Created At */
-            created_at?: string | null;
-            /** Decisions */
-            decisions?: components["schemas"]["Decision"][];
-            /** Events Count */
-            events_count?: number | null;
-            /** Id */
-            id?: number | null;
-            /** Message */
-            message?: string | null;
-            /** Scenario */
-            scenario?: string | null;
-            source?: components["schemas"]["AlertSource"] | null;
-            /** Start At */
-            start_at?: string | null;
-            /** Stop At */
-            stop_at?: string | null;
-        };
-        /**
-         * AlertList
-         * @description A page of recent alerts.
-         */
-        AlertList: {
-            /** Items */
-            items?: components["schemas"]["Alert"][];
-            /**
-             * Page
-             * @default 1
-             */
-            page: number;
-            /**
-             * Page Size
-             * @default 50
-             */
-            page_size: number;
-            /**
-             * Total
-             * @default 0
-             */
-            total: number;
-        };
-        /**
-         * AlertSource
-         * @description Where an alert originated (the offending IP and its geo/AS metadata).
-         */
-        AlertSource: {
-            /** As Name */
-            as_name?: string | null;
-            /** Cn */
-            cn?: string | null;
-            /** Ip */
-            ip?: string | null;
-            /** Latitude */
-            latitude?: number | null;
-            /** Longitude */
-            longitude?: number | null;
-            /** Scope */
-            scope?: string | null;
-            /** Value */
-            value?: string | null;
-        };
-        /**
-         * AuditAction
-         * @description The mutation an audit-log row records.
-         * @enum {string}
-         */
-        AuditAction: "create" | "update" | "delete" | "enable" | "disable";
-        /**
-         * AuditLogPage
-         * @description A newest-first page of audit entries.
-         *
-         *     ``total`` is the count of rows matching the active filters (ignoring the
-         *     pagination window); ``limit``/``offset`` echo the request.
-         */
-        AuditLogPage: {
-            /** Items */
-            items: components["schemas"]["AuditLogRead"][];
-            /** Limit */
-            limit: number;
-            /** Offset */
-            offset: number;
-            /** Total */
-            total: number;
-        };
-        /**
-         * AuditLogRead
-         * @description Public representation of one audit-log entry.
-         */
-        AuditLogRead: {
-            action: components["schemas"]["AuditAction"];
-            /** Actor */
-            actor: string | null;
-            /**
-             * Created At
-             * Format: date-time
-             */
-            created_at: string;
-            /** Id */
-            id: number;
-            /** Meta */
-            meta: {
-                [key: string]: unknown;
-            };
-            /** Object Id */
-            object_id: number | null;
-            /** Object Type */
-            object_type: string;
-        };
-        /**
-         * AuthCapabilities
-         * @description What the login page may offer before anyone is signed in.
-         */
-        AuthCapabilities: {
-            /** Passkeys */
-            passkeys: boolean;
-            /** Password Reset */
-            password_reset: boolean;
-        };
-        /**
-         * BackendCreate
-         * @description Payload to add a backend to a pool.
-         */
-        BackendCreate: {
-            /**
-             * Backup
-             * @description Only used when primaries are down
-             * @default false
-             */
-            backup: boolean;
-            /**
-             * Down
-             * @description Administratively removed from rotation
-             * @default false
-             */
-            down: boolean;
-            /**
-             * Enabled
-             * @description Excluded from the rendered pool when false
-             * @default true
-             */
-            enabled: boolean;
-            /**
-             * Fail Timeout Seconds
-             * @description Window/penalty for max_fails, in seconds
-             * @default 10
-             */
-            fail_timeout_seconds: number;
-            /**
-             * Host
-             * @description Backend host or IP
-             */
-            host: string;
-            /**
-             * Max Fails
-             * @description Failed attempts before the backend is marked down
-             * @default 1
-             */
-            max_fails: number;
-            /**
-             * Port
-             * @description Backend TCP port
-             */
-            port: number;
-            /**
-             * Weight
-             * @description Relative load-balancing weight
-             * @default 1
-             */
-            weight: number;
-        };
-        /**
-         * BackendRead
-         * @description Public representation of a backend.
-         */
-        BackendRead: {
-            /**
-             * Backup
-             * @description Only used when primaries are down
-             * @default false
-             */
-            backup: boolean;
-            /**
-             * Created At
-             * Format: date-time
-             */
-            created_at: string;
-            /**
-             * Down
-             * @description Administratively removed from rotation
-             * @default false
-             */
-            down: boolean;
-            /**
-             * Enabled
-             * @description Excluded from the rendered pool when false
-             * @default true
-             */
-            enabled: boolean;
-            /**
-             * Fail Timeout Seconds
-             * @description Window/penalty for max_fails, in seconds
-             * @default 10
-             */
-            fail_timeout_seconds: number;
-            /**
-             * Host
-             * @description Backend host or IP
-             */
-            host: string;
-            /** Id */
-            id: number;
-            /**
-             * Max Fails
-             * @description Failed attempts before the backend is marked down
-             * @default 1
-             */
-            max_fails: number;
-            /**
-             * Port
-             * @description Backend TCP port
-             */
-            port: number;
-            /**
-             * Updated At
-             * Format: date-time
-             */
-            updated_at: string;
-            /** Upstream Id */
-            upstream_id: number;
-            /**
-             * Weight
-             * @description Relative load-balancing weight
-             * @default 1
-             */
-            weight: number;
-        };
-        /**
-         * BackendUpdate
-         * @description Partial update of a backend; every field is optional.
-         */
-        BackendUpdate: {
-            /** Backup */
-            backup?: boolean | null;
-            /** Down */
-            down?: boolean | null;
-            /** Enabled */
-            enabled?: boolean | null;
-            /** Fail Timeout Seconds */
-            fail_timeout_seconds?: number | null;
-            /** Host */
-            host?: string | null;
-            /** Max Fails */
-            max_fails?: number | null;
-            /** Port */
-            port?: number | null;
-            /** Weight */
-            weight?: number | null;
-        };
-        /**
-         * CertificateHealth
-         * @description Counts an operator would want to act on, not an inventory.
-         */
-        CertificateHealth: {
-            /** Expired */
-            expired: number;
-            /** Expiring Soon */
-            expiring_soon: number;
-            /** Failed */
-            failed: number;
-            /** Total */
-            total: number;
-        };
-        /**
-         * CertificateIssued
-         * @description Response for an issuance request: the pending cert plus its tracking task.
-         */
-        CertificateIssued: {
-            certificate: components["schemas"]["CertificateRead"];
-            /** Task Id */
-            task_id: string;
-            /** Task Status */
-            task_status: string;
-        };
-        /**
-         * CertificateProvider
-         * @description How a certificate is obtained/managed.
-         * @enum {string}
-         */
-        CertificateProvider: "letsencrypt" | "custom" | "self_signed";
-        /**
-         * CertificateRead
-         * @description A certificate as returned by the API (never includes key material).
-         */
-        CertificateRead: {
-            /** Challenge */
-            challenge?: string | null;
-            /**
-             * Created At
-             * Format: date-time
-             */
-            created_at: string;
-            /** Dns Provider */
-            dns_provider?: string | null;
-            /** Dns Provider Label */
-            readonly dns_provider_label: string | null;
-            /** Domain Names */
-            domain_names: string[];
-            /** Expires On */
-            expires_on?: string | null;
-            /** Id */
-            id: number;
-            /** Name */
-            name: string;
-            provider: components["schemas"]["CertificateProvider"];
-            status: components["schemas"]["CertificateStatus"];
-            /**
-             * Updated At
-             * Format: date-time
-             */
-            updated_at: string;
-        };
-        /** CertificateRef */
-        CertificateRef: {
-            /** Id */
-            id: number;
-            /** Name */
-            name: string;
-        };
-        /**
-         * CertificateStatus
-         * @description Lifecycle state of a managed certificate.
-         *
-         *     ``pending`` — a row exists but material has not been issued yet (an ACME
-         *     order is queued/running). ``active`` — valid material is on disk and usable
-         *     by a host. ``failed`` — the last issuance/renewal attempt errored (see
-         *     ``meta['last_error']``). ``expired`` — past ``expires_on`` and not renewed.
-         * @enum {string}
-         */
-        CertificateStatus: "pending" | "active" | "failed" | "expired";
-        /**
-         * ClusterNodeStatus
-         * @description One node's position relative to the shared config version.
-         */
-        ClusterNodeStatus: {
-            /** Applied Version */
-            applied_version: number;
-            /** In Sync */
-            in_sync: boolean;
-            /** Last Seen At */
-            last_seen_at?: string | null;
-            /** Node Id */
-            node_id: string;
-            /** Stale */
-            stale: boolean;
-        };
-        /**
-         * ClusterStatus
-         * @description Cluster-wide convergence snapshot.
-         */
-        ClusterStatus: {
-            /** Config Version */
-            config_version: number;
-            /** Converged */
-            converged: boolean;
-            /** Ha Enabled */
-            ha_enabled: boolean;
-            /** Nodes */
-            nodes: components["schemas"]["ClusterNodeStatus"][];
-            /** This Node */
-            this_node: string;
-        };
-        /** ConfigHealth */
-        ConfigHealth: {
-            /** Config Version */
-            config_version: number;
-            /** Converged */
-            converged: boolean;
-            /** Nodes In Sync */
-            nodes_in_sync: number;
-            /** Nodes Stale */
-            nodes_stale: number;
-            /** Nodes Total */
-            nodes_total: number;
-        };
-        /**
-         * CountryCount
-         * @description One country's share of recorded traffic.
-         */
-        CountryCount: {
-            /** Country */
-            country: string;
-            /** Requests */
-            requests: number;
-            /** Visitors */
-            visitors: number;
-        };
-        /**
-         * CrowdSecBanMode
-         * @description What a CrowdSec-blocked visitor is served.
-         *
-         *     ``none`` is not "unset": it is the deliberate choice to write no template
-         *     file, so the bouncer answers a bare 403 as it did before this setting
-         *     existed. Some operators prefer that a block does not advertise which
-         *     product is in front.
-         * @enum {string}
-         */
-        CrowdSecBanMode: "megoopm" | "custom_page" | "none";
-        /**
-         * CrowdSecBanUpdate
-         * @description Set the CrowdSec ban page. ``crowdsec_ban_mode`` is required.
-         *
-         *     Required for the same reason ``default_site_mode`` is on its sibling:
-         *     "custom_page needs a page" cannot be checked against a payload that omits
-         *     the mode, and a schema never sees the stored row.
-         */
-        CrowdSecBanUpdate: {
-            crowdsec_ban_mode: components["schemas"]["CrowdSecBanMode"];
-            /**
-             * Crowdsec Ban Page Id
-             * @description Required when the mode is 'custom_page'
-             */
-            crowdsec_ban_page_id?: number | null;
-        };
-        /**
-         * CrowdSecHealth
-         * @description Whether the LAPI integration is configured, reachable, and has a machine.
-         */
-        CrowdSecHealth: {
-            /** Configured */
-            configured: boolean;
-            /** Detail */
-            detail?: string | null;
-            /** Lapi Url */
-            lapi_url: string;
-            /** Machine Registered */
-            machine_registered: boolean;
-            /** Reachable */
-            reachable: boolean;
-        };
-        /**
-         * CustomCertificateCreate
-         * @description Upload of a custom certificate: PEM cert + private key (+ optional chain).
-         */
-        CustomCertificateCreate: {
-            /**
-             * Certificate Pem
-             * @description Leaf certificate in PEM format
-             */
-            certificate_pem: string;
-            /**
-             * Chain Pem
-             * @description Intermediate chain in PEM format (optional)
-             */
-            chain_pem?: string | null;
-            /** Name */
-            name: string;
-            /**
-             * Private Key Pem
-             * @description Matching private key in PEM format
-             */
-            private_key_pem: string;
-        };
-        /**
-         * CustomPageCreate
-         * @description Payload to create a page. ``html`` may be empty and filled in later.
-         */
-        CustomPageCreate: {
-            /**
-             * Description
-             * @default
-             */
-            description: string;
-            /**
-             * Html
-             * @description The full HTML document
-             * @default
-             */
-            html: string;
-            /**
-             * Name
-             * @description Human-readable name
-             */
-            name: string;
-        };
-        /**
-         * CustomPageRead
-         * @description Detail representation: the full document, for the editor.
-         */
-        CustomPageRead: {
-            /**
-             * Created At
-             * Format: date-time
-             */
-            created_at: string;
-            /** Description */
-            description: string;
-            /** Html */
-            html: string;
-            /** Id */
-            id: number;
-            /** Name */
-            name: string;
-            /**
-             * Size Bytes
-             * @description Matches the summary's field so both views report the same weight.
-             */
-            readonly size_bytes: number;
-            /**
-             * Updated At
-             * Format: date-time
-             */
-            updated_at: string;
-        };
-        /**
-         * CustomPageSummary
-         * @description Index representation: a byte count in place of the document itself.
-         */
-        CustomPageSummary: {
-            /**
-             * Created At
-             * Format: date-time
-             */
-            created_at: string;
-            /** Description */
-            description: string;
-            /** Id */
-            id: number;
-            /** Name */
-            name: string;
-            /** Size Bytes */
-            size_bytes: number;
-            /**
-             * Updated At
-             * Format: date-time
-             */
-            updated_at: string;
-        };
-        /**
-         * CustomPageUpdate
-         * @description Partial update; omitted fields are left as they are.
-         */
-        CustomPageUpdate: {
-            /** Description */
-            description?: string | null;
-            /** Html */
-            html?: string | null;
-            /** Name */
-            name?: string | null;
-        };
-        /** DashboardSummary */
-        DashboardSummary: {
-            certificates: components["schemas"]["CertificateHealth"];
-            config: components["schemas"]["ConfigHealth"];
-            inventory: components["schemas"]["InventoryCounts"];
-            security: components["schemas"]["SecuritySummary"] | null;
-            traffic: components["schemas"]["TrafficSummary"];
-        };
-        /**
-         * DeadHostCreate
-         * @description Payload to create a dead host.
-         */
-        DeadHostCreate: {
-            /**
-             * Advanced Config
-             * @description Raw nginx directives injected into the server block
-             * @default
-             */
-            advanced_config: string;
-            /**
-             * Certificate Id
-             * @description Certificate for TLS termination; null serves plain :80
-             */
-            certificate_id?: number | null;
-            /**
-             * Domain Names
-             * @description Domains this host answers for (server_name)
-             */
-            domain_names: string[];
-            /**
-             * Enabled
-             * @description Disabled hosts are excluded from config
-             * @default true
-             */
-            enabled: boolean;
-            /**
-             * Hsts Enabled
-             * @description Emit a Strict-Transport-Security header
-             * @default false
-             */
-            hsts_enabled: boolean;
-            /**
-             * Hsts Subdomains
-             * @description Include subdomains in HSTS
-             * @default false
-             */
-            hsts_subdomains: boolean;
-            /**
-             * Http2 Support
-             * @description Enable HTTP/2 on the TLS listener
-             * @default false
-             */
-            http2_support: boolean;
-            /**
-             * Ssl Forced
-             * @description Redirect :80 to HTTPS
-             * @default false
-             */
-            ssl_forced: boolean;
-        };
-        /**
-         * DeadHostRead
-         * @description Public representation of a dead host.
-         */
-        DeadHostRead: {
-            /**
-             * Advanced Config
-             * @description Raw nginx directives injected into the server block
-             * @default
-             */
-            advanced_config: string;
-            /**
-             * Certificate Id
-             * @description Certificate for TLS termination; null serves plain :80
-             */
-            certificate_id?: number | null;
-            /**
-             * Created At
-             * Format: date-time
-             */
-            created_at: string;
-            /**
-             * Domain Names
-             * @description Domains this host answers for (server_name)
-             */
-            domain_names: string[];
-            /**
-             * Enabled
-             * @description Disabled hosts are excluded from config
-             * @default true
-             */
-            enabled: boolean;
-            /**
-             * Hsts Enabled
-             * @description Emit a Strict-Transport-Security header
-             * @default false
-             */
-            hsts_enabled: boolean;
-            /**
-             * Hsts Subdomains
-             * @description Include subdomains in HSTS
-             * @default false
-             */
-            hsts_subdomains: boolean;
-            /**
-             * Http2 Support
-             * @description Enable HTTP/2 on the TLS listener
-             * @default false
-             */
-            http2_support: boolean;
-            /** Id */
-            id: number;
-            /**
-             * Ssl Forced
-             * @description Redirect :80 to HTTPS
-             * @default false
-             */
-            ssl_forced: boolean;
-            /**
-             * Updated At
-             * Format: date-time
-             */
-            updated_at: string;
-        };
-        /**
-         * DeadHostUpdate
-         * @description Partial update of a dead host; every field is optional.
-         */
-        DeadHostUpdate: {
-            /** Advanced Config */
-            advanced_config?: string | null;
-            /** Certificate Id */
-            certificate_id?: number | null;
-            /** Domain Names */
-            domain_names?: string[] | null;
-            /** Enabled */
-            enabled?: boolean | null;
-            /** Hsts Enabled */
-            hsts_enabled?: boolean | null;
-            /** Hsts Subdomains */
-            hsts_subdomains?: boolean | null;
-            /** Http2 Support */
-            http2_support?: boolean | null;
-            /** Ssl Forced */
-            ssl_forced?: boolean | null;
-        };
-        /**
-         * Decision
-         * @description One active remediation the bouncer enforces (a ban, captcha, …).
-         */
-        Decision: {
-            /** Duration */
-            duration: string;
-            /** Id */
-            id?: number | null;
-            /** Origin */
-            origin?: string | null;
-            /** Scenario */
-            scenario?: string | null;
-            /** Scope */
-            scope: string;
-            /** Type */
-            type: string;
-            /** Value */
-            value: string;
-        };
-        /**
-         * DecisionCreate
-         * @description Input for pushing a manual decision (operator-initiated ban).
-         */
-        DecisionCreate: {
-            /**
-             * Duration
-             * @default 4h
-             */
-            duration: string;
-            /**
-             * Reason
-             * @description Free-text note stored on the alert
-             */
-            reason?: string | null;
-            /**
-             * Scope
-             * @default Ip
-             * @enum {string}
-             */
-            scope: "Ip" | "Range";
-            /**
-             * Type
-             * @default ban
-             * @enum {string}
-             */
-            type: "ban" | "captcha" | "throttle";
-            /**
-             * Value
-             * @description IP or CIDR range to act on
-             */
-            value: string;
-        };
-        /**
-         * DecisionList
-         * @description A page of active decisions.
-         */
-        DecisionList: {
-            /** Items */
-            items?: components["schemas"]["Decision"][];
-            /**
-             * Page
-             * @default 1
-             */
-            page: number;
-            /**
-             * Page Size
-             * @default 50
-             */
-            page_size: number;
-            /**
-             * Total
-             * @default 0
-             */
-            total: number;
-        };
-        /**
-         * DefaultSiteMode
-         * @description What nginx returns for a request matching no configured host.
-         * @enum {string}
-         */
-        DefaultSiteMode: "congratulations" | "not_found" | "no_response" | "redirect" | "custom_page";
-        /** DnsCredentialCreate */
-        DnsCredentialCreate: {
-            /** Name */
-            name: string;
-            /**
-             * Options
-             * @description Provider fields (see /dns-providers); secrets included
-             */
-            options?: {
-                [key: string]: string;
-            };
-            /**
-             * Provider
-             * @description dns-lexicon provider id
-             */
-            provider: string;
-        };
-        /**
-         * DnsCredentialRead
-         * @description A saved credential set. Secret values are never returned — only their names.
-         */
-        DnsCredentialRead: {
-            /**
-             * Created At
-             * Format: date-time
-             */
-            created_at: string;
-            /** Id */
-            id: number;
-            /** In Use By */
-            in_use_by: components["schemas"]["CertificateRef"][];
-            /** Name */
-            name: string;
-            /** Options */
-            options: {
-                [key: string]: string;
-            };
-            /** Provider */
-            provider: string;
-            /** Provider Label */
-            provider_label: string;
-            /** Secret Fields */
-            secret_fields: string[];
-            /**
-             * Updated At
-             * Format: date-time
-             */
-            updated_at: string;
-        };
-        /**
-         * DnsCredentialUpdate
-         * @description Rename and/or replace options. A blank or omitted secret keeps its stored value.
-         */
-        DnsCredentialUpdate: {
-            /** Name */
-            name?: string | null;
-            /** Options */
-            options?: {
-                [key: string]: string;
-            } | null;
-        };
-        /** DnsCredentialVerified */
-        DnsCredentialVerified: {
-            /**
-             * Ok
-             * @default true
-             */
-            ok: boolean;
-        };
-        /** DnsCredentialVerify */
-        DnsCredentialVerify: {
-            /**
-             * Domain
-             * @description A domain inside the zone
-             */
-            domain: string;
-        };
-        /** DnsProviderFieldRead */
-        DnsProviderFieldRead: {
-            /** Help */
-            help: string;
-            /** Label */
-            label: string;
-            /** Name */
-            name: string;
-            /** Secret */
-            secret: boolean;
-        };
-        /** DnsProviderInfoRead */
-        DnsProviderInfoRead: {
-            /** Description */
-            description: string;
-            /** Fields */
-            fields: components["schemas"]["DnsProviderFieldRead"][];
-            /** Id */
-            id: string;
-            /** Label */
-            label: string;
-        };
-        /**
-         * ForgotPasswordRequest
-         * @description Body for ``POST /auth/forgot-password``.
-         */
-        ForgotPasswordRequest: {
-            /**
-             * Email
-             * Format: email
-             */
-            email: string;
-        };
-        /** HTTPValidationError */
-        HTTPValidationError: {
-            /** Detail */
-            detail?: components["schemas"]["ValidationError"][];
-        };
-        /**
-         * HealthResponse
-         * @description Liveness response body.
-         */
-        HealthResponse: {
-            /** Environment */
-            environment: string;
-            /** Service */
-            service: string;
-            /**
-             * Status
-             * @default ok
-             */
-            status: string;
-        };
-        /**
-         * HttpScheme
-         * @description Scheme a proxy host uses to reach its upstream.
-         * @enum {string}
-         */
-        HttpScheme: "http" | "https";
-        /**
-         * InstanceSettingsRead
-         * @description Public representation of the settings singleton.
-         *
-         *     The LLM API key and the SMTP password are deliberately absent.
-         *     ``llm_api_key_set`` and ``smtp_password_set`` say whether one is stored; the
-         *     values themselves are never returned by any endpoint, so a compromised
-         *     browser session cannot read them back out.
-         */
-        InstanceSettingsRead: {
-            /** App Url */
-            app_url: string | null;
-            crowdsec_ban_mode: components["schemas"]["CrowdSecBanMode"];
-            /** Crowdsec Ban Page Id */
-            crowdsec_ban_page_id: number | null;
-            default_site_mode: components["schemas"]["DefaultSiteMode"];
-            /** Default Site Page Id */
-            default_site_page_id: number | null;
-            /** Default Site Redirect Url */
-            default_site_redirect_url: string | null;
-            /** Llm Api Base */
-            llm_api_base: string | null;
-            /** Llm Api Key Set */
-            llm_api_key_set: boolean;
-            /** Llm Enabled */
-            llm_enabled: boolean;
-            /** Llm Model */
-            llm_model: string | null;
-            /** Smtp Enabled */
-            smtp_enabled: boolean;
-            /** Smtp From */
-            smtp_from: string | null;
-            /** Smtp From Name */
-            smtp_from_name: string | null;
-            /** Smtp Host */
-            smtp_host: string | null;
-            /** Smtp Password Set */
-            smtp_password_set: boolean;
-            /** Smtp Port */
-            smtp_port: number;
-            smtp_security: components["schemas"]["SmtpSecurity"];
-            /** Smtp Username */
-            smtp_username: string | null;
-            /**
-             * Updated At
-             * Format: date-time
-             */
-            updated_at: string;
-        };
-        /**
-         * InstanceSettingsUpdate
-         * @description Set the default site. ``default_site_mode`` is required (see module doc).
-         */
-        InstanceSettingsUpdate: {
-            default_site_mode: components["schemas"]["DefaultSiteMode"];
-            /**
-             * Default Site Page Id
-             * @description Required when the mode is 'custom_page'
-             */
-            default_site_page_id?: number | null;
-            /**
-             * Default Site Redirect Url
-             * @description Required when the mode is 'redirect'
-             */
-            default_site_redirect_url?: string | null;
-        };
-        /** InventoryCounts */
-        InventoryCounts: {
-            /** Dead Hosts */
-            dead_hosts: number;
-            /** Proxy Hosts Enabled */
-            proxy_hosts_enabled: number;
-            /** Proxy Hosts Total */
-            proxy_hosts_total: number;
-            /** Redirection Hosts */
-            redirection_hosts: number;
-            /** Streams */
-            streams: number;
-        };
-        /**
-         * LetsEncryptCertificateCreate
-         * @description Request to issue a Let's Encrypt certificate for a set of domains.
-         */
-        LetsEncryptCertificateCreate: {
-            /**
-             * Account Email
-             * @description Contact email for the ACME account (optional)
-             */
-            account_email?: string | null;
-            /**
-             * Challenge
-             * @description ACME challenge type: 'http-01' (default) or 'dns-01'
-             * @default http-01
-             */
-            challenge: string;
-            /**
-             * Dns Credential Id
-             * @description Saved DNS provider credentials (id from /dns-credentials). Required for 'dns-01'; must be omitted for 'http-01'.
-             */
-            dns_credential_id?: number | null;
-            /** Domain Names */
-            domain_names: string[];
-            /** Name */
-            name: string;
-        };
-        /**
-         * LlmSettingsUpdate
-         * @description Set the LLM integration. Carries the whole group; the key is the exception.
-         *
-         *     ``llm_enabled`` is required for the same reason ``default_site_mode`` is on
-         *     its sibling: "enabled needs a model" cannot be checked against a payload
-         *     that omits it, and a schema never sees the stored row.
-         *
-         *     ``llm_api_key`` is the one field that cannot work that way — it is never
-         *     returned, so a client has nothing to send back. Absent keeps the stored key;
-         *     a string replaces it; an explicit ``null`` clears it. The three states are
-         *     distinguished with ``model_fields_set``, which is why the service is handed
-         *     ``model_dump(exclude_unset=True)``.
-         */
-        LlmSettingsUpdate: {
-            /** Llm Api Base */
-            llm_api_base?: string | null;
-            /** Llm Api Key */
-            llm_api_key?: string | null;
-            /** Llm Enabled */
-            llm_enabled: boolean;
-            /** Llm Model */
-            llm_model?: string | null;
-        };
-        /**
-         * LlmTestRequest
-         * @description Optional overrides for the probe, so a key can be checked before saving.
-         */
-        LlmTestRequest: {
-            /** Api Base */
-            api_base?: string | null;
-            /** Api Key */
-            api_key?: string | null;
-            /** Model */
-            model?: string | null;
-        };
-        /**
-         * LlmTestResult
-         * @description The probe's outcome. ``ok: false`` still returns HTTP 200 — see the route.
-         */
-        LlmTestResult: {
-            /**
-             * Error
-             * @default
-             */
-            error: string;
-            /**
-             * Latency Ms
-             * @default 0
-             */
-            latency_ms: number;
-            /** Model */
-            model: string;
-            /** Ok */
-            ok: boolean;
-            /**
-             * Reply
-             * @default
-             */
-            reply: string;
-        };
-        /**
-         * LoadBalanceMethod
-         * @description nginx ``upstream`` load-balancing strategies for a backend pool.
-         * @enum {string}
-         */
-        LoadBalanceMethod: "round_robin" | "least_conn" | "ip_hash" | "hash" | "random";
-        /**
-         * LoginRequest
-         * @description Credentials submitted to ``POST /auth/login``.
-         */
-        LoginRequest: {
-            /**
-             * Email
-             * Format: email
-             */
-            email: string;
-            /** Password */
-            password: string;
-        };
-        /**
-         * MailTestRequest
-         * @description Where to send the test. Omitted means the requesting admin's own address.
-         */
-        MailTestRequest: {
-            /** To */
-            to?: string | null;
-        };
-        /**
-         * MailTestResult
-         * @description The send's outcome. ``ok: false`` still returns HTTP 200 — see the route.
-         */
-        MailTestResult: {
-            /**
-             * Detail
-             * @default
-             */
-            detail: string;
-            /**
-             * Latency Ms
-             * @default 0
-             */
-            latency_ms: number;
-            /** Ok */
-            ok: boolean;
-        };
-        /**
-         * MfaRequired
-         * @description What ``POST /auth/login`` returns when a second factor is needed.
-         *
-         *     ``mfa_required`` is a literal so the frontend can discriminate the union
-         *     without inspecting which keys are present. ``methods`` tells the form
-         *     what to offer without a second request.
-         */
-        MfaRequired: {
-            /** Methods */
-            methods?: ("totp" | "passkey")[];
-            /**
-             * Mfa Required
-             * @default true
-             * @constant
-             */
-            mfa_required: true;
-            /** Mfa Token */
-            mfa_token: string;
-        };
-        /**
-         * MfaVerifyRequest
-         * @description Body for ``POST /auth/mfa/verify``.
-         */
-        MfaVerifyRequest: {
-            /** Code */
-            code: string;
-            /** Mfa Token */
-            mfa_token: string;
-        };
-        /**
-         * MfaVerifyResponse
-         * @description The real pair, plus how many recovery codes are left when one was used.
-         */
-        MfaVerifyResponse: {
-            /** Access Token */
-            access_token: string;
-            /** Recovery Codes Remaining */
-            recovery_codes_remaining?: number | null;
-            /** Refresh Token */
-            refresh_token: string;
-            /**
-             * Token Type
-             * @default bearer
-             */
-            token_type: string;
-        };
-        /**
-         * NeutralResponse
-         * @description The one body ``forgot-password`` ever returns.
-         */
-        NeutralResponse: {
-            /** Detail */
-            detail: string;
-        };
-        /**
-         * NginxConfigFile
-         * @description One rendered managed ``.conf`` file.
-         */
-        NginxConfigFile: {
-            /** Content */
-            content: string;
-            /** Name */
-            name: string;
-        };
-        /**
-         * NginxConfigPreview
-         * @description The full config the engine *would* write for the current DB state.
-         *
-         *     A read-only render — it does not touch disk or reload nginx, so the
-         *     frontend can show operators the generated output before/without applying.
-         */
-        NginxConfigPreview: {
-            /** Files */
-            files?: components["schemas"]["NginxConfigFile"][];
-        };
-        /**
-         * PageAssistRequest
-         * @description An instruction plus the document to work on.
-         *
-         *     ``html`` arrives **already elided** — the browser has swapped every embedded
-         *     image for a ``MEGOOPM_IMAGE_n`` placeholder, because sending the base64
-         *     would cost ~70k tokens per screenshot and move megabytes over the wire. The
-         *     size cap is enforcement for a client that skipped its own check; it is not
-         *     the primary guard.
-         */
-        PageAssistRequest: {
-            /**
-             * Html
-             * @default
-             */
-            html: string;
-            /** Instruction */
-            instruction: string;
-        };
-        /**
-         * PageAssistResponse
-         * @description The cleaned document, and how it was produced.
-         *
-         *     ``mode`` distinguishes a targeted edit (``tools``) from a page written from
-         *     nothing (``generate``) and from a whole-document regeneration used because
-         *     the tool path was unavailable (``rewrite``). Without that a fallback would
-         *     look to the operator like an edit that changed nothing.
-         *
-         *     Placeholders are restored by the browser, so ``html`` is still elided here.
-         */
-        PageAssistResponse: {
-            /** Changes */
-            changes?: components["schemas"]["PageEditChange"][];
-            /** Html */
-            html: string;
-            /** Mode */
-            mode: string;
-            /**
-             * Truncated
-             * @default false
-             */
-            truncated: boolean;
-        };
-        /**
-         * PageEditChange
-         * @description One line range the model replaced, so the operator can read what moved.
-         */
-        PageEditChange: {
-            /** After */
-            after: string;
-            /** Before */
-            before: string;
-            /** End */
-            end: number;
-            /** Start */
-            start: number;
-        };
-        /**
-         * PasskeyAssertRequest
-         * @description Body for ``POST /auth/mfa/passkey/verify``.
-         */
-        PasskeyAssertRequest: {
-            /** Credential */
-            credential: {
-                [key: string]: unknown;
-            };
-            /** Mfa Token */
-            mfa_token: string;
-            /** Nonce */
-            nonce: string;
-        };
-        /**
-         * PasskeyOptions
-         * @description A ceremony's options, plus the nonce that names its stored challenge.
-         */
-        PasskeyOptions: {
-            /** Nonce */
-            nonce: string;
-            /** Options */
-            options: {
-                [key: string]: unknown;
-            };
-        };
-        /**
-         * PasskeyOptionsRequest
-         * @description Body for ``POST /auth/mfa/passkey/options``.
-         */
-        PasskeyOptionsRequest: {
-            /** Mfa Token */
-            mfa_token: string;
-        };
-        /**
-         * PasskeyRead
-         * @description One registered passkey. Never the key, never the credential id.
-         */
-        PasskeyRead: {
-            /**
-             * Created At
-             * Format: date-time
-             */
-            created_at: string;
-            /** Id */
-            id: number;
-            /** Last Used At */
-            last_used_at?: string | null;
-            /** Name */
-            name: string;
-        };
-        /**
-         * PasskeyRegisterRequest
-         * @description Body for ``POST /users/me/passkeys``: the browser's credential and a name.
-         */
-        PasskeyRegisterRequest: {
-            /** Credential */
-            credential: {
-                [key: string]: unknown;
-            };
-            /**
-             * Name
-             * @default
-             */
-            name: string;
-            /** Nonce */
-            nonce: string;
-        };
-        /**
-         * PasswordChange
-         * @description Self-service password change. The signed-in session is the only proof
-         *     required — the current password is deliberately not re-verified.
-         */
-        PasswordChange: {
-            /** New Password */
-            new_password: string;
-        };
-        /**
-         * PasswordReset
-         * @description Admin-set password for another user (handed over out of band).
-         */
-        PasswordReset: {
-            /** Password */
-            password: string;
-        };
-        /**
-         * ProfileUpdate
-         * @description Self-service profile edit. Only the display name is user-editable.
-         */
-        ProfileUpdate: {
-            /** Full Name */
-            full_name: string;
-        };
-        /**
-         * ProxyHostCreate
-         * @description Payload to create a proxy host.
-         */
-        ProxyHostCreate: {
-            /**
-             * Access List Id
-             * @description Optional access list guarding this host
-             */
-            access_list_id?: number | null;
-            /**
-             * Advanced Config
-             * @description Raw nginx directives injected into the server block
-             * @default
-             */
-            advanced_config: string;
-            /**
-             * Allow Websocket Upgrade
-             * @description Pass Upgrade/Connection headers for websockets
-             * @default false
-             */
-            allow_websocket_upgrade: boolean;
-            /**
-             * Block Exploits
-             * @description Block common exploit probes
-             * @default false
-             */
-            block_exploits: boolean;
-            /**
-             * Caching Enabled
-             * @description Cache static assets
-             * @default false
-             */
-            caching_enabled: boolean;
-            /**
-             * Certificate Id
-             * @description Certificate for TLS termination; null serves plain :80
-             */
-            certificate_id?: number | null;
-            /**
-             * Crowdsec Appsec Enabled
-             * @description Route requests through CrowdSec inline AppSec/WAF (needs crowdsec_enabled)
-             * @default false
-             */
-            crowdsec_appsec_enabled: boolean;
-            /**
-             * Crowdsec Enabled
-             * @description Enforce the CrowdSec nginx bouncer on this host
-             * @default false
-             */
-            crowdsec_enabled: boolean;
-            /**
-             * Domain Names
-             * @description Domains this host answers for (server_name)
-             */
-            domain_names: string[];
-            /**
-             * Enabled
-             * @description Disabled hosts are excluded from config
-             * @default true
-             */
-            enabled: boolean;
-            /**
-             * Forward Host
-             * @description Single backend host; null when forwarding to a pool
-             */
-            forward_host?: string | null;
-            /**
-             * Forward Port
-             * @description Single backend port; null when forwarding to a pool
-             */
-            forward_port?: number | null;
-            /**
-             * @description Scheme used to reach the upstream (http/https)
-             * @default http
-             */
-            forward_scheme: components["schemas"]["HttpScheme"];
-            /**
-             * Hsts Enabled
-             * @description Emit a Strict-Transport-Security header
-             * @default false
-             */
-            hsts_enabled: boolean;
-            /**
-             * Hsts Subdomains
-             * @description Include subdomains in HSTS
-             * @default false
-             */
-            hsts_subdomains: boolean;
-            /**
-             * Http2 Support
-             * @description Enable HTTP/2 on the TLS listener
-             * @default false
-             */
-            http2_support: boolean;
-            /**
-             * Locations
-             * @description Extra path-prefixed routes to other pools (rendered as location ^~ <path>)
-             */
-            locations?: components["schemas"]["ProxyHostLocationIn"][];
-            /**
-             * Ssl Forced
-             * @description Redirect :80 to HTTPS
-             * @default false
-             */
-            ssl_forced: boolean;
-            /**
-             * Upstream Id
-             * @description Pool to forward matched traffic to; null when using a host
-             */
-            upstream_id?: number | null;
-        };
-        /**
-         * ProxyHostLocationIn
-         * @description One extra ``location <path>`` route of a proxy host.
-         */
-        ProxyHostLocationIn: {
-            /** Forward Host */
-            forward_host?: string | null;
-            /** Forward Port */
-            forward_port?: number | null;
-            /**
-             * @description Scheme used to reach the pool (http/https)
-             * @default http
-             */
-            forward_scheme: components["schemas"]["HttpScheme"];
-            /**
-             * Path
-             * @description URL prefix, e.g. /api/ (the root '/' is the host itself)
-             */
-            path: string;
-            /**
-             * Upstream Id
-             * @description Pool this prefix forwards to; null when using a host
-             */
-            upstream_id?: number | null;
-        };
-        /**
-         * ProxyHostLocationRead
-         * @description Stored location (adds the row id).
-         */
-        ProxyHostLocationRead: {
-            /** Forward Host */
-            forward_host?: string | null;
-            /** Forward Port */
-            forward_port?: number | null;
-            /**
-             * @description Scheme used to reach the pool (http/https)
-             * @default http
-             */
-            forward_scheme: components["schemas"]["HttpScheme"];
-            /** Id */
-            id: number;
-            /**
-             * Path
-             * @description URL prefix, e.g. /api/ (the root '/' is the host itself)
-             */
-            path: string;
-            /**
-             * Upstream Id
-             * @description Pool this prefix forwards to; null when using a host
-             */
-            upstream_id?: number | null;
-        };
-        /**
-         * ProxyHostRead
-         * @description Public representation of a proxy host.
-         */
-        ProxyHostRead: {
-            /**
-             * Access List Id
-             * @description Optional access list guarding this host
-             */
-            access_list_id?: number | null;
-            /**
-             * Advanced Config
-             * @description Raw nginx directives injected into the server block
-             * @default
-             */
-            advanced_config: string;
-            /**
-             * Allow Websocket Upgrade
-             * @description Pass Upgrade/Connection headers for websockets
-             * @default false
-             */
-            allow_websocket_upgrade: boolean;
-            /**
-             * Block Exploits
-             * @description Block common exploit probes
-             * @default false
-             */
-            block_exploits: boolean;
-            /**
-             * Caching Enabled
-             * @description Cache static assets
-             * @default false
-             */
-            caching_enabled: boolean;
-            /**
-             * Certificate Id
-             * @description Certificate for TLS termination; null serves plain :80
-             */
-            certificate_id?: number | null;
-            /**
-             * Created At
-             * Format: date-time
-             */
-            created_at: string;
-            /**
-             * Crowdsec Appsec Enabled
-             * @description Route requests through CrowdSec inline AppSec/WAF (needs crowdsec_enabled)
-             * @default false
-             */
-            crowdsec_appsec_enabled: boolean;
-            /**
-             * Crowdsec Enabled
-             * @description Enforce the CrowdSec nginx bouncer on this host
-             * @default false
-             */
-            crowdsec_enabled: boolean;
-            /**
-             * Domain Names
-             * @description Domains this host answers for (server_name)
-             */
-            domain_names: string[];
-            /**
-             * Enabled
-             * @description Disabled hosts are excluded from config
-             * @default true
-             */
-            enabled: boolean;
-            /**
-             * Forward Host
-             * @description Single backend host; null when forwarding to a pool
-             */
-            forward_host?: string | null;
-            /**
-             * Forward Port
-             * @description Single backend port; null when forwarding to a pool
-             */
-            forward_port?: number | null;
-            /**
-             * @description Scheme used to reach the upstream (http/https)
-             * @default http
-             */
-            forward_scheme: components["schemas"]["HttpScheme"];
-            /**
-             * Hsts Enabled
-             * @description Emit a Strict-Transport-Security header
-             * @default false
-             */
-            hsts_enabled: boolean;
-            /**
-             * Hsts Subdomains
-             * @description Include subdomains in HSTS
-             * @default false
-             */
-            hsts_subdomains: boolean;
-            /**
-             * Http2 Support
-             * @description Enable HTTP/2 on the TLS listener
-             * @default false
-             */
-            http2_support: boolean;
-            /** Id */
-            id: number;
-            /** Locations */
-            locations?: components["schemas"]["ProxyHostLocationRead"][];
-            /**
-             * Ssl Forced
-             * @description Redirect :80 to HTTPS
-             * @default false
-             */
-            ssl_forced: boolean;
-            /**
-             * Updated At
-             * Format: date-time
-             */
-            updated_at: string;
-            /**
-             * Upstream Id
-             * @description Pool to forward matched traffic to; null when using a host
-             */
-            upstream_id?: number | null;
-        };
-        /**
-         * ProxyHostUpdate
-         * @description Partial update of a proxy host; every field is optional.
-         */
-        ProxyHostUpdate: {
-            /** Access List Id */
-            access_list_id?: number | null;
-            /** Advanced Config */
-            advanced_config?: string | null;
-            /** Allow Websocket Upgrade */
-            allow_websocket_upgrade?: boolean | null;
-            /** Block Exploits */
-            block_exploits?: boolean | null;
-            /** Caching Enabled */
-            caching_enabled?: boolean | null;
-            /** Certificate Id */
-            certificate_id?: number | null;
-            /** Crowdsec Appsec Enabled */
-            crowdsec_appsec_enabled?: boolean | null;
-            /** Crowdsec Enabled */
-            crowdsec_enabled?: boolean | null;
-            /** Domain Names */
-            domain_names?: string[] | null;
-            /** Enabled */
-            enabled?: boolean | null;
-            /** Forward Host */
-            forward_host?: string | null;
-            /** Forward Port */
-            forward_port?: number | null;
-            forward_scheme?: components["schemas"]["HttpScheme"] | null;
-            /** Hsts Enabled */
-            hsts_enabled?: boolean | null;
-            /** Hsts Subdomains */
-            hsts_subdomains?: boolean | null;
-            /** Http2 Support */
-            http2_support?: boolean | null;
-            /** Locations */
-            locations?: components["schemas"]["ProxyHostLocationIn"][] | null;
-            /** Ssl Forced */
-            ssl_forced?: boolean | null;
-            /** Upstream Id */
-            upstream_id?: number | null;
-        };
-        /**
-         * RedirectScheme
-         * @description Scheme applied to a redirection target (``auto`` keeps the request's).
-         * @enum {string}
-         */
-        RedirectScheme: "auto" | "http" | "https";
-        /**
-         * RedirectionHostCreate
-         * @description Payload to create a redirection host.
-         */
-        RedirectionHostCreate: {
-            /**
-             * Advanced Config
-             * @description Raw nginx directives injected into the server block
-             * @default
-             */
-            advanced_config: string;
-            /**
-             * Block Exploits
-             * @description Block common exploit probes
-             * @default false
-             */
-            block_exploits: boolean;
-            /**
-             * Certificate Id
-             * @description Certificate for TLS termination; null serves plain :80
-             */
-            certificate_id?: number | null;
-            /**
-             * Domain Names
-             * @description Domains this host answers for (server_name)
-             */
-            domain_names: string[];
-            /**
-             * Enabled
-             * @description Disabled hosts are excluded from config
-             * @default true
-             */
-            enabled: boolean;
-            /**
-             * Forward Domain Name
-             * @description Domain requests are redirected to
-             */
-            forward_domain_name: string;
-            /**
-             * Forward Http Code
-             * @description HTTP redirect status code (300–308)
-             * @default 302
-             */
-            forward_http_code: number;
-            /**
-             * @description Target scheme; 'auto' keeps the incoming request's scheme
-             * @default auto
-             */
-            forward_scheme: components["schemas"]["RedirectScheme"];
-            /**
-             * Hsts Enabled
-             * @description Emit a Strict-Transport-Security header
-             * @default false
-             */
-            hsts_enabled: boolean;
-            /**
-             * Hsts Subdomains
-             * @description Include subdomains in HSTS
-             * @default false
-             */
-            hsts_subdomains: boolean;
-            /**
-             * Http2 Support
-             * @description Enable HTTP/2 on the TLS listener
-             * @default false
-             */
-            http2_support: boolean;
-            /**
-             * Preserve Path
-             * @description Append the original request URI to the target
-             * @default true
-             */
-            preserve_path: boolean;
-            /**
-             * Ssl Forced
-             * @description Redirect :80 to HTTPS
-             * @default false
-             */
-            ssl_forced: boolean;
-        };
-        /**
-         * RedirectionHostRead
-         * @description Public representation of a redirection host.
-         */
-        RedirectionHostRead: {
-            /**
-             * Advanced Config
-             * @description Raw nginx directives injected into the server block
-             * @default
-             */
-            advanced_config: string;
-            /**
-             * Block Exploits
-             * @description Block common exploit probes
-             * @default false
-             */
-            block_exploits: boolean;
-            /**
-             * Certificate Id
-             * @description Certificate for TLS termination; null serves plain :80
-             */
-            certificate_id?: number | null;
-            /**
-             * Created At
-             * Format: date-time
-             */
-            created_at: string;
-            /**
-             * Domain Names
-             * @description Domains this host answers for (server_name)
-             */
-            domain_names: string[];
-            /**
-             * Enabled
-             * @description Disabled hosts are excluded from config
-             * @default true
-             */
-            enabled: boolean;
-            /**
-             * Forward Domain Name
-             * @description Domain requests are redirected to
-             */
-            forward_domain_name: string;
-            /**
-             * Forward Http Code
-             * @description HTTP redirect status code (300–308)
-             * @default 302
-             */
-            forward_http_code: number;
-            /**
-             * @description Target scheme; 'auto' keeps the incoming request's scheme
-             * @default auto
-             */
-            forward_scheme: components["schemas"]["RedirectScheme"];
-            /**
-             * Hsts Enabled
-             * @description Emit a Strict-Transport-Security header
-             * @default false
-             */
-            hsts_enabled: boolean;
-            /**
-             * Hsts Subdomains
-             * @description Include subdomains in HSTS
-             * @default false
-             */
-            hsts_subdomains: boolean;
-            /**
-             * Http2 Support
-             * @description Enable HTTP/2 on the TLS listener
-             * @default false
-             */
-            http2_support: boolean;
-            /** Id */
-            id: number;
-            /**
-             * Preserve Path
-             * @description Append the original request URI to the target
-             * @default true
-             */
-            preserve_path: boolean;
-            /**
-             * Ssl Forced
-             * @description Redirect :80 to HTTPS
-             * @default false
-             */
-            ssl_forced: boolean;
-            /**
-             * Updated At
-             * Format: date-time
-             */
-            updated_at: string;
-        };
-        /**
-         * RedirectionHostUpdate
-         * @description Partial update of a redirection host; every field is optional.
-         */
-        RedirectionHostUpdate: {
-            /** Advanced Config */
-            advanced_config?: string | null;
-            /** Block Exploits */
-            block_exploits?: boolean | null;
-            /** Certificate Id */
-            certificate_id?: number | null;
-            /** Domain Names */
-            domain_names?: string[] | null;
-            /** Enabled */
-            enabled?: boolean | null;
-            /** Forward Domain Name */
-            forward_domain_name?: string | null;
-            /** Forward Http Code */
-            forward_http_code?: number | null;
-            forward_scheme?: components["schemas"]["RedirectScheme"] | null;
-            /** Hsts Enabled */
-            hsts_enabled?: boolean | null;
-            /** Hsts Subdomains */
-            hsts_subdomains?: boolean | null;
-            /** Http2 Support */
-            http2_support?: boolean | null;
-            /** Preserve Path */
-            preserve_path?: boolean | null;
-            /** Ssl Forced */
-            ssl_forced?: boolean | null;
-        };
-        /**
-         * RefreshRequest
-         * @description Body submitted to ``POST /auth/refresh``.
-         */
-        RefreshRequest: {
-            /** Refresh Token */
-            refresh_token: string;
-        };
-        /**
-         * ResetPasswordRequest
-         * @description Body for ``POST /auth/reset-password``.
-         */
-        ResetPasswordRequest: {
-            /** New Password */
-            new_password: string;
-            /** Token */
-            token: string;
-        };
-        /**
-         * SampleTaskRequest
-         * @description Payload for enqueuing the sample ``add`` task.
-         */
-        SampleTaskRequest: {
-            /**
-             * X
-             * @default 0
-             */
-            x: number;
-            /**
-             * Y
-             * @default 0
-             */
-            y: number;
-        };
-        /** SecuritySummary */
-        SecuritySummary: {
-            /** Active Decisions */
-            active_decisions: number;
-            /** Alerts 24H */
-            alerts_24h: number;
-            /** Top Scenarios */
-            top_scenarios: string[];
-        };
-        /**
-         * SmtpSecurity
-         * @description How the SMTP connection is secured.
-         * @enum {string}
-         */
-        SmtpSecurity: "starttls" | "ssl" | "none";
-        /**
-         * SmtpSettingsUpdate
-         * @description Set the SMTP group. Carries the whole card; the password is the exception.
-         *
-         *     ``smtp_enabled`` is required for the same reason ``default_site_mode`` is on
-         *     its sibling: "enabled needs a host" cannot be checked against a payload that
-         *     omits it, and a schema never sees the stored row.
-         *
-         *     ``smtp_password`` is never returned, so a client has nothing to send back.
-         *     Absent keeps the stored password; a string replaces it; an explicit ``null``
-         *     clears it — distinguished with ``model_fields_set``, which is why the service
-         *     is handed ``model_dump(exclude_unset=True)``.
-         */
-        SmtpSettingsUpdate: {
-            /** App Url */
-            app_url?: string | null;
-            /** Smtp Enabled */
-            smtp_enabled: boolean;
-            /** Smtp From */
-            smtp_from?: string | null;
-            /** Smtp From Name */
-            smtp_from_name?: string | null;
-            /** Smtp Host */
-            smtp_host?: string | null;
-            /** Smtp Password */
-            smtp_password?: string | null;
-            /**
-             * Smtp Port
-             * @default 587
-             */
-            smtp_port: number;
-            /** @default starttls */
-            smtp_security: components["schemas"]["SmtpSecurity"];
-            /** Smtp Username */
-            smtp_username?: string | null;
-        };
-        /**
-         * StreamCreate
-         * @description Payload to create a stream.
-         */
-        StreamCreate: {
-            /**
-             * Certificate Id
-             * @description Certificate to terminate TLS on the TCP listener; null = plain
-             */
-            certificate_id?: number | null;
-            /**
-             * Enabled
-             * @description Disabled streams are excluded from config
-             * @default true
-             */
-            enabled: boolean;
-            /**
-             * Forward Host
-             * @description Backend host traffic is forwarded to; null when using a pool
-             */
-            forward_host?: string | null;
-            /**
-             * Forward Port
-             * @description Backend port traffic is forwarded to; null when using a pool
-             */
-            forward_port?: number | null;
-            /**
-             * Incoming Port
-             * @description Port nginx listens on for this stream
-             */
-            incoming_port: number;
-            /**
-             * Tcp Forwarding
-             * @description Forward TCP on the incoming port
-             * @default true
-             */
-            tcp_forwarding: boolean;
-            /**
-             * Udp Forwarding
-             * @description Forward UDP on the incoming port
-             * @default false
-             */
-            udp_forwarding: boolean;
-            /**
-             * Upstream Id
-             * @description Upstream pool to forward to, for weighted balancing and failover. Mutually exclusive with forward_host/forward_port.
-             */
-            upstream_id?: number | null;
-        };
-        /**
-         * StreamRead
-         * @description Public representation of a stream.
-         */
-        StreamRead: {
-            /**
-             * Certificate Id
-             * @description Certificate to terminate TLS on the TCP listener; null = plain
-             */
-            certificate_id?: number | null;
-            /**
-             * Created At
-             * Format: date-time
-             */
-            created_at: string;
-            /**
-             * Enabled
-             * @description Disabled streams are excluded from config
-             * @default true
-             */
-            enabled: boolean;
-            /**
-             * Forward Host
-             * @description Backend host traffic is forwarded to; null when using a pool
-             */
-            forward_host?: string | null;
-            /**
-             * Forward Port
-             * @description Backend port traffic is forwarded to; null when using a pool
-             */
-            forward_port?: number | null;
-            /** Id */
-            id: number;
-            /**
-             * Incoming Port
-             * @description Port nginx listens on for this stream
-             */
-            incoming_port: number;
-            /**
-             * Tcp Forwarding
-             * @description Forward TCP on the incoming port
-             * @default true
-             */
-            tcp_forwarding: boolean;
-            /**
-             * Udp Forwarding
-             * @description Forward UDP on the incoming port
-             * @default false
-             */
-            udp_forwarding: boolean;
-            /**
-             * Updated At
-             * Format: date-time
-             */
-            updated_at: string;
-            /**
-             * Upstream Id
-             * @description Upstream pool to forward to, for weighted balancing and failover. Mutually exclusive with forward_host/forward_port.
-             */
-            upstream_id?: number | null;
-        };
-        /**
-         * StreamUpdate
-         * @description Partial update of a stream; every field is optional.
-         *
-         *     The "at least one protocol" rule can only be enforced against the merged
-         *     result, so it is checked in the service/DB layer rather than here (a PATCH
-         *     that flips only one flag has no view of the other).
-         */
-        StreamUpdate: {
-            /** Certificate Id */
-            certificate_id?: number | null;
-            /** Enabled */
-            enabled?: boolean | null;
-            /** Forward Host */
-            forward_host?: string | null;
-            /** Forward Port */
-            forward_port?: number | null;
-            /** Incoming Port */
-            incoming_port?: number | null;
-            /** Tcp Forwarding */
-            tcp_forwarding?: boolean | null;
-            /** Udp Forwarding */
-            udp_forwarding?: boolean | null;
-            /** Upstream Id */
-            upstream_id?: number | null;
-        };
-        /**
-         * TaskEnqueued
-         * @description Returned when a task is accepted onto the queue.
-         */
-        TaskEnqueued: {
-            /** Status */
-            status: string;
-            /** Task Id */
-            task_id: string;
-        };
-        /**
-         * TaskStatus
-         * @description A serializable view of a Celery task's state and result.
-         */
-        TaskStatus: {
-            /** Error */
-            error?: string | null;
-            /** Ready */
-            ready: boolean;
-            /** Result */
-            result?: unknown | null;
-            /** Status */
-            status: string;
-            /** Task Id */
-            task_id: string;
-        };
-        /**
-         * ThreatPoint
-         * @description One country's attack count.
-         *
-         *     Position is deliberately absent: the map owns placement, so this and the
-         *     visitor countries arrive in the same shape and a country is always drawn in
-         *     the same spot whichever layer drew it. Sending coordinates that never change
-         *     on every poll bought nothing.
-         */
-        ThreatPoint: {
-            /** Count */
-            count: number;
-            /** Country */
-            country: string;
-        };
-        /**
-         * TokenPair
-         * @description Issued access + refresh tokens.
-         *
-         *     ``token_type`` is the OAuth2 scheme name (``bearer``); clients send the
-         *     access token as ``Authorization: Bearer <access_token>``.
-         */
-        TokenPair: {
-            /** Access Token */
-            access_token: string;
-            /** Refresh Token */
-            refresh_token: string;
-            /**
-             * Token Type
-             * @default bearer
-             */
-            token_type: string;
-        };
-        /**
-         * TotpCodeRequest
-         * @description A TOTP or recovery code, wherever one is required.
-         */
-        TotpCodeRequest: {
-            /** Code */
-            code: string;
-        };
-        /**
-         * TotpCodes
-         * @description Recovery codes. Returned exactly once; never retrievable.
-         */
-        TotpCodes: {
-            /** Codes */
-            codes: string[];
-        };
-        /**
-         * TotpSetup
-         * @description What the profile page needs to enrol an authenticator app.
-         */
-        TotpSetup: {
-            /** Otpauth Uri */
-            otpauth_uri: string;
-            /** Secret */
-            secret: string;
-        };
-        /**
-         * TrafficSummary
-         * @description ``None`` means no node has reported recently — unknown, not idle.
-         */
-        TrafficSummary: {
-            /** Active Connections */
-            active_connections: number | null;
-            /** Reporting Nodes */
-            reporting_nodes: number;
-            /** Requests Per Second */
-            requests_per_second: number | null;
-            /** Stale Nodes */
-            stale_nodes: number;
-        };
-        /**
-         * UpstreamContext
-         * @description Which nginx context a pool may be rendered into.
-         *
-         *     ``upstream`` blocks are context-local: one defined in ``http {}`` is
-         *     invisible to ``stream {}``, so a pool has to declare where it may be
-         *     attached. This also constrains its load-balancing method — ``ip_hash``
-         *     exists only in ``http``, and using it on a stream pool is a hard
-         *     ``nginx -t`` failure rather than a degraded fallback.
-         * @enum {string}
-         */
-        UpstreamContext: "http" | "stream" | "both";
-        /**
-         * UpstreamCreate
-         * @description Payload to create a pool, optionally seeding its backends inline.
-         */
-        UpstreamCreate: {
-            /** Backends */
-            backends?: components["schemas"]["BackendCreate"][];
-            /**
-             * @description Where the pool may be attached: http (proxy hosts), stream (TCP/UDP), or both. ip_hash is only valid for http.
-             * @default http
-             */
-            context: components["schemas"]["UpstreamContext"];
-            /**
-             * Description
-             * @description Optional free-text description
-             * @default
-             */
-            description: string;
-            /**
-             * Enabled
-             * @description Disabled pools are excluded from config
-             * @default true
-             */
-            enabled: boolean;
-            /**
-             * @description nginx load-balancing strategy
-             * @default round_robin
-             */
-            lb_method: components["schemas"]["LoadBalanceMethod"];
-            /**
-             * Name
-             * @description Human-readable pool name
-             */
-            name: string;
-        };
-        /**
-         * UpstreamRead
-         * @description Public representation of a pool, including its backends.
-         */
-        UpstreamRead: {
-            /** Backends */
-            backends?: components["schemas"]["BackendRead"][];
-            /**
-             * @description Where the pool may be attached: http (proxy hosts), stream (TCP/UDP), or both. ip_hash is only valid for http.
-             * @default http
-             */
-            context: components["schemas"]["UpstreamContext"];
-            /**
-             * Created At
-             * Format: date-time
-             */
-            created_at: string;
-            /**
-             * Description
-             * @description Optional free-text description
-             * @default
-             */
-            description: string;
-            /**
-             * Enabled
-             * @description Disabled pools are excluded from config
-             * @default true
-             */
-            enabled: boolean;
-            /** Id */
-            id: number;
-            /**
-             * @description nginx load-balancing strategy
-             * @default round_robin
-             */
-            lb_method: components["schemas"]["LoadBalanceMethod"];
-            /**
-             * Name
-             * @description Human-readable pool name
-             */
-            name: string;
-            /**
-             * Updated At
-             * Format: date-time
-             */
-            updated_at: string;
-        };
-        /**
-         * UpstreamUpdate
-         * @description Partial update of a pool's own attributes (not its backends).
-         */
-        UpstreamUpdate: {
-            context?: components["schemas"]["UpstreamContext"] | null;
-            /** Description */
-            description?: string | null;
-            /** Enabled */
-            enabled?: boolean | null;
-            lb_method?: components["schemas"]["LoadBalanceMethod"] | null;
-            /** Name */
-            name?: string | null;
-        };
-        /**
-         * UserCreate
-         * @description Payload to create a user (admin-only endpoint).
-         */
-        UserCreate: {
-            /**
-             * Email
-             * Format: email
-             */
-            email: string;
-            /**
-             * Full Name
-             * @default
-             */
-            full_name: string;
-            /**
-             * Is Active
-             * @default true
-             */
-            is_active: boolean;
-            /** Password */
-            password: string;
-            /** @default member */
-            role: components["schemas"]["UserRole"];
-        };
-        /**
-         * UserInvite
-         * @description Payload to invite a user. No password: they choose one when they accept.
-         */
-        UserInvite: {
-            /**
-             * Email
-             * Format: email
-             */
-            email: string;
-            /**
-             * Full Name
-             * @default
-             */
-            full_name: string;
-            /** @default member */
-            role: components["schemas"]["UserRole"];
-        };
-        /**
-         * UserRead
-         * @description Public representation of a user.
-         */
-        UserRead: {
-            /**
-             * Created At
-             * Format: date-time
-             */
-            created_at: string;
-            /**
-             * Email
-             * Format: email
-             */
-            email: string;
-            /**
-             * Full Name
-             * @default
-             */
-            full_name: string;
-            /** Id */
-            id: number;
-            /** Invited At */
-            invited_at?: string | null;
-            /**
-             * Is Active
-             * @default true
-             */
-            is_active: boolean;
-            /** @default member */
-            role: components["schemas"]["UserRole"];
-            /**
-             * Totp Enabled
-             * @default false
-             */
-            totp_enabled: boolean;
-            /**
-             * Updated At
-             * Format: date-time
-             */
-            updated_at: string;
-        };
-        /**
-         * UserRole
-         * @description Access-control role for a user.
-         * @enum {string}
-         */
-        UserRole: "admin" | "member";
-        /**
-         * UserUpdate
-         * @description Admin partial update of another user.
-         *
-         *     ``email`` is identity and immutable, so it is *rejected* (``extra="forbid"``)
-         *     rather than silently ignored. At least one field must be present.
-         */
-        UserUpdate: {
-            /** Full Name */
-            full_name?: string | null;
-            /** Is Active */
-            is_active?: boolean | null;
-            role?: components["schemas"]["UserRole"] | null;
-        };
-        /** ValidationError */
-        ValidationError: {
-            /** Context */
-            ctx?: Record<string, never>;
-            /** Input */
-            input?: unknown;
-            /** Location */
-            loc: (string | number)[];
-            /** Message */
-            msg: string;
-            /** Error Type */
-            type: string;
-        };
-        /**
-         * VisitorRow
-         * @description One visitor, summed across the requested window.
-         */
-        VisitorRow: {
-            /** Country */
-            country: string | null;
-            /** Ip */
-            ip: string;
-            /**
-             * Last Seen At
-             * Format: date-time
-             */
-            last_seen_at: string;
-            /** Requests */
-            requests: number;
-        };
-        /**
-         * VisitorSummary
-         * @description Recorded visitors over a window of days.
-         *
-         *     ``total_visitors`` counts every distinct address, including those with no
-         *     country, so the totals and the country breakdown deliberately do not have
-         *     to add up — an operator seeing the difference is seeing unlocated traffic,
-         *     which is real.
-         */
-        VisitorSummary: {
-            /** Countries */
-            countries: components["schemas"]["CountryCount"][];
-            /** Days */
-            days: number;
-            /** Top Ips */
-            top_ips: components["schemas"]["VisitorRow"][];
-            /** Total Requests */
-            total_requests: number;
-            /** Total Visitors */
-            total_visitors: number;
-        };
-        /**
-         * WhitelistApplyStatus
-         * @description Whether the last render actually reached CrowdSec.
-         */
-        WhitelistApplyStatus: {
-            /**
-             * Applied At
-             * @description When the last apply attempt finished
-             */
-            applied_at?: string | null;
-            /**
-             * Error
-             * @description Operator-facing failure text
-             */
-            error?: string | null;
-            /**
-             * Ok
-             * @description False when the last apply failed
-             */
-            ok: boolean;
-            /**
-             * Reload Configured
-             * @description False when CROWDSEC_CONTROL_NODE_ID is unset; whitelists then save but are never applied
-             */
-            reload_configured: boolean;
-        };
-        /**
-         * WhitelistCreate
-         * @description Request body for creating a whitelist.
-         */
-        WhitelistCreate: {
-            /**
-             * Cidrs
-             * @description CIDR ranges to exempt
-             */
-            cidrs?: string[];
-            /**
-             * Description
-             * @description Free-text note
-             * @default
-             */
-            description: string;
-            /**
-             * Enabled
-             * @description Disabled whitelists are not rendered
-             * @default true
-             */
-            enabled: boolean;
-            /**
-             * Expressions
-             * @description CrowdSec expr expressions. Compiled by CrowdSec, not here — one that does not compile stops CrowdSec starting and is caught by the apply's rollback
-             */
-            expressions?: string[];
-            /**
-             * Filter
-             * @description Optional expr filter scoping which events the expressions are evaluated against (expression whitelists only)
-             */
-            filter?: string | null;
-            /**
-             * Ips
-             * @description Exact IP addresses to exempt
-             */
-            ips?: string[];
-            /**
-             * @description What this whitelist matches on: addresses, or an expr expression
-             * @default ip_cidr
-             */
-            kind: components["schemas"]["WhitelistKind"];
-            /**
-             * Name
-             * @description Operator-facing name
-             */
-            name: string;
-            /**
-             * Reason
-             * @description Why these addresses are exempt; appears in CrowdSec's logs
-             */
-            reason: string;
-        };
-        /**
-         * WhitelistKind
-         * @description What a CrowdSec whitelist matches on.
-         *
-         *     The two kinds render different YAML and carry different risk.
-         *     ``ip_cidr`` is fully validated before it is written — a bad address is a
-         *     422 and never reaches disk. ``expression`` is CrowdSec's ``expr`` language
-         *     and can only be checked by CrowdSec itself: a expression that does not
-         *     compile is fatal at startup, so a typo is caught by the apply's rollback
-         *     rather than by validation. See ``docs/crowdsec.md``.
-         * @enum {string}
-         */
-        WhitelistKind: "ip_cidr" | "expression";
-        /**
-         * WhitelistPreview
-         * @description The YAML a given whitelist would contribute to the parser file.
-         */
-        WhitelistPreview: {
-            /**
-             * Yaml
-             * @description Exactly what the renderer would write
-             */
-            yaml: string;
-        };
-        /**
-         * WhitelistRead
-         * @description A stored whitelist.
-         *
-         *     The inherited fields are redeclared without defaults so the generated
-         *     OpenAPI marks them required. On a *response* they are always present, and
-         *     leaving them optional pushes needless null-handling into every consumer.
-         */
-        WhitelistRead: {
-            /** Cidrs */
-            cidrs: string[];
-            /**
-             * Created At
-             * Format: date-time
-             */
-            created_at: string;
-            /** Description */
-            description: string;
-            /** Enabled */
-            enabled: boolean;
-            /** Expressions */
-            expressions: string[];
-            /**
-             * Filter
-             * @description Optional expr filter scoping which events the expressions are evaluated against (expression whitelists only)
-             */
-            filter?: string | null;
-            /** Id */
-            id: number;
-            /** Ips */
-            ips: string[];
-            kind: components["schemas"]["WhitelistKind"];
-            /**
-             * Name
-             * @description Operator-facing name
-             */
-            name: string;
-            /**
-             * Reason
-             * @description Why these addresses are exempt; appears in CrowdSec's logs
-             */
-            reason: string;
-            /**
-             * Updated At
-             * Format: date-time
-             */
-            updated_at: string;
-        };
-        /**
-         * WhitelistUpdate
-         * @description Request body for replacing a whitelist.
-         */
-        WhitelistUpdate: {
-            /**
-             * Cidrs
-             * @description CIDR ranges to exempt
-             */
-            cidrs?: string[];
-            /**
-             * Description
-             * @description Free-text note
-             * @default
-             */
-            description: string;
-            /**
-             * Enabled
-             * @description Disabled whitelists are not rendered
-             * @default true
-             */
-            enabled: boolean;
-            /**
-             * Expressions
-             * @description CrowdSec expr expressions. Compiled by CrowdSec, not here — one that does not compile stops CrowdSec starting and is caught by the apply's rollback
-             */
-            expressions?: string[];
-            /**
-             * Filter
-             * @description Optional expr filter scoping which events the expressions are evaluated against (expression whitelists only)
-             */
-            filter?: string | null;
-            /**
-             * Ips
-             * @description Exact IP addresses to exempt
-             */
-            ips?: string[];
-            /**
-             * @description What this whitelist matches on: addresses, or an expr expression
-             * @default ip_cidr
-             */
-            kind: components["schemas"]["WhitelistKind"];
-            /**
-             * Name
-             * @description Operator-facing name
-             */
-            name: string;
-            /**
-             * Reason
-             * @description Why these addresses are exempt; appears in CrowdSec's logs
-             */
-            reason: string;
-        };
+  schemas: {
+    /**
+     * AcceptInviteRequest
+     * @description Body for ``POST /auth/accept-invite``.
+     */
+    AcceptInviteRequest: {
+      /**
+       * Full Name
+       * @default
+       */
+      full_name: string;
+      /** Password */
+      password: string;
+      /** Token */
+      token: string;
     };
-    responses: never;
-    parameters: never;
-    requestBodies: never;
-    headers: never;
-    pathItems: never;
+    /**
+     * AccessListAuthCreate
+     * @description A basic-auth credential to add to an access list (password write-only).
+     */
+    AccessListAuthCreate: {
+      /**
+       * Password
+       * @description Plaintext; stored hashed, never returned
+       */
+      password: string;
+      /** Username */
+      username: string;
+    };
+    /**
+     * AccessListAuthRead
+     * @description Public representation of a basic-auth user (no credential material).
+     */
+    AccessListAuthRead: {
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /** Id */
+      id: number;
+      /**
+       * Updated At
+       * Format: date-time
+       */
+      updated_at: string;
+      /** Username */
+      username: string;
+    };
+    /**
+     * AccessListAuthReplace
+     * @description A basic-auth user within a whole-collection replacement.
+     *
+     *     Unlike :class:`AccessListAuthCreate` the password is optional, because the
+     *     API never returns credential material: a client editing an existing list has
+     *     no hash to send back. Omit it to keep the stored hash for a username that is
+     *     already present; it is required to introduce a new one.
+     */
+    AccessListAuthReplace: {
+      /**
+       * Password
+       * @description Omit to keep the existing user's password unchanged
+       */
+      password?: string | null;
+      /** Username */
+      username: string;
+    };
+    /**
+     * AccessListAuthUpdate
+     * @description Reset a basic-auth user's password.
+     */
+    AccessListAuthUpdate: {
+      /** Password */
+      password: string;
+    };
+    /**
+     * AccessListClientCreate
+     * @description An allow/deny rule for an IP address, CIDR range, or ``all``.
+     */
+    AccessListClientCreate: {
+      /**
+       * Address
+       * @description IP, CIDR, or 'all'
+       */
+      address: string;
+      /** @description allow or deny */
+      directive: components["schemas"]["AccessListDirective"];
+    };
+    /**
+     * AccessListClientRead
+     * @description Public representation of an IP client rule.
+     */
+    AccessListClientRead: {
+      /** Address */
+      address: string;
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      directive: components["schemas"]["AccessListDirective"];
+      /** Id */
+      id: number;
+      /**
+       * Updated At
+       * Format: date-time
+       */
+      updated_at: string;
+    };
+    /**
+     * AccessListClientUpdate
+     * @description Partial update of a client rule.
+     */
+    AccessListClientUpdate: {
+      /** Address */
+      address?: string | null;
+      directive?: components["schemas"]["AccessListDirective"] | null;
+    };
+    /**
+     * AccessListCreate
+     * @description Payload to create an access list, optionally seeding users and rules inline.
+     */
+    AccessListCreate: {
+      /** Auth Users */
+      auth_users?: components["schemas"]["AccessListAuthCreate"][];
+      /** Clients */
+      clients?: components["schemas"]["AccessListClientCreate"][];
+      /**
+       * Name
+       * @description Human-readable name
+       */
+      name: string;
+      /**
+       * Pass Auth
+       * @description Forward the Authorization header to the upstream
+       * @default false
+       */
+      pass_auth: boolean;
+      /**
+       * Satisfy Any
+       * @description Pass if EITHER gate (auth OR ip) is satisfied; false requires both
+       * @default false
+       */
+      satisfy_any: boolean;
+    };
+    /**
+     * AccessListDirective
+     * @description Client-rule directive for an access list entry.
+     * @enum {string}
+     */
+    AccessListDirective: "allow" | "deny";
+    /**
+     * AccessListRead
+     * @description Public representation of an access list, including users and rules.
+     */
+    AccessListRead: {
+      /** Auth Users */
+      auth_users?: components["schemas"]["AccessListAuthRead"][];
+      /** Client Rules */
+      client_rules?: components["schemas"]["AccessListClientRead"][];
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /** Id */
+      id: number;
+      /**
+       * Name
+       * @description Human-readable name
+       */
+      name: string;
+      /**
+       * Pass Auth
+       * @description Forward the Authorization header to the upstream
+       * @default false
+       */
+      pass_auth: boolean;
+      /**
+       * Satisfy Any
+       * @description Pass if EITHER gate (auth OR ip) is satisfied; false requires both
+       * @default false
+       */
+      satisfy_any: boolean;
+      /**
+       * Updated At
+       * Format: date-time
+       */
+      updated_at: string;
+    };
+    /**
+     * AccessListUpdate
+     * @description Partial update of an access list, optionally replacing its collections.
+     *
+     *     ``auth_users`` and ``clients`` are **whole-collection replacements**: omit
+     *     the key to leave that collection alone, or send the complete desired set to
+     *     replace it (``[]`` clears it). This lets an editing UI save the entire form
+     *     in one request — one transaction, one audit entry, one nginx reload — rather
+     *     than one round trip per user and rule.
+     */
+    AccessListUpdate: {
+      /**
+       * Auth Users
+       * @description Full replacement of the basic-auth users; omit to keep
+       */
+      auth_users?: components["schemas"]["AccessListAuthReplace"][] | null;
+      /**
+       * Clients
+       * @description Full replacement of the IP rules; omit to keep
+       */
+      clients?: components["schemas"]["AccessListClientCreate"][] | null;
+      /** Name */
+      name?: string | null;
+      /** Pass Auth */
+      pass_auth?: boolean | null;
+      /** Satisfy Any */
+      satisfy_any?: boolean | null;
+    };
+    /**
+     * Alert
+     * @description A detection event CrowdSec raised, with any decisions it triggered.
+     */
+    Alert: {
+      /** Created At */
+      created_at?: string | null;
+      /** Decisions */
+      decisions?: components["schemas"]["Decision"][];
+      /** Events Count */
+      events_count?: number | null;
+      /** Id */
+      id?: number | null;
+      /** Message */
+      message?: string | null;
+      /** Scenario */
+      scenario?: string | null;
+      source?: components["schemas"]["AlertSource"] | null;
+      /** Start At */
+      start_at?: string | null;
+      /** Stop At */
+      stop_at?: string | null;
+    };
+    /**
+     * AlertList
+     * @description A page of recent alerts.
+     */
+    AlertList: {
+      /** Items */
+      items?: components["schemas"]["Alert"][];
+      /**
+       * Page
+       * @default 1
+       */
+      page: number;
+      /**
+       * Page Size
+       * @default 50
+       */
+      page_size: number;
+      /**
+       * Total
+       * @default 0
+       */
+      total: number;
+    };
+    /**
+     * AlertSource
+     * @description Where an alert originated (the offending IP and its geo/AS metadata).
+     */
+    AlertSource: {
+      /** As Name */
+      as_name?: string | null;
+      /** Cn */
+      cn?: string | null;
+      /** Ip */
+      ip?: string | null;
+      /** Latitude */
+      latitude?: number | null;
+      /** Longitude */
+      longitude?: number | null;
+      /** Scope */
+      scope?: string | null;
+      /** Value */
+      value?: string | null;
+    };
+    /**
+     * AuditAction
+     * @description The mutation an audit-log row records.
+     * @enum {string}
+     */
+    AuditAction: "create" | "update" | "delete" | "enable" | "disable";
+    /**
+     * AuditLogPage
+     * @description A newest-first page of audit entries.
+     *
+     *     ``total`` is the count of rows matching the active filters (ignoring the
+     *     pagination window); ``limit``/``offset`` echo the request.
+     */
+    AuditLogPage: {
+      /** Items */
+      items: components["schemas"]["AuditLogRead"][];
+      /** Limit */
+      limit: number;
+      /** Offset */
+      offset: number;
+      /** Total */
+      total: number;
+    };
+    /**
+     * AuditLogRead
+     * @description Public representation of one audit-log entry.
+     */
+    AuditLogRead: {
+      action: components["schemas"]["AuditAction"];
+      /** Actor */
+      actor: string | null;
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /** Id */
+      id: number;
+      /** Meta */
+      meta: {
+        [key: string]: unknown;
+      };
+      /** Object Id */
+      object_id: number | null;
+      /** Object Type */
+      object_type: string;
+    };
+    /**
+     * AuthCapabilities
+     * @description What the login page may offer before anyone is signed in.
+     */
+    AuthCapabilities: {
+      /** Passkeys */
+      passkeys: boolean;
+      /** Password Reset */
+      password_reset: boolean;
+    };
+    /**
+     * BackendCreate
+     * @description Payload to add a backend to a pool.
+     */
+    BackendCreate: {
+      /**
+       * Backup
+       * @description Only used when primaries are down
+       * @default false
+       */
+      backup: boolean;
+      /**
+       * Down
+       * @description Administratively removed from rotation
+       * @default false
+       */
+      down: boolean;
+      /**
+       * Enabled
+       * @description Excluded from the rendered pool when false
+       * @default true
+       */
+      enabled: boolean;
+      /**
+       * Fail Timeout Seconds
+       * @description Window/penalty for max_fails, in seconds
+       * @default 10
+       */
+      fail_timeout_seconds: number;
+      /**
+       * Host
+       * @description Backend host or IP
+       */
+      host: string;
+      /**
+       * Max Fails
+       * @description Failed attempts before the backend is marked down
+       * @default 1
+       */
+      max_fails: number;
+      /**
+       * Port
+       * @description Backend TCP port
+       */
+      port: number;
+      /**
+       * Weight
+       * @description Relative load-balancing weight
+       * @default 1
+       */
+      weight: number;
+    };
+    /**
+     * BackendRead
+     * @description Public representation of a backend.
+     */
+    BackendRead: {
+      /**
+       * Backup
+       * @description Only used when primaries are down
+       * @default false
+       */
+      backup: boolean;
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /**
+       * Down
+       * @description Administratively removed from rotation
+       * @default false
+       */
+      down: boolean;
+      /**
+       * Enabled
+       * @description Excluded from the rendered pool when false
+       * @default true
+       */
+      enabled: boolean;
+      /**
+       * Fail Timeout Seconds
+       * @description Window/penalty for max_fails, in seconds
+       * @default 10
+       */
+      fail_timeout_seconds: number;
+      /**
+       * Host
+       * @description Backend host or IP
+       */
+      host: string;
+      /** Id */
+      id: number;
+      /**
+       * Max Fails
+       * @description Failed attempts before the backend is marked down
+       * @default 1
+       */
+      max_fails: number;
+      /**
+       * Port
+       * @description Backend TCP port
+       */
+      port: number;
+      /**
+       * Updated At
+       * Format: date-time
+       */
+      updated_at: string;
+      /** Upstream Id */
+      upstream_id: number;
+      /**
+       * Weight
+       * @description Relative load-balancing weight
+       * @default 1
+       */
+      weight: number;
+    };
+    /**
+     * BackendUpdate
+     * @description Partial update of a backend; every field is optional.
+     */
+    BackendUpdate: {
+      /** Backup */
+      backup?: boolean | null;
+      /** Down */
+      down?: boolean | null;
+      /** Enabled */
+      enabled?: boolean | null;
+      /** Fail Timeout Seconds */
+      fail_timeout_seconds?: number | null;
+      /** Host */
+      host?: string | null;
+      /** Max Fails */
+      max_fails?: number | null;
+      /** Port */
+      port?: number | null;
+      /** Weight */
+      weight?: number | null;
+    };
+    /**
+     * CertificateHealth
+     * @description Counts an operator would want to act on, not an inventory.
+     */
+    CertificateHealth: {
+      /** Expired */
+      expired: number;
+      /** Expiring Soon */
+      expiring_soon: number;
+      /** Failed */
+      failed: number;
+      /** Total */
+      total: number;
+    };
+    /**
+     * CertificateIssued
+     * @description Response for an issuance request: the pending cert plus its tracking task.
+     */
+    CertificateIssued: {
+      certificate: components["schemas"]["CertificateRead"];
+      /** Task Id */
+      task_id: string;
+      /** Task Status */
+      task_status: string;
+    };
+    /**
+     * CertificateProvider
+     * @description How a certificate is obtained/managed.
+     * @enum {string}
+     */
+    CertificateProvider: "letsencrypt" | "custom" | "self_signed";
+    /**
+     * CertificateRead
+     * @description A certificate as returned by the API (never includes key material).
+     */
+    CertificateRead: {
+      /** Challenge */
+      challenge?: string | null;
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /** Dns Provider */
+      dns_provider?: string | null;
+      /** Dns Provider Label */
+      readonly dns_provider_label: string | null;
+      /** Domain Names */
+      domain_names: string[];
+      /** Expires On */
+      expires_on?: string | null;
+      /** Id */
+      id: number;
+      /** Name */
+      name: string;
+      provider: components["schemas"]["CertificateProvider"];
+      status: components["schemas"]["CertificateStatus"];
+      /**
+       * Updated At
+       * Format: date-time
+       */
+      updated_at: string;
+    };
+    /** CertificateRef */
+    CertificateRef: {
+      /** Id */
+      id: number;
+      /** Name */
+      name: string;
+    };
+    /**
+     * CertificateStatus
+     * @description Lifecycle state of a managed certificate.
+     *
+     *     ``pending`` — a row exists but material has not been issued yet (an ACME
+     *     order is queued/running). ``active`` — valid material is on disk and usable
+     *     by a host. ``failed`` — the last issuance/renewal attempt errored (see
+     *     ``meta['last_error']``). ``expired`` — past ``expires_on`` and not renewed.
+     * @enum {string}
+     */
+    CertificateStatus: "pending" | "active" | "failed" | "expired";
+    /**
+     * ClusterNodeStatus
+     * @description One node's position relative to the shared config version.
+     */
+    ClusterNodeStatus: {
+      /** Applied Version */
+      applied_version: number;
+      /** In Sync */
+      in_sync: boolean;
+      /** Last Seen At */
+      last_seen_at?: string | null;
+      /** Node Id */
+      node_id: string;
+      /** Stale */
+      stale: boolean;
+    };
+    /**
+     * ClusterStatus
+     * @description Cluster-wide convergence snapshot.
+     */
+    ClusterStatus: {
+      /** Config Version */
+      config_version: number;
+      /** Converged */
+      converged: boolean;
+      /** Ha Enabled */
+      ha_enabled: boolean;
+      /** Nodes */
+      nodes: components["schemas"]["ClusterNodeStatus"][];
+      /** This Node */
+      this_node: string;
+    };
+    /** ConfigHealth */
+    ConfigHealth: {
+      /** Config Version */
+      config_version: number;
+      /** Converged */
+      converged: boolean;
+      /** Nodes In Sync */
+      nodes_in_sync: number;
+      /** Nodes Stale */
+      nodes_stale: number;
+      /** Nodes Total */
+      nodes_total: number;
+    };
+    /**
+     * CountryCount
+     * @description One country's share of recorded traffic.
+     */
+    CountryCount: {
+      /** Country */
+      country: string;
+      /** Requests */
+      requests: number;
+      /** Visitors */
+      visitors: number;
+    };
+    /**
+     * CrowdSecBanMode
+     * @description What a CrowdSec-blocked visitor is served.
+     *
+     *     ``none`` is not "unset": it is the deliberate choice to write no template
+     *     file, so the bouncer answers a bare 403 as it did before this setting
+     *     existed. Some operators prefer that a block does not advertise which
+     *     product is in front.
+     * @enum {string}
+     */
+    CrowdSecBanMode: "megoopm" | "custom_page" | "none";
+    /**
+     * CrowdSecBanUpdate
+     * @description Set the CrowdSec ban page. ``crowdsec_ban_mode`` is required.
+     *
+     *     Required for the same reason ``default_site_mode`` is on its sibling:
+     *     "custom_page needs a page" cannot be checked against a payload that omits
+     *     the mode, and a schema never sees the stored row.
+     */
+    CrowdSecBanUpdate: {
+      crowdsec_ban_mode: components["schemas"]["CrowdSecBanMode"];
+      /**
+       * Crowdsec Ban Page Id
+       * @description Required when the mode is 'custom_page'
+       */
+      crowdsec_ban_page_id?: number | null;
+    };
+    /**
+     * CrowdSecCapiUpdate
+     * @description Desired state of the community blocklist. Applying it restarts CrowdSec.
+     */
+    CrowdSecCapiUpdate: {
+      /** Enabled */
+      enabled: boolean;
+    };
+    /**
+     * CrowdSecHealth
+     * @description Whether the LAPI integration is configured, reachable, and has a machine.
+     */
+    CrowdSecHealth: {
+      /** Configured */
+      configured: boolean;
+      /** Detail */
+      detail?: string | null;
+      /** Lapi Url */
+      lapi_url: string;
+      /** Machine Registered */
+      machine_registered: boolean;
+      /** Reachable */
+      reachable: boolean;
+    };
+    /**
+     * CrowdSecHubUpdate
+     * @description The hub refresh schedule. ``hour_utc`` is UTC; the UI converts.
+     */
+    CrowdSecHubUpdate: {
+      /** Auto Update */
+      auto_update: boolean;
+      frequency: components["schemas"]["HubUpdateFrequency"];
+      /** Hour Utc */
+      hour_utc: number;
+      /**
+       * Weekday
+       * @description Monday = 0; used when weekly
+       */
+      weekday: number;
+    };
+    /**
+     * CrowdSecJobKind
+     * @description The maintenance jobs that record an outcome in ``crowdsec_job_run``.
+     * @enum {string}
+     */
+    CrowdSecJobKind: "hub_update" | "capi_apply";
+    /**
+     * CrowdSecJobRunRead
+     * @description The last run of one maintenance job.
+     */
+    CrowdSecJobRunRead: {
+      /** Detail */
+      detail: {
+        [key: string]: unknown;
+      };
+      /** Error */
+      error: string | null;
+      /** Finished At */
+      finished_at: string | null;
+      kind: components["schemas"]["CrowdSecJobKind"];
+      /** Ok */
+      ok: boolean;
+      /** Restarted */
+      restarted: boolean;
+      /**
+       * Started At
+       * Format: date-time
+       */
+      started_at: string;
+      trigger: components["schemas"]["CrowdSecJobTrigger"];
+    };
+    /**
+     * CrowdSecJobTrigger
+     * @enum {string}
+     */
+    CrowdSecJobTrigger: "scheduled" | "manual";
+    /**
+     * CrowdSecMaintenance
+     * @description What the Updates tab needs in one call.
+     */
+    CrowdSecMaintenance: {
+      capi: components["schemas"]["CrowdSecJobRunRead"] | null;
+      hub: components["schemas"]["CrowdSecJobRunRead"] | null;
+      /** Reload Configured */
+      reload_configured: boolean;
+      /** Running */
+      running: {
+        [key: string]: boolean;
+      };
+    };
+    /**
+     * CustomCertificateCreate
+     * @description Upload of a custom certificate: PEM cert + private key (+ optional chain).
+     */
+    CustomCertificateCreate: {
+      /**
+       * Certificate Pem
+       * @description Leaf certificate in PEM format
+       */
+      certificate_pem: string;
+      /**
+       * Chain Pem
+       * @description Intermediate chain in PEM format (optional)
+       */
+      chain_pem?: string | null;
+      /** Name */
+      name: string;
+      /**
+       * Private Key Pem
+       * @description Matching private key in PEM format
+       */
+      private_key_pem: string;
+    };
+    /**
+     * CustomPageCreate
+     * @description Payload to create a page. ``html`` may be empty and filled in later.
+     */
+    CustomPageCreate: {
+      /**
+       * Description
+       * @default
+       */
+      description: string;
+      /**
+       * Html
+       * @description The full HTML document
+       * @default
+       */
+      html: string;
+      /**
+       * Name
+       * @description Human-readable name
+       */
+      name: string;
+    };
+    /**
+     * CustomPageRead
+     * @description Detail representation: the full document, for the editor.
+     */
+    CustomPageRead: {
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /** Description */
+      description: string;
+      /** Html */
+      html: string;
+      /** Id */
+      id: number;
+      /** Name */
+      name: string;
+      /**
+       * Size Bytes
+       * @description Matches the summary's field so both views report the same weight.
+       */
+      readonly size_bytes: number;
+      /**
+       * Updated At
+       * Format: date-time
+       */
+      updated_at: string;
+    };
+    /**
+     * CustomPageSummary
+     * @description Index representation: a byte count in place of the document itself.
+     */
+    CustomPageSummary: {
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /** Description */
+      description: string;
+      /** Id */
+      id: number;
+      /** Name */
+      name: string;
+      /** Size Bytes */
+      size_bytes: number;
+      /**
+       * Updated At
+       * Format: date-time
+       */
+      updated_at: string;
+    };
+    /**
+     * CustomPageUpdate
+     * @description Partial update; omitted fields are left as they are.
+     */
+    CustomPageUpdate: {
+      /** Description */
+      description?: string | null;
+      /** Html */
+      html?: string | null;
+      /** Name */
+      name?: string | null;
+    };
+    /** DashboardSummary */
+    DashboardSummary: {
+      certificates: components["schemas"]["CertificateHealth"];
+      config: components["schemas"]["ConfigHealth"];
+      inventory: components["schemas"]["InventoryCounts"];
+      security: components["schemas"]["SecuritySummary"] | null;
+      traffic: components["schemas"]["TrafficSummary"];
+    };
+    /**
+     * DeadHostCreate
+     * @description Payload to create a dead host.
+     */
+    DeadHostCreate: {
+      /**
+       * Advanced Config
+       * @description Raw nginx directives injected into the server block
+       * @default
+       */
+      advanced_config: string;
+      /**
+       * Certificate Id
+       * @description Certificate for TLS termination; null serves plain :80
+       */
+      certificate_id?: number | null;
+      /**
+       * Domain Names
+       * @description Domains this host answers for (server_name)
+       */
+      domain_names: string[];
+      /**
+       * Enabled
+       * @description Disabled hosts are excluded from config
+       * @default true
+       */
+      enabled: boolean;
+      /**
+       * Hsts Enabled
+       * @description Emit a Strict-Transport-Security header
+       * @default false
+       */
+      hsts_enabled: boolean;
+      /**
+       * Hsts Subdomains
+       * @description Include subdomains in HSTS
+       * @default false
+       */
+      hsts_subdomains: boolean;
+      /**
+       * Http2 Support
+       * @description Enable HTTP/2 on the TLS listener
+       * @default false
+       */
+      http2_support: boolean;
+      /**
+       * Ssl Forced
+       * @description Redirect :80 to HTTPS
+       * @default false
+       */
+      ssl_forced: boolean;
+    };
+    /**
+     * DeadHostRead
+     * @description Public representation of a dead host.
+     */
+    DeadHostRead: {
+      /**
+       * Advanced Config
+       * @description Raw nginx directives injected into the server block
+       * @default
+       */
+      advanced_config: string;
+      /**
+       * Certificate Id
+       * @description Certificate for TLS termination; null serves plain :80
+       */
+      certificate_id?: number | null;
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /**
+       * Domain Names
+       * @description Domains this host answers for (server_name)
+       */
+      domain_names: string[];
+      /**
+       * Enabled
+       * @description Disabled hosts are excluded from config
+       * @default true
+       */
+      enabled: boolean;
+      /**
+       * Hsts Enabled
+       * @description Emit a Strict-Transport-Security header
+       * @default false
+       */
+      hsts_enabled: boolean;
+      /**
+       * Hsts Subdomains
+       * @description Include subdomains in HSTS
+       * @default false
+       */
+      hsts_subdomains: boolean;
+      /**
+       * Http2 Support
+       * @description Enable HTTP/2 on the TLS listener
+       * @default false
+       */
+      http2_support: boolean;
+      /** Id */
+      id: number;
+      /**
+       * Ssl Forced
+       * @description Redirect :80 to HTTPS
+       * @default false
+       */
+      ssl_forced: boolean;
+      /**
+       * Updated At
+       * Format: date-time
+       */
+      updated_at: string;
+    };
+    /**
+     * DeadHostUpdate
+     * @description Partial update of a dead host; every field is optional.
+     */
+    DeadHostUpdate: {
+      /** Advanced Config */
+      advanced_config?: string | null;
+      /** Certificate Id */
+      certificate_id?: number | null;
+      /** Domain Names */
+      domain_names?: string[] | null;
+      /** Enabled */
+      enabled?: boolean | null;
+      /** Hsts Enabled */
+      hsts_enabled?: boolean | null;
+      /** Hsts Subdomains */
+      hsts_subdomains?: boolean | null;
+      /** Http2 Support */
+      http2_support?: boolean | null;
+      /** Ssl Forced */
+      ssl_forced?: boolean | null;
+    };
+    /**
+     * Decision
+     * @description One active remediation the bouncer enforces (a ban, captcha, …).
+     */
+    Decision: {
+      /** Duration */
+      duration: string;
+      /** Id */
+      id?: number | null;
+      /** Origin */
+      origin?: string | null;
+      /** Scenario */
+      scenario?: string | null;
+      /** Scope */
+      scope: string;
+      /** Type */
+      type: string;
+      /** Value */
+      value: string;
+    };
+    /**
+     * DecisionCreate
+     * @description Input for pushing a manual decision (operator-initiated ban).
+     */
+    DecisionCreate: {
+      /**
+       * Duration
+       * @default 4h
+       */
+      duration: string;
+      /**
+       * Reason
+       * @description Free-text note stored on the alert
+       */
+      reason?: string | null;
+      /**
+       * Scope
+       * @default Ip
+       * @enum {string}
+       */
+      scope: "Ip" | "Range";
+      /**
+       * Type
+       * @default ban
+       * @enum {string}
+       */
+      type: "ban" | "captcha" | "throttle";
+      /**
+       * Value
+       * @description IP or CIDR range to act on
+       */
+      value: string;
+    };
+    /**
+     * DecisionList
+     * @description A page of active decisions.
+     */
+    DecisionList: {
+      /** Items */
+      items?: components["schemas"]["Decision"][];
+      /**
+       * Page
+       * @default 1
+       */
+      page: number;
+      /**
+       * Page Size
+       * @default 50
+       */
+      page_size: number;
+      /**
+       * Total
+       * @default 0
+       */
+      total: number;
+    };
+    /**
+     * DefaultSiteMode
+     * @description What nginx returns for a request matching no configured host.
+     * @enum {string}
+     */
+    DefaultSiteMode: "congratulations" | "not_found" | "no_response" | "redirect" | "custom_page";
+    /** DnsCredentialCreate */
+    DnsCredentialCreate: {
+      /** Name */
+      name: string;
+      /**
+       * Options
+       * @description Provider fields (see /dns-providers); secrets included
+       */
+      options?: {
+        [key: string]: string;
+      };
+      /**
+       * Provider
+       * @description dns-lexicon provider id
+       */
+      provider: string;
+    };
+    /**
+     * DnsCredentialRead
+     * @description A saved credential set. Secret values are never returned — only their names.
+     */
+    DnsCredentialRead: {
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /** Id */
+      id: number;
+      /** In Use By */
+      in_use_by: components["schemas"]["CertificateRef"][];
+      /** Name */
+      name: string;
+      /** Options */
+      options: {
+        [key: string]: string;
+      };
+      /** Provider */
+      provider: string;
+      /** Provider Label */
+      provider_label: string;
+      /** Secret Fields */
+      secret_fields: string[];
+      /**
+       * Updated At
+       * Format: date-time
+       */
+      updated_at: string;
+    };
+    /**
+     * DnsCredentialUpdate
+     * @description Rename and/or replace options. A blank or omitted secret keeps its stored value.
+     */
+    DnsCredentialUpdate: {
+      /** Name */
+      name?: string | null;
+      /** Options */
+      options?: {
+        [key: string]: string;
+      } | null;
+    };
+    /** DnsCredentialVerified */
+    DnsCredentialVerified: {
+      /**
+       * Ok
+       * @default true
+       */
+      ok: boolean;
+    };
+    /** DnsCredentialVerify */
+    DnsCredentialVerify: {
+      /**
+       * Domain
+       * @description A domain inside the zone
+       */
+      domain: string;
+    };
+    /** DnsProviderFieldRead */
+    DnsProviderFieldRead: {
+      /** Help */
+      help: string;
+      /** Label */
+      label: string;
+      /** Name */
+      name: string;
+      /** Secret */
+      secret: boolean;
+    };
+    /** DnsProviderInfoRead */
+    DnsProviderInfoRead: {
+      /** Description */
+      description: string;
+      /** Fields */
+      fields: components["schemas"]["DnsProviderFieldRead"][];
+      /** Id */
+      id: string;
+      /** Label */
+      label: string;
+    };
+    /**
+     * ForgotPasswordRequest
+     * @description Body for ``POST /auth/forgot-password``.
+     */
+    ForgotPasswordRequest: {
+      /**
+       * Email
+       * Format: email
+       */
+      email: string;
+    };
+    /** HTTPValidationError */
+    HTTPValidationError: {
+      /** Detail */
+      detail?: components["schemas"]["ValidationError"][];
+    };
+    /**
+     * HealthResponse
+     * @description Liveness response body.
+     */
+    HealthResponse: {
+      /** Environment */
+      environment: string;
+      /** Service */
+      service: string;
+      /**
+       * Status
+       * @default ok
+       */
+      status: string;
+    };
+    /**
+     * HttpScheme
+     * @description Scheme a proxy host uses to reach its upstream.
+     * @enum {string}
+     */
+    HttpScheme: "http" | "https";
+    /**
+     * HubUpdateFrequency
+     * @description How often the CrowdSec hub is refreshed.
+     * @enum {string}
+     */
+    HubUpdateFrequency: "daily" | "weekly";
+    /**
+     * InstanceSettingsRead
+     * @description Public representation of the settings singleton.
+     *
+     *     The LLM API key and the SMTP password are deliberately absent.
+     *     ``llm_api_key_set`` and ``smtp_password_set`` say whether one is stored; the
+     *     values themselves are never returned by any endpoint, so a compromised
+     *     browser session cannot read them back out.
+     */
+    InstanceSettingsRead: {
+      /** App Url */
+      app_url: string | null;
+      crowdsec_ban_mode: components["schemas"]["CrowdSecBanMode"];
+      /** Crowdsec Ban Page Id */
+      crowdsec_ban_page_id: number | null;
+      /** Crowdsec Capi Enabled */
+      crowdsec_capi_enabled: boolean;
+      /** Crowdsec Hub Auto Update */
+      crowdsec_hub_auto_update: boolean;
+      crowdsec_hub_update_frequency: components["schemas"]["HubUpdateFrequency"];
+      /** Crowdsec Hub Update Hour Utc */
+      crowdsec_hub_update_hour_utc: number;
+      /** Crowdsec Hub Update Weekday */
+      crowdsec_hub_update_weekday: number;
+      default_site_mode: components["schemas"]["DefaultSiteMode"];
+      /** Default Site Page Id */
+      default_site_page_id: number | null;
+      /** Default Site Redirect Url */
+      default_site_redirect_url: string | null;
+      /** Llm Api Base */
+      llm_api_base: string | null;
+      /** Llm Api Key Set */
+      llm_api_key_set: boolean;
+      /** Llm Enabled */
+      llm_enabled: boolean;
+      /** Llm Model */
+      llm_model: string | null;
+      /** Smtp Enabled */
+      smtp_enabled: boolean;
+      /** Smtp From */
+      smtp_from: string | null;
+      /** Smtp From Name */
+      smtp_from_name: string | null;
+      /** Smtp Host */
+      smtp_host: string | null;
+      /** Smtp Password Set */
+      smtp_password_set: boolean;
+      /** Smtp Port */
+      smtp_port: number;
+      smtp_security: components["schemas"]["SmtpSecurity"];
+      /** Smtp Username */
+      smtp_username: string | null;
+      /**
+       * Updated At
+       * Format: date-time
+       */
+      updated_at: string;
+    };
+    /**
+     * InstanceSettingsUpdate
+     * @description Set the default site. ``default_site_mode`` is required (see module doc).
+     */
+    InstanceSettingsUpdate: {
+      default_site_mode: components["schemas"]["DefaultSiteMode"];
+      /**
+       * Default Site Page Id
+       * @description Required when the mode is 'custom_page'
+       */
+      default_site_page_id?: number | null;
+      /**
+       * Default Site Redirect Url
+       * @description Required when the mode is 'redirect'
+       */
+      default_site_redirect_url?: string | null;
+    };
+    /** InventoryCounts */
+    InventoryCounts: {
+      /** Dead Hosts */
+      dead_hosts: number;
+      /** Proxy Hosts Enabled */
+      proxy_hosts_enabled: number;
+      /** Proxy Hosts Total */
+      proxy_hosts_total: number;
+      /** Redirection Hosts */
+      redirection_hosts: number;
+      /** Streams */
+      streams: number;
+    };
+    /**
+     * LetsEncryptCertificateCreate
+     * @description Request to issue a Let's Encrypt certificate for a set of domains.
+     */
+    LetsEncryptCertificateCreate: {
+      /**
+       * Account Email
+       * @description Contact email for the ACME account (optional)
+       */
+      account_email?: string | null;
+      /**
+       * Challenge
+       * @description ACME challenge type: 'http-01' (default) or 'dns-01'
+       * @default http-01
+       */
+      challenge: string;
+      /**
+       * Dns Credential Id
+       * @description Saved DNS provider credentials (id from /dns-credentials). Required for 'dns-01'; must be omitted for 'http-01'.
+       */
+      dns_credential_id?: number | null;
+      /** Domain Names */
+      domain_names: string[];
+      /** Name */
+      name: string;
+    };
+    /**
+     * LlmSettingsUpdate
+     * @description Set the LLM integration. Carries the whole group; the key is the exception.
+     *
+     *     ``llm_enabled`` is required for the same reason ``default_site_mode`` is on
+     *     its sibling: "enabled needs a model" cannot be checked against a payload
+     *     that omits it, and a schema never sees the stored row.
+     *
+     *     ``llm_api_key`` is the one field that cannot work that way — it is never
+     *     returned, so a client has nothing to send back. Absent keeps the stored key;
+     *     a string replaces it; an explicit ``null`` clears it. The three states are
+     *     distinguished with ``model_fields_set``, which is why the service is handed
+     *     ``model_dump(exclude_unset=True)``.
+     */
+    LlmSettingsUpdate: {
+      /** Llm Api Base */
+      llm_api_base?: string | null;
+      /** Llm Api Key */
+      llm_api_key?: string | null;
+      /** Llm Enabled */
+      llm_enabled: boolean;
+      /** Llm Model */
+      llm_model?: string | null;
+    };
+    /**
+     * LlmTestRequest
+     * @description Optional overrides for the probe, so a key can be checked before saving.
+     */
+    LlmTestRequest: {
+      /** Api Base */
+      api_base?: string | null;
+      /** Api Key */
+      api_key?: string | null;
+      /** Model */
+      model?: string | null;
+    };
+    /**
+     * LlmTestResult
+     * @description The probe's outcome. ``ok: false`` still returns HTTP 200 — see the route.
+     */
+    LlmTestResult: {
+      /**
+       * Error
+       * @default
+       */
+      error: string;
+      /**
+       * Latency Ms
+       * @default 0
+       */
+      latency_ms: number;
+      /** Model */
+      model: string;
+      /** Ok */
+      ok: boolean;
+      /**
+       * Reply
+       * @default
+       */
+      reply: string;
+    };
+    /**
+     * LoadBalanceMethod
+     * @description nginx ``upstream`` load-balancing strategies for a backend pool.
+     * @enum {string}
+     */
+    LoadBalanceMethod: "round_robin" | "least_conn" | "ip_hash" | "hash" | "random";
+    /**
+     * LoginRequest
+     * @description Credentials submitted to ``POST /auth/login``.
+     */
+    LoginRequest: {
+      /**
+       * Email
+       * Format: email
+       */
+      email: string;
+      /** Password */
+      password: string;
+    };
+    /**
+     * MailTestRequest
+     * @description Where to send the test. Omitted means the requesting admin's own address.
+     */
+    MailTestRequest: {
+      /** To */
+      to?: string | null;
+    };
+    /**
+     * MailTestResult
+     * @description The send's outcome. ``ok: false`` still returns HTTP 200 — see the route.
+     */
+    MailTestResult: {
+      /**
+       * Detail
+       * @default
+       */
+      detail: string;
+      /**
+       * Latency Ms
+       * @default 0
+       */
+      latency_ms: number;
+      /** Ok */
+      ok: boolean;
+    };
+    /**
+     * MfaRequired
+     * @description What ``POST /auth/login`` returns when a second factor is needed.
+     *
+     *     ``mfa_required`` is a literal so the frontend can discriminate the union
+     *     without inspecting which keys are present. ``methods`` tells the form
+     *     what to offer without a second request.
+     */
+    MfaRequired: {
+      /** Methods */
+      methods?: ("totp" | "passkey")[];
+      /**
+       * Mfa Required
+       * @default true
+       * @constant
+       */
+      mfa_required: true;
+      /** Mfa Token */
+      mfa_token: string;
+    };
+    /**
+     * MfaVerifyRequest
+     * @description Body for ``POST /auth/mfa/verify``.
+     */
+    MfaVerifyRequest: {
+      /** Code */
+      code: string;
+      /** Mfa Token */
+      mfa_token: string;
+    };
+    /**
+     * MfaVerifyResponse
+     * @description The real pair, plus how many recovery codes are left when one was used.
+     */
+    MfaVerifyResponse: {
+      /** Access Token */
+      access_token: string;
+      /** Recovery Codes Remaining */
+      recovery_codes_remaining?: number | null;
+      /** Refresh Token */
+      refresh_token: string;
+      /**
+       * Token Type
+       * @default bearer
+       */
+      token_type: string;
+    };
+    /**
+     * NeutralResponse
+     * @description The one body ``forgot-password`` ever returns.
+     */
+    NeutralResponse: {
+      /** Detail */
+      detail: string;
+    };
+    /**
+     * NginxConfigFile
+     * @description One rendered managed ``.conf`` file.
+     */
+    NginxConfigFile: {
+      /** Content */
+      content: string;
+      /** Name */
+      name: string;
+    };
+    /**
+     * NginxConfigPreview
+     * @description The full config the engine *would* write for the current DB state.
+     *
+     *     A read-only render — it does not touch disk or reload nginx, so the
+     *     frontend can show operators the generated output before/without applying.
+     */
+    NginxConfigPreview: {
+      /** Files */
+      files?: components["schemas"]["NginxConfigFile"][];
+    };
+    /**
+     * PageAssistRequest
+     * @description An instruction plus the document to work on.
+     *
+     *     ``html`` arrives **already elided** — the browser has swapped every embedded
+     *     image for a ``MEGOOPM_IMAGE_n`` placeholder, because sending the base64
+     *     would cost ~70k tokens per screenshot and move megabytes over the wire. The
+     *     size cap is enforcement for a client that skipped its own check; it is not
+     *     the primary guard.
+     */
+    PageAssistRequest: {
+      /**
+       * Html
+       * @default
+       */
+      html: string;
+      /** Instruction */
+      instruction: string;
+    };
+    /**
+     * PageAssistResponse
+     * @description The cleaned document, and how it was produced.
+     *
+     *     ``mode`` distinguishes a targeted edit (``tools``) from a page written from
+     *     nothing (``generate``) and from a whole-document regeneration used because
+     *     the tool path was unavailable (``rewrite``). Without that a fallback would
+     *     look to the operator like an edit that changed nothing.
+     *
+     *     Placeholders are restored by the browser, so ``html`` is still elided here.
+     */
+    PageAssistResponse: {
+      /** Changes */
+      changes?: components["schemas"]["PageEditChange"][];
+      /** Html */
+      html: string;
+      /** Mode */
+      mode: string;
+      /**
+       * Truncated
+       * @default false
+       */
+      truncated: boolean;
+    };
+    /**
+     * PageEditChange
+     * @description One line range the model replaced, so the operator can read what moved.
+     */
+    PageEditChange: {
+      /** After */
+      after: string;
+      /** Before */
+      before: string;
+      /** End */
+      end: number;
+      /** Start */
+      start: number;
+    };
+    /**
+     * PasskeyAssertRequest
+     * @description Body for ``POST /auth/mfa/passkey/verify``.
+     */
+    PasskeyAssertRequest: {
+      /** Credential */
+      credential: {
+        [key: string]: unknown;
+      };
+      /** Mfa Token */
+      mfa_token: string;
+      /** Nonce */
+      nonce: string;
+    };
+    /**
+     * PasskeyOptions
+     * @description A ceremony's options, plus the nonce that names its stored challenge.
+     */
+    PasskeyOptions: {
+      /** Nonce */
+      nonce: string;
+      /** Options */
+      options: {
+        [key: string]: unknown;
+      };
+    };
+    /**
+     * PasskeyOptionsRequest
+     * @description Body for ``POST /auth/mfa/passkey/options``.
+     */
+    PasskeyOptionsRequest: {
+      /** Mfa Token */
+      mfa_token: string;
+    };
+    /**
+     * PasskeyRead
+     * @description One registered passkey. Never the key, never the credential id.
+     */
+    PasskeyRead: {
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /** Id */
+      id: number;
+      /** Last Used At */
+      last_used_at?: string | null;
+      /** Name */
+      name: string;
+    };
+    /**
+     * PasskeyRegisterRequest
+     * @description Body for ``POST /users/me/passkeys``: the browser's credential and a name.
+     */
+    PasskeyRegisterRequest: {
+      /** Credential */
+      credential: {
+        [key: string]: unknown;
+      };
+      /**
+       * Name
+       * @default
+       */
+      name: string;
+      /** Nonce */
+      nonce: string;
+    };
+    /**
+     * PasswordChange
+     * @description Self-service password change. The signed-in session is the only proof
+     *     required — the current password is deliberately not re-verified.
+     */
+    PasswordChange: {
+      /** New Password */
+      new_password: string;
+    };
+    /**
+     * PasswordReset
+     * @description Admin-set password for another user (handed over out of band).
+     */
+    PasswordReset: {
+      /** Password */
+      password: string;
+    };
+    /**
+     * ProfileUpdate
+     * @description Self-service profile edit. Only the display name is user-editable.
+     */
+    ProfileUpdate: {
+      /** Full Name */
+      full_name: string;
+    };
+    /**
+     * ProxyHostCreate
+     * @description Payload to create a proxy host.
+     */
+    ProxyHostCreate: {
+      /**
+       * Access List Id
+       * @description Optional access list guarding this host
+       */
+      access_list_id?: number | null;
+      /**
+       * Advanced Config
+       * @description Raw nginx directives injected into the server block
+       * @default
+       */
+      advanced_config: string;
+      /**
+       * Allow Websocket Upgrade
+       * @description Pass Upgrade/Connection headers for websockets
+       * @default false
+       */
+      allow_websocket_upgrade: boolean;
+      /**
+       * Block Exploits
+       * @description Block common exploit probes
+       * @default false
+       */
+      block_exploits: boolean;
+      /**
+       * Caching Enabled
+       * @description Cache static assets
+       * @default false
+       */
+      caching_enabled: boolean;
+      /**
+       * Certificate Id
+       * @description Certificate for TLS termination; null serves plain :80
+       */
+      certificate_id?: number | null;
+      /**
+       * Crowdsec Appsec Enabled
+       * @description Route requests through CrowdSec inline AppSec/WAF (needs crowdsec_enabled)
+       * @default false
+       */
+      crowdsec_appsec_enabled: boolean;
+      /**
+       * Crowdsec Enabled
+       * @description Enforce the CrowdSec nginx bouncer on this host
+       * @default false
+       */
+      crowdsec_enabled: boolean;
+      /**
+       * Domain Names
+       * @description Domains this host answers for (server_name)
+       */
+      domain_names: string[];
+      /**
+       * Enabled
+       * @description Disabled hosts are excluded from config
+       * @default true
+       */
+      enabled: boolean;
+      /**
+       * Forward Host
+       * @description Single backend host; null when forwarding to a pool
+       */
+      forward_host?: string | null;
+      /**
+       * Forward Port
+       * @description Single backend port; null when forwarding to a pool
+       */
+      forward_port?: number | null;
+      /**
+       * @description Scheme used to reach the upstream (http/https)
+       * @default http
+       */
+      forward_scheme: components["schemas"]["HttpScheme"];
+      /**
+       * Hsts Enabled
+       * @description Emit a Strict-Transport-Security header
+       * @default false
+       */
+      hsts_enabled: boolean;
+      /**
+       * Hsts Subdomains
+       * @description Include subdomains in HSTS
+       * @default false
+       */
+      hsts_subdomains: boolean;
+      /**
+       * Http2 Support
+       * @description Enable HTTP/2 on the TLS listener
+       * @default false
+       */
+      http2_support: boolean;
+      /**
+       * Locations
+       * @description Extra path-prefixed routes to other pools (rendered as location ^~ <path>)
+       */
+      locations?: components["schemas"]["ProxyHostLocationIn"][];
+      /**
+       * Ssl Forced
+       * @description Redirect :80 to HTTPS
+       * @default false
+       */
+      ssl_forced: boolean;
+      /**
+       * Upstream Id
+       * @description Pool to forward matched traffic to; null when using a host
+       */
+      upstream_id?: number | null;
+    };
+    /**
+     * ProxyHostLocationIn
+     * @description One extra ``location <path>`` route of a proxy host.
+     */
+    ProxyHostLocationIn: {
+      /** Forward Host */
+      forward_host?: string | null;
+      /** Forward Port */
+      forward_port?: number | null;
+      /**
+       * @description Scheme used to reach the pool (http/https)
+       * @default http
+       */
+      forward_scheme: components["schemas"]["HttpScheme"];
+      /**
+       * Path
+       * @description URL prefix, e.g. /api/ (the root '/' is the host itself)
+       */
+      path: string;
+      /**
+       * Upstream Id
+       * @description Pool this prefix forwards to; null when using a host
+       */
+      upstream_id?: number | null;
+    };
+    /**
+     * ProxyHostLocationRead
+     * @description Stored location (adds the row id).
+     */
+    ProxyHostLocationRead: {
+      /** Forward Host */
+      forward_host?: string | null;
+      /** Forward Port */
+      forward_port?: number | null;
+      /**
+       * @description Scheme used to reach the pool (http/https)
+       * @default http
+       */
+      forward_scheme: components["schemas"]["HttpScheme"];
+      /** Id */
+      id: number;
+      /**
+       * Path
+       * @description URL prefix, e.g. /api/ (the root '/' is the host itself)
+       */
+      path: string;
+      /**
+       * Upstream Id
+       * @description Pool this prefix forwards to; null when using a host
+       */
+      upstream_id?: number | null;
+    };
+    /**
+     * ProxyHostRead
+     * @description Public representation of a proxy host.
+     */
+    ProxyHostRead: {
+      /**
+       * Access List Id
+       * @description Optional access list guarding this host
+       */
+      access_list_id?: number | null;
+      /**
+       * Advanced Config
+       * @description Raw nginx directives injected into the server block
+       * @default
+       */
+      advanced_config: string;
+      /**
+       * Allow Websocket Upgrade
+       * @description Pass Upgrade/Connection headers for websockets
+       * @default false
+       */
+      allow_websocket_upgrade: boolean;
+      /**
+       * Block Exploits
+       * @description Block common exploit probes
+       * @default false
+       */
+      block_exploits: boolean;
+      /**
+       * Caching Enabled
+       * @description Cache static assets
+       * @default false
+       */
+      caching_enabled: boolean;
+      /**
+       * Certificate Id
+       * @description Certificate for TLS termination; null serves plain :80
+       */
+      certificate_id?: number | null;
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /**
+       * Crowdsec Appsec Enabled
+       * @description Route requests through CrowdSec inline AppSec/WAF (needs crowdsec_enabled)
+       * @default false
+       */
+      crowdsec_appsec_enabled: boolean;
+      /**
+       * Crowdsec Enabled
+       * @description Enforce the CrowdSec nginx bouncer on this host
+       * @default false
+       */
+      crowdsec_enabled: boolean;
+      /**
+       * Domain Names
+       * @description Domains this host answers for (server_name)
+       */
+      domain_names: string[];
+      /**
+       * Enabled
+       * @description Disabled hosts are excluded from config
+       * @default true
+       */
+      enabled: boolean;
+      /**
+       * Forward Host
+       * @description Single backend host; null when forwarding to a pool
+       */
+      forward_host?: string | null;
+      /**
+       * Forward Port
+       * @description Single backend port; null when forwarding to a pool
+       */
+      forward_port?: number | null;
+      /**
+       * @description Scheme used to reach the upstream (http/https)
+       * @default http
+       */
+      forward_scheme: components["schemas"]["HttpScheme"];
+      /**
+       * Hsts Enabled
+       * @description Emit a Strict-Transport-Security header
+       * @default false
+       */
+      hsts_enabled: boolean;
+      /**
+       * Hsts Subdomains
+       * @description Include subdomains in HSTS
+       * @default false
+       */
+      hsts_subdomains: boolean;
+      /**
+       * Http2 Support
+       * @description Enable HTTP/2 on the TLS listener
+       * @default false
+       */
+      http2_support: boolean;
+      /** Id */
+      id: number;
+      /** Locations */
+      locations?: components["schemas"]["ProxyHostLocationRead"][];
+      /**
+       * Ssl Forced
+       * @description Redirect :80 to HTTPS
+       * @default false
+       */
+      ssl_forced: boolean;
+      /**
+       * Updated At
+       * Format: date-time
+       */
+      updated_at: string;
+      /**
+       * Upstream Id
+       * @description Pool to forward matched traffic to; null when using a host
+       */
+      upstream_id?: number | null;
+    };
+    /**
+     * ProxyHostUpdate
+     * @description Partial update of a proxy host; every field is optional.
+     */
+    ProxyHostUpdate: {
+      /** Access List Id */
+      access_list_id?: number | null;
+      /** Advanced Config */
+      advanced_config?: string | null;
+      /** Allow Websocket Upgrade */
+      allow_websocket_upgrade?: boolean | null;
+      /** Block Exploits */
+      block_exploits?: boolean | null;
+      /** Caching Enabled */
+      caching_enabled?: boolean | null;
+      /** Certificate Id */
+      certificate_id?: number | null;
+      /** Crowdsec Appsec Enabled */
+      crowdsec_appsec_enabled?: boolean | null;
+      /** Crowdsec Enabled */
+      crowdsec_enabled?: boolean | null;
+      /** Domain Names */
+      domain_names?: string[] | null;
+      /** Enabled */
+      enabled?: boolean | null;
+      /** Forward Host */
+      forward_host?: string | null;
+      /** Forward Port */
+      forward_port?: number | null;
+      forward_scheme?: components["schemas"]["HttpScheme"] | null;
+      /** Hsts Enabled */
+      hsts_enabled?: boolean | null;
+      /** Hsts Subdomains */
+      hsts_subdomains?: boolean | null;
+      /** Http2 Support */
+      http2_support?: boolean | null;
+      /** Locations */
+      locations?: components["schemas"]["ProxyHostLocationIn"][] | null;
+      /** Ssl Forced */
+      ssl_forced?: boolean | null;
+      /** Upstream Id */
+      upstream_id?: number | null;
+    };
+    /**
+     * RedirectScheme
+     * @description Scheme applied to a redirection target (``auto`` keeps the request's).
+     * @enum {string}
+     */
+    RedirectScheme: "auto" | "http" | "https";
+    /**
+     * RedirectionHostCreate
+     * @description Payload to create a redirection host.
+     */
+    RedirectionHostCreate: {
+      /**
+       * Advanced Config
+       * @description Raw nginx directives injected into the server block
+       * @default
+       */
+      advanced_config: string;
+      /**
+       * Block Exploits
+       * @description Block common exploit probes
+       * @default false
+       */
+      block_exploits: boolean;
+      /**
+       * Certificate Id
+       * @description Certificate for TLS termination; null serves plain :80
+       */
+      certificate_id?: number | null;
+      /**
+       * Domain Names
+       * @description Domains this host answers for (server_name)
+       */
+      domain_names: string[];
+      /**
+       * Enabled
+       * @description Disabled hosts are excluded from config
+       * @default true
+       */
+      enabled: boolean;
+      /**
+       * Forward Domain Name
+       * @description Domain requests are redirected to
+       */
+      forward_domain_name: string;
+      /**
+       * Forward Http Code
+       * @description HTTP redirect status code (300–308)
+       * @default 302
+       */
+      forward_http_code: number;
+      /**
+       * @description Target scheme; 'auto' keeps the incoming request's scheme
+       * @default auto
+       */
+      forward_scheme: components["schemas"]["RedirectScheme"];
+      /**
+       * Hsts Enabled
+       * @description Emit a Strict-Transport-Security header
+       * @default false
+       */
+      hsts_enabled: boolean;
+      /**
+       * Hsts Subdomains
+       * @description Include subdomains in HSTS
+       * @default false
+       */
+      hsts_subdomains: boolean;
+      /**
+       * Http2 Support
+       * @description Enable HTTP/2 on the TLS listener
+       * @default false
+       */
+      http2_support: boolean;
+      /**
+       * Preserve Path
+       * @description Append the original request URI to the target
+       * @default true
+       */
+      preserve_path: boolean;
+      /**
+       * Ssl Forced
+       * @description Redirect :80 to HTTPS
+       * @default false
+       */
+      ssl_forced: boolean;
+    };
+    /**
+     * RedirectionHostRead
+     * @description Public representation of a redirection host.
+     */
+    RedirectionHostRead: {
+      /**
+       * Advanced Config
+       * @description Raw nginx directives injected into the server block
+       * @default
+       */
+      advanced_config: string;
+      /**
+       * Block Exploits
+       * @description Block common exploit probes
+       * @default false
+       */
+      block_exploits: boolean;
+      /**
+       * Certificate Id
+       * @description Certificate for TLS termination; null serves plain :80
+       */
+      certificate_id?: number | null;
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /**
+       * Domain Names
+       * @description Domains this host answers for (server_name)
+       */
+      domain_names: string[];
+      /**
+       * Enabled
+       * @description Disabled hosts are excluded from config
+       * @default true
+       */
+      enabled: boolean;
+      /**
+       * Forward Domain Name
+       * @description Domain requests are redirected to
+       */
+      forward_domain_name: string;
+      /**
+       * Forward Http Code
+       * @description HTTP redirect status code (300–308)
+       * @default 302
+       */
+      forward_http_code: number;
+      /**
+       * @description Target scheme; 'auto' keeps the incoming request's scheme
+       * @default auto
+       */
+      forward_scheme: components["schemas"]["RedirectScheme"];
+      /**
+       * Hsts Enabled
+       * @description Emit a Strict-Transport-Security header
+       * @default false
+       */
+      hsts_enabled: boolean;
+      /**
+       * Hsts Subdomains
+       * @description Include subdomains in HSTS
+       * @default false
+       */
+      hsts_subdomains: boolean;
+      /**
+       * Http2 Support
+       * @description Enable HTTP/2 on the TLS listener
+       * @default false
+       */
+      http2_support: boolean;
+      /** Id */
+      id: number;
+      /**
+       * Preserve Path
+       * @description Append the original request URI to the target
+       * @default true
+       */
+      preserve_path: boolean;
+      /**
+       * Ssl Forced
+       * @description Redirect :80 to HTTPS
+       * @default false
+       */
+      ssl_forced: boolean;
+      /**
+       * Updated At
+       * Format: date-time
+       */
+      updated_at: string;
+    };
+    /**
+     * RedirectionHostUpdate
+     * @description Partial update of a redirection host; every field is optional.
+     */
+    RedirectionHostUpdate: {
+      /** Advanced Config */
+      advanced_config?: string | null;
+      /** Block Exploits */
+      block_exploits?: boolean | null;
+      /** Certificate Id */
+      certificate_id?: number | null;
+      /** Domain Names */
+      domain_names?: string[] | null;
+      /** Enabled */
+      enabled?: boolean | null;
+      /** Forward Domain Name */
+      forward_domain_name?: string | null;
+      /** Forward Http Code */
+      forward_http_code?: number | null;
+      forward_scheme?: components["schemas"]["RedirectScheme"] | null;
+      /** Hsts Enabled */
+      hsts_enabled?: boolean | null;
+      /** Hsts Subdomains */
+      hsts_subdomains?: boolean | null;
+      /** Http2 Support */
+      http2_support?: boolean | null;
+      /** Preserve Path */
+      preserve_path?: boolean | null;
+      /** Ssl Forced */
+      ssl_forced?: boolean | null;
+    };
+    /**
+     * RefreshRequest
+     * @description Body submitted to ``POST /auth/refresh``.
+     */
+    RefreshRequest: {
+      /** Refresh Token */
+      refresh_token: string;
+    };
+    /**
+     * ResetPasswordRequest
+     * @description Body for ``POST /auth/reset-password``.
+     */
+    ResetPasswordRequest: {
+      /** New Password */
+      new_password: string;
+      /** Token */
+      token: string;
+    };
+    /**
+     * SampleTaskRequest
+     * @description Payload for enqueuing the sample ``add`` task.
+     */
+    SampleTaskRequest: {
+      /**
+       * X
+       * @default 0
+       */
+      x: number;
+      /**
+       * Y
+       * @default 0
+       */
+      y: number;
+    };
+    /** SecuritySummary */
+    SecuritySummary: {
+      /** Active Decisions */
+      active_decisions: number;
+      /** Alerts 24H */
+      alerts_24h: number;
+      /** Top Scenarios */
+      top_scenarios: string[];
+    };
+    /**
+     * SmtpSecurity
+     * @description How the SMTP connection is secured.
+     * @enum {string}
+     */
+    SmtpSecurity: "starttls" | "ssl" | "none";
+    /**
+     * SmtpSettingsUpdate
+     * @description Set the SMTP group. Carries the whole card; the password is the exception.
+     *
+     *     ``smtp_enabled`` is required for the same reason ``default_site_mode`` is on
+     *     its sibling: "enabled needs a host" cannot be checked against a payload that
+     *     omits it, and a schema never sees the stored row.
+     *
+     *     ``smtp_password`` is never returned, so a client has nothing to send back.
+     *     Absent keeps the stored password; a string replaces it; an explicit ``null``
+     *     clears it — distinguished with ``model_fields_set``, which is why the service
+     *     is handed ``model_dump(exclude_unset=True)``.
+     */
+    SmtpSettingsUpdate: {
+      /** App Url */
+      app_url?: string | null;
+      /** Smtp Enabled */
+      smtp_enabled: boolean;
+      /** Smtp From */
+      smtp_from?: string | null;
+      /** Smtp From Name */
+      smtp_from_name?: string | null;
+      /** Smtp Host */
+      smtp_host?: string | null;
+      /** Smtp Password */
+      smtp_password?: string | null;
+      /**
+       * Smtp Port
+       * @default 587
+       */
+      smtp_port: number;
+      /** @default starttls */
+      smtp_security: components["schemas"]["SmtpSecurity"];
+      /** Smtp Username */
+      smtp_username?: string | null;
+    };
+    /**
+     * StreamCreate
+     * @description Payload to create a stream.
+     */
+    StreamCreate: {
+      /**
+       * Certificate Id
+       * @description Certificate to terminate TLS on the TCP listener; null = plain
+       */
+      certificate_id?: number | null;
+      /**
+       * Enabled
+       * @description Disabled streams are excluded from config
+       * @default true
+       */
+      enabled: boolean;
+      /**
+       * Forward Host
+       * @description Backend host traffic is forwarded to; null when using a pool
+       */
+      forward_host?: string | null;
+      /**
+       * Forward Port
+       * @description Backend port traffic is forwarded to; null when using a pool
+       */
+      forward_port?: number | null;
+      /**
+       * Incoming Port
+       * @description Port nginx listens on for this stream
+       */
+      incoming_port: number;
+      /**
+       * Tcp Forwarding
+       * @description Forward TCP on the incoming port
+       * @default true
+       */
+      tcp_forwarding: boolean;
+      /**
+       * Udp Forwarding
+       * @description Forward UDP on the incoming port
+       * @default false
+       */
+      udp_forwarding: boolean;
+      /**
+       * Upstream Id
+       * @description Upstream pool to forward to, for weighted balancing and failover. Mutually exclusive with forward_host/forward_port.
+       */
+      upstream_id?: number | null;
+    };
+    /**
+     * StreamRead
+     * @description Public representation of a stream.
+     */
+    StreamRead: {
+      /**
+       * Certificate Id
+       * @description Certificate to terminate TLS on the TCP listener; null = plain
+       */
+      certificate_id?: number | null;
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /**
+       * Enabled
+       * @description Disabled streams are excluded from config
+       * @default true
+       */
+      enabled: boolean;
+      /**
+       * Forward Host
+       * @description Backend host traffic is forwarded to; null when using a pool
+       */
+      forward_host?: string | null;
+      /**
+       * Forward Port
+       * @description Backend port traffic is forwarded to; null when using a pool
+       */
+      forward_port?: number | null;
+      /** Id */
+      id: number;
+      /**
+       * Incoming Port
+       * @description Port nginx listens on for this stream
+       */
+      incoming_port: number;
+      /**
+       * Tcp Forwarding
+       * @description Forward TCP on the incoming port
+       * @default true
+       */
+      tcp_forwarding: boolean;
+      /**
+       * Udp Forwarding
+       * @description Forward UDP on the incoming port
+       * @default false
+       */
+      udp_forwarding: boolean;
+      /**
+       * Updated At
+       * Format: date-time
+       */
+      updated_at: string;
+      /**
+       * Upstream Id
+       * @description Upstream pool to forward to, for weighted balancing and failover. Mutually exclusive with forward_host/forward_port.
+       */
+      upstream_id?: number | null;
+    };
+    /**
+     * StreamUpdate
+     * @description Partial update of a stream; every field is optional.
+     *
+     *     The "at least one protocol" rule can only be enforced against the merged
+     *     result, so it is checked in the service/DB layer rather than here (a PATCH
+     *     that flips only one flag has no view of the other).
+     */
+    StreamUpdate: {
+      /** Certificate Id */
+      certificate_id?: number | null;
+      /** Enabled */
+      enabled?: boolean | null;
+      /** Forward Host */
+      forward_host?: string | null;
+      /** Forward Port */
+      forward_port?: number | null;
+      /** Incoming Port */
+      incoming_port?: number | null;
+      /** Tcp Forwarding */
+      tcp_forwarding?: boolean | null;
+      /** Udp Forwarding */
+      udp_forwarding?: boolean | null;
+      /** Upstream Id */
+      upstream_id?: number | null;
+    };
+    /**
+     * TaskEnqueued
+     * @description Returned when a task is accepted onto the queue.
+     */
+    TaskEnqueued: {
+      /** Status */
+      status: string;
+      /** Task Id */
+      task_id: string;
+    };
+    /**
+     * TaskStatus
+     * @description A serializable view of a Celery task's state and result.
+     */
+    TaskStatus: {
+      /** Error */
+      error?: string | null;
+      /** Ready */
+      ready: boolean;
+      /** Result */
+      result?: unknown | null;
+      /** Status */
+      status: string;
+      /** Task Id */
+      task_id: string;
+    };
+    /**
+     * ThreatPoint
+     * @description One country's attack count.
+     *
+     *     Position is deliberately absent: the map owns placement, so this and the
+     *     visitor countries arrive in the same shape and a country is always drawn in
+     *     the same spot whichever layer drew it. Sending coordinates that never change
+     *     on every poll bought nothing.
+     */
+    ThreatPoint: {
+      /** Count */
+      count: number;
+      /** Country */
+      country: string;
+    };
+    /**
+     * TokenPair
+     * @description Issued access + refresh tokens.
+     *
+     *     ``token_type`` is the OAuth2 scheme name (``bearer``); clients send the
+     *     access token as ``Authorization: Bearer <access_token>``.
+     */
+    TokenPair: {
+      /** Access Token */
+      access_token: string;
+      /** Refresh Token */
+      refresh_token: string;
+      /**
+       * Token Type
+       * @default bearer
+       */
+      token_type: string;
+    };
+    /**
+     * TotpCodeRequest
+     * @description A TOTP or recovery code, wherever one is required.
+     */
+    TotpCodeRequest: {
+      /** Code */
+      code: string;
+    };
+    /**
+     * TotpCodes
+     * @description Recovery codes. Returned exactly once; never retrievable.
+     */
+    TotpCodes: {
+      /** Codes */
+      codes: string[];
+    };
+    /**
+     * TotpSetup
+     * @description What the profile page needs to enrol an authenticator app.
+     */
+    TotpSetup: {
+      /** Otpauth Uri */
+      otpauth_uri: string;
+      /** Secret */
+      secret: string;
+    };
+    /**
+     * TrafficSummary
+     * @description ``None`` means no node has reported recently — unknown, not idle.
+     */
+    TrafficSummary: {
+      /** Active Connections */
+      active_connections: number | null;
+      /** Reporting Nodes */
+      reporting_nodes: number;
+      /** Requests Per Second */
+      requests_per_second: number | null;
+      /** Stale Nodes */
+      stale_nodes: number;
+    };
+    /**
+     * UpstreamContext
+     * @description Which nginx context a pool may be rendered into.
+     *
+     *     ``upstream`` blocks are context-local: one defined in ``http {}`` is
+     *     invisible to ``stream {}``, so a pool has to declare where it may be
+     *     attached. This also constrains its load-balancing method — ``ip_hash``
+     *     exists only in ``http``, and using it on a stream pool is a hard
+     *     ``nginx -t`` failure rather than a degraded fallback.
+     * @enum {string}
+     */
+    UpstreamContext: "http" | "stream" | "both";
+    /**
+     * UpstreamCreate
+     * @description Payload to create a pool, optionally seeding its backends inline.
+     */
+    UpstreamCreate: {
+      /** Backends */
+      backends?: components["schemas"]["BackendCreate"][];
+      /**
+       * @description Where the pool may be attached: http (proxy hosts), stream (TCP/UDP), or both. ip_hash is only valid for http.
+       * @default http
+       */
+      context: components["schemas"]["UpstreamContext"];
+      /**
+       * Description
+       * @description Optional free-text description
+       * @default
+       */
+      description: string;
+      /**
+       * Enabled
+       * @description Disabled pools are excluded from config
+       * @default true
+       */
+      enabled: boolean;
+      /**
+       * @description nginx load-balancing strategy
+       * @default round_robin
+       */
+      lb_method: components["schemas"]["LoadBalanceMethod"];
+      /**
+       * Name
+       * @description Human-readable pool name
+       */
+      name: string;
+    };
+    /**
+     * UpstreamRead
+     * @description Public representation of a pool, including its backends.
+     */
+    UpstreamRead: {
+      /** Backends */
+      backends?: components["schemas"]["BackendRead"][];
+      /**
+       * @description Where the pool may be attached: http (proxy hosts), stream (TCP/UDP), or both. ip_hash is only valid for http.
+       * @default http
+       */
+      context: components["schemas"]["UpstreamContext"];
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /**
+       * Description
+       * @description Optional free-text description
+       * @default
+       */
+      description: string;
+      /**
+       * Enabled
+       * @description Disabled pools are excluded from config
+       * @default true
+       */
+      enabled: boolean;
+      /** Id */
+      id: number;
+      /**
+       * @description nginx load-balancing strategy
+       * @default round_robin
+       */
+      lb_method: components["schemas"]["LoadBalanceMethod"];
+      /**
+       * Name
+       * @description Human-readable pool name
+       */
+      name: string;
+      /**
+       * Updated At
+       * Format: date-time
+       */
+      updated_at: string;
+    };
+    /**
+     * UpstreamUpdate
+     * @description Partial update of a pool's own attributes (not its backends).
+     */
+    UpstreamUpdate: {
+      context?: components["schemas"]["UpstreamContext"] | null;
+      /** Description */
+      description?: string | null;
+      /** Enabled */
+      enabled?: boolean | null;
+      lb_method?: components["schemas"]["LoadBalanceMethod"] | null;
+      /** Name */
+      name?: string | null;
+    };
+    /**
+     * UserCreate
+     * @description Payload to create a user (admin-only endpoint).
+     */
+    UserCreate: {
+      /**
+       * Email
+       * Format: email
+       */
+      email: string;
+      /**
+       * Full Name
+       * @default
+       */
+      full_name: string;
+      /**
+       * Is Active
+       * @default true
+       */
+      is_active: boolean;
+      /** Password */
+      password: string;
+      /** @default member */
+      role: components["schemas"]["UserRole"];
+    };
+    /**
+     * UserInvite
+     * @description Payload to invite a user. No password: they choose one when they accept.
+     */
+    UserInvite: {
+      /**
+       * Email
+       * Format: email
+       */
+      email: string;
+      /**
+       * Full Name
+       * @default
+       */
+      full_name: string;
+      /** @default member */
+      role: components["schemas"]["UserRole"];
+    };
+    /**
+     * UserRead
+     * @description Public representation of a user.
+     */
+    UserRead: {
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /**
+       * Email
+       * Format: email
+       */
+      email: string;
+      /**
+       * Full Name
+       * @default
+       */
+      full_name: string;
+      /** Id */
+      id: number;
+      /** Invited At */
+      invited_at?: string | null;
+      /**
+       * Is Active
+       * @default true
+       */
+      is_active: boolean;
+      /** @default member */
+      role: components["schemas"]["UserRole"];
+      /**
+       * Totp Enabled
+       * @default false
+       */
+      totp_enabled: boolean;
+      /**
+       * Updated At
+       * Format: date-time
+       */
+      updated_at: string;
+    };
+    /**
+     * UserRole
+     * @description Access-control role for a user.
+     * @enum {string}
+     */
+    UserRole: "admin" | "member";
+    /**
+     * UserUpdate
+     * @description Admin partial update of another user.
+     *
+     *     ``email`` is identity and immutable, so it is *rejected* (``extra="forbid"``)
+     *     rather than silently ignored. At least one field must be present.
+     */
+    UserUpdate: {
+      /** Full Name */
+      full_name?: string | null;
+      /** Is Active */
+      is_active?: boolean | null;
+      role?: components["schemas"]["UserRole"] | null;
+    };
+    /** ValidationError */
+    ValidationError: {
+      /** Context */
+      ctx?: Record<string, never>;
+      /** Input */
+      input?: unknown;
+      /** Location */
+      loc: (string | number)[];
+      /** Message */
+      msg: string;
+      /** Error Type */
+      type: string;
+    };
+    /**
+     * VisitorRow
+     * @description One visitor, summed across the requested window.
+     */
+    VisitorRow: {
+      /** Country */
+      country: string | null;
+      /** Ip */
+      ip: string;
+      /**
+       * Last Seen At
+       * Format: date-time
+       */
+      last_seen_at: string;
+      /** Requests */
+      requests: number;
+    };
+    /**
+     * VisitorSummary
+     * @description Recorded visitors over a window of days.
+     *
+     *     ``total_visitors`` counts every distinct address, including those with no
+     *     country, so the totals and the country breakdown deliberately do not have
+     *     to add up — an operator seeing the difference is seeing unlocated traffic,
+     *     which is real.
+     */
+    VisitorSummary: {
+      /** Countries */
+      countries: components["schemas"]["CountryCount"][];
+      /** Days */
+      days: number;
+      /** Top Ips */
+      top_ips: components["schemas"]["VisitorRow"][];
+      /** Total Requests */
+      total_requests: number;
+      /** Total Visitors */
+      total_visitors: number;
+    };
+    /**
+     * WhitelistApplyStatus
+     * @description Whether the last render actually reached CrowdSec.
+     */
+    WhitelistApplyStatus: {
+      /**
+       * Applied At
+       * @description When the last apply attempt finished
+       */
+      applied_at?: string | null;
+      /**
+       * Error
+       * @description Operator-facing failure text
+       */
+      error?: string | null;
+      /**
+       * Ok
+       * @description False when the last apply failed
+       */
+      ok: boolean;
+      /**
+       * Reload Configured
+       * @description False when CROWDSEC_CONTROL_NODE_ID is unset; whitelists then save but are never applied
+       */
+      reload_configured: boolean;
+    };
+    /**
+     * WhitelistCreate
+     * @description Request body for creating a whitelist.
+     */
+    WhitelistCreate: {
+      /**
+       * Cidrs
+       * @description CIDR ranges to exempt
+       */
+      cidrs?: string[];
+      /**
+       * Description
+       * @description Free-text note
+       * @default
+       */
+      description: string;
+      /**
+       * Enabled
+       * @description Disabled whitelists are not rendered
+       * @default true
+       */
+      enabled: boolean;
+      /**
+       * Expressions
+       * @description CrowdSec expr expressions. Compiled by CrowdSec, not here — one that does not compile stops CrowdSec starting and is caught by the apply's rollback
+       */
+      expressions?: string[];
+      /**
+       * Filter
+       * @description Optional expr filter scoping which events the expressions are evaluated against (expression whitelists only)
+       */
+      filter?: string | null;
+      /**
+       * Ips
+       * @description Exact IP addresses to exempt
+       */
+      ips?: string[];
+      /**
+       * @description What this whitelist matches on: addresses, or an expr expression
+       * @default ip_cidr
+       */
+      kind: components["schemas"]["WhitelistKind"];
+      /**
+       * Name
+       * @description Operator-facing name
+       */
+      name: string;
+      /**
+       * Reason
+       * @description Why these addresses are exempt; appears in CrowdSec's logs
+       */
+      reason: string;
+    };
+    /**
+     * WhitelistKind
+     * @description What a CrowdSec whitelist matches on.
+     *
+     *     The two kinds render different YAML and carry different risk.
+     *     ``ip_cidr`` is fully validated before it is written — a bad address is a
+     *     422 and never reaches disk. ``expression`` is CrowdSec's ``expr`` language
+     *     and can only be checked by CrowdSec itself: a expression that does not
+     *     compile is fatal at startup, so a typo is caught by the apply's rollback
+     *     rather than by validation. See ``docs/crowdsec.md``.
+     * @enum {string}
+     */
+    WhitelistKind: "ip_cidr" | "expression";
+    /**
+     * WhitelistPreview
+     * @description The YAML a given whitelist would contribute to the parser file.
+     */
+    WhitelistPreview: {
+      /**
+       * Yaml
+       * @description Exactly what the renderer would write
+       */
+      yaml: string;
+    };
+    /**
+     * WhitelistRead
+     * @description A stored whitelist.
+     *
+     *     The inherited fields are redeclared without defaults so the generated
+     *     OpenAPI marks them required. On a *response* they are always present, and
+     *     leaving them optional pushes needless null-handling into every consumer.
+     */
+    WhitelistRead: {
+      /** Cidrs */
+      cidrs: string[];
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /** Description */
+      description: string;
+      /** Enabled */
+      enabled: boolean;
+      /** Expressions */
+      expressions: string[];
+      /**
+       * Filter
+       * @description Optional expr filter scoping which events the expressions are evaluated against (expression whitelists only)
+       */
+      filter?: string | null;
+      /** Id */
+      id: number;
+      /** Ips */
+      ips: string[];
+      kind: components["schemas"]["WhitelistKind"];
+      /**
+       * Name
+       * @description Operator-facing name
+       */
+      name: string;
+      /**
+       * Reason
+       * @description Why these addresses are exempt; appears in CrowdSec's logs
+       */
+      reason: string;
+      /**
+       * Updated At
+       * Format: date-time
+       */
+      updated_at: string;
+    };
+    /**
+     * WhitelistUpdate
+     * @description Request body for replacing a whitelist.
+     */
+    WhitelistUpdate: {
+      /**
+       * Cidrs
+       * @description CIDR ranges to exempt
+       */
+      cidrs?: string[];
+      /**
+       * Description
+       * @description Free-text note
+       * @default
+       */
+      description: string;
+      /**
+       * Enabled
+       * @description Disabled whitelists are not rendered
+       * @default true
+       */
+      enabled: boolean;
+      /**
+       * Expressions
+       * @description CrowdSec expr expressions. Compiled by CrowdSec, not here — one that does not compile stops CrowdSec starting and is caught by the apply's rollback
+       */
+      expressions?: string[];
+      /**
+       * Filter
+       * @description Optional expr filter scoping which events the expressions are evaluated against (expression whitelists only)
+       */
+      filter?: string | null;
+      /**
+       * Ips
+       * @description Exact IP addresses to exempt
+       */
+      ips?: string[];
+      /**
+       * @description What this whitelist matches on: addresses, or an expr expression
+       * @default ip_cidr
+       */
+      kind: components["schemas"]["WhitelistKind"];
+      /**
+       * Name
+       * @description Operator-facing name
+       */
+      name: string;
+      /**
+       * Reason
+       * @description Why these addresses are exempt; appears in CrowdSec's logs
+       */
+      reason: string;
+    };
+  };
+  responses: never;
+  parameters: never;
+  requestBodies: never;
+  headers: never;
+  pathItems: never;
 }
 export type $defs = Record<string, never>;
 export interface operations {
-    list_access_lists_api_v1_access_lists_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AccessListRead"][];
-                };
-            };
-        };
-    };
-    create_access_list_api_v1_access_lists_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["AccessListCreate"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AccessListRead"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    get_access_list_api_v1_access_lists__access_list_id__get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                access_list_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AccessListRead"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    delete_access_list_api_v1_access_lists__access_list_id__delete: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                access_list_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    update_access_list_api_v1_access_lists__access_list_id__patch: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                access_list_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["AccessListUpdate"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AccessListRead"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    add_auth_user_api_v1_access_lists__access_list_id__auth_users_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                access_list_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["AccessListAuthCreate"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AccessListAuthRead"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    remove_auth_user_api_v1_access_lists__access_list_id__auth_users__user_id__delete: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                access_list_id: number;
-                user_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    set_auth_password_api_v1_access_lists__access_list_id__auth_users__user_id__patch: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                access_list_id: number;
-                user_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["AccessListAuthUpdate"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AccessListAuthRead"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    add_client_rule_api_v1_access_lists__access_list_id__clients_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                access_list_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["AccessListClientCreate"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AccessListClientRead"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    remove_client_rule_api_v1_access_lists__access_list_id__clients__rule_id__delete: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                access_list_id: number;
-                rule_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    update_client_rule_api_v1_access_lists__access_list_id__clients__rule_id__patch: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                access_list_id: number;
-                rule_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["AccessListClientUpdate"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AccessListClientRead"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    list_audit_log_api_v1_audit_log_get: {
-        parameters: {
-            query?: {
-                /** @description Filter by object type, e.g. proxy_host */
-                object_type?: string | null;
-                /** @description Filter by the mutated object's id */
-                object_id?: number | null;
-                /** @description Filter by actor (exact match) */
-                actor?: string | null;
-                /** @description Filter by mutation action */
-                action?: components["schemas"]["AuditAction"] | null;
-                /** @description Max entries to return */
-                limit?: number;
-                /** @description Entries to skip (pagination) */
-                offset?: number;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AuditLogPage"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    accept_invite_api_v1_auth_accept_invite_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["AcceptInviteRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    capabilities_api_v1_auth_capabilities_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AuthCapabilities"];
-                };
-            };
-        };
-    };
-    forgot_password_api_v1_auth_forgot_password_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ForgotPasswordRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            202: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["NeutralResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    login_api_v1_auth_login_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["LoginRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["TokenPair"] | components["schemas"]["MfaRequired"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    read_me_api_v1_auth_me_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["UserRead"];
-                };
-            };
-        };
-    };
-    mfa_passkey_options_api_v1_auth_mfa_passkey_options_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["PasskeyOptionsRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PasskeyOptions"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    mfa_passkey_verify_api_v1_auth_mfa_passkey_verify_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["PasskeyAssertRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["MfaVerifyResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    mfa_verify_api_v1_auth_mfa_verify_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["MfaVerifyRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["MfaVerifyResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    refresh_api_v1_auth_refresh_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["RefreshRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["TokenPair"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    reset_password_api_v1_auth_reset_password_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ResetPasswordRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    list_certificates_api_v1_certificates_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["CertificateRead"][];
-                };
-            };
-        };
-    };
-    upload_custom_certificate_api_v1_certificates_custom_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CustomCertificateCreate"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["CertificateRead"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    request_letsencrypt_certificate_api_v1_certificates_letsencrypt_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["LetsEncryptCertificateCreate"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            202: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["CertificateIssued"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    get_certificate_api_v1_certificates__cert_id__get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                cert_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["CertificateRead"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    delete_certificate_api_v1_certificates__cert_id__delete: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                cert_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    renew_certificate_api_v1_certificates__cert_id__renew_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                cert_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            202: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["CertificateIssued"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    cluster_status_api_v1_cluster_status_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ClusterStatus"];
-                };
-            };
-        };
-    };
-    list_alerts_api_v1_crowdsec_alerts_get: {
-        parameters: {
-            query?: {
-                /** @description 1-based page number */
-                page?: number;
-                /** @description Records per page (max 200) */
-                page_size?: number;
-                /** @description Include community/CAPI/blocklist-origin records (default: local only) */
-                include_community?: boolean;
-                /** @description Case-insensitive substring filter, applied before pagination */
-                q?: string | null;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AlertList"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    list_decisions_api_v1_crowdsec_decisions_get: {
-        parameters: {
-            query?: {
-                /** @description 1-based page number */
-                page?: number;
-                /** @description Records per page (max 200) */
-                page_size?: number;
-                /** @description Include community/CAPI/blocklist-origin records (default: local only) */
-                include_community?: boolean;
-                /** @description Case-insensitive substring filter, applied before pagination */
-                q?: string | null;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["DecisionList"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    add_decision_api_v1_crowdsec_decisions_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["DecisionCreate"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Decision"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    delete_decision_api_v1_crowdsec_decisions__decision_id__delete: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                decision_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        [key: string]: number;
-                    };
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    crowdsec_health_api_v1_crowdsec_health_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["CrowdSecHealth"];
-                };
-            };
-        };
-    };
-    list_whitelists_api_v1_crowdsec_whitelists_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["WhitelistRead"][];
-                };
-            };
-        };
-    };
-    create_whitelist_api_v1_crowdsec_whitelists_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["WhitelistCreate"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["WhitelistRead"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    apply_whitelists_api_v1_crowdsec_whitelists_apply_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            202: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        [key: string]: boolean;
-                    };
-                };
-            };
-        };
-    };
-    preview_whitelist_api_v1_crowdsec_whitelists_preview_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["WhitelistCreate"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["WhitelistPreview"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    whitelist_status_api_v1_crowdsec_whitelists_status_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["WhitelistApplyStatus"];
-                };
-            };
-        };
-    };
-    delete_whitelist_api_v1_crowdsec_whitelists__whitelist_id__delete: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                whitelist_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    update_whitelist_api_v1_crowdsec_whitelists__whitelist_id__patch: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                whitelist_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["WhitelistUpdate"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["WhitelistRead"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    list_custom_pages_api_v1_custom_pages_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["CustomPageSummary"][];
-                };
-            };
-        };
-    };
-    create_custom_page_api_v1_custom_pages_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CustomPageCreate"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["CustomPageRead"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    assist_custom_page_api_v1_custom_pages_assist_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["PageAssistRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PageAssistResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    get_custom_page_api_v1_custom_pages__page_id__get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                page_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["CustomPageRead"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    delete_custom_page_api_v1_custom_pages__page_id__delete: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                page_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    update_custom_page_api_v1_custom_pages__page_id__patch: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                page_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CustomPageUpdate"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["CustomPageRead"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    dashboard_summary_api_v1_dashboard_summary_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["DashboardSummary"];
-                };
-            };
-        };
-    };
-    dashboard_threats_api_v1_dashboard_threats_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ThreatPoint"][];
-                };
-            };
-        };
-    };
-    dashboard_visitors_api_v1_dashboard_visitors_get: {
-        parameters: {
-            query?: {
-                /** @description Days to summarise */
-                days?: number;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["VisitorSummary"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    list_dead_hosts_api_v1_dead_hosts_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["DeadHostRead"][];
-                };
-            };
-        };
-    };
-    create_dead_host_api_v1_dead_hosts_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["DeadHostCreate"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["DeadHostRead"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    get_dead_host_api_v1_dead_hosts__host_id__get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                host_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["DeadHostRead"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    delete_dead_host_api_v1_dead_hosts__host_id__delete: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                host_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    update_dead_host_api_v1_dead_hosts__host_id__patch: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                host_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["DeadHostUpdate"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["DeadHostRead"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    list_dns_credentials_api_v1_dns_credentials_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["DnsCredentialRead"][];
-                };
-            };
-        };
-    };
-    create_dns_credential_api_v1_dns_credentials_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["DnsCredentialCreate"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["DnsCredentialRead"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    delete_dns_credential_api_v1_dns_credentials__credential_id__delete: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                credential_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    update_dns_credential_api_v1_dns_credentials__credential_id__patch: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                credential_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["DnsCredentialUpdate"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["DnsCredentialRead"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    verify_dns_credential_api_v1_dns_credentials__credential_id__verify_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                credential_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["DnsCredentialVerify"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["DnsCredentialVerified"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    list_dns_providers_api_v1_dns_providers_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["DnsProviderInfoRead"][];
-                };
-            };
-        };
-    };
-    stream_events_api_v1_events_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-        };
-    };
-    preview_nginx_config_api_v1_nginx_preview_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["NginxConfigPreview"];
-                };
-            };
-        };
-    };
-    reload_nginx_api_v1_nginx_reload_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            202: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["TaskEnqueued"];
-                };
-            };
-        };
-    };
-    list_proxy_hosts_api_v1_proxy_hosts_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ProxyHostRead"][];
-                };
-            };
-        };
-    };
-    create_proxy_host_api_v1_proxy_hosts_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ProxyHostCreate"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ProxyHostRead"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    get_proxy_host_api_v1_proxy_hosts__host_id__get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                host_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ProxyHostRead"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    delete_proxy_host_api_v1_proxy_hosts__host_id__delete: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                host_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    update_proxy_host_api_v1_proxy_hosts__host_id__patch: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                host_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ProxyHostUpdate"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ProxyHostRead"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    list_redirection_hosts_api_v1_redirection_hosts_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RedirectionHostRead"][];
-                };
-            };
-        };
-    };
-    create_redirection_host_api_v1_redirection_hosts_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["RedirectionHostCreate"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RedirectionHostRead"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    get_redirection_host_api_v1_redirection_hosts__host_id__get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                host_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RedirectionHostRead"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    delete_redirection_host_api_v1_redirection_hosts__host_id__delete: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                host_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    update_redirection_host_api_v1_redirection_hosts__host_id__patch: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                host_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["RedirectionHostUpdate"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RedirectionHostRead"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    read_settings_api_v1_settings_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["InstanceSettingsRead"];
-                };
-            };
-        };
-    };
-    update_ban_page_settings_api_v1_settings_ban_page_patch: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CrowdSecBanUpdate"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["InstanceSettingsRead"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    update_settings_api_v1_settings_default_site_patch: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["InstanceSettingsUpdate"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["InstanceSettingsRead"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    update_llm_settings_api_v1_settings_llm_patch: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["LlmSettingsUpdate"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["InstanceSettingsRead"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    test_llm_connection_api_v1_settings_llm_test_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["LlmTestRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["LlmTestResult"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    update_smtp_settings_api_v1_settings_smtp_patch: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["SmtpSettingsUpdate"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["InstanceSettingsRead"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    send_test_email_api_v1_settings_smtp_test_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["MailTestRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["MailTestResult"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    list_streams_api_v1_streams_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["StreamRead"][];
-                };
-            };
-        };
-    };
-    create_stream_api_v1_streams_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["StreamCreate"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["StreamRead"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    get_stream_api_v1_streams__stream_id__get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                stream_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["StreamRead"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    delete_stream_api_v1_streams__stream_id__delete: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                stream_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    update_stream_api_v1_streams__stream_id__patch: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                stream_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["StreamUpdate"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["StreamRead"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    enqueue_sample_api_v1_tasks_sample_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["SampleTaskRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            202: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["TaskEnqueued"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    task_status_api_v1_tasks__task_id__get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                task_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["TaskStatus"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    list_upstreams_api_v1_upstreams_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["UpstreamRead"][];
-                };
-            };
-        };
-    };
-    create_upstream_api_v1_upstreams_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["UpstreamCreate"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["UpstreamRead"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    get_upstream_api_v1_upstreams__upstream_id__get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                upstream_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["UpstreamRead"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    delete_upstream_api_v1_upstreams__upstream_id__delete: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                upstream_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    update_upstream_api_v1_upstreams__upstream_id__patch: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                upstream_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["UpstreamUpdate"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["UpstreamRead"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    add_backend_api_v1_upstreams__upstream_id__backends_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                upstream_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["BackendCreate"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["BackendRead"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    remove_backend_api_v1_upstreams__upstream_id__backends__backend_id__delete: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                upstream_id: number;
-                backend_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    update_backend_api_v1_upstreams__upstream_id__backends__backend_id__patch: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                upstream_id: number;
-                backend_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["BackendUpdate"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["BackendRead"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    list_users_api_v1_users_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["UserRead"][];
-                };
-            };
-        };
-    };
-    create_user_api_v1_users_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["UserCreate"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["UserRead"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    invite_user_api_v1_users_invite_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["UserInvite"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["UserRead"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    read_current_user_api_v1_users_me_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["UserRead"];
-                };
-            };
-        };
-    };
-    update_current_user_api_v1_users_me_patch: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ProfileUpdate"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["UserRead"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    passkey_list_api_v1_users_me_passkeys_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PasskeyRead"][];
-                };
-            };
-        };
-    };
-    passkey_register_api_v1_users_me_passkeys_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["PasskeyRegisterRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PasskeyRead"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    passkey_options_api_v1_users_me_passkeys_options_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["TotpCodeRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PasskeyOptions"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    passkey_remove_api_v1_users_me_passkeys__passkey_id__remove_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                passkey_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["TotpCodeRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    change_current_user_password_api_v1_users_me_password_put: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["PasswordChange"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    totp_disable_api_v1_users_me_totp_disable_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["TotpCodeRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    totp_enable_api_v1_users_me_totp_enable_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["TotpCodeRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["TotpCodes"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    totp_regenerate_api_v1_users_me_totp_recovery_codes_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["TotpCodeRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["TotpCodes"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    totp_setup_api_v1_users_me_totp_setup_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["TotpSetup"];
-                };
-            };
-        };
-    };
-    delete_user_api_v1_users__user_id__delete: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                user_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    update_user_api_v1_users__user_id__patch: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                user_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["UserUpdate"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["UserRead"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    resend_invitation_api_v1_users__user_id__invite_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                user_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    reset_password_api_v1_users__user_id__password_put: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                user_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["PasswordReset"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    admin_totp_disable_api_v1_users__user_id__totp_disable_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                user_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    health_health_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HealthResponse"];
-                };
-            };
-        };
-    };
+  list_access_lists_api_v1_access_lists_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AccessListRead"][];
+        };
+      };
+    };
+  };
+  create_access_list_api_v1_access_lists_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["AccessListCreate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AccessListRead"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  get_access_list_api_v1_access_lists__access_list_id__get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        access_list_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AccessListRead"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  delete_access_list_api_v1_access_lists__access_list_id__delete: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        access_list_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  update_access_list_api_v1_access_lists__access_list_id__patch: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        access_list_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["AccessListUpdate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AccessListRead"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  add_auth_user_api_v1_access_lists__access_list_id__auth_users_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        access_list_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["AccessListAuthCreate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AccessListAuthRead"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  remove_auth_user_api_v1_access_lists__access_list_id__auth_users__user_id__delete: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        access_list_id: number;
+        user_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  set_auth_password_api_v1_access_lists__access_list_id__auth_users__user_id__patch: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        access_list_id: number;
+        user_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["AccessListAuthUpdate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AccessListAuthRead"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  add_client_rule_api_v1_access_lists__access_list_id__clients_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        access_list_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["AccessListClientCreate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AccessListClientRead"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  remove_client_rule_api_v1_access_lists__access_list_id__clients__rule_id__delete: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        access_list_id: number;
+        rule_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  update_client_rule_api_v1_access_lists__access_list_id__clients__rule_id__patch: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        access_list_id: number;
+        rule_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["AccessListClientUpdate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AccessListClientRead"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  list_audit_log_api_v1_audit_log_get: {
+    parameters: {
+      query?: {
+        /** @description Filter by object type, e.g. proxy_host */
+        object_type?: string | null;
+        /** @description Filter by the mutated object's id */
+        object_id?: number | null;
+        /** @description Filter by actor (exact match) */
+        actor?: string | null;
+        /** @description Filter by mutation action */
+        action?: components["schemas"]["AuditAction"] | null;
+        /** @description Max entries to return */
+        limit?: number;
+        /** @description Entries to skip (pagination) */
+        offset?: number;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AuditLogPage"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  accept_invite_api_v1_auth_accept_invite_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["AcceptInviteRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  capabilities_api_v1_auth_capabilities_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AuthCapabilities"];
+        };
+      };
+    };
+  };
+  forgot_password_api_v1_auth_forgot_password_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ForgotPasswordRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      202: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["NeutralResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  login_api_v1_auth_login_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["LoginRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json":
+            components["schemas"]["TokenPair"] | components["schemas"]["MfaRequired"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  read_me_api_v1_auth_me_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["UserRead"];
+        };
+      };
+    };
+  };
+  mfa_passkey_options_api_v1_auth_mfa_passkey_options_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["PasskeyOptionsRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PasskeyOptions"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  mfa_passkey_verify_api_v1_auth_mfa_passkey_verify_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["PasskeyAssertRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["MfaVerifyResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  mfa_verify_api_v1_auth_mfa_verify_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["MfaVerifyRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["MfaVerifyResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  refresh_api_v1_auth_refresh_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["RefreshRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["TokenPair"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  reset_password_api_v1_auth_reset_password_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ResetPasswordRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  list_certificates_api_v1_certificates_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["CertificateRead"][];
+        };
+      };
+    };
+  };
+  upload_custom_certificate_api_v1_certificates_custom_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["CustomCertificateCreate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["CertificateRead"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  request_letsencrypt_certificate_api_v1_certificates_letsencrypt_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["LetsEncryptCertificateCreate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      202: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["CertificateIssued"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  get_certificate_api_v1_certificates__cert_id__get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        cert_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["CertificateRead"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  delete_certificate_api_v1_certificates__cert_id__delete: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        cert_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  renew_certificate_api_v1_certificates__cert_id__renew_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        cert_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      202: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["CertificateIssued"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  cluster_status_api_v1_cluster_status_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ClusterStatus"];
+        };
+      };
+    };
+  };
+  list_alerts_api_v1_crowdsec_alerts_get: {
+    parameters: {
+      query?: {
+        /** @description 1-based page number */
+        page?: number;
+        /** @description Records per page (max 200) */
+        page_size?: number;
+        /** @description Include community/CAPI/blocklist-origin records (default: local only) */
+        include_community?: boolean;
+        /** @description Case-insensitive substring filter, applied before pagination */
+        q?: string | null;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AlertList"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  list_decisions_api_v1_crowdsec_decisions_get: {
+    parameters: {
+      query?: {
+        /** @description 1-based page number */
+        page?: number;
+        /** @description Records per page (max 200) */
+        page_size?: number;
+        /** @description Include community/CAPI/blocklist-origin records (default: local only) */
+        include_community?: boolean;
+        /** @description Case-insensitive substring filter, applied before pagination */
+        q?: string | null;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["DecisionList"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  add_decision_api_v1_crowdsec_decisions_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["DecisionCreate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Decision"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  delete_decision_api_v1_crowdsec_decisions__decision_id__delete: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        decision_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            [key: string]: number;
+          };
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  crowdsec_health_api_v1_crowdsec_health_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["CrowdSecHealth"];
+        };
+      };
+    };
+  };
+  hub_update_now_api_v1_crowdsec_hub_update_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      202: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            [key: string]: boolean;
+          };
+        };
+      };
+    };
+  };
+  maintenance_api_v1_crowdsec_maintenance_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["CrowdSecMaintenance"];
+        };
+      };
+    };
+  };
+  list_whitelists_api_v1_crowdsec_whitelists_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["WhitelistRead"][];
+        };
+      };
+    };
+  };
+  create_whitelist_api_v1_crowdsec_whitelists_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["WhitelistCreate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["WhitelistRead"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  apply_whitelists_api_v1_crowdsec_whitelists_apply_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      202: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            [key: string]: boolean;
+          };
+        };
+      };
+    };
+  };
+  preview_whitelist_api_v1_crowdsec_whitelists_preview_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["WhitelistCreate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["WhitelistPreview"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  whitelist_status_api_v1_crowdsec_whitelists_status_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["WhitelistApplyStatus"];
+        };
+      };
+    };
+  };
+  delete_whitelist_api_v1_crowdsec_whitelists__whitelist_id__delete: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        whitelist_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  update_whitelist_api_v1_crowdsec_whitelists__whitelist_id__patch: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        whitelist_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["WhitelistUpdate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["WhitelistRead"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  list_custom_pages_api_v1_custom_pages_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["CustomPageSummary"][];
+        };
+      };
+    };
+  };
+  create_custom_page_api_v1_custom_pages_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["CustomPageCreate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["CustomPageRead"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  assist_custom_page_api_v1_custom_pages_assist_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["PageAssistRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PageAssistResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  get_custom_page_api_v1_custom_pages__page_id__get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        page_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["CustomPageRead"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  delete_custom_page_api_v1_custom_pages__page_id__delete: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        page_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  update_custom_page_api_v1_custom_pages__page_id__patch: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        page_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["CustomPageUpdate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["CustomPageRead"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  dashboard_summary_api_v1_dashboard_summary_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["DashboardSummary"];
+        };
+      };
+    };
+  };
+  dashboard_threats_api_v1_dashboard_threats_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ThreatPoint"][];
+        };
+      };
+    };
+  };
+  dashboard_visitors_api_v1_dashboard_visitors_get: {
+    parameters: {
+      query?: {
+        /** @description Days to summarise */
+        days?: number;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["VisitorSummary"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  list_dead_hosts_api_v1_dead_hosts_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["DeadHostRead"][];
+        };
+      };
+    };
+  };
+  create_dead_host_api_v1_dead_hosts_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["DeadHostCreate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["DeadHostRead"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  get_dead_host_api_v1_dead_hosts__host_id__get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        host_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["DeadHostRead"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  delete_dead_host_api_v1_dead_hosts__host_id__delete: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        host_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  update_dead_host_api_v1_dead_hosts__host_id__patch: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        host_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["DeadHostUpdate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["DeadHostRead"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  list_dns_credentials_api_v1_dns_credentials_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["DnsCredentialRead"][];
+        };
+      };
+    };
+  };
+  create_dns_credential_api_v1_dns_credentials_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["DnsCredentialCreate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["DnsCredentialRead"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  delete_dns_credential_api_v1_dns_credentials__credential_id__delete: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        credential_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  update_dns_credential_api_v1_dns_credentials__credential_id__patch: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        credential_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["DnsCredentialUpdate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["DnsCredentialRead"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  verify_dns_credential_api_v1_dns_credentials__credential_id__verify_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        credential_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["DnsCredentialVerify"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["DnsCredentialVerified"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  list_dns_providers_api_v1_dns_providers_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["DnsProviderInfoRead"][];
+        };
+      };
+    };
+  };
+  stream_events_api_v1_events_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": unknown;
+        };
+      };
+    };
+  };
+  preview_nginx_config_api_v1_nginx_preview_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["NginxConfigPreview"];
+        };
+      };
+    };
+  };
+  reload_nginx_api_v1_nginx_reload_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      202: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["TaskEnqueued"];
+        };
+      };
+    };
+  };
+  list_proxy_hosts_api_v1_proxy_hosts_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProxyHostRead"][];
+        };
+      };
+    };
+  };
+  create_proxy_host_api_v1_proxy_hosts_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ProxyHostCreate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProxyHostRead"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  get_proxy_host_api_v1_proxy_hosts__host_id__get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        host_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProxyHostRead"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  delete_proxy_host_api_v1_proxy_hosts__host_id__delete: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        host_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  update_proxy_host_api_v1_proxy_hosts__host_id__patch: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        host_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ProxyHostUpdate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProxyHostRead"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  list_redirection_hosts_api_v1_redirection_hosts_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["RedirectionHostRead"][];
+        };
+      };
+    };
+  };
+  create_redirection_host_api_v1_redirection_hosts_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["RedirectionHostCreate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["RedirectionHostRead"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  get_redirection_host_api_v1_redirection_hosts__host_id__get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        host_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["RedirectionHostRead"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  delete_redirection_host_api_v1_redirection_hosts__host_id__delete: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        host_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  update_redirection_host_api_v1_redirection_hosts__host_id__patch: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        host_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["RedirectionHostUpdate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["RedirectionHostRead"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  read_settings_api_v1_settings_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["InstanceSettingsRead"];
+        };
+      };
+    };
+  };
+  update_ban_page_settings_api_v1_settings_ban_page_patch: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["CrowdSecBanUpdate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["InstanceSettingsRead"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  update_crowdsec_capi_settings_api_v1_settings_crowdsec_capi_patch: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["CrowdSecCapiUpdate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      202: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["InstanceSettingsRead"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  update_crowdsec_hub_settings_api_v1_settings_crowdsec_hub_patch: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["CrowdSecHubUpdate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["InstanceSettingsRead"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  update_settings_api_v1_settings_default_site_patch: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["InstanceSettingsUpdate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["InstanceSettingsRead"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  update_llm_settings_api_v1_settings_llm_patch: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["LlmSettingsUpdate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["InstanceSettingsRead"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  test_llm_connection_api_v1_settings_llm_test_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["LlmTestRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["LlmTestResult"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  update_smtp_settings_api_v1_settings_smtp_patch: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["SmtpSettingsUpdate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["InstanceSettingsRead"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  send_test_email_api_v1_settings_smtp_test_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["MailTestRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["MailTestResult"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  list_streams_api_v1_streams_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["StreamRead"][];
+        };
+      };
+    };
+  };
+  create_stream_api_v1_streams_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["StreamCreate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["StreamRead"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  get_stream_api_v1_streams__stream_id__get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        stream_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["StreamRead"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  delete_stream_api_v1_streams__stream_id__delete: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        stream_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  update_stream_api_v1_streams__stream_id__patch: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        stream_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["StreamUpdate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["StreamRead"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  enqueue_sample_api_v1_tasks_sample_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["SampleTaskRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      202: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["TaskEnqueued"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  task_status_api_v1_tasks__task_id__get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        task_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["TaskStatus"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  list_upstreams_api_v1_upstreams_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["UpstreamRead"][];
+        };
+      };
+    };
+  };
+  create_upstream_api_v1_upstreams_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["UpstreamCreate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["UpstreamRead"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  get_upstream_api_v1_upstreams__upstream_id__get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        upstream_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["UpstreamRead"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  delete_upstream_api_v1_upstreams__upstream_id__delete: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        upstream_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  update_upstream_api_v1_upstreams__upstream_id__patch: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        upstream_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["UpstreamUpdate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["UpstreamRead"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  add_backend_api_v1_upstreams__upstream_id__backends_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        upstream_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["BackendCreate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["BackendRead"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  remove_backend_api_v1_upstreams__upstream_id__backends__backend_id__delete: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        upstream_id: number;
+        backend_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  update_backend_api_v1_upstreams__upstream_id__backends__backend_id__patch: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        upstream_id: number;
+        backend_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["BackendUpdate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["BackendRead"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  list_users_api_v1_users_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["UserRead"][];
+        };
+      };
+    };
+  };
+  create_user_api_v1_users_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["UserCreate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["UserRead"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  invite_user_api_v1_users_invite_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["UserInvite"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["UserRead"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  read_current_user_api_v1_users_me_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["UserRead"];
+        };
+      };
+    };
+  };
+  update_current_user_api_v1_users_me_patch: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ProfileUpdate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["UserRead"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  passkey_list_api_v1_users_me_passkeys_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PasskeyRead"][];
+        };
+      };
+    };
+  };
+  passkey_register_api_v1_users_me_passkeys_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["PasskeyRegisterRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PasskeyRead"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  passkey_options_api_v1_users_me_passkeys_options_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["TotpCodeRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PasskeyOptions"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  passkey_remove_api_v1_users_me_passkeys__passkey_id__remove_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        passkey_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["TotpCodeRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  change_current_user_password_api_v1_users_me_password_put: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["PasswordChange"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  totp_disable_api_v1_users_me_totp_disable_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["TotpCodeRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  totp_enable_api_v1_users_me_totp_enable_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["TotpCodeRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["TotpCodes"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  totp_regenerate_api_v1_users_me_totp_recovery_codes_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["TotpCodeRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["TotpCodes"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  totp_setup_api_v1_users_me_totp_setup_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["TotpSetup"];
+        };
+      };
+    };
+  };
+  delete_user_api_v1_users__user_id__delete: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        user_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  update_user_api_v1_users__user_id__patch: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        user_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["UserUpdate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["UserRead"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  resend_invitation_api_v1_users__user_id__invite_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        user_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  reset_password_api_v1_users__user_id__password_put: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        user_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["PasswordReset"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  admin_totp_disable_api_v1_users__user_id__totp_disable_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        user_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  health_health_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HealthResponse"];
+        };
+      };
+    };
+  };
 }

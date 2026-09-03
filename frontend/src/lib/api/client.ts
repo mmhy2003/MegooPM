@@ -50,9 +50,7 @@ function getAuthToken(): string | null {
  */
 let tokenRefresher: (() => Promise<string | null>) | null = null;
 
-export function setTokenRefresher(
-  refresher: (() => Promise<string | null>) | null,
-): void {
+export function setTokenRefresher(refresher: (() => Promise<string | null>) | null): void {
   tokenRefresher = refresher;
 }
 
@@ -77,10 +75,7 @@ function buildUrl(path: string, query?: Record<string, QueryValue>): string {
  * @typeParam T - expected shape of the parsed JSON response.
  * @throws {ApiError} for any non-2xx response.
  */
-export async function apiFetch<T>(
-  path: string,
-  options: ApiRequestOptions = {},
-): Promise<T> {
+export async function apiFetch<T>(path: string, options: ApiRequestOptions = {}): Promise<T> {
   const { query, body, token, headers, ...init } = options;
 
   let serializedBody: BodyInit | undefined;

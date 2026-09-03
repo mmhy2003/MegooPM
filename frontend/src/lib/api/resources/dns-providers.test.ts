@@ -14,7 +14,11 @@ describe("dns-providers resources", () => {
 
     await dnsProviders.catalog();
     await dnsCredentials.list();
-    await dnsCredentials.create({ name: "cf", provider: "cloudflare", options: { auth_token: "t" } });
+    await dnsCredentials.create({
+      name: "cf",
+      provider: "cloudflare",
+      options: { auth_token: "t" },
+    });
     await dnsCredentials.update(3, { name: "cf2" });
     await dnsCredentials.verify(3, { domain: "example.com" });
     await dnsCredentials.remove(3);

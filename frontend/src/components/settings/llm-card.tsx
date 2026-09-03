@@ -86,8 +86,8 @@ export function LlmCard({
       <div>
         <h3 className="text-sm font-semibold">LLM Integration</h3>
         <p className="text-sm text-muted-foreground">
-          Let MegooPM call a language model. Off by default — this opens outbound
-          connections from your proxy to a third party.
+          Let MegooPM call a language model. Off by default — this opens outbound connections from
+          your proxy to a third party.
         </p>
       </div>
 
@@ -145,9 +145,9 @@ export function LlmCard({
           ) : null}
         </div>
         <p className="text-xs text-muted-foreground">
-          {form.keyIsSet ? "A key is stored." : "No key stored."} Leave blank for a
-          local model that needs none — in that case the provider library may fall
-          back to an API key set in the environment.
+          {form.keyIsSet ? "A key is stored." : "No key stored."} Leave blank for a local model that
+          needs none — in that case the provider library may fall back to an API key set in the
+          environment.
         </p>
       </div>
 
@@ -161,10 +161,9 @@ export function LlmCard({
           disabled={saving}
         />
         <p className="text-xs text-muted-foreground">
-          Pointing at an OpenAI-compatible endpoint — MiniMax, Groq, Together,
-          OpenRouter, vLLM? Prefix the model with <code>openai/</code>. It is
-          stripped before the request, so the provider still receives the bare
-          model name.
+          Pointing at an OpenAI-compatible endpoint — MiniMax, Groq, Together, OpenRouter, vLLM?
+          Prefix the model with <code>openai/</code>. It is stripped before the request, so the
+          provider still receives the bare model name.
         </p>
       </div>
 

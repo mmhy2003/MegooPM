@@ -114,11 +114,14 @@ describe("topOffenders", () => {
 
 describe("decisionRowKey", () => {
   it("prefers the LAPI id and falls back to scope/value/index", () => {
-    expect(decisionRowKey({ id: 7, scope: "Ip", value: "1.1.1.1", type: "ban", duration: "4h" }, 0)).toBe(
-      "id-7",
-    );
     expect(
-      decisionRowKey({ id: null, scope: "Range", value: "10.0.0.0/24", type: "ban", duration: "4h" }, 2),
+      decisionRowKey({ id: 7, scope: "Ip", value: "1.1.1.1", type: "ban", duration: "4h" }, 0),
+    ).toBe("id-7");
+    expect(
+      decisionRowKey(
+        { id: null, scope: "Range", value: "10.0.0.0/24", type: "ban", duration: "4h" },
+        2,
+      ),
     ).toBe("Range:10.0.0.0/24:2");
   });
 });

@@ -21,6 +21,8 @@ export function ConfirmDeleteDialog({
   description,
   onConfirm,
   onDeleted,
+  confirmLabel = "Delete",
+  successMessage = "Deleted",
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -29,6 +31,10 @@ export function ConfirmDeleteDialog({
   /** Performs the delete; may throw an `ApiError` to surface as a toast. */
   onConfirm: () => Promise<void>;
   onDeleted: () => void;
+  /** The destructive button's label; the dialog is also used for other
+      confirm-then-act flows (CrowdSec maintenance). */
+  confirmLabel?: string;
+  successMessage?: string;
 }) {
   const [deleting, setDeleting] = useState(false);
 
@@ -36,7 +42,7 @@ export function ConfirmDeleteDialog({
     setDeleting(true);
     try {
       await onConfirm();
-      toast.success("Deleted");
+      toast.success(successMessage);
       onOpenChange(false);
       onDeleted();
     } catch (err) {
@@ -54,15 +60,11 @@ export function ConfirmDeleteDialog({
           <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
         <DialogFooter>
-          <Button
-            variant="outline"
-            onClick={() => onOpenChange(false)}
-            disabled={deleting}
-          >
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={deleting}>
             Cancel
           </Button>
           <Button variant="destructive" onClick={handleConfirm} disabled={deleting}>
-            {deleting ? "Deleting…" : "Delete"}
+            {deleting ? "Working…" : confirmLabel}
           </Button>
         </DialogFooter>
       </DialogContent>

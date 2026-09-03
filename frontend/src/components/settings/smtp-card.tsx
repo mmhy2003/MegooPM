@@ -185,9 +185,7 @@ export function SmtpCard({
                 variant="outline"
                 size="sm"
                 disabled={saving}
-                onClick={() =>
-                  patch({ password: "", passwordIsSet: false, passwordCleared: true })
-                }
+                onClick={() => patch({ password: "", passwordIsSet: false, passwordCleared: true })}
               >
                 Remove
               </Button>

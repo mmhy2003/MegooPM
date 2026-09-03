@@ -56,6 +56,11 @@ function makeSettings(llmEnabled: boolean): InstanceSettings {
     smtp_password_set: false,
     smtp_from: null,
     smtp_from_name: null,
+    crowdsec_hub_auto_update: true,
+    crowdsec_hub_update_frequency: "daily" as const,
+    crowdsec_hub_update_weekday: 6,
+    crowdsec_hub_update_hour_utc: 3,
+    crowdsec_capi_enabled: false,
     app_url: null,
     updated_at: "2026-09-01T00:00:00Z",
   };
@@ -84,9 +89,7 @@ describe("CustomPageEditorView", () => {
       html: AI_DOC,
       mode: "tools",
       truncated: false,
-      changes: [
-        { start: 4, end: 4, before: "    <h1>Old</h1>", after: "    <h1>New</h1>" },
-      ],
+      changes: [{ start: 4, end: 4, before: "    <h1>Old</h1>", after: "    <h1>New</h1>" }],
     });
     vi.spyOn(instanceSettings, "get").mockResolvedValue(makeSettings(true));
   });
@@ -189,9 +192,7 @@ describe("CustomPageEditorView — AI", () => {
       html: AI_DOC,
       mode: "tools",
       truncated: false,
-      changes: [
-        { start: 4, end: 4, before: "    <h1>Old</h1>", after: "    <h1>New</h1>" },
-      ],
+      changes: [{ start: 4, end: 4, before: "    <h1>Old</h1>", after: "    <h1>New</h1>" }],
     });
     vi.spyOn(instanceSettings, "get").mockResolvedValue(makeSettings(true));
   });
@@ -205,10 +206,7 @@ describe("CustomPageEditorView — AI", () => {
     await user.click(await screen.findByRole("button", { name: "Ask AI" }));
   }
 
-  async function generate(
-    user: ReturnType<typeof userEvent.setup>,
-    instruction: string,
-  ) {
+  async function generate(user: ReturnType<typeof userEvent.setup>, instruction: string) {
     await openAi(user);
     await user.type(await screen.findByLabelText("Instruction"), instruction);
     await user.click(screen.getByRole("button", { name: "Generate" }));
@@ -276,17 +274,13 @@ describe("CustomPageEditorView — AI", () => {
 
     await user.click(screen.getByRole("button", { name: "Revert AI edit" }));
     expect(screen.getByLabelText("HTML source")).toHaveValue(HTML);
-    expect(
-      screen.queryByRole("button", { name: "Revert AI edit" }),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Revert AI edit" })).not.toBeInTheDocument();
   });
 
   it("offers no revert until an AI edit has happened", async () => {
     render(<CustomPageEditorView pageId={7} />);
     await waitFor(() => expect(screen.getByLabelText("HTML source")).toHaveValue(HTML));
-    expect(
-      screen.queryByRole("button", { name: "Revert AI edit" }),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Revert AI edit" })).not.toBeInTheDocument();
   });
 
   it("leaves the document alone when the model call fails", async () => {
@@ -302,9 +296,7 @@ describe("CustomPageEditorView — AI", () => {
   });
 
   it("refuses to send a document that is too large even elided", async () => {
-    vi.mocked(customPages.get).mockResolvedValue(
-      makePage({ html: "x".repeat(200 * 1024 + 1) }),
-    );
+    vi.mocked(customPages.get).mockResolvedValue(makePage({ html: "x".repeat(200 * 1024 + 1) }));
     const user = userEvent.setup();
     render(<CustomPageEditorView pageId={7} />);
     await generate(user, "tidy it");
@@ -336,9 +328,7 @@ describe("CustomPageEditorView — change summary", () => {
       html: AI_DOC,
       mode: "tools",
       truncated: false,
-      changes: [
-        { start: 4, end: 4, before: "    <h1>Old</h1>", after: "    <h1>New</h1>" },
-      ],
+      changes: [{ start: 4, end: 4, before: "    <h1>Old</h1>", after: "    <h1>New</h1>" }],
     });
     vi.spyOn(instanceSettings, "get").mockResolvedValue(makeSettings(true));
   });
@@ -458,9 +448,7 @@ describe("CustomPageEditorView — change summary", () => {
       html: AI_DOC,
       mode: "tools",
       truncated: true,
-      changes: [
-        { start: 4, end: 4, before: "    <h1>Old</h1>", after: "    <h1>New</h1>" },
-      ],
+      changes: [{ start: 4, end: 4, before: "    <h1>Old</h1>", after: "    <h1>New</h1>" }],
     });
     const user = userEvent.setup();
     render(<CustomPageEditorView pageId={7} />);
@@ -513,9 +501,7 @@ describe("CustomPageEditorView — change summary", () => {
     // The edit itself is untouched...
     expect(screen.getByLabelText("HTML source")).toHaveValue(AI_DOC);
     // ...and the way back is still offered.
-    expect(
-      screen.getByRole("button", { name: "Revert AI edit" }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Revert AI edit" })).toBeInTheDocument();
   });
 
   it("shows the summary again after the next edit", async () => {

@@ -81,9 +81,7 @@ export function WhitelistDialog({
   const [ipsText, setIpsText] = useState((whitelist?.ips ?? []).join("\n"));
   const [cidrsText, setCidrsText] = useState((whitelist?.cidrs ?? []).join("\n"));
   const [filter, setFilter] = useState(whitelist?.filter ?? "");
-  const [expressionsText, setExpressionsText] = useState(
-    (whitelist?.expressions ?? []).join("\n"),
-  );
+  const [expressionsText, setExpressionsText] = useState((whitelist?.expressions ?? []).join("\n"));
   const [error, setError] = useState<string | null>(null);
   const [preview, setPreview] = useState("");
   const [saving, setSaving] = useState(false);
@@ -93,9 +91,7 @@ export function WhitelistDialog({
   const cidrs = toEntries(cidrsText);
   const expressions = toEntries(expressionsText);
 
-  const hasContent = isExpression
-    ? expressions.length > 0
-    : ips.length + cidrs.length > 0;
+  const hasContent = isExpression ? expressions.length > 0 : ips.length + cidrs.length > 0;
   // Enough typed in for a preview to mean anything. Rendering is gated on this
   // rather than clearing `preview` from the effect body, which would be a
   // synchronous setState in an effect (react-hooks/set-state-in-effect).
@@ -258,11 +254,7 @@ export function WhitelistDialog({
 
           <div className="space-y-1.5">
             <Label htmlFor="wl-reason">Reason</Label>
-            <Input
-              id="wl-reason"
-              value={reason}
-              onChange={(e) => setReason(e.target.value)}
-            />
+            <Input id="wl-reason" value={reason} onChange={(e) => setReason(e.target.value)} />
             <p className="text-muted-foreground text-xs">
               Shown in CrowdSec&apos;s own logs when this whitelist matches.
             </p>
@@ -282,10 +274,10 @@ export function WhitelistDialog({
               <div className="border-destructive/40 bg-destructive/10 flex items-start gap-3 rounded-lg border p-3">
                 <TriangleAlert className="text-destructive mt-0.5 size-4 shrink-0" />
                 <p className="text-xs">
-                  Expressions are compiled by CrowdSec, not here, so a mistake
-                  cannot be caught before you save. One that does not compile
-                  stops CrowdSec starting — the apply detects that and rolls
-                  back, but every protected host is briefly denied while it does.
+                  Expressions are compiled by CrowdSec, not here, so a mistake cannot be caught
+                  before you save. One that does not compile stops CrowdSec starting — the apply
+                  detects that and rolls back, but every protected host is briefly denied while it
+                  does.
                 </p>
               </div>
 
@@ -298,8 +290,8 @@ export function WhitelistDialog({
                   placeholder="evt.Meta.service == 'http'"
                 />
                 <p className="text-muted-foreground text-xs">
-                  Scopes which events the expressions run against. Leave empty to
-                  evaluate every event.
+                  Scopes which events the expressions run against. Leave empty to evaluate every
+                  event.
                 </p>
               </div>
 
@@ -313,9 +305,9 @@ export function WhitelistDialog({
                   placeholder="evt.Meta.http_verb == 'GET' && evt.Meta.http_path == '/health'"
                 />
                 <p className="text-muted-foreground text-xs">
-                  One per line. Fields come from the parsed event —{" "}
-                  <code>evt.Meta.http_path</code>, <code>evt.Meta.http_verb</code>,{" "}
-                  <code>evt.Meta.log_type</code>, <code>evt.Meta.service</code>.
+                  One per line. Fields come from the parsed event — <code>evt.Meta.http_path</code>,{" "}
+                  <code>evt.Meta.http_verb</code>, <code>evt.Meta.log_type</code>,{" "}
+                  <code>evt.Meta.service</code>.
                 </p>
               </div>
             </>
@@ -350,9 +342,7 @@ export function WhitelistDialog({
           {canPreview && preview ? (
             <div className="space-y-1.5">
               <Label>Rendered YAML</Label>
-              <pre className="bg-muted overflow-x-auto rounded-md p-3 text-xs">
-                {preview}
-              </pre>
+              <pre className="bg-muted overflow-x-auto rounded-md p-3 text-xs">{preview}</pre>
             </div>
           ) : null}
         </div>

@@ -77,7 +77,7 @@ describe("SecurityView", () => {
         page: 1,
         pageSize: 50,
         includeCommunity: false,
-          q: "",
+        q: "",
       }),
     );
     expect(crowdsec.listAlerts).toHaveBeenCalledWith({
@@ -104,7 +104,7 @@ describe("SecurityView", () => {
         page: 2,
         pageSize: 50,
         includeCommunity: false,
-          q: "",
+        q: "",
       }),
     );
   });
@@ -121,7 +121,7 @@ describe("SecurityView", () => {
         page: 1,
         pageSize: 50,
         includeCommunity: true,
-          q: "",
+        q: "",
       }),
     );
     expect(crowdsec.listAlerts).toHaveBeenLastCalledWith({
@@ -142,7 +142,9 @@ describe("SecurityView", () => {
     const callsBefore = vi.mocked(crowdsec.listDecisions).mock.calls.length;
 
     // Open the unban dialog from the row action, then confirm via the stub.
-    await user.click(within(panel).getByRole("button", { name: /Lift decision on 203\.0\.113\.9/ }));
+    await user.click(
+      within(panel).getByRole("button", { name: /Lift decision on 203\.0\.113\.9/ }),
+    );
     await user.click(await screen.findByText(/confirm-unban 203\.0\.113\.9/));
 
     await waitFor(() =>
@@ -178,6 +180,7 @@ describe("SecurityView dashboard tab", () => {
       "Active decisions",
       "Recent alerts",
       "Whitelists",
+      "Updates",
     ]);
     expect(tabs[0]).toHaveAttribute("aria-selected", "true");
   });
@@ -345,10 +348,7 @@ describe("SecurityView decision search", () => {
 
     render(<SecurityView />);
     await user.click(await screen.findByRole("tab", { name: /active decisions/i }));
-    await user.type(
-      await screen.findByRole("searchbox", { name: "Search decisions" }),
-      "203.0",
-    );
+    await user.type(await screen.findByRole("searchbox", { name: "Search decisions" }), "203.0");
     await act(async () => {
       await vi.advanceTimersByTimeAsync(400);
     });

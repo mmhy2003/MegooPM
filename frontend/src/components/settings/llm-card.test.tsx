@@ -24,6 +24,11 @@ function makeSettings(overrides: Partial<InstanceSettings> = {}): InstanceSettin
     smtp_password_set: false,
     smtp_from: null,
     smtp_from_name: null,
+    crowdsec_hub_auto_update: true,
+    crowdsec_hub_update_frequency: "daily" as const,
+    crowdsec_hub_update_weekday: 6,
+    crowdsec_hub_update_hour_utc: 3,
+    crowdsec_capi_enabled: false,
     app_url: null,
     updated_at: "2026-09-01T00:00:00Z",
     ...overrides,
@@ -52,10 +57,7 @@ describe("LlmCard", () => {
 
   it("starts disabled on a fresh instance", () => {
     renderCard();
-    expect(screen.getByLabelText("Enable LLM features")).toHaveAttribute(
-      "aria-checked",
-      "false",
-    );
+    expect(screen.getByLabelText("Enable LLM features")).toHaveAttribute("aria-checked", "false");
   });
 
   it("never prefills the key, and says whether one is stored", () => {
@@ -101,9 +103,7 @@ describe("LlmCard", () => {
     await user.click(screen.getByRole("button", { name: "Save LLM settings" }));
 
     await waitFor(() => expect(instanceSettings.updateLlm).toHaveBeenCalledTimes(1));
-    expect(vi.mocked(instanceSettings.updateLlm).mock.calls[0][0].llm_api_key).toBe(
-      "sk-brand-new",
-    );
+    expect(vi.mocked(instanceSettings.updateLlm).mock.calls[0][0].llm_api_key).toBe("sk-brand-new");
   });
 
   it("clears a stored key on demand", async () => {

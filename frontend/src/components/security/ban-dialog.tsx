@@ -100,16 +100,14 @@ export function BanDialog({
         <DialogHeader>
           <DialogTitle>Manual decision</DialogTitle>
           <DialogDescription>
-            Push a decision to CrowdSec for an IP or range. This is recorded in the audit log
-            and enforced by the bouncer until it expires or is lifted.
+            Push a decision to CrowdSec for an IP or range. This is recorded in the audit log and
+            enforced by the bouncer until it expires or is lifted.
           </DialogDescription>
         </DialogHeader>
 
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-1.5 sm:col-span-2">
-            <Label htmlFor="ban-value">
-              {scope === "Range" ? "CIDR range" : "IP address"}
-            </Label>
+            <Label htmlFor="ban-value">{scope === "Range" ? "CIDR range" : "IP address"}</Label>
             <Input
               id="ban-value"
               value={value}

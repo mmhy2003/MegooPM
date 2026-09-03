@@ -58,8 +58,7 @@ export function BanPageCard({
   // Nothing to save until something differs from what is stored. A live button
   // on an unchanged form invites a PATCH that writes back the values already
   // there, and tells the operator nothing about whether their edit took.
-  const dirty =
-    mode !== settings.crowdsec_ban_mode || pageId !== settings.crowdsec_ban_page_id;
+  const dirty = mode !== settings.crowdsec_ban_mode || pageId !== settings.crowdsec_ban_page_id;
 
   async function handleSave() {
     setSaving(true);

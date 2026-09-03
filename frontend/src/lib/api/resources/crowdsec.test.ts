@@ -14,7 +14,9 @@ describe("crowdsec resource", () => {
   });
 
   it("lists decisions with pagination + community params mapped to snake_case", async () => {
-    const get = vi.spyOn(api, "get").mockResolvedValue({ items: [], total: 0, page: 1, page_size: 50 });
+    const get = vi
+      .spyOn(api, "get")
+      .mockResolvedValue({ items: [], total: 0, page: 1, page_size: 50 });
 
     await crowdsec.listDecisions({ page: 3, pageSize: 25, includeCommunity: true });
 
@@ -24,7 +26,9 @@ describe("crowdsec resource", () => {
   });
 
   it("lists alerts with the same param mapping", async () => {
-    const get = vi.spyOn(api, "get").mockResolvedValue({ items: [], total: 0, page: 2, page_size: 10 });
+    const get = vi
+      .spyOn(api, "get")
+      .mockResolvedValue({ items: [], total: 0, page: 2, page_size: 10 });
 
     await crowdsec.listAlerts({ page: 2, pageSize: 10, includeCommunity: false });
 
@@ -34,7 +38,9 @@ describe("crowdsec resource", () => {
   });
 
   it("omits unset params so the backend defaults apply", async () => {
-    const get = vi.spyOn(api, "get").mockResolvedValue({ items: [], total: 0, page: 1, page_size: 50 });
+    const get = vi
+      .spyOn(api, "get")
+      .mockResolvedValue({ items: [], total: 0, page: 1, page_size: 50 });
 
     await crowdsec.listDecisions();
 
@@ -43,7 +49,13 @@ describe("crowdsec resource", () => {
 
   it("posts a manual decision to the decisions collection", async () => {
     const post = vi.spyOn(api, "post").mockResolvedValue({});
-    const body = { value: "203.0.113.4", scope: "Ip", type: "ban", duration: "4h", reason: null } as const;
+    const body = {
+      value: "203.0.113.4",
+      scope: "Ip",
+      type: "ban",
+      duration: "4h",
+      reason: null,
+    } as const;
 
     await crowdsec.addDecision(body);
 
