@@ -55,3 +55,36 @@ def test_decode_rejects_tampered_signature() -> None:
     tampered = token[:-2] + ("aa" if not token.endswith("aa") else "bb")
     with pytest.raises(jwt.PyJWTError):
         decode_token(tampered, expected_type="access")
+
+
+# --- the mfa token ------------------------------------------------------------
+
+
+def test_mfa_token_is_its_own_type() -> None:
+    from app.core.security import create_mfa_token
+
+    token = create_mfa_token(42, token_version=3)
+    payload = decode_token(token, expected_type="mfa")
+    assert payload["sub"] == "42"
+    assert payload["tv"] == 3
+
+
+def test_mfa_token_cannot_be_used_as_an_access_token() -> None:
+    # A challenge token must not open the door it exists to guard.
+    from app.core.security import create_mfa_token
+
+    token = create_mfa_token(42, token_version=0)
+    with pytest.raises(jwt.InvalidTokenError):
+        decode_token(token, expected_type="access")
+    with pytest.raises(jwt.InvalidTokenError):
+        decode_token(token, expected_type="refresh")
+
+
+def test_mfa_token_lives_five_minutes() -> None:
+    from datetime import UTC, datetime
+
+    from app.core.security import create_mfa_token
+
+    payload = decode_token(create_mfa_token(1, token_version=0), expected_type="mfa")
+    ttl = payload["exp"] - int(datetime.now(UTC).timestamp())
+    assert 290 <= ttl <= 300

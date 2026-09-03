@@ -115,3 +115,25 @@ async def test_the_address_is_not_stored_in_the_key() -> None:
     client = FakeRedis()
     await check_password_reset(email="secret@example.com", ip="1.1.1.1", client=client)
     assert not any("secret@example.com" in key for key in client.values)
+
+
+async def test_mfa_verify_is_limited_per_user() -> None:
+    # Ten attempts per five minutes per user: a six-digit space with a
+    # three-step window is an afternoon's work without this.
+    from app.services.rate_limit import MFA_ATTEMPT_LIMIT, check_mfa_verify
+
+    client = FakeRedis()
+    for _ in range(MFA_ATTEMPT_LIMIT):
+        await check_mfa_verify(user_id=7, ip="1.1.1.1", client=client)
+    with pytest.raises(RateLimited):
+        await check_mfa_verify(user_id=7, ip="1.1.1.1", client=client)
+
+
+async def test_mfa_verify_limits_are_per_user_not_global() -> None:
+    from app.services.rate_limit import MFA_ATTEMPT_LIMIT, check_mfa_verify
+
+    client = FakeRedis()
+    for _ in range(MFA_ATTEMPT_LIMIT):
+        await check_mfa_verify(user_id=7, ip="1.1.1.1", client=client)
+    # A different user from a different address is unaffected.
+    await check_mfa_verify(user_id=8, ip="2.2.2.2", client=client)

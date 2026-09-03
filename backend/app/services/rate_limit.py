@@ -21,6 +21,9 @@ RESET_EMAIL_LIMIT = 3
 RESET_IP_LIMIT = 10
 RESET_WINDOW_S = 3600
 
+MFA_ATTEMPT_LIMIT = 10
+MFA_WINDOW_S = 300
+
 _PREFIX = "megoopm:ratelimit"
 
 
@@ -100,13 +103,39 @@ async def check_password_reset_redeem(*, ip: str, client: aioredis.Redis | None 
             await redis_client.aclose()
 
 
+async def check_mfa_verify(*, user_id: int, ip: str, client: aioredis.Redis | None = None) -> None:
+    """Both limits on the code-entry step: per user (from the mfa token's
+    subject) and per IP."""
+    own = client is None
+    redis_client = client if client is not None else _client()
+    try:
+        await hit(
+            redis_client,
+            f"{_PREFIX}:mfa:user:{user_id}",
+            limit=MFA_ATTEMPT_LIMIT,
+            window_s=MFA_WINDOW_S,
+        )
+        await hit(
+            redis_client,
+            f"{_PREFIX}:mfa:ip:{ip}",
+            limit=RESET_IP_LIMIT,
+            window_s=RESET_WINDOW_S,
+        )
+    finally:
+        if own:
+            await redis_client.aclose()
+
+
 __all__ = [
+    "MFA_ATTEMPT_LIMIT",
+    "MFA_WINDOW_S",
     "RESET_EMAIL_LIMIT",
     "RESET_IP_LIMIT",
     "RESET_WINDOW_S",
     "RateLimitUnavailable",
     "RateLimited",
     "check_password_reset",
+    "check_mfa_verify",
     "check_password_reset_redeem",
     "hit",
 ]

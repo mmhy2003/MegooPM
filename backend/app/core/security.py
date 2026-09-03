@@ -23,7 +23,7 @@ from app.core.config import settings
 # which follow current OWASP guidance; tune here if profiling demands it.
 _password_hasher = PasswordHasher()
 
-TokenType = Literal["access", "refresh"]
+TokenType = Literal["access", "refresh", "mfa"]
 
 
 def hash_password(password: str) -> str:
@@ -94,6 +94,26 @@ def create_refresh_token(subject: str | int, *, token_version: int) -> str:
         subject=str(subject),
         token_type="refresh",
         expires_delta=timedelta(minutes=settings.refresh_token_expire_minutes),
+        extra_claims={"tv": token_version},
+    )
+
+
+#: Long enough to find the phone; short enough that a stolen one is nearly
+#: worthless. Attempts against it are rate-limited on top.
+MFA_TOKEN_MINUTES = 5
+
+
+def create_mfa_token(subject: str | int, *, token_version: int) -> str:
+    """The token between a correct password and a correct code.
+
+    Stateless on purpose: replaying it earns only another rate-limited
+    challenge attempt, and a ``token_version`` bump — from a password or a
+    2FA change — makes it dead on arrival.
+    """
+    return _create_token(
+        subject=str(subject),
+        token_type="mfa",
+        expires_delta=timedelta(minutes=MFA_TOKEN_MINUTES),
         extra_claims={"tv": token_version},
     )
 
