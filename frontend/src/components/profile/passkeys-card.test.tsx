@@ -87,8 +87,11 @@ describe("PasskeysCard adding", () => {
 
     // The bare label was not enough for a real user; the field must say
     // which app, and that recovery codes work too.
-    expect(screen.getByText(/six-digit code from your authenticator app/i)).toBeInTheDocument();
-    expect(screen.getByText(/recovery code/i)).toBeInTheDocument();
+    // One paragraph carries both facts; the card description also mentions
+    // recovery codes, so match the helper text as a whole.
+    expect(
+      screen.getByText(/six-digit code from your authenticator app.*recovery codes works too/i),
+    ).toBeInTheDocument();
   });
 
   it("a wrong code stays on the form with the message", async () => {
