@@ -1046,8 +1046,7 @@ def _pool() -> UpstreamSpec:
 
 def _assert_every_block_includes(config: str) -> None:
     blocks = config.count("\nserver {")
-    assert blocks > 0
-    assert config.count(f"include ") >= blocks
+    assert blocks > 0, "no server block rendered — the fixture is wrong, not the code"
     assert config.count(ERRORS_CONF) == blocks, config
 
 
@@ -1088,10 +1087,10 @@ def test_a_dead_host_includes_it() -> None:
     _assert_every_block_includes(render_config(state)["megoopm-dead-1.conf"])
 ```
 
-> Before writing this, open `backend/tests/test_nginx_render.py` and copy the
-> exact constructor arguments its `RedirectionHostSpec` and `DeadHostSpec`
-> fixtures use — the field names above are from the spec's description, and a
-> mismatch fails at construction rather than on the assertion.
+The spec field names above were checked against `state.py`:
+`RedirectionHostSpec(id, domain_names, forward_domain_name, forward_scheme,
+forward_http_code)` and `DeadHostSpec(id, domain_names)`, and the rendered
+file names are `megoopm-redirect-<id>.conf` and `megoopm-dead-<id>.conf`.
 
 - [ ] **Step 2: Run it to verify it fails**
 

@@ -138,7 +138,7 @@ external requests. Sized to keep each page well under 30 KB.
 
 `congratulations.html.j2` and `banned.html.j2` swap their text wordmark for
 the same logo, and adopt the shared palette block so all three files stay in
-step. The palette moves into `error_palette.css.j2`, included by all three,
+step. The palette moves into `_palette.css.j2`, included by all three,
 so a colour is changed once rather than three times.
 
 ## Settings
@@ -210,7 +210,7 @@ pages need no other setting to work.
 - `app/services/nginx/state.py` — `ErrorPageSpec`, `DesiredState.error_pages`
 - `app/services/nginx/loader.py` — load the rows, dereference the documents
 - `app/services/nginx/renderer.py` — the eight documents and the fragment
-- `app/templates/nginx/error.html.j2`, `error_palette.css.j2`,
+- `app/templates/nginx/error.html.j2`, `_palette.css.j2`,
   `errors.conf.inc.j2`, `assets/logo.png` (new)
 - `app/templates/nginx/congratulations.html.j2`, `banned.html.j2` — logo and
   the shared palette
