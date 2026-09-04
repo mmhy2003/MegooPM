@@ -148,7 +148,11 @@ export function UserDialog({
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-1.5">
               <Label htmlFor="user-role">Role</Label>
-              <Select value={role} onValueChange={(v) => setRole(v as UserRole)}>
+              <Select
+                value={role}
+                onValueChange={(v) => setRole(v as UserRole)}
+                items={USER_ROLE_LABELS}
+              >
                 <SelectTrigger id="user-role" disabled={saving || editingSelf}>
                   <SelectValue />
                 </SelectTrigger>

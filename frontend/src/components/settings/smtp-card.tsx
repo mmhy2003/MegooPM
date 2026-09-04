@@ -142,6 +142,7 @@ export function SmtpCard({
         <Select
           value={form.security}
           onValueChange={(value) => patch({ security: value as SmtpSecurity })}
+          items={SECURITY_LABELS}
         >
           <SelectTrigger id="smtp-security" disabled={saving}>
             <SelectValue />

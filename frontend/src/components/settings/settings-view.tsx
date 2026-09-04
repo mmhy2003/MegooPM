@@ -216,6 +216,7 @@ export function SettingsView() {
                     onValueChange={(value) =>
                       setForm((current) => ({ ...current, pageId: Number(value) }))
                     }
+                    items={Object.fromEntries(pages.map((page) => [String(page.id), page.name]))}
                   >
                     <SelectTrigger id="ds-page" disabled={saving}>
                       <SelectValue placeholder="Choose a page" />

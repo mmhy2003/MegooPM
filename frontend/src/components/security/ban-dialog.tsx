@@ -120,7 +120,11 @@ export function BanDialog({
 
           <div className="space-y-1.5">
             <Label htmlFor="ban-scope">Scope</Label>
-            <Select value={scope} onValueChange={(v) => setScope(v as DecisionScope)}>
+            <Select
+              value={scope}
+              onValueChange={(v) => setScope(v as DecisionScope)}
+              items={DECISION_SCOPE_LABELS}
+            >
               <SelectTrigger id="ban-scope" disabled={saving}>
                 <SelectValue />
               </SelectTrigger>
@@ -136,7 +140,11 @@ export function BanDialog({
 
           <div className="space-y-1.5">
             <Label htmlFor="ban-type">Remediation</Label>
-            <Select value={type} onValueChange={(v) => setType(v as DecisionType)}>
+            <Select
+              value={type}
+              onValueChange={(v) => setType(v as DecisionType)}
+              items={DECISION_TYPE_LABELS}
+            >
               <SelectTrigger id="ban-type" disabled={saving}>
                 <SelectValue />
               </SelectTrigger>
@@ -152,7 +160,11 @@ export function BanDialog({
 
           <div className="space-y-1.5">
             <Label htmlFor="ban-duration">Duration</Label>
-            <Select value={duration} onValueChange={(v) => setDuration(v ?? DEFAULT_DURATION)}>
+            <Select
+              value={duration}
+              onValueChange={(v) => setDuration(v ?? DEFAULT_DURATION)}
+              items={DECISION_DURATIONS}
+            >
               <SelectTrigger id="ban-duration" disabled={saving}>
                 <SelectValue />
               </SelectTrigger>

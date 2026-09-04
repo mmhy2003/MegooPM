@@ -66,6 +66,19 @@ describe("BanPageCard", () => {
     expect(await screen.findByLabelText("Page to serve")).toBeInTheDocument();
   });
 
+  it("shows the chosen page's name, not its id", async () => {
+    // Reported from a live stack: the trigger read "5". base-ui renders the
+    // raw value unless the root is told the labels.
+    renderCard({
+      ...makeSettings(),
+      crowdsec_ban_mode: "custom_page",
+      crowdsec_ban_page_id: PAGE.id,
+    });
+    const trigger = await screen.findByLabelText("Page to serve");
+    expect(trigger).toHaveTextContent("Blocked");
+    expect(trigger).not.toHaveTextContent(/^4$/);
+  });
+
   it("saves the chosen mode", async () => {
     const user = userEvent.setup();
     renderCard();

@@ -194,6 +194,7 @@ export function CertificateDialog({
                 <Select
                   value={challenge}
                   onValueChange={(v) => setChallenge(v as AcmeChallenge)}
+                  items={CHALLENGE_LABELS}
                 >
                   <SelectTrigger id="le-challenge" disabled={saving}>
                     <SelectValue />
@@ -226,8 +227,14 @@ export function CertificateDialog({
                 <Select
                   value={dnsCredentialId}
                   onValueChange={(v) => setDnsCredentialId((v as string) ?? "")}
+                  items={Object.fromEntries(
+                    dnsOptions.map((c) => [String(c.id), credentialLabel(c)]),
+                  )}
                 >
-                  <SelectTrigger id="le-dns-credential" disabled={saving || dnsOptions.length === 0}>
+                  <SelectTrigger
+                    id="le-dns-credential"
+                    disabled={saving || dnsOptions.length === 0}
+                  >
                     <SelectValue placeholder="Choose saved credentials" />
                   </SelectTrigger>
                   <SelectContent>

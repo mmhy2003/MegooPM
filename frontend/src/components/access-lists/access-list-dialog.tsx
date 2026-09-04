@@ -109,8 +109,8 @@ export function AccessListDialog({
         <DialogHeader>
           <DialogTitle>{editing ? "Edit access list" : "New access list"}</DialogTitle>
           <DialogDescription>
-            An authorization gate you can attach to one or more proxy hosts.
-            Basic-auth users and IP rules are saved together with the settings.
+            An authorization gate you can attach to one or more proxy hosts. Basic-auth users and IP
+            rules are saved together with the settings.
           </DialogDescription>
         </DialogHeader>
 
@@ -241,8 +241,7 @@ function AuthUsersPanel({
   return (
     <>
       <p className="text-xs text-muted-foreground">
-        HTTP basic-auth credentials. With no users the basic-auth gate lets
-        everyone through.
+        HTTP basic-auth credentials. With no users the basic-auth gate lets everyone through.
       </p>
 
       <div className="space-y-2">
@@ -319,8 +318,8 @@ function ClientRulesPanel({
   return (
     <>
       <p className="text-xs text-muted-foreground">
-        Allow/deny rules for an IP, a CIDR range, or “all”. With no rules the IP
-        gate lets everyone through.
+        Allow/deny rules for an IP, a CIDR range, or “all”. With no rules the IP gate lets everyone
+        through.
       </p>
 
       <div className="space-y-2">
@@ -335,6 +334,7 @@ function ClientRulesPanel({
             <Select
               value={row.directive}
               onValueChange={(v) => update(index, { directive: v as AccessListDirective })}
+              items={DIRECTIVE_LABELS}
             >
               <SelectTrigger aria-label="Directive" className="w-28" disabled={disabled}>
                 <SelectValue />

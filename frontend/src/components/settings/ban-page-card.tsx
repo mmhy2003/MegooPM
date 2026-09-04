@@ -120,6 +120,7 @@ export function BanPageCard({
           <Select
             value={pageId === null ? "" : String(pageId)}
             onValueChange={(value) => setPageId(Number(value))}
+            items={Object.fromEntries(pages.map((page) => [String(page.id), page.name]))}
           >
             <SelectTrigger id="ban-page" disabled={saving}>
               <SelectValue placeholder="Choose a page" />

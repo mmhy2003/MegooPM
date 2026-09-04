@@ -107,7 +107,11 @@ export function DnsCredentialDialog({
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="dns-provider">Provider</Label>
-            <Select value={providerId} onValueChange={(v) => changeProvider(v as string)}>
+            <Select
+              value={providerId}
+              onValueChange={(v) => changeProvider(v as string)}
+              items={Object.fromEntries(catalog.map((p) => [p.id, p.label]))}
+            >
               <SelectTrigger id="dns-provider" disabled={saving || isEdit}>
                 <SelectValue />
               </SelectTrigger>

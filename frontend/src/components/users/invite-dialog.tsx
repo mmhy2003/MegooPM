@@ -65,8 +65,8 @@ export function InviteDialog({
         <DialogHeader>
           <DialogTitle>Invite user</DialogTitle>
           <DialogDescription>
-            They&apos;ll get an email with a link to choose their name and password. The
-            link expires in 7 days.
+            They&apos;ll get an email with a link to choose their name and password. The link
+            expires in 7 days.
           </DialogDescription>
         </DialogHeader>
 
@@ -95,7 +95,11 @@ export function InviteDialog({
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="invite-role">Role</Label>
-            <Select value={role} onValueChange={(v) => setRole(v as UserRole)}>
+            <Select
+              value={role}
+              onValueChange={(v) => setRole(v as UserRole)}
+              items={USER_ROLE_LABELS}
+            >
               <SelectTrigger id="invite-role" disabled={saving}>
                 <SelectValue />
               </SelectTrigger>
