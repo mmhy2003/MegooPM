@@ -1,6 +1,6 @@
 "use client";
 
-import "flag-icons/css/flag-icons.min.css";
+import { CountryFlag } from "@/components/ui/country-flag";
 import { Users } from "lucide-react";
 
 import type { VisitorSummary } from "@/lib/api";
@@ -15,32 +15,9 @@ import type { VisitorSummary } from "@/lib/api";
  * knowing whether that is a day or a month, and the API clamps the window to
  * the retention limit, so it may not be the one that was asked for.
  */
-/**
- * A country's flag, from the `flag-icons` CSS sprite set.
- *
- * Not a Unicode flag emoji: Chrome and Edge on Windows render those as the
- * two-letter code, so a large share of operators would see exactly what this
- * is meant to replace.
- *
- * The code is kept as the accessible name — a flag alone is unreadable to a
- * screen reader, and several flags are hard to tell apart at 16px.
- */
-function Flag({ country }: { country: string }) {
-  return (
-    <span
-      className={`fi fi-${country.toLowerCase()} shrink-0 rounded-[2px]`}
-      style={{ width: "1.25rem", height: "0.9375rem" }}
-      role="img"
-      aria-label={country}
-      title={country}
-    />
-  );
-}
-
 export function VisitorsCard({ visitors }: { visitors: VisitorSummary }) {
   const recorded = visitors.total_visitors > 0;
-  const window =
-    visitors.days === 1 ? "today" : `the last ${visitors.days} days`;
+  const window = visitors.days === 1 ? "today" : `the last ${visitors.days} days`;
 
   return (
     <section className="space-y-3 rounded-xl border p-4">
@@ -62,15 +39,11 @@ export function VisitorsCard({ visitors }: { visitors: VisitorSummary }) {
         <div className="space-y-4">
           <div className="flex gap-6">
             <div className="space-y-0.5">
-              <p className="text-2xl font-semibold tabular-nums">
-                {visitors.total_visitors}
-              </p>
+              <p className="text-2xl font-semibold tabular-nums">{visitors.total_visitors}</p>
               <p className="text-muted-foreground text-xs">distinct visitors</p>
             </div>
             <div className="space-y-0.5">
-              <p className="text-2xl font-semibold tabular-nums">
-                {visitors.total_requests}
-              </p>
+              <p className="text-2xl font-semibold tabular-nums">{visitors.total_requests}</p>
               <p className="text-muted-foreground text-xs">requests</p>
             </div>
           </div>
@@ -83,11 +56,8 @@ export function VisitorsCard({ visitors }: { visitors: VisitorSummary }) {
                 <p className="text-muted-foreground text-xs">By country</p>
                 <ol className="space-y-1">
                   {visitors.countries.slice(0, 8).map((row) => (
-                    <li
-                      key={row.country}
-                      className="flex items-baseline gap-3 text-sm"
-                    >
-                      <Flag country={row.country} />
+                    <li key={row.country} className="flex items-baseline gap-3 text-sm">
+                      <CountryFlag country={row.country} />
                       <span className="tabular-nums">{row.requests}</span>
                       <span className="text-muted-foreground text-xs">
                         {row.visitors} visitor{row.visitors === 1 ? "" : "s"}
@@ -100,24 +70,15 @@ export function VisitorsCard({ visitors }: { visitors: VisitorSummary }) {
 
             {visitors.top_ips.length > 0 ? (
               <div className="space-y-1">
-                <p className="text-muted-foreground text-xs">
-                  Busiest addresses
-                </p>
+                <p className="text-muted-foreground text-xs">Busiest addresses</p>
                 <ul className="space-y-1">
                   {visitors.top_ips.slice(0, 8).map((row) => (
-                    <li
-                      key={row.ip}
-                      className="flex items-baseline gap-3 text-sm"
-                    >
+                    <li key={row.ip} className="flex items-baseline gap-3 text-sm">
                       <span className="font-mono text-xs">{row.ip}</span>
                       <span className="text-muted-foreground text-xs">
                         {/* Never hidden: the gap between these and the country
                           list is real, unlocated traffic. */}
-                        {row.country ? (
-                          <Flag country={row.country} />
-                        ) : (
-                          "unknown"
-                        )}
+                        {row.country ? <CountryFlag country={row.country} /> : "unknown"}
                       </span>
                       <span className="tabular-nums">{row.requests}</span>
                     </li>

@@ -37,7 +37,16 @@ function decisionList(total: number) {
     page: 1,
     page_size: 50,
     items: [
-      { id: 11, type: "ban", scope: "Ip", value: "203.0.113.9", duration: "4h", origin: "cscli" },
+      {
+        id: 11,
+        type: "ban",
+        scope: "Ip",
+        value: "203.0.113.9",
+        duration: "4h",
+        origin: "cscli",
+        country: "DE",
+      },
+      { id: 12, type: "ban", scope: "AS", value: "AS64496", duration: "4h", origin: "cscli" },
     ],
   };
 }
@@ -130,6 +139,16 @@ describe("SecurityView", () => {
       includeCommunity: true,
       q: "",
     });
+  });
+
+  it("shows a flag beside a decision with a country and nothing otherwise", async () => {
+    const user = userEvent.setup();
+    render(<SecurityView />);
+    await user.click(await screen.findByRole("tab", { name: /active decisions/i }));
+    const flagged = (await screen.findByText("203.0.113.9")).closest("tr")!;
+    expect(within(flagged).getByRole("img", { name: "DE" })).toBeInTheDocument();
+    const plain = screen.getByText("AS64496").closest("tr")!;
+    expect(within(plain).queryByRole("img")).not.toBeInTheDocument();
   });
 
   it("re-fetches after an unban is confirmed", async () => {

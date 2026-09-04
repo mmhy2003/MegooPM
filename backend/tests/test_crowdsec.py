@@ -54,9 +54,7 @@ async def test_list_decisions_sends_bouncer_key_and_maps_json() -> None:
         seen["key"] = request.headers.get("X-Api-Key")
         return httpx.Response(
             200,
-            json=[
-                {"id": 1, "type": "ban", "scope": "Ip", "value": "1.2.3.4", "duration": "3h"}
-            ],
+            json=[{"id": 1, "type": "ban", "scope": "Ip", "value": "1.2.3.4", "duration": "3h"}],
         )
 
     async with _client(handler) as client:
@@ -196,9 +194,7 @@ async def test_add_decision_posts_alert_with_decision() -> None:
 
 
 async def test_add_decision_requires_machine_credentials() -> None:
-    async with _client(
-        lambda r: httpx.Response(200), crowdsec_machine_id=None
-    ) as client:
+    async with _client(lambda r: httpx.Response(200), crowdsec_machine_id=None) as client:
         with pytest.raises(CrowdSecNotConfigured):
             await client.add_decision(DecisionCreate(value="1.1.1.1"))
 
@@ -337,9 +333,7 @@ async def test_decisions_paginated_and_hide_community_by_default(
     assert page2.json()["items"][0]["value"] == "2.2.2.2"
 
     # include_community=true surfaces the blocklist record and bumps the total.
-    full = await db_client.get(
-        "/api/v1/crowdsec/decisions?include_community=true", headers=hdr
-    )
+    full = await db_client.get("/api/v1/crowdsec/decisions?include_community=true", headers=hdr)
     fbody = full.json()
     assert fbody["total"] == 3
     assert {d["value"] for d in fbody["items"]} == {"1.1.1.1", "2.2.2.2", "3.3.3.3"}
@@ -362,8 +356,11 @@ async def test_alerts_hide_community_by_default(
                     "scenario": "crowdsecurity/http-probing",
                     "decisions": [
                         {
-                            "origin": "CAPI", "type": "ban", "scope": "Ip",
-                            "value": "9.9.9.9", "duration": "4h",
+                            "origin": "CAPI",
+                            "type": "ban",
+                            "scope": "Ip",
+                            "value": "9.9.9.9",
+                            "duration": "4h",
                         }
                     ],
                 },
@@ -732,3 +729,52 @@ async def test_alerts_q_survives_an_alert_with_no_source(
     resp = await db_client.get("/api/v1/crowdsec/alerts?q=vpatch", headers=hdr)
     assert resp.status_code == 200, resp.text
     assert resp.json()["total"] == 1
+
+
+async def test_decisions_carry_a_country(
+    db_client: AsyncClient, admin_token: str, override_crowdsec, monkeypatch
+) -> None:
+    from app.services.crowdsec import geo
+
+    monkeypatch.setattr(geo, "lookup_country", lambda ip: "DE" if ip == "5.5.5.5" else None)
+    override_crowdsec(
+        lambda r: httpx.Response(
+            200,
+            json=[
+                {"type": "ban", "scope": "Ip", "value": "5.5.5.5", "duration": "1h"},
+                {"type": "ban", "scope": "Country", "value": "fr", "duration": "1h"},
+                {"type": "ban", "scope": "AS", "value": "AS64496", "duration": "1h"},
+            ],
+        )
+    )
+    resp = await db_client.get(
+        "/api/v1/crowdsec/decisions", headers={"Authorization": f"Bearer {admin_token}"}
+    )
+    assert resp.status_code == 200
+    assert [d["country"] for d in resp.json()["items"]] == ["DE", "FR", None]
+
+
+async def test_alerts_get_a_country_when_crowdsec_left_it_blank(
+    db_client: AsyncClient, admin_token: str, override_crowdsec, monkeypatch
+) -> None:
+    from app.services.crowdsec import geo
+
+    monkeypatch.setattr(geo, "lookup_country", lambda ip: "DE" if ip == "5.5.5.5" else None)
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/v1/watchers/login":
+            return httpx.Response(200, json={"token": "jwt"})
+        return httpx.Response(
+            200,
+            json=[
+                {"id": 1, "source": {"ip": "5.5.5.5"}, "decisions": []},
+                {"id": 2, "source": {"ip": "5.5.5.5", "cn": "XX"}, "decisions": []},
+            ],
+        )
+
+    override_crowdsec(handler)
+    resp = await db_client.get(
+        "/api/v1/crowdsec/alerts", headers={"Authorization": f"Bearer {admin_token}"}
+    )
+    assert resp.status_code == 200, resp.text
+    assert [a["source"]["cn"] for a in resp.json()["items"]] == ["DE", "XX"]

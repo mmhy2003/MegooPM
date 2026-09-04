@@ -2043,6 +2043,17 @@
       "Decision": {
         "description": "One active remediation the bouncer enforces (a ban, captcha, …).",
         "properties": {
+          "country": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Country"
+          },
           "duration": {
             "title": "Duration",
             "type": "string"

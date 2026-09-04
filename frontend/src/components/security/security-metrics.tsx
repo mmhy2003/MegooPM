@@ -5,6 +5,7 @@ import { Activity, ShieldBan, TriangleAlert } from "lucide-react";
 
 import type { Alert, Decision } from "@/lib/api";
 import { buildTimeline, topOffenders, type TimeBucket } from "@/components/security/lib";
+import { CountryFlag } from "@/components/ui/country-flag";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 const WINDOW_BUCKETS = 12;
@@ -120,7 +121,11 @@ function TopOffenders({ alerts }: { alerts: Alert[] }) {
           <ul className="space-y-2.5">
             {offenders.map((o) => (
               <li key={o.key} className="flex items-center gap-3">
-                <span className="w-32 shrink-0 truncate font-mono text-xs" title={o.key}>
+                <span
+                  className="flex w-36 shrink-0 items-center gap-1.5 truncate font-mono text-xs"
+                  title={o.key}
+                >
+                  <CountryFlag country={o.country} />
                   {o.key}
                 </span>
                 <div className="h-2.5 flex-1 overflow-hidden rounded-full bg-muted">

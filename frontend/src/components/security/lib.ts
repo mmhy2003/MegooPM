@@ -72,6 +72,8 @@ export interface Offender {
   key: string;
   /** Total events attributed to this source across recent alerts. */
   count: number;
+  /** ISO-3166 alpha-2 from the first alert that carried one, else null. */
+  country: string | null;
 }
 
 /** Best available identifier for an alert's source. */
@@ -86,14 +88,17 @@ export function alertSourceKey(alert: Alert): string | null {
  */
 export function topOffenders(alerts: Alert[], limit = 5): Offender[] {
   const totals = new Map<string, number>();
+  const countries = new Map<string, string>();
   for (const alert of alerts) {
     const key = alertSourceKey(alert);
     if (!key) continue;
     const events = alert.events_count ?? 1;
     totals.set(key, (totals.get(key) ?? 0) + (events > 0 ? events : 1));
+    const cn = alert.source?.cn;
+    if (cn && !countries.has(key)) countries.set(key, cn);
   }
   return [...totals.entries()]
-    .map(([key, count]) => ({ key, count }))
+    .map(([key, count]) => ({ key, count, country: countries.get(key) ?? null }))
     .sort((a, b) => b.count - a.count || a.key.localeCompare(b.key))
     .slice(0, limit);
 }

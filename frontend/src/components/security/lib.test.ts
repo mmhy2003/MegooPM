@@ -85,6 +85,18 @@ describe("buildTimeline", () => {
 });
 
 describe("topOffenders", () => {
+  it("carries the source's country when an alert has one", () => {
+    const result = topOffenders([
+      { id: 1, source: { ip: "1.1.1.1" }, events_count: 2, decisions: [] },
+      { id: 2, source: { ip: "1.1.1.1", cn: "AU" }, events_count: 1, decisions: [] },
+      { id: 3, source: { ip: "2.2.2.2" }, events_count: 1, decisions: [] },
+    ] as never);
+    expect(result).toEqual([
+      { key: "1.1.1.1", count: 3, country: "AU" },
+      { key: "2.2.2.2", count: 1, country: null },
+    ]);
+  });
+
   it("aggregates events per source and ranks highest first", () => {
     const result = topOffenders([
       alertAt("2026-08-27T11:00:00Z", "1.1.1.1", 3),
@@ -92,8 +104,8 @@ describe("topOffenders", () => {
       alertAt("2026-08-27T11:45:00Z", "2.2.2.2", 4),
     ]);
     expect(result).toEqual([
-      { key: "1.1.1.1", count: 5 },
-      { key: "2.2.2.2", count: 4 },
+      { key: "1.1.1.1", count: 5, country: null },
+      { key: "2.2.2.2", count: 4, country: null },
     ]);
   });
 
@@ -103,7 +115,7 @@ describe("topOffenders", () => {
       alertAt("2026-08-27T11:00:00Z", "3.3.3.3", 0),
       alertAt("2026-08-27T11:00:00Z", null),
     ]);
-    expect(result).toEqual([{ key: "3.3.3.3", count: 2 }]);
+    expect(result).toEqual([{ key: "3.3.3.3", count: 2, country: null }]);
   });
 
   it("caps the result at the requested limit", () => {

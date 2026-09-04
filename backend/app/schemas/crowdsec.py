@@ -29,6 +29,9 @@ class Decision(BaseModel):
     # Human duration string, e.g. ``3h59m59s``.
     duration: str
     scenario: str | None = None
+    # ISO-3166 alpha-2, filled by the API from the bundled country database
+    # (LAPI does not send it). None for scopes that have no country.
+    country: str | None = None
 
 
 class AlertSource(BaseModel):

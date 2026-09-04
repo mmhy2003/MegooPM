@@ -6,7 +6,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 // unpositioned SVG.
 import "jsvectormap/dist/jsvectormap.min.css";
 
-import "flag-icons/css/flag-icons.min.css";
+import { CountryFlag } from "@/components/ui/country-flag";
 import { Globe } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -50,10 +50,7 @@ const THREAT_SCALE: Record<string, string> = {
 export function bucketFor(count: number, busiest: number): string {
   if (busiest <= 0) return BUCKETS[0];
   const share = count / busiest;
-  const index = Math.min(
-    BUCKETS.length - 1,
-    Math.floor(share * BUCKETS.length),
-  );
+  const index = Math.min(BUCKETS.length - 1, Math.floor(share * BUCKETS.length));
   return BUCKETS[Math.max(0, index)];
 }
 
@@ -68,28 +65,6 @@ export function bucketFor(count: number, busiest: number): string {
  * data available at all — and it is what the tests assert on, which keeps them
  * independent of the rendering library.
  */
-/**
- * A country's flag, from the `flag-icons` CSS sprite set.
- *
- * Not a Unicode flag emoji: Chrome and Edge on Windows render those as the
- * two-letter code, so a large share of operators would see exactly what this
- * is meant to replace.
- *
- * The code is kept as the accessible name — a flag alone is unreadable to a
- * screen reader, and several flags are hard to tell apart at 16px.
- */
-function Flag({ country }: { country: string }) {
-  return (
-    <span
-      className={`fi fi-${country.toLowerCase()} shrink-0 rounded-[2px]`}
-      style={{ width: "1.25rem", height: "0.9375rem" }}
-      role="img"
-      aria-label={country}
-      title={country}
-    />
-  );
-}
-
 export function OriginMap({
   threats,
   traffic,
@@ -116,10 +91,7 @@ export function OriginMap({
   const values = useMemo(() => {
     const busiest = Math.max(0, ...active.map((row) => row.count));
     return Object.fromEntries(
-      active.map((row) => [
-        row.country.toUpperCase(),
-        bucketFor(row.count, busiest),
-      ]),
+      active.map((row) => [row.country.toUpperCase(), bucketFor(row.count, busiest)]),
     );
   }, [active]);
 
@@ -241,14 +213,9 @@ export function OriginMap({
             // once a few dozen countries appear.
             <ol className="grid grid-cols-2 gap-x-6 gap-y-1 sm:grid-cols-3 lg:grid-cols-5">
               {active.map((row) => (
-                <li
-                  key={row.country}
-                  className="flex items-baseline justify-between gap-3 text-sm"
-                >
-                  <Flag country={row.country} />
-                  <span className="text-muted-foreground tabular-nums">
-                    {row.count}
-                  </span>
+                <li key={row.country} className="flex items-baseline justify-between gap-3 text-sm">
+                  <CountryFlag country={row.country} />
+                  <span className="text-muted-foreground tabular-nums">{row.count}</span>
                 </li>
               ))}
             </ol>

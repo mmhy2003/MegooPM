@@ -62,6 +62,7 @@ from app.services.crowdsec.filtering import (
     normalise_query,
     paginate,
 )
+from app.services.crowdsec.geo import enrich_alerts, enrich_decisions
 from app.services.crowdsec.whitelists import (
     WhitelistDoc,
     WhitelistValidationError,
@@ -158,6 +159,7 @@ async def list_decisions(
         items = await client.list_decisions()
     except CrowdSecError as exc:
         raise _handle(exc) from exc
+    items = enrich_decisions(items)
     if not include_community:
         items = [d for d in items if not is_community_decision(d)]
     # Before paginate, deliberately: filtering the page instead of the whole
@@ -188,6 +190,7 @@ async def list_alerts(
         items = await client.list_alerts(limit=ALERT_FETCH_CAP)
     except CrowdSecError as exc:
         raise _handle(exc) from exc
+    items = enrich_alerts(items)
     if not include_community:
         items = [a for a in items if not is_community_alert(a)]
     needle = normalise_query(q)

@@ -43,6 +43,7 @@ import { WhitelistStatusBanner } from "@/components/security/whitelist-status-ba
 import { UpdatesTab } from "@/components/security/updates-tab";
 import { WhitelistsTable } from "@/components/security/whitelists-table";
 import { Badge } from "@/components/ui/badge";
+import { CountryFlag } from "@/components/ui/country-flag";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { SearchInput } from "@/components/ui/search-input";
@@ -515,7 +516,12 @@ export function SecurityView() {
                     ) : (
                       decisions.map((d, i) => (
                         <TableRow key={decisionRowKey(d, i)}>
-                          <TableCell className="font-mono text-xs font-medium">{d.value}</TableCell>
+                          <TableCell className="font-mono text-xs font-medium">
+                            <span className="inline-flex items-center gap-1.5">
+                              <CountryFlag country={d.country} />
+                              {d.value}
+                            </span>
+                          </TableCell>
                           <TableCell>
                             <Badge variant="outline">{d.scope}</Badge>
                           </TableCell>
@@ -628,7 +634,10 @@ export function SecurityView() {
                         return (
                           <TableRow key={a.id ?? `alert-${i}`}>
                             <TableCell className="font-mono text-xs font-medium">
-                              {source ?? "—"}
+                              <span className="inline-flex items-center gap-1.5">
+                                <CountryFlag country={a.source?.cn} />
+                                {source ?? "—"}
+                              </span>
                             </TableCell>
                             <TableCell className="max-w-48 truncate" title={a.scenario ?? ""}>
                               {a.scenario ?? "—"}
