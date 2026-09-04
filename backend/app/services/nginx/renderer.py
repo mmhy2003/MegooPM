@@ -21,6 +21,7 @@ from jinja2 import Environment, FileSystemLoader, StrictUndefined
 
 import app as app_pkg
 from app.core.config import settings
+from app.models.error_page import ERROR_CODES
 from app.services.nginx.state import (
     AccessListSpec,
     DeadHostSpec,
@@ -288,6 +289,30 @@ def location_html(location_id: int) -> str:
 # the base config's `include .../*.conf` never parses it as configuration.
 BAN_PAGE_HTML = "megoopm-ban.html"
 
+# The error documents and the fragment that points nginx at them, written into
+# the same shared directory. `.inc` for the same reason as above: the base
+# config's `include .../*.conf` must not parse `error_page` at the http level.
+ERRORS_CONF = "megoopm-errors.conf.inc"
+
+#: Heading and sentence per code. Each says something true without describing
+#: the instance; see error.html.j2.
+ERROR_COPY: dict[int, tuple[str, str]] = {
+    400: ("Bad request", "The server couldn&rsquo;t understand that request."),
+    401: ("Authentication required", "This area needs credentials."),
+    403: ("Access denied", "You don&rsquo;t have permission to view this."),
+    404: ("Not found", "There&rsquo;s nothing at this address."),
+    500: ("Something went wrong", "The site hit an unexpected error."),
+    502: ("Bad gateway", "The site behind this address didn&rsquo;t respond correctly."),
+    503: ("Service unavailable", "The site is temporarily unable to handle the request."),
+    504: ("Gateway timeout", "The site behind this address took too long to answer."),
+}
+
+
+def error_html(code: int) -> str:
+    """File name of one status code's document."""
+    return f"megoopm-error-{code}.html"
+
+
 # The two modes that answer with a document rather than a status code.
 _DOCUMENT_MODES = frozenset({"congratulations", "custom_page"})
 
@@ -340,6 +365,29 @@ def render_default_site(state: DesiredState) -> dict[str, str]:
             if loc.target == "custom_page" and loc.id is not None:
                 files[location_html(loc.id)] = loc.html
 
+    # Every code, always: an `error_page` pointing at a missing file gets
+    # nginx's own bare page, which is the thing this feature exists to avoid.
+    configured = {spec.code: spec.html for spec in state.error_pages}
+    for code in ERROR_CODES:
+        html = configured.get(code) or ""
+        if not html:
+            heading, detail = ERROR_COPY[code]
+            html = (
+                _env()
+                .get_template("error.html.j2")
+                .render(code=code, heading=heading, detail=detail)
+            )
+        files[error_html(code)] = html
+    files[ERRORS_CONF] = (
+        _env()
+        .get_template("errors.conf.inc.j2")
+        .render(
+            codes=ERROR_CODES,
+            document=error_html,
+            default_dir=settings.nginx_default_dir,
+        )
+    )
+
     ban = state.ban_page
     if ban is not None and ban.mode != "none":
         body = _env().get_template("banned.html.j2").render() if ban.mode == "megoopm" else ban.html
@@ -352,7 +400,10 @@ def render_default_site(state: DesiredState) -> dict[str, str]:
 __all__ = [
     "DEFAULT_SITE_BODY",
     "DEFAULT_SITE_CONF",
+    "ERRORS_CONF",
+    "ERROR_COPY",
     "DEFAULT_SITE_HTML",
+    "error_html",
     "location_html",
     "BAN_PAGE_HTML",
     "render_config",

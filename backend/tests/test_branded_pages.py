@@ -65,3 +65,11 @@ def test_the_pages_share_one_palette(name: str) -> None:
     # Three files each carrying their own copy is three places to change a
     # colour and two chances to forget one.
     assert '{% include "_palette.css.j2" %}' in _source(name)
+
+
+def test_the_error_page_template_obeys_the_same_rules() -> None:
+    # The parametrised checks above read finished pages; this one proves the
+    # error template joins them rather than inventing its own palette.
+    source = _source("error.html.j2")
+    assert '{% include "_palette.css.j2" %}' in source
+    assert "logo_data_uri" in source

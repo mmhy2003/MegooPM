@@ -21,14 +21,22 @@ def _state(**kw) -> DesiredState:
     return DesiredState(default_site=DefaultSiteSpec(**kw))
 
 
-def test_no_setting_renders_nothing() -> None:
-    """With no file, nginx matches no location and returns 404 — today's behaviour."""
-    assert render_default_site(DesiredState()) == {}
+def test_no_setting_writes_no_default_site_file() -> None:
+    """With no file, nginx matches no location and returns 404 — today's behaviour.
+
+    The directory is no longer empty in that case: the error documents are
+    written unconditionally, because a directive pointing at a missing file
+    gets nginx's own bare page. This is about the default site's own files.
+    """
+    files = render_default_site(DesiredState())
+    assert DEFAULT_SITE_CONF not in files
+    assert DEFAULT_SITE_BODY not in files
+    assert DEFAULT_SITE_HTML not in files
 
 
 def test_not_found_returns_404() -> None:
     files = render_default_site(_state(mode="not_found"))
-    assert set(files) == {DEFAULT_SITE_CONF, DEFAULT_SITE_BODY}
+    assert {DEFAULT_SITE_CONF, DEFAULT_SITE_BODY} <= set(files)
     assert "return 404;" in files[DEFAULT_SITE_CONF]
 
 
@@ -45,14 +53,14 @@ def test_redirect_emits_a_quoted_target() -> None:
 def test_custom_page_writes_the_document_verbatim() -> None:
     html = "<!doctype html><html><body>banned</body></html>"
     files = render_default_site(_state(mode="custom_page", html=html))
-    assert set(files) == {DEFAULT_SITE_CONF, DEFAULT_SITE_BODY, DEFAULT_SITE_HTML}
+    assert {DEFAULT_SITE_CONF, DEFAULT_SITE_BODY, DEFAULT_SITE_HTML} <= set(files)
     assert files[DEFAULT_SITE_HTML] == html
     assert "try_files /megoopm-default.html =404;" in files[DEFAULT_SITE_CONF]
 
 
 def test_congratulations_ships_the_bundled_page() -> None:
     files = render_default_site(_state(mode="congratulations"))
-    assert set(files) == {DEFAULT_SITE_CONF, DEFAULT_SITE_BODY, DEFAULT_SITE_HTML}
+    assert {DEFAULT_SITE_CONF, DEFAULT_SITE_BODY, DEFAULT_SITE_HTML} <= set(files)
     page = files[DEFAULT_SITE_HTML]
     assert page.startswith("<!doctype html>")
     assert "MegooPM" in page

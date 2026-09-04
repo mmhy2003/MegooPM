@@ -1,0 +1,98 @@
+{# One HTTP error, branded.
+
+   Rendered once per code into the shared default directory and served by an
+   `internal` location, so it is reachable only as the result of an error
+   inside nginx — never by a direct request.
+
+   Nothing here may describe the request, the host, or what is behind the
+   proxy: this page is reachable by anyone, and each of those tells someone
+   probing the instance how it is built. Same rule banned.html.j2 follows. #}
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{{ code }} &middot; {{ heading }}</title>
+    <style>
+{% include "_palette.css.j2" %}
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        padding: 2rem 1.25rem;
+        background-color: var(--bg);
+        background-image:
+          linear-gradient(var(--grid) 1px, transparent 1px),
+          linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+        background-size: 48px 48px;
+        color: var(--fg);
+        font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+        line-height: 1.6;
+      }
+
+      main {
+        width: 100%;
+        max-width: 30rem;
+        padding: 2.5rem 2rem;
+        text-align: center;
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        box-shadow: var(--glow);
+      }
+
+      .logo {
+        display: block;
+        width: 64px;
+        height: 64px;
+        margin: 0 auto 1.25rem;
+        filter: var(--logo-glow, none);
+      }
+
+      .code {
+        margin: 0;
+        font-family: ui-monospace, SFMono-Regular, "JetBrains Mono", Menlo, monospace;
+        font-size: 3.5rem;
+        font-weight: 700;
+        line-height: 1;
+        letter-spacing: 0.04em;
+        color: var(--primary);
+      }
+
+      h1 {
+        margin: 0.75rem 0 0;
+        font-size: 1.25rem;
+        font-weight: 600;
+      }
+
+      .rule {
+        width: 3rem;
+        height: 2px;
+        margin: 1.25rem auto;
+        background: linear-gradient(90deg, var(--primary), var(--accent));
+        border-radius: 2px;
+      }
+
+      p.detail {
+        margin: 0;
+        color: var(--muted);
+        font-size: 0.95rem;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <img class="logo" src="{{ logo_data_uri }}" alt="MegooPM" width="64" height="64" />
+      <p class="code">{{ code }}</p>
+      <h1>{{ heading }}</h1>
+      <div class="rule"></div>
+      <p class="detail">{{ detail }}</p>
+    </main>
+  </body>
+</html>

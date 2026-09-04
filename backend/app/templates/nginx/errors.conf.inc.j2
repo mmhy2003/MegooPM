@@ -1,0 +1,17 @@
+{# Included once inside every managed `server {}` block.
+
+   `.inc`, not `.conf`: the base config includes `.../*.conf` at the http
+   level, where an `error_page` would be a configuration error.
+
+   No `proxy_intercept_errors` anywhere — a status the *backend* returns
+   passes through untouched, so an application's own error pages and an API's
+   JSON error bodies survive. These pages appear only when nginx itself
+   generates the status. #}
+# Managed by MegooPM — do not edit by hand.
+{%- for code in codes %}
+error_page {{ code }} /{{ document(code) }};
+location = /{{ document(code) }} {
+    root {{ default_dir }};
+    internal;
+}
+{%- endfor %}

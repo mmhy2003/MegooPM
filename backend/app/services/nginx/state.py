@@ -225,6 +225,20 @@ class DefaultSiteSpec:
 
 
 @dataclass(frozen=True, slots=True)
+class ErrorPageSpec:
+    """What one HTTP status code is answered with.
+
+    ``html`` is already resolved by the loader — the same division
+    :class:`BanPageSpec` makes. Empty means "render the shipped template",
+    which also covers a custom page whose document has gone missing: an empty
+    error page is worse than a generic one.
+    """
+
+    code: int
+    html: str = ""
+
+
+@dataclass(frozen=True, slots=True)
 class BanPageSpec:
     """What a CrowdSec-blocked visitor is served.
 
@@ -292,6 +306,8 @@ class DesiredState:
     default_site: DefaultSiteSpec | None = None
     default_tls: tuple[DefaultTlsSpec, ...] = field(default_factory=tuple)
     ban_page: BanPageSpec | None = None
+    #: Only the codes an operator configured; the rest render shipped pages.
+    error_pages: tuple[ErrorPageSpec, ...] = ()
 
 
 __all__ = [
@@ -307,5 +323,6 @@ __all__ = [
     "StreamSpec",
     "DefaultSiteSpec",
     "DesiredState",
+    "ErrorPageSpec",
     "LocationSpec",
 ]
