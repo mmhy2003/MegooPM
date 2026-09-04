@@ -23,6 +23,7 @@ from app.models.auth_token import AuthToken
 from app.models.crowdsec import CrowdSecCredential
 from app.models.crowdsec_job_run import CrowdSecJobRun
 from app.models.dns_credential import DnsProviderCredential
+from app.models.error_page import ErrorPage
 from app.models.instance_settings import InstanceSettings
 from app.models.passkey import Passkey
 from app.models.recovery_code import RecoveryCode
@@ -99,6 +100,7 @@ async def session_factory() -> AsyncIterator[async_sessionmaker]:
                 DnsProviderCredential.__table__,
                 InstanceSettings.__table__,
                 RecoveryCode.__table__,
+                ErrorPage.__table__,
                 Passkey.__table__,
                 CrowdSecJobRun.__table__,
             ],

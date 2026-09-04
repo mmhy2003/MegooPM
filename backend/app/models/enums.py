@@ -93,6 +93,13 @@ class LocationTarget(enum.StrEnum):
     custom_page = "custom_page"
 
 
+class ErrorPageMode(enum.StrEnum):
+    """What one HTTP status code is answered with."""
+
+    default = "default"
+    custom_page = "custom_page"
+
+
 class RedirectScheme(enum.StrEnum):
     """Scheme applied to a redirection target (``auto`` keeps the request's)."""
 
@@ -186,6 +193,7 @@ __all__ = [
     "CertificateStatus",
     "HttpScheme",
     "LocationTarget",
+    "ErrorPageMode",
     "RedirectScheme",
     "AccessListDirective",
     "DefaultSiteMode",

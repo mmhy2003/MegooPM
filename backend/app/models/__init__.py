@@ -27,6 +27,7 @@ from app.models.crowdsec_whitelist import (  # noqa: F401
 from app.models.custom_page import CustomPage  # noqa: F401
 from app.models.dead_host import DeadHost  # noqa: F401
 from app.models.dns_credential import DnsProviderCredential  # noqa: F401
+from app.models.error_page import ErrorPage  # noqa: F401
 from app.models.instance_settings import InstanceSettings  # noqa: F401
 from app.models.node_metrics import NodeMetrics  # noqa: F401
 from app.models.passkey import Passkey  # noqa: F401
@@ -56,6 +57,7 @@ __all__ = [
     "CustomPage",
     "DeadHost",
     "DnsProviderCredential",
+    "ErrorPage",
     "InstanceSettings",
     "NodeMetrics",
     "Passkey",
