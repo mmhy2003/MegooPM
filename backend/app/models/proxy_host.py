@@ -23,12 +23,13 @@ from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
-from app.models.enums import HttpScheme
+from app.models.enums import HttpScheme, LocationTarget
 from app.models.mixins import IdMixin, TimestampMixin
 
 if TYPE_CHECKING:
     from app.models.access_list import AccessList
     from app.models.certificate import Certificate
+    from app.models.custom_page import CustomPage
     from app.models.upstream import Upstream
 
 
@@ -95,9 +96,7 @@ class ProxyHost(IdMixin, TimestampMixin, Base):
     # host so banned IPs are refused at the edge; ``crowdsec_appsec_enabled``
     # additionally routes requests through the inline AppSec/WAF component.
     # AppSec has no effect unless the bouncer is enabled.
-    crowdsec_enabled: Mapped[bool] = mapped_column(
-        Boolean, nullable=False, server_default="false"
-    )
+    crowdsec_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="false")
     crowdsec_appsec_enabled: Mapped[bool] = mapped_column(
         Boolean, nullable=False, server_default="false"
     )
@@ -121,9 +120,10 @@ class ProxyHost(IdMixin, TimestampMixin, Base):
 class ProxyHostLocation(IdMixin, TimestampMixin, Base):
     """One ``location <path>`` block of a proxy host.
 
-    Forwards to a pool or a single backend, the same either/or the host itself
-    has — a user who chose a literal backend for ``/`` expects the same choice
-    for ``/api``.
+    Forwards to a pool or a single backend — the same either/or the host itself
+    has — or is answered by nginx directly: the instance's default site, or one
+    named custom page. ``target`` says which, rather than the reader inferring
+    it from which columns are null.
     """
 
     __tablename__ = "proxy_host_locations"
@@ -135,9 +135,18 @@ class ProxyHostLocation(IdMixin, TimestampMixin, Base):
             "forward_port IS NULL OR forward_port BETWEEN 1 AND 65535",
             name="forward_port_range",
         ),
+        # One shape per target. Written against ``target`` rather than as a
+        # count of non-null columns so a row that says "pool" but carries a
+        # forward_host is rejected, not silently rendered as one of the two.
         CheckConstraint(
-            "(forward_host IS NOT NULL AND forward_port IS NOT NULL AND upstream_id IS NULL)"
-            " OR (forward_host IS NULL AND forward_port IS NULL AND upstream_id IS NOT NULL)",
+            "(target = 'pool' AND upstream_id IS NOT NULL AND forward_host IS NULL"
+            " AND forward_port IS NULL AND custom_page_id IS NULL)"
+            " OR (target = 'host' AND upstream_id IS NULL AND forward_host IS NOT NULL"
+            " AND forward_port IS NOT NULL AND custom_page_id IS NULL)"
+            " OR (target = 'default_site' AND upstream_id IS NULL AND forward_host IS NULL"
+            " AND forward_port IS NULL AND custom_page_id IS NULL)"
+            " OR (target = 'custom_page' AND upstream_id IS NULL AND forward_host IS NULL"
+            " AND forward_port IS NULL AND custom_page_id IS NOT NULL)",
             name="location_target_exactly_one",
         ),
     )
@@ -146,6 +155,20 @@ class ProxyHostLocation(IdMixin, TimestampMixin, Base):
         ForeignKey("proxy_hosts.id", ondelete="CASCADE"), nullable=False, index=True
     )
     path: Mapped[str] = mapped_column(String(255), nullable=False)
+    target: Mapped[LocationTarget] = mapped_column(
+        Enum(
+            LocationTarget,
+            name="location_target",
+            values_callable=lambda e: [m.value for m in e],
+        ),
+        nullable=False,
+        default=LocationTarget.pool,
+        server_default=LocationTarget.pool.value,
+    )
+    # RESTRICT, like ``proxy_hosts.upstream_id``: a page in use cannot be deleted.
+    custom_page_id: Mapped[int | None] = mapped_column(
+        ForeignKey("custom_pages.id", ondelete="RESTRICT"), nullable=True, index=True
+    )
     # RESTRICT, like ``proxy_hosts.upstream_id``: a pool in use cannot be deleted.
     upstream_id: Mapped[int | None] = mapped_column(
         ForeignKey("upstreams.id", ondelete="RESTRICT"), nullable=True, index=True
@@ -165,6 +188,7 @@ class ProxyHostLocation(IdMixin, TimestampMixin, Base):
 
     proxy_host: Mapped[ProxyHost] = relationship(back_populates="locations")
     upstream: Mapped[Upstream] = relationship()
+    custom_page: Mapped[CustomPage] = relationship()
 
 
 __all__ = ["ProxyHost", "ProxyHostLocation"]

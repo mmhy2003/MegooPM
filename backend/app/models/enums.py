@@ -80,6 +80,19 @@ class HttpScheme(enum.StrEnum):
     https = "https"
 
 
+class LocationTarget(enum.StrEnum):
+    """What a proxy host's ``location`` block answers with.
+
+    ``pool`` and ``host`` proxy onward; ``default_site`` and ``custom_page``
+    are answered by nginx itself and never reach a backend.
+    """
+
+    pool = "pool"
+    host = "host"
+    default_site = "default_site"
+    custom_page = "custom_page"
+
+
 class RedirectScheme(enum.StrEnum):
     """Scheme applied to a redirection target (``auto`` keeps the request's)."""
 
@@ -172,6 +185,7 @@ __all__ = [
     "CertificateProvider",
     "CertificateStatus",
     "HttpScheme",
+    "LocationTarget",
     "RedirectScheme",
     "AccessListDirective",
     "DefaultSiteMode",
