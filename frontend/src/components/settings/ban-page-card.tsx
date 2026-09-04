@@ -79,7 +79,7 @@ export function BanPageCard({
   }
 
   return (
-    <section className="space-y-4 rounded-xl border p-4">
+    <section className="bg-card text-card-foreground space-y-4 rounded-xl border p-4 shadow-xs">
       <div className="space-y-1">
         <h3 className="text-sm font-semibold">Ban page</h3>
         <p className="text-muted-foreground text-sm">

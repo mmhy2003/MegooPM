@@ -137,7 +137,7 @@ export function SettingsView() {
         </div>
       </div>
 
-      <section className="space-y-4 rounded-xl border p-5">
+      <section className="bg-card text-card-foreground space-y-4 rounded-xl border p-5 shadow-xs">
         <div>
           <h3 className="text-sm font-semibold">Default site</h3>
           <p className="text-sm text-muted-foreground">
