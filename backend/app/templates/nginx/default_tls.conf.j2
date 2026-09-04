@@ -7,6 +7,9 @@
    block removes that for every name a certificate covers. #}
 # Managed by MegooPM — do not edit by hand.
 server {
+    # Branded error pages for the statuses nginx itself produces. A status
+    # the backend returns is untouched: there is no proxy_intercept_errors.
+    include {{ default_dir }}/{{ errors_conf }};
     listen 443 ssl;
     server_name {{ server_names }};
 

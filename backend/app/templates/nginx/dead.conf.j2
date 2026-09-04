@@ -29,6 +29,9 @@
 # dead host id={{ host.id }}
 {%- if host.certificate %}
 server {
+    # Branded error pages for the statuses nginx itself produces. A status
+    # the backend returns is untouched: there is no proxy_intercept_errors.
+    include {{ default_dir }}/{{ errors_conf }};
     listen 80;
     server_name {{ server_names }};
 {{- acme_challenge() }}
@@ -43,6 +46,9 @@ server {
 }
 
 server {
+    # Branded error pages for the statuses nginx itself produces. A status
+    # the backend returns is untouched: there is no proxy_intercept_errors.
+    include {{ default_dir }}/{{ errors_conf }};
     listen 443 ssl{% if host.http2_support %} http2{% endif %};
     server_name {{ server_names }};
 
@@ -57,6 +63,9 @@ server {
 }
 {%- else %}
 server {
+    # Branded error pages for the statuses nginx itself produces. A status
+    # the backend returns is untouched: there is no proxy_intercept_errors.
+    include {{ default_dir }}/{{ errors_conf }};
     listen 80;
     server_name {{ server_names }};
 {{- acme_challenge() }}

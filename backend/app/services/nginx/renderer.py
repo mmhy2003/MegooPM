@@ -156,6 +156,7 @@ def _render_proxy_host(host: ProxyHostSpec) -> str:
                 loc.path: _target(loc) for loc in host.locations if loc.target in _PROXY_TARGETS
             },
             default_dir=settings.nginx_default_dir,
+            errors_conf=ERRORS_CONF,
             default_site_body=DEFAULT_SITE_BODY,
             location_html=location_html,
             server_names=" ".join(host.domain_names),
@@ -179,6 +180,8 @@ def _render_redirection_host(host: RedirectionHostSpec) -> str:
         .get_template("redirect.conf.j2")
         .render(
             host=host,
+            default_dir=settings.nginx_default_dir,
+            errors_conf=ERRORS_CONF,
             server_names=" ".join(host.domain_names),
             acme_challenge_root=settings.acme_http_challenge_dir,
         )
@@ -191,6 +194,8 @@ def _render_dead_host(host: DeadHostSpec) -> str:
         .get_template("dead.conf.j2")
         .render(
             host=host,
+            default_dir=settings.nginx_default_dir,
+            errors_conf=ERRORS_CONF,
             server_names=" ".join(host.domain_names),
             acme_challenge_root=settings.acme_http_challenge_dir,
         )
@@ -203,6 +208,7 @@ def _render_default_tls(spec: DefaultTlsSpec) -> str:
         .get_template("default_tls.conf.j2")
         .render(
             spec=spec,
+            errors_conf=ERRORS_CONF,
             server_names=" ".join(spec.server_names),
             default_dir=settings.nginx_default_dir,
         )
