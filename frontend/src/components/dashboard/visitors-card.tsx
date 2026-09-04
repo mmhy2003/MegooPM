@@ -20,7 +20,7 @@ export function VisitorsCard({ visitors }: { visitors: VisitorSummary }) {
   const window = visitors.days === 1 ? "today" : `the last ${visitors.days} days`;
 
   return (
-    <section className="space-y-3 rounded-xl border p-4">
+    <section className="bg-card text-card-foreground space-y-3 rounded-xl border p-4 shadow-xs">
       <div>
         <h3 className="flex items-center gap-2 text-sm font-medium">
           <Users className="size-4 shrink-0" aria-hidden="true" />

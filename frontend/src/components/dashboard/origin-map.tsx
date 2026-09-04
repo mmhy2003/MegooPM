@@ -151,7 +151,7 @@ export function OriginMap({
   const empty = active.length === 0;
 
   return (
-    <section className="space-y-3 rounded-xl border p-4">
+    <section className="bg-card text-card-foreground space-y-3 rounded-xl border p-4 shadow-xs">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h3 className="flex items-center gap-2 text-sm font-medium">

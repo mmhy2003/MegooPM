@@ -38,7 +38,7 @@ function Card({
   children: React.ReactNode;
 }) {
   return (
-    <section className="space-y-3 rounded-xl border p-4">
+    <section className="bg-card text-card-foreground space-y-3 rounded-xl border p-4 shadow-xs">
       <h3 className="text-muted-foreground flex items-center gap-2 text-sm font-medium">
         {/* Decorative: the title beside it already names the card, so a screen
             reader announcing the icon too would just repeat itself. */}

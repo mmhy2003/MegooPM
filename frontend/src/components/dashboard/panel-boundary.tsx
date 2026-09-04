@@ -32,7 +32,7 @@ export class PanelBoundary extends Component<
   render() {
     if (this.state.failed) {
       return (
-        <section className="space-y-1 rounded-xl border p-4">
+        <section className="bg-card text-card-foreground space-y-1 rounded-xl border p-4 shadow-xs">
           <h3 className="text-sm font-medium">{this.props.title}</h3>
           <p className="text-muted-foreground text-sm">
             This panel failed to render. The rest of the dashboard is
