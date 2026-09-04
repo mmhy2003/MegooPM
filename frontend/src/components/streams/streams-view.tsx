@@ -161,7 +161,7 @@ export function StreamsView() {
             <Plus /> New stream
           </Button>
         </div>
-        <div className="rounded-xl border">
+        <div className="bg-card text-card-foreground rounded-xl border shadow-xs">
           <Table>
             <TableHeader>
               <TableRow>

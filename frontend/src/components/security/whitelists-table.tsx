@@ -67,56 +67,58 @@ export function WhitelistsTable({
   }
 
   return (
-    <Table>
-      <TableHeader>
-        <TableRow>
-          <TableHead>Name</TableHead>
-          <TableHead>Kind</TableHead>
-          <TableHead>Reason</TableHead>
-          <TableHead>Covers</TableHead>
-          <TableHead>Enabled</TableHead>
-          <TableHead className="w-24" />
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {rows.map((row) => (
-          <TableRow key={row.id}>
-            <TableCell className="font-medium">{row.name}</TableCell>
-            <TableCell>
-              <Badge variant={row.kind === "expression" ? "outline" : "secondary"}>
-                {WHITELIST_KIND_LABELS[row.kind]}
-              </Badge>
-            </TableCell>
-            <TableCell className="text-muted-foreground">{row.reason}</TableCell>
-            <TableCell>{coverage(row)}</TableCell>
-            <TableCell>
-              <EnabledToggle
-                checked={row.enabled}
-                name={row.name}
-                onToggle={(next) => onToggle(row, next)}
-              />
-            </TableCell>
-            <TableCell className="text-right">
-              <Button
-                size="icon"
-                variant="ghost"
-                aria-label={`Edit ${row.name}`}
-                onClick={() => onEdit(row)}
-              >
-                <Pencil className="size-4" />
-              </Button>
-              <Button
-                size="icon"
-                variant="ghost"
-                aria-label={`Delete ${row.name}`}
-                onClick={() => onDelete(row)}
-              >
-                <Trash2 className="size-4" />
-              </Button>
-            </TableCell>
+    <div className="bg-card text-card-foreground rounded-xl border shadow-xs">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Name</TableHead>
+            <TableHead>Kind</TableHead>
+            <TableHead>Reason</TableHead>
+            <TableHead>Covers</TableHead>
+            <TableHead>Enabled</TableHead>
+            <TableHead className="w-24" />
           </TableRow>
-        ))}
-      </TableBody>
-    </Table>
+        </TableHeader>
+        <TableBody>
+          {rows.map((row) => (
+            <TableRow key={row.id}>
+              <TableCell className="font-medium">{row.name}</TableCell>
+              <TableCell>
+                <Badge variant={row.kind === "expression" ? "outline" : "secondary"}>
+                  {WHITELIST_KIND_LABELS[row.kind]}
+                </Badge>
+              </TableCell>
+              <TableCell className="text-muted-foreground">{row.reason}</TableCell>
+              <TableCell>{coverage(row)}</TableCell>
+              <TableCell>
+                <EnabledToggle
+                  checked={row.enabled}
+                  name={row.name}
+                  onToggle={(next) => onToggle(row, next)}
+                />
+              </TableCell>
+              <TableCell className="text-right">
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  aria-label={`Edit ${row.name}`}
+                  onClick={() => onEdit(row)}
+                >
+                  <Pencil className="size-4" />
+                </Button>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  aria-label={`Delete ${row.name}`}
+                  onClick={() => onDelete(row)}
+                >
+                  <Trash2 className="size-4" />
+                </Button>
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </div>
   );
 }

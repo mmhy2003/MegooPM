@@ -473,7 +473,7 @@ export function SecurityView() {
                   placeholder="IP, range or scenario"
                 />
               </div>
-              <div className="rounded-xl border">
+              <div className="bg-card text-card-foreground rounded-xl border shadow-xs">
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -590,7 +590,7 @@ export function SecurityView() {
                   placeholder="Source IP or scenario"
                 />
               </div>
-              <div className="rounded-xl border">
+              <div className="bg-card text-card-foreground rounded-xl border shadow-xs">
                 <Table>
                   <TableHeader>
                     <TableRow>
