@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, render, screen, within } from "@testing-library/react";
 
 import { SecurityMetrics } from "@/components/security/security-metrics";
 
@@ -38,10 +38,18 @@ describe("AlertsTimeline bars", () => {
     const columns = Array.from(chart.children) as HTMLElement[];
     expect(columns).toHaveLength(12);
 
-    const heights = columns.map((c) => (c.firstElementChild as HTMLElement).style.height);
+    const heights = columns.map(
+      (c) => (c.querySelector('[data-slot="bar"]') as HTMLElement).style.height,
+    );
     expect(heights[11]).toBe("100%");
     expect(heights[10]).toBe("25%");
     expect(heights[0]).toBe("0%");
+
+    // The count sits above each non-empty bar; empty buckets keep the label
+    // row (so every bar scales against the same height) but show nothing.
+    expect(within(columns[11]).getByText("4")).toBeInTheDocument();
+    expect(within(columns[10]).getByText("1")).toBeInTheDocument();
+    expect(columns[0].textContent).toBe("");
 
     // A percentage height only resolves against a column with a definite
     // height. With `items-end` on the row the column shrank to its content and

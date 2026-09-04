@@ -85,10 +85,18 @@ function AlertsTimeline({ alerts, nowMs }: { alerts: Alert[]; nowMs: number }) {
                 className="flex h-full flex-1 flex-col items-center justify-end gap-1"
                 title={`${bucketLabel(b)} — ${b.count} alert${b.count === 1 ? "" : "s"}`}
               >
-                <div
-                  className="w-full rounded-t bg-chart-1"
-                  style={{ height: `${(b.count / max) * 100}%`, minHeight: b.count > 0 ? 4 : 0 }}
-                />
+                {/* Always present, so every bar scales against the same height;
+                    empty buckets simply show nothing in it. */}
+                <span className="h-3 text-[11px] leading-none tabular-nums text-muted-foreground">
+                  {b.count > 0 ? b.count : ""}
+                </span>
+                <div className="flex w-full flex-1 items-end">
+                  <div
+                    data-slot="bar"
+                    className="w-full rounded-t bg-chart-1"
+                    style={{ height: `${(b.count / max) * 100}%`, minHeight: b.count > 0 ? 4 : 0 }}
+                  />
+                </div>
               </div>
             ))}
           </div>
