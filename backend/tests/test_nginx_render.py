@@ -232,6 +232,28 @@ def test_extra_locations_appear_in_both_servers_of_a_tls_host() -> None:
     assert server.count("proxy_pass http://megoopm_upstream_2;") == 2
 
 
+def test_the_cache_location_forwards_the_client_like_every_other_location() -> None:
+    """An asset request must reach the backend looking like any other.
+
+    Without these the backend logs every image and stylesheet as coming from
+    the proxy, and a scheme-aware redirect on an asset path builds an http://
+    URL behind TLS.
+    """
+    host = _host(caching_enabled=True)
+    server = render_config(DesiredState(proxy_hosts=(host,), http_upstreams=(_pool(),)))[
+        "megoopm-proxy-1.conf"
+    ]
+    cache_location = server[server.index("location ~* \\.(?:jpg") :]
+    cache_location = cache_location[: cache_location.index("}")]
+
+    for header in (
+        "proxy_set_header X-Real-IP $remote_addr;",
+        "proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;",
+        "proxy_set_header X-Forwarded-Proto $scheme;",
+    ):
+        assert header in cache_location, header
+
+
 def test_cache_location_is_unchanged_with_extra_locations() -> None:
     host = _host(caching_enabled=True, locations=(LocationSpec(path="/api/", upstream_id=2),))
     out = render_config(DesiredState(proxy_hosts=(host,), http_upstreams=(_pool(), _pool(id=2))))
