@@ -73,6 +73,44 @@ One file per object, named by id so updates rewrite in place (never duplicate):
   404. That `root` is load-bearing: without it OpenResty serves its own welcome
   page instead.
 
+- `megoopm-error-{code}.html` + `megoopm-errors.conf.inc` — the **branded error
+  pages**. Eight documents, one per status MegooPM brands (400, 401, 403, 404,
+  500, 502, 503, 504), written into `NGINX_DEFAULT_DIR` beside the default
+  site, and one fragment that every managed `server {}` includes:
+
+  ```nginx
+  error_page 404 /megoopm-error-404.html;
+  location = /megoopm-error-404.html { root /data/nginx/default; internal; }
+  ```
+
+  `internal` means the document answers only an internal redirect: requesting
+  it directly gets a 404, so the page cannot be probed for what is behind it.
+  The fragment ends in `.inc`, not `.conf`, so the base config's `conf.d/*.conf`
+  glob never parses a bare `error_page` list as a server block.
+
+  Only errors **nginx itself** produces are branded. There is no
+  `proxy_intercept_errors`, so a 404 or a 500 from your own application reaches
+  the visitor exactly as your application wrote it. What nginx answers on its
+  own — an upstream that is down (502), a timeout (504), an access list refusal
+  (403) — gets the branded page.
+
+  Each document is self-contained: the palette is inline and the logo is a
+  base64 `data:` URI, so a page renders with no network at all, which is the
+  state a 502 usually means. Nothing on it names a host, an upstream, a path,
+  or anything from the request.
+
+  A code with no row in `error_page` is rendered from the shipped template, so
+  a fresh install is fully branded with nothing configured. Binding a code to a
+  Custom Page under Settings writes that page's HTML into the same filename.
+
+  Verify on a live stack:
+
+  ```bash
+  docker compose exec nginx ls /data/nginx/default/
+  docker compose exec nginx cat /data/nginx/default/megoopm-errors.conf.inc
+  curl -sI https://<a-managed-domain>/definitely-not-here | head -1   # 404
+  ```
+
 Only files beginning with `NGINX_MANAGED_PREFIX` (default `megoopm-`) are managed;
 hand-placed configs in `conf.d` are never touched. The websocket
 `map $http_upgrade $connection_upgrade` lives once in the base
