@@ -27,6 +27,9 @@ export type MailTestResult = Schemas["MailTestResult"];
 export type CrowdSecHubUpdate = Schemas["CrowdSecHubUpdate"];
 export type CrowdSecCapiUpdate = Schemas["CrowdSecCapiUpdate"];
 export type HubUpdateFrequency = Schemas["HubUpdateFrequency"];
+export type ErrorPageRead = Schemas["ErrorPageRead"];
+export type ErrorPageUpdate = Schemas["ErrorPageUpdate"];
+export type ErrorPageMode = Schemas["ErrorPageMode"];
 
 const BASE = "/api/v1/settings";
 
@@ -56,4 +59,9 @@ export const instanceSettings = {
   /** Desired blocklist state; 202 and an apply is queued (CrowdSec restarts). */
   updateCrowdSecCapi: (body: CrowdSecCapiUpdate) =>
     api.patch<InstanceSettings>(`${BASE}/crowdsec-capi`, body),
+  /** All eight branded codes with their effective setting. */
+  listErrorPages: () => api.get<ErrorPageRead[]>(`${BASE}/error-pages`),
+  /** Replace the whole set; nginx is rewritten and reloaded. */
+  updateErrorPages: (body: ErrorPageUpdate[]) =>
+    api.put<ErrorPageRead[]>(`${BASE}/error-pages`, body),
 } as const;

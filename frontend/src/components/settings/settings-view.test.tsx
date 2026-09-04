@@ -59,6 +59,9 @@ describe("SettingsView", () => {
     vi.spyOn(instanceSettings, "get").mockResolvedValue(makeSettings());
     vi.spyOn(instanceSettings, "updateDefaultSite").mockResolvedValue(makeSettings());
     vi.spyOn(customPages, "list").mockResolvedValue([PAGE]);
+    // The Error pages card loads itself; without this it renders its own
+    // failure alert into every assertion about this view.
+    vi.spyOn(instanceSettings, "listErrorPages").mockResolvedValue([]);
   });
   afterEach(() => {
     cleanup();

@@ -24,6 +24,7 @@ import {
   type SettingsFormState,
 } from "@/components/settings/lib";
 import { BanPageCard } from "@/components/settings/ban-page-card";
+import { ErrorPagesCard } from "@/components/settings/error-pages-card";
 import { LlmCard } from "@/components/settings/llm-card";
 import { SmtpCard } from "@/components/settings/smtp-card";
 import { Button } from "@/components/ui/button";
@@ -249,6 +250,7 @@ export function SettingsView() {
       </section>
 
       {row ? <BanPageCard settings={row} pages={pages} onSaved={setRow} /> : null}
+      <ErrorPagesCard pages={pages} />
       {row ? <LlmCard settings={row} onSaved={setRow} /> : null}
       {row ? <SmtpCard settings={row} onSaved={setRow} /> : null}
     </div>

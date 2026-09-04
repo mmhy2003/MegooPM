@@ -1331,6 +1331,34 @@ export interface paths {
         patch: operations["update_settings_api_v1_settings_default_site_patch"];
         trace?: never;
     };
+    "/api/v1/settings/error-pages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read Error Pages
+         * @description What each branded status code is answered with. Always all eight.
+         */
+        get: operations["read_error_pages_api_v1_settings_error_pages_get"];
+        /**
+         * Update Error Pages
+         * @description Replace the whole set. Admin-only.
+         *
+         *     ``after_config_write``, not a bare audit: these choices are rendered into
+         *     every server block, so nginx must be rewritten and reloaded for a change
+         *     to take effect at all.
+         */
+        put: operations["update_error_pages_api_v1_settings_error_pages_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/settings/llm": {
         parameters: {
             query?: never;
@@ -3148,6 +3176,46 @@ export interface components {
             id: string;
             /** Label */
             label: string;
+        };
+        /**
+         * ErrorPageMode
+         * @description What one HTTP status code is answered with.
+         * @enum {string}
+         */
+        ErrorPageMode: "default" | "custom_page";
+        /**
+         * ErrorPageRead
+         * @description One code's effective setting. A code with no row reads as 'default'.
+         */
+        ErrorPageRead: {
+            /**
+             * Code
+             * @description One of the eight codes MegooPM brands
+             */
+            code: number;
+            /**
+             * Custom Page Id
+             * @description Page served when the mode is 'custom_page'
+             */
+            custom_page_id?: number | null;
+            mode: components["schemas"]["ErrorPageMode"];
+        };
+        /**
+         * ErrorPageUpdate
+         * @description One row of a whole-set write.
+         */
+        ErrorPageUpdate: {
+            /**
+             * Code
+             * @description One of the eight codes MegooPM brands
+             */
+            code: number;
+            /**
+             * Custom Page Id
+             * @description Page served when the mode is 'custom_page'
+             */
+            custom_page_id?: number | null;
+            mode: components["schemas"]["ErrorPageMode"];
         };
         /**
          * ForgotPasswordRequest
@@ -7351,6 +7419,59 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["InstanceSettingsRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_error_pages_api_v1_settings_error_pages_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorPageRead"][];
+                };
+            };
+        };
+    };
+    update_error_pages_api_v1_settings_error_pages_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ErrorPageUpdate"][];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorPageRead"][];
                 };
             };
             /** @description Validation Error */
