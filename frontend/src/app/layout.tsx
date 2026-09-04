@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Inter, JetBrains_Mono } from "next/font/google";
 
 import { Providers } from "@/components/providers";
@@ -27,6 +27,16 @@ export const metadata: Metadata = {
     template: `%s · ${APP_NAME}`,
   },
   description: "Self-hosted reverse-proxy management for hosts, certificates, and streams.",
+};
+
+// The installed app's window chrome. Two values so the title bar follows the
+// active theme instead of being a single colour that looks wrong in one of
+// them; both are the palette's `--background`, transcoded from oklch.
+export const viewport: Viewport = {
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#f0f9fb" },
+    { media: "(prefers-color-scheme: dark)", color: "#0a0917" },
+  ],
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
