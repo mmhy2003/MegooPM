@@ -13,6 +13,7 @@ unit-testable without any infrastructure.
 
 from __future__ import annotations
 
+import base64
 from functools import lru_cache
 from pathlib import Path
 
@@ -59,16 +60,31 @@ def _stream_directives(upstream: UpstreamSpec) -> dict[str, str]:
     return _STREAM_LB_DIRECTIVES
 
 
+#: The logo, inlined into every branded page as a data URI.
+#:
+#: Read once at import: these templates render on every apply, and the file
+#: never changes at runtime. Inline rather than linked because a branded page
+#: renders when something is already broken — a second request is exactly what
+#: cannot be relied on then.
+_LOGO_PATH = TEMPLATES_DIR / "assets" / "logo.png"
+LOGO_DATA_URI = "data:image/png;base64," + base64.b64encode(_LOGO_PATH.read_bytes()).decode()
+
+
 @lru_cache(maxsize=1)
 def _env() -> Environment:
     """Build the Jinja environment once and cache it."""
-    return Environment(
+    env = Environment(
         loader=FileSystemLoader(str(TEMPLATES_DIR)),
         undefined=StrictUndefined,  # fail loudly on a typo'd template variable
         keep_trailing_newline=True,
         trim_blocks=False,
         lstrip_blocks=False,
     )
+    # A global, not a per-render argument: every branded page wants it, and
+    # StrictUndefined would turn a forgotten argument into a failure at apply
+    # time rather than in a test.
+    env.globals["logo_data_uri"] = LOGO_DATA_URI
+    return env
 
 
 def pool_name(upstream_id: int) -> str:

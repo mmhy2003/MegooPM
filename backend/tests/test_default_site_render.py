@@ -6,6 +6,8 @@ filesystem, so the whole mode matrix is covered without infrastructure.
 
 from __future__ import annotations
 
+import re
+
 from app.services.nginx.renderer import (
     DEFAULT_SITE_BODY,
     DEFAULT_SITE_CONF,
@@ -68,8 +70,12 @@ def test_the_two_document_modes_share_one_conf() -> None:
 def test_congratulations_page_makes_no_external_requests() -> None:
     """It is what you see when nothing works; it must not need the network."""
     page = render_default_site(_state(mode="congratulations"))[DEFAULT_SITE_HTML]
-    for token in ("http://", "https://", "//fonts.", "<img", "<script"):
+    for token in ("http://", "https://", "//fonts.", "<script"):
         assert token not in page, token
+    # The logo is an <img>, but an inline one: the rule is about fetching,
+    # not about the tag, so every src here must already be in the document.
+    for src in re.findall(r'src="([^"]*)"', page):
+        assert src.startswith("data:"), src
 
 
 def test_congratulations_page_supports_both_colour_schemes() -> None:

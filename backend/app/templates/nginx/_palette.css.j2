@@ -1,0 +1,56 @@
+{# The MegooPM palette, lifted from frontend/src/app/globals.css, which is the
+   single source of truth for the design system.
+
+   Included by every page nginx serves itself — the default site, the ban page,
+   and each error page — so a colour is changed in one place rather than three.
+
+   Every oklch() is preceded by a hex fallback: these pages are reachable by
+   anything that resolves to the proxy, including browsers predating oklch
+   (Chrome 111 / Safari 15.4 / Firefox 113, 2023). Old browsers take the hex
+   and ignore the oklch that follows; new ones take the oklch. The hex values
+   are approximations — the oklch values are authoritative. #}
+      /* Light — "daylight city". */
+      :root {
+        --bg: #f3f6f8;
+        --bg: oklch(0.975 0.01 220);
+        --fg: #272040;
+        --fg: oklch(0.22 0.05 290);
+        --card: #ffffff;
+        --card: oklch(1 0 0);
+        --primary: #00778f;
+        --primary: oklch(0.5 0.14 205);
+        --muted: #6a6b85;
+        --muted: oklch(0.48 0.05 260);
+        --accent: #ab0069;
+        --accent: oklch(0.45 0.22 340);
+        --border: #cbd7de;
+        --border: oklch(0.86 0.04 210);
+        --grid: rgba(0, 119, 143, 0.06);
+        --glow: none;
+      }
+
+      /*
+       * Dark — "neon noir". A standalone page has no next-themes and no toggle,
+       * so the visitor's OS preference is the only signal available.
+       */
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #15121e;
+          --bg: oklch(0.15 0.03 285);
+          --fg: #e8f2f4;
+          --fg: oklch(0.95 0.02 200);
+          --card: #1c1829;
+          --card: oklch(0.19 0.035 285);
+          --primary: #4fdcef;
+          --primary: oklch(0.85 0.16 195);
+          --muted: #9fb2bc;
+          --muted: oklch(0.72 0.04 215);
+          --accent: #ff77c9;
+          --accent: oklch(0.88 0.17 340);
+          --border: #2b3f49;
+          --border: oklch(0.85 0.16 195 / 18%);
+          --grid: rgba(79, 220, 239, 0.05);
+          --glow: 0 0 24px rgba(79, 220, 239, 0.35);
+          --logo-glow: drop-shadow(0 0 10px rgba(79, 220, 239, 0.45));
+        }
+      }
