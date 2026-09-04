@@ -74,12 +74,15 @@ function AlertsTimeline({ alerts, nowMs }: { alerts: Alert[]; nowMs: number }) {
           <div
             role="img"
             aria-label={`${total} alerts over the last 24 hours`}
-            className="flex h-32 items-end gap-1.5"
+            className="flex h-32 gap-1.5"
           >
             {buckets.map((b) => (
+              // Full height, not `items-end` on the row: a percentage height
+              // only resolves against a column of definite height, and a
+              // content-sized column collapses every bar to its minimum.
               <div
                 key={b.startMs}
-                className="flex flex-1 flex-col items-center justify-end gap-1"
+                className="flex h-full flex-1 flex-col items-center justify-end gap-1"
                 title={`${bucketLabel(b)} — ${b.count} alert${b.count === 1 ? "" : "s"}`}
               >
                 <div
