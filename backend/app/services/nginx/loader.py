@@ -35,6 +35,7 @@ from app.models.enums import (
     DefaultSiteMode,
     LocationTarget,
 )
+from app.models.error_page import ErrorPage
 from app.models.instance_settings import InstanceSettings
 from app.models.proxy_host import ProxyHost, ProxyHostLocation
 from app.models.redirection_host import RedirectionHost
@@ -51,6 +52,7 @@ from app.services.nginx.state import (
     DeadHostSpec,
     DefaultSiteSpec,
     DesiredState,
+    ErrorPageSpec,
     LocationSpec,
     ProxyHostSpec,
     RedirectionHostSpec,
@@ -239,6 +241,7 @@ async def load_desired_state(
     stream_specs, stream_upstream_specs = await _load_streams(session, certs_dir)
     default_site = await _load_default_site(session)
     ban_page = await _load_ban_page(session)
+    error_pages = await _load_error_pages(session)
 
     state = DesiredState(
         proxy_hosts=tuple(host_specs),
@@ -249,6 +252,7 @@ async def load_desired_state(
         stream_upstreams=stream_upstream_specs,
         default_site=default_site,
         ban_page=ban_page,
+        error_pages=error_pages,
     )
     # Built from the finished state so the claimed-name set comes from exactly
     # the specs that render :443 blocks — the two cannot drift.
@@ -272,6 +276,25 @@ async def _load_certificates(session: AsyncSession) -> tuple[Certificate, ...]:
         .order_by(Certificate.id)
     )
     return tuple(rows)
+
+
+async def _load_error_pages(session: AsyncSession) -> tuple[ErrorPageSpec, ...]:
+    """Configured codes only, with each document dereferenced.
+
+    A row whose page has gone missing (edited outside the API — the FK is
+    RESTRICT) yields an empty ``html``, which the renderer reads as "use the
+    shipped page". An empty error page would be worse than a generic one.
+    """
+    stmt = select(ErrorPage).options(selectinload(ErrorPage.custom_page))
+    rows = (await session.scalars(stmt)).all()
+    specs = [
+        ErrorPageSpec(
+            code=row.code,
+            html=row.custom_page.html if row.custom_page is not None else "",
+        )
+        for row in rows
+    ]
+    return tuple(sorted(specs, key=lambda spec: spec.code))
 
 
 async def _load_ban_page(session: AsyncSession) -> BanPageSpec | None:

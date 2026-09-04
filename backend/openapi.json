@@ -2424,6 +2424,77 @@
         "title": "DnsProviderInfoRead",
         "type": "object"
       },
+      "ErrorPageMode": {
+        "description": "What one HTTP status code is answered with.",
+        "enum": [
+          "default",
+          "custom_page"
+        ],
+        "title": "ErrorPageMode",
+        "type": "string"
+      },
+      "ErrorPageRead": {
+        "description": "One code's effective setting. A code with no row reads as 'default'.",
+        "properties": {
+          "code": {
+            "description": "One of the eight codes MegooPM brands",
+            "title": "Code",
+            "type": "integer"
+          },
+          "custom_page_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Page served when the mode is 'custom_page'",
+            "title": "Custom Page Id"
+          },
+          "mode": {
+            "$ref": "#/components/schemas/ErrorPageMode"
+          }
+        },
+        "required": [
+          "code",
+          "mode"
+        ],
+        "title": "ErrorPageRead",
+        "type": "object"
+      },
+      "ErrorPageUpdate": {
+        "description": "One row of a whole-set write.",
+        "properties": {
+          "code": {
+            "description": "One of the eight codes MegooPM brands",
+            "title": "Code",
+            "type": "integer"
+          },
+          "custom_page_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Page served when the mode is 'custom_page'",
+            "title": "Custom Page Id"
+          },
+          "mode": {
+            "$ref": "#/components/schemas/ErrorPageMode"
+          }
+        },
+        "required": [
+          "code",
+          "mode"
+        ],
+        "title": "ErrorPageUpdate",
+        "type": "object"
+      },
       "ForgotPasswordRequest": {
         "description": "Body for ``POST /auth/forgot-password``.",
         "properties": {
@@ -9619,6 +9690,90 @@
           }
         ],
         "summary": "Update Settings",
+        "tags": [
+          "settings"
+        ]
+      }
+    },
+    "/api/v1/settings/error-pages": {
+      "get": {
+        "description": "What each branded status code is answered with. Always all eight.",
+        "operationId": "read_error_pages_api_v1_settings_error_pages_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ErrorPageRead"
+                  },
+                  "title": "Response Read Error Pages Api V1 Settings Error Pages Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Read Error Pages",
+        "tags": [
+          "settings"
+        ]
+      },
+      "put": {
+        "description": "Replace the whole set. Admin-only.\n\n``after_config_write``, not a bare audit: these choices are rendered into\nevery server block, so nginx must be rewritten and reloaded for a change\nto take effect at all.",
+        "operationId": "update_error_pages_api_v1_settings_error_pages_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "items": {
+                  "$ref": "#/components/schemas/ErrorPageUpdate"
+                },
+                "title": "Body",
+                "type": "array"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ErrorPageRead"
+                  },
+                  "title": "Response Update Error Pages Api V1 Settings Error Pages Put",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Update Error Pages",
         "tags": [
           "settings"
         ]

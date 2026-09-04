@@ -28,7 +28,8 @@ from fastapi import APIRouter, HTTPException, Response, status
 from app.api.deps import AdminUser, SessionDep
 from app.api.routes._config_writes import after_config_write
 from app.api.routes.crowdsec import RELOADS_NOT_CONFIGURED, enqueue_control_task
-from app.models.enums import AuditAction
+from app.models.enums import AuditAction, ErrorPageMode
+from app.schemas.error_page import ErrorPageRead, ErrorPageUpdate
 from app.schemas.instance_settings import (
     CrowdSecBanUpdate,
     CrowdSecCapiUpdate,
@@ -42,6 +43,7 @@ from app.schemas.instance_settings import (
     MailTestResult,
     SmtpSettingsUpdate,
 )
+from app.services import error_page as error_page_service
 from app.services import instance_settings as settings_service
 from app.services.audit import record_audit
 from app.services.llm import LlmConfig, check_connection
@@ -308,6 +310,46 @@ async def update_crowdsec_capi_settings(
     if not enqueue_control_task("app.tasks.crowdsec.apply_capi"):
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=RELOADS_NOT_CONFIGURED)
     return InstanceSettingsRead.from_row(row)
+
+
+# --- error pages ----------------------------------------------------------------
+
+
+@router.get("/error-pages", response_model=list[ErrorPageRead])
+async def read_error_pages(_admin: AdminUser, db: SessionDep) -> list[ErrorPageRead]:
+    """What each branded status code is answered with. Always all eight."""
+    return await error_page_service.list_error_pages(db)
+
+
+@router.put("/error-pages", response_model=list[ErrorPageRead])
+async def update_error_pages(
+    body: list[ErrorPageUpdate],
+    admin: AdminUser,
+    db: SessionDep,
+    response: Response,
+) -> list[ErrorPageRead]:
+    """Replace the whole set. Admin-only.
+
+    ``after_config_write``, not a bare audit: these choices are rendered into
+    every server block, so nginx must be rewritten and reloaded for a change
+    to take effect at all.
+    """
+    try:
+        rows = await error_page_service.replace_error_pages(db, body)
+    except error_page_service.UnknownCustomPageError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
+        ) from None
+    await after_config_write(
+        db,
+        response,
+        actor=admin,
+        action=AuditAction.update,
+        object_type="error_page",
+        object_id=None,
+        meta={"configured": [r.code for r in rows if r.mode is ErrorPageMode.custom_page]},
+    )
+    return rows
 
 
 __all__ = ["router"]

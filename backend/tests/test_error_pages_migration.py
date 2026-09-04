@@ -9,6 +9,7 @@ and a URL query would have to survive ConfigParser's '%' interpolation.
 from __future__ import annotations
 
 import asyncio
+import logging
 
 import pytest
 from alembic import command
@@ -101,3 +102,19 @@ def test_the_constraint_ties_the_page_to_the_mode(migrated) -> None:
     )
     rows = asyncio.run(_exec(["SELECT code, mode FROM error_page ORDER BY code"]))
     assert [tuple(r) for r in rows] == [(404, "custom_page"), (502, "default")]
+
+
+def test_a_migration_run_leaves_the_app_loggers_alone(migrated) -> None:
+    """Alembic must not mute the rest of the process.
+
+    ``fileConfig`` disables every logger its file does not name unless told
+    otherwise, so one migration run silently muted app.main and
+    app.services.user for every test that ran after it in the same process.
+    """
+    named = [logging.getLogger(n) for n in ("app.main", "app.services.user")]
+    for logger in named:
+        assert not logger.disabled
+
+    migrated("0032_error_pages")
+
+    assert [logger.disabled for logger in named] == [False, False]
