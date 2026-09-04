@@ -8,8 +8,9 @@ exploit blocking, caching, advanced config — with no database or filesystem.
 from __future__ import annotations
 
 import pytest
+from app.core.config import settings
 from app.services.nginx import render_config
-from app.services.nginx.renderer import render_default_site
+from app.services.nginx.renderer import DEFAULT_SITE_BODY, render_default_site
 from app.services.nginx.state import (
     BackendSpec,
     BanPageSpec,
@@ -118,9 +119,9 @@ def test_websocket_and_exploit_and_cache_flags() -> None:
         block_exploits=True,
         caching_enabled=True,
     )
-    server = render_config(
-        DesiredState(proxy_hosts=(host,), http_upstreams=(_pool(),))
-    )["megoopm-proxy-1.conf"]
+    server = render_config(DesiredState(proxy_hosts=(host,), http_upstreams=(_pool(),)))[
+        "megoopm-proxy-1.conf"
+    ]
     assert "proxy_set_header Upgrade $http_upgrade;" in server
     assert "proxy_set_header Connection $connection_upgrade;" in server
     assert "return 403;" in server  # exploit blocking rules
@@ -128,9 +129,9 @@ def test_websocket_and_exploit_and_cache_flags() -> None:
 
 
 def test_crowdsec_bouncer_renders_per_host() -> None:
-    off = render_config(
-        DesiredState(proxy_hosts=(_host(),), http_upstreams=(_pool(),))
-    )["megoopm-proxy-1.conf"]
+    off = render_config(DesiredState(proxy_hosts=(_host(),), http_upstreams=(_pool(),)))[
+        "megoopm-proxy-1.conf"
+    ]
     # Disabled by default: no bouncer directives leak into the config.
     assert "access_by_lua_file" not in off
     assert "megoopm_crowdsec_appsec" not in off
@@ -145,9 +146,9 @@ def test_crowdsec_bouncer_renders_per_host() -> None:
 
 def test_crowdsec_appsec_toggle_renders() -> None:
     host = _host(crowdsec_enabled=True, crowdsec_appsec_enabled=True)
-    server = render_config(
-        DesiredState(proxy_hosts=(host,), http_upstreams=(_pool(),))
-    )["megoopm-proxy-1.conf"]
+    server = render_config(DesiredState(proxy_hosts=(host,), http_upstreams=(_pool(),)))[
+        "megoopm-proxy-1.conf"
+    ]
     # The per-host flag still renders the `$megoopm_crowdsec_appsec` marker, but
     # AppSec enforcement is global (see docs/crowdsec.md, MEG-32/D3): the marker
     # is reserved for a future per-host reintroduction, not gated on today. The
@@ -159,9 +160,9 @@ def test_crowdsec_appsec_toggle_renders() -> None:
 def test_crowdsec_appsec_requires_bouncer() -> None:
     # AppSec on but bouncer off → nothing renders (AppSec is meaningless alone).
     host = _host(crowdsec_enabled=False, crowdsec_appsec_enabled=True)
-    server = render_config(
-        DesiredState(proxy_hosts=(host,), http_upstreams=(_pool(),))
-    )["megoopm-proxy-1.conf"]
+    server = render_config(DesiredState(proxy_hosts=(host,), http_upstreams=(_pool(),)))[
+        "megoopm-proxy-1.conf"
+    ]
     assert "megoopm_crowdsec_appsec" not in server
     assert "access_by_lua_file" not in server
 
@@ -173,9 +174,9 @@ def test_crowdsec_applies_to_tls_and_redirect_servers() -> None:
         privkey_path="/etc/nginx/certs/7/privkey.pem",
     )
     host = _host(certificate=cert, ssl_forced=True, crowdsec_enabled=True)
-    server = render_config(
-        DesiredState(proxy_hosts=(host,), http_upstreams=(_pool(),))
-    )["megoopm-proxy-1.conf"]
+    server = render_config(DesiredState(proxy_hosts=(host,), http_upstreams=(_pool(),)))[
+        "megoopm-proxy-1.conf"
+    ]
     # Both the :80 redirect server and the :443 server enforce the bouncer, so
     # a banned IP is blocked even before the HTTPS redirect.
     assert server.count("access_by_lua_file /etc/nginx/lua/megoopm_crowdsec.lua;") == 2
@@ -183,9 +184,9 @@ def test_crowdsec_applies_to_tls_and_redirect_servers() -> None:
 
 def test_advanced_config_is_injected() -> None:
     host = _host(advanced_config="client_max_body_size 50m;")
-    server = render_config(
-        DesiredState(proxy_hosts=(host,), http_upstreams=(_pool(),))
-    )["megoopm-proxy-1.conf"]
+    server = render_config(DesiredState(proxy_hosts=(host,), http_upstreams=(_pool(),)))[
+        "megoopm-proxy-1.conf"
+    ]
     assert "client_max_body_size 50m;" in server
 
 
@@ -400,9 +401,7 @@ def test_default_tls_block_is_named_per_certificate() -> None:
 
 
 def test_default_tls_block_serves_the_names_on_443_with_the_certificate() -> None:
-    conf = render_config(DesiredState(default_tls=(_default_tls(),)))[
-        "megoopm-default-tls-3.conf"
-    ]
+    conf = render_config(DesiredState(default_tls=(_default_tls(),)))["megoopm-default-tls-3.conf"]
     assert "listen 443 ssl;" in conf
     assert "server_name disabled.example.com *.example.com;" in conf
     assert "ssl_certificate /data/certs/3/fullchain.pem;" in conf
@@ -411,9 +410,7 @@ def test_default_tls_block_serves_the_names_on_443_with_the_certificate() -> Non
 
 def test_default_tls_block_includes_the_existing_default_site_fragment() -> None:
     """Reusing the fragment is what makes the Settings choice apply to HTTPS."""
-    conf = render_config(DesiredState(default_tls=(_default_tls(),)))[
-        "megoopm-default-tls-3.conf"
-    ]
+    conf = render_config(DesiredState(default_tls=(_default_tls(),)))["megoopm-default-tls-3.conf"]
     assert "include" in conf
     assert "*.conf;" in conf
 
@@ -421,9 +418,7 @@ def test_default_tls_block_includes_the_existing_default_site_fragment() -> None
 def test_default_tls_block_records_the_certificate_material() -> None:
     """Renewal rewrites the files in place; without this the rendered config is
     unchanged and no node reloads onto the new certificate."""
-    conf = render_config(DesiredState(default_tls=(_default_tls(),)))[
-        "megoopm-default-tls-3.conf"
-    ]
+    conf = render_config(DesiredState(default_tls=(_default_tls(),)))["megoopm-default-tls-3.conf"]
     assert "# cert-material 3:abc123" in conf
     other = render_config(
         DesiredState(
@@ -444,9 +439,7 @@ def test_default_tls_block_records_the_certificate_material() -> None:
 
 def test_default_tls_block_has_a_root_so_nothing_falls_through_to_openresty() -> None:
     """Without it an unmatched request is served OpenResty's welcome page."""
-    conf = render_config(DesiredState(default_tls=(_default_tls(),)))[
-        "megoopm-default-tls-3.conf"
-    ]
+    conf = render_config(DesiredState(default_tls=(_default_tls(),)))["megoopm-default-tls-3.conf"]
     assert "root /var/empty/megoopm;" in conf
 
 
@@ -479,9 +472,7 @@ def test_ban_page_none_writes_no_file_at_all() -> None:
 
 def test_ban_page_custom_mode_with_a_missing_document_writes_no_file() -> None:
     """A blank white page reads as a broken deployment; the bare 403 does not."""
-    files = render_default_site(
-        DesiredState(ban_page=BanPageSpec(mode="custom_page", html=""))
-    )
+    files = render_default_site(DesiredState(ban_page=BanPageSpec(mode="custom_page", html="")))
     assert "megoopm-ban.html" not in files
 
 
@@ -511,3 +502,71 @@ def test_the_ban_page_is_written_even_with_no_default_site() -> None:
     silently disable the other."""
     files = render_default_site(DesiredState(ban_page=BanPageSpec(mode="megoopm")))
     assert "megoopm-ban.html" in files
+
+
+# --- locations nginx answers itself -------------------------------------------
+
+
+def test_a_default_site_location_defers_to_the_shared_fragment() -> None:
+    # The whole point of the target: change Settings -> Default site and every
+    # path using it follows, without touching a single host.
+    host = _host(locations=(LocationSpec(path="/legacy/", target="default_site"),))
+    out = render_config(DesiredState(proxy_hosts=(host,), http_upstreams=(_pool(),)))
+    server = out["megoopm-proxy-1.conf"]
+    assert "location ^~ /legacy/ {" in server
+    assert f"include {settings.nginx_default_dir}/{DEFAULT_SITE_BODY};" in server
+    # It is answered here, so nothing about it reaches a backend.
+    assert server.count("proxy_pass") == 1  # the root location only
+
+
+def test_a_custom_page_location_serves_its_own_document() -> None:
+    host = _host(locations=(LocationSpec(path="/maintenance/", target="custom_page", id=42),))
+    state = DesiredState(proxy_hosts=(host,), http_upstreams=(_pool(),))
+    server = render_config(state)["megoopm-proxy-1.conf"]
+    assert "location ^~ /maintenance/ {" in server
+    # Its own file, not the default site's: two paths may want different pages.
+    assert "megoopm-location-42.html" in server
+    assert "try_files /megoopm-location-42.html =404;" in server
+
+
+def test_a_location_document_is_written_beside_the_default_site() -> None:
+    host = _host(
+        locations=(
+            LocationSpec(
+                path="/maintenance/",
+                target="custom_page",
+                id=42,
+                html="<h1>back soon</h1>",
+            ),
+        )
+    )
+    files = render_default_site(DesiredState(proxy_hosts=(host,), http_upstreams=(_pool(),)))
+    assert files["megoopm-location-42.html"] == "<h1>back soon</h1>"
+
+
+def test_answered_locations_render_in_both_servers_of_a_tls_host() -> None:
+    cert = CertificateSpec(
+        id=3,
+        fullchain_path="/etc/nginx/certs/3/fullchain.pem",
+        privkey_path="/etc/nginx/certs/3/privkey.pem",
+    )
+    host = _host(
+        certificate=cert,
+        ssl_forced=False,
+        locations=(LocationSpec(path="/legacy/", target="default_site"),),
+    )
+    out = render_config(DesiredState(proxy_hosts=(host,), http_upstreams=(_pool(),)))
+    assert out["megoopm-proxy-1.conf"].count("location ^~ /legacy/ {") == 2
+
+
+def test_proxy_and_answered_locations_coexist() -> None:
+    host = _host(
+        locations=(
+            LocationSpec(path="/api/", upstream_id=2),
+            LocationSpec(path="/legacy/", target="default_site"),
+        )
+    )
+    out = render_config(DesiredState(proxy_hosts=(host,), http_upstreams=(_pool(), _pool(id=2))))
+    server = out["megoopm-proxy-1.conf"]
+    assert "proxy_pass http://megoopm_upstream_2;" in server
+    assert "location ^~ /legacy/ {" in server

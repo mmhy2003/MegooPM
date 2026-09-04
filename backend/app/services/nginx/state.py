@@ -99,14 +99,24 @@ class AccessListSpec:
 class LocationSpec:
     """An extra ``location ^~ <path>`` route of a proxy host.
 
-    Forwards to a pool or a single backend, exactly as the host itself does.
+    Either forwards — to a pool or a single backend, exactly as the host itself
+    does — or is answered by nginx: ``default_site`` includes the same fragment
+    the catch-all server uses, and ``custom_page`` serves this location's own
+    document.
+
+    ``id`` names that document's file, so two locations wanting different pages
+    cannot collide. ``html`` is dereferenced by the loader, keeping the renderer
+    a pure function of explicit data.
     """
 
     path: str
+    target: str = "pool"
     upstream_id: int | None = None
     forward_host: str | None = None
     forward_port: int | None = None
     forward_scheme: str = "http"
+    id: int | None = None
+    html: str = ""
 
 
 @dataclass(frozen=True, slots=True)

@@ -20,6 +20,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.models.custom_page import CustomPage
 from app.models.enums import UpstreamContext
 from app.models.proxy_host import ProxyHost, ProxyHostLocation
 from app.models.upstream import Upstream
@@ -69,6 +70,23 @@ async def _check_location_pools(db: AsyncSession, locations: list[dict[str, Any]
     await _assert_pools_usable(db, ids, what="location upstream(s)")
 
 
+async def _check_location_pages(db: AsyncSession, locations: list[dict[str, Any]]) -> None:
+    """Every referenced page must exist.
+
+    Checked here rather than left to the FK so the route answers 422 naming the
+    page, not a 500 from an integrity error.
+    """
+    ids = {loc["custom_page_id"] for loc in locations if loc.get("custom_page_id") is not None}
+    if not ids:
+        return
+    found = set((await db.scalars(select(CustomPage.id).where(CustomPage.id.in_(ids)))).all())
+    missing = ids - found
+    if missing:
+        raise InvalidReferenceError(
+            "location page(s) do not exist: " + ", ".join(str(i) for i in sorted(missing))
+        )
+
+
 def _with_locations(stmt):
     return stmt.options(selectinload(ProxyHost.locations))
 
@@ -95,6 +113,7 @@ async def create_proxy_host(db: AsyncSession, values: dict[str, Any]) -> ProxyHo
         await _assert_pools_usable(db, {values["upstream_id"]}, what="upstream")
     locations = values.get("locations") or []
     await _check_location_pools(db, locations)
+    await _check_location_pages(db, locations)
 
     fields = {k: v for k, v in values.items() if k != "locations"}
     host = ProxyHost(**fields, locations=_location_rows(locations))
@@ -132,6 +151,7 @@ async def update_proxy_host(db: AsyncSession, host_id: int, changes: dict[str, A
     locations = changes.get("locations")
     if locations is not None:
         await _check_location_pools(db, locations)
+        await _check_location_pages(db, locations)
 
     for field, value in changes.items():
         if field == "locations":

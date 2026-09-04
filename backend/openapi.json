@@ -2948,6 +2948,17 @@
         "title": "LoadBalanceMethod",
         "type": "string"
       },
+      "LocationTarget": {
+        "description": "What a proxy host's ``location`` block answers with.\n\n``pool`` and ``host`` proxy onward; ``default_site`` and ``custom_page``\nare answered by nginx itself and never reach a backend.",
+        "enum": [
+          "pool",
+          "host",
+          "default_site",
+          "custom_page"
+        ],
+        "title": "LocationTarget",
+        "type": "string"
+      },
       "LoginRequest": {
         "description": "Credentials submitted to ``POST /auth/login``.",
         "properties": {
@@ -3568,8 +3579,20 @@
         "type": "object"
       },
       "ProxyHostLocationIn": {
-        "description": "One extra ``location <path>`` route of a proxy host.",
+        "description": "One extra ``location <path>`` route of a proxy host.\n\nForwards to a pool or a single backend, or is answered by nginx itself:\nthe instance's default site, or one named custom page.",
         "properties": {
+          "custom_page_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Page served when the target is 'custom_page'",
+            "title": "Custom Page Id"
+          },
           "forward_host": {
             "anyOf": [
               {
@@ -3606,6 +3629,17 @@
             "title": "Path",
             "type": "string"
           },
+          "target": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LocationTarget"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "What this prefix answers with. Omitted, it is inferred from the fields given, so a payload predating this field still works."
+          },
           "upstream_id": {
             "anyOf": [
               {
@@ -3628,6 +3662,18 @@
       "ProxyHostLocationRead": {
         "description": "Stored location (adds the row id).",
         "properties": {
+          "custom_page_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Page served when the target is 'custom_page'",
+            "title": "Custom Page Id"
+          },
           "forward_host": {
             "anyOf": [
               {
@@ -3667,6 +3713,17 @@
             "description": "URL prefix, e.g. /api/ (the root '/' is the host itself)",
             "title": "Path",
             "type": "string"
+          },
+          "target": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LocationTarget"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "What this prefix answers with. Omitted, it is inferred from the fields given, so a payload predating this field still works."
           },
           "upstream_id": {
             "anyOf": [

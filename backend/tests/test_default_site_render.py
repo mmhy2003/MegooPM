@@ -7,6 +7,7 @@ filesystem, so the whole mode matrix is covered without infrastructure.
 from __future__ import annotations
 
 from app.services.nginx.renderer import (
+    DEFAULT_SITE_BODY,
     DEFAULT_SITE_CONF,
     DEFAULT_SITE_HTML,
     render_default_site,
@@ -25,7 +26,7 @@ def test_no_setting_renders_nothing() -> None:
 
 def test_not_found_returns_404() -> None:
     files = render_default_site(_state(mode="not_found"))
-    assert set(files) == {DEFAULT_SITE_CONF}
+    assert set(files) == {DEFAULT_SITE_CONF, DEFAULT_SITE_BODY}
     assert "return 404;" in files[DEFAULT_SITE_CONF]
 
 
@@ -42,14 +43,14 @@ def test_redirect_emits_a_quoted_target() -> None:
 def test_custom_page_writes_the_document_verbatim() -> None:
     html = "<!doctype html><html><body>banned</body></html>"
     files = render_default_site(_state(mode="custom_page", html=html))
-    assert set(files) == {DEFAULT_SITE_CONF, DEFAULT_SITE_HTML}
+    assert set(files) == {DEFAULT_SITE_CONF, DEFAULT_SITE_BODY, DEFAULT_SITE_HTML}
     assert files[DEFAULT_SITE_HTML] == html
     assert "try_files /megoopm-default.html =404;" in files[DEFAULT_SITE_CONF]
 
 
 def test_congratulations_ships_the_bundled_page() -> None:
     files = render_default_site(_state(mode="congratulations"))
-    assert set(files) == {DEFAULT_SITE_CONF, DEFAULT_SITE_HTML}
+    assert set(files) == {DEFAULT_SITE_CONF, DEFAULT_SITE_BODY, DEFAULT_SITE_HTML}
     page = files[DEFAULT_SITE_HTML]
     assert page.startswith("<!doctype html>")
     assert "MegooPM" in page

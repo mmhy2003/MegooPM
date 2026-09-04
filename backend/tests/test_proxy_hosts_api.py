@@ -280,8 +280,13 @@ async def test_created_host_renders_upstream_and_proxy_pass(client: AsyncClient,
             "name": "render-pool",
             "lb_method": "least_conn",
             "backends": [
-                {"host": "10.0.0.1", "port": 8080, "weight": 5, "max_fails": 3,
-                 "fail_timeout_seconds": 20},
+                {
+                    "host": "10.0.0.1",
+                    "port": 8080,
+                    "weight": 5,
+                    "max_fails": 3,
+                    "fail_timeout_seconds": 20,
+                },
                 {"host": "10.0.0.2", "port": 8080},
             ],
         },
@@ -463,3 +468,37 @@ async def test_endpoints_require_authentication(client: AsyncClient) -> None:
     assert (await client.get("/api/v1/upstreams")).status_code == 401
     assert (await client.get("/api/v1/proxy-hosts")).status_code == 401
     assert (await client.post("/api/v1/upstreams", json={"name": "x"})).status_code == 401
+
+
+async def test_a_location_can_answer_with_the_default_site(client: AsyncClient, auth) -> None:
+    pool_id = await _make_pool(client, auth)
+    resp = await client.post(
+        "/api/v1/proxy-hosts",
+        headers=auth,
+        json={
+            "domain_names": ["answered.example.com"],
+            "upstream_id": pool_id,
+            "locations": [{"path": "/legacy/", "target": "default_site"}],
+        },
+    )
+    assert resp.status_code == 201, resp.text
+    location = resp.json()["locations"][0]
+    assert location["target"] == "default_site"
+    assert location["upstream_id"] is None
+
+
+async def test_a_location_naming_a_missing_page_is_422(client: AsyncClient, auth) -> None:
+    pool_id = await _make_pool(client, auth)
+    resp = await client.post(
+        "/api/v1/proxy-hosts",
+        headers=auth,
+        json={
+            "domain_names": ["missing-page.example.com"],
+            "upstream_id": pool_id,
+            "locations": [
+                {"path": "/maintenance/", "target": "custom_page", "custom_page_id": 9999}
+            ],
+        },
+    )
+    assert resp.status_code == 422, resp.text
+    assert "page" in resp.json()["detail"].lower()

@@ -7,30 +7,28 @@
 
    The two document modes (congratulations, custom_page) differ only in the
    contents of megoopm-default.html, so they share one block here. #}
-# Managed by MegooPM — do not edit by hand.
-# default site mode={{ site.mode }}
+{%- macro body() %}
 {%- if site.mode == "not_found" %}
-
-location / {
     return 404;
-}
 {%- elif site.mode == "no_response" %}
-
-location / {
     return 444;
-}
 {%- elif site.mode == "redirect" %}
-
-location / {
     # Quoted as defence in depth; the API already rejects any target containing
     # a quote, backslash, ';' or '$' (see schemas/instance_settings.py).
     return 301 "{{ site.redirect_url }}";
-}
 {%- else %}
-
-location / {
     # try_files with an absolute path serves this one document for every URI.
     root {{ default_dir }};
     try_files /megoopm-default.html =404;
+{%- endif %}
+{%- endmacro -%}
+# Managed by MegooPM — do not edit by hand.
+# default site mode={{ site.mode }}
+{%- if body_only|default(false) %}
+{{- body() }}
+{%- else %}
+
+location / {
+{{- body() }}
 }
 {%- endif %}

@@ -15,7 +15,7 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from app.models.enums import HttpScheme
+from app.models.enums import HttpScheme, LocationTarget
 
 # A lenient hostname matcher that also accepts a leading wildcard label
 # (``*.example.com``). Full RFC compliance is not the goal — we reject obvious
@@ -72,9 +72,20 @@ def _unique_location_paths(value: list[ProxyHostLocationIn]) -> list[ProxyHostLo
 
 
 class ProxyHostLocationIn(BaseModel):
-    """One extra ``location <path>`` route of a proxy host."""
+    """One extra ``location <path>`` route of a proxy host.
+
+    Forwards to a pool or a single backend, or is answered by nginx itself:
+    the instance's default site, or one named custom page.
+    """
 
     path: str = Field(description="URL prefix, e.g. /api/ (the root '/' is the host itself)")
+    target: LocationTarget | None = Field(
+        default=None,
+        description=(
+            "What this prefix answers with. Omitted, it is inferred from the "
+            "fields given, so a payload predating this field still works."
+        ),
+    )
     upstream_id: int | None = Field(
         default=None, description="Pool this prefix forwards to; null when using a host"
     )
@@ -83,11 +94,57 @@ class ProxyHostLocationIn(BaseModel):
     forward_scheme: HttpScheme = Field(
         default=HttpScheme.http, description="Scheme used to reach the pool (http/https)"
     )
+    custom_page_id: int | None = Field(
+        default=None, description="Page served when the target is 'custom_page'"
+    )
 
     @field_validator("path")
     @classmethod
     def _validate_path(cls, value: str) -> str:
         return _validate_location_path(value)
+
+    @model_validator(mode="after")
+    def _coherent_target(self) -> ProxyHostLocationIn:
+        """Infer an omitted target, then mirror the DB constraint.
+
+        Inferring keeps every payload written before targets existed valid;
+        mirroring means the API answers 422 rather than letting the insert fail
+        at the constraint, which reports the problem far from the field.
+        """
+        if self.target is None:
+            has_host = self.forward_host is not None and self.forward_port is not None
+            if has_host == (self.upstream_id is not None):
+                raise ValueError(
+                    "Set either a forward host and port, or an upstream pool, or a target."
+                )
+            object.__setattr__(
+                self, "target", LocationTarget.host if has_host else LocationTarget.pool
+            )
+
+        if self.target is LocationTarget.pool and self.upstream_id is None:
+            raise ValueError("A 'pool' location needs an upstream pool.")
+        if self.target is LocationTarget.host and (
+            self.forward_host is None or self.forward_port is None
+        ):
+            raise ValueError("A 'host' location needs a forward host and port.")
+        if self.target is LocationTarget.custom_page and self.custom_page_id is None:
+            raise ValueError("A 'custom_page' location needs a page.")
+
+        if self.target in (LocationTarget.default_site, LocationTarget.custom_page) and (
+            self.upstream_id is not None
+            or self.forward_host is not None
+            or self.forward_port is not None
+        ):
+            raise ValueError("A location nginx answers itself takes no backend.")
+        if self.target is not LocationTarget.custom_page and self.custom_page_id is not None:
+            raise ValueError("Only a 'custom_page' location takes a page.")
+        if self.target is LocationTarget.pool and (
+            self.forward_host is not None or self.forward_port is not None
+        ):
+            raise ValueError("A 'pool' location takes no forward host or port.")
+        if self.target is LocationTarget.host and self.upstream_id is not None:
+            raise ValueError("A 'host' location takes no upstream pool.")
+        return self
 
 
 class ProxyHostLocationRead(ProxyHostLocationIn):

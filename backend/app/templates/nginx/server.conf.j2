@@ -23,12 +23,29 @@
 {%- endif %}
     }
 {%- endmacro -%}
+{%- macro answered_block(loc) %}
+    location ^~ {{ loc.path }} {
+{%- if loc.target == "custom_page" %}
+        # This location's own document, so two paths can serve different pages.
+        root {{ default_dir }};
+        try_files /{{ location_html(loc.id) }} =404;
+{%- else %}
+        # Whatever Settings -> Default site says, rendered once and included
+        # here: change the setting and every path using it follows.
+        include {{ default_dir }}/{{ default_site_body }};
+{%- endif %}
+    }
+{%- endmacro -%}
 {%- macro proxy_location() %}
 {{- proxy_block("/", host.forward_scheme, target) }}
 {%- for loc in host.locations %}
 
     # Extra route: ^~ makes the longest prefix win over the cache-assets regex.
+{%- if loc.target in ("pool", "host") %}
 {{- proxy_block(loc.path, loc.forward_scheme, location_targets[loc.path], "^~ ") }}
+{%- else %}
+{{- answered_block(loc) }}
+{%- endif %}
 {%- endfor %}
 {%- if host.caching_enabled %}
 

@@ -29,7 +29,12 @@ from app.models.access_list import AccessList
 from app.models.certificate import Certificate
 from app.models.custom_page import CustomPage
 from app.models.dead_host import DeadHost
-from app.models.enums import CertificateStatus, CrowdSecBanMode, DefaultSiteMode
+from app.models.enums import (
+    CertificateStatus,
+    CrowdSecBanMode,
+    DefaultSiteMode,
+    LocationTarget,
+)
 from app.models.instance_settings import InstanceSettings
 from app.models.proxy_host import ProxyHost, ProxyHostLocation
 from app.models.redirection_host import RedirectionHost
@@ -130,6 +135,8 @@ async def load_desired_state(
             selectinload(ProxyHost.locations)
             .selectinload(ProxyHostLocation.upstream)
             .selectinload(Upstream.backends),
+            # The document of a custom-page location is read during the render.
+            selectinload(ProxyHost.locations).selectinload(ProxyHostLocation.custom_page),
             selectinload(ProxyHost.certificate),
             selectinload(ProxyHost.access_list).selectinload(AccessList.auth_users),
             selectinload(ProxyHost.access_list).selectinload(AccessList.client_rules),
@@ -156,15 +163,13 @@ async def load_desired_state(
                 continue  # empty pool → skip host rather than emit an invalid block
 
         certificate = (
-            _certificate_spec(host.certificate, certs_dir)
-            if host.certificate is not None
-            else None
+            _certificate_spec(host.certificate, certs_dir) if host.certificate is not None else None
         )
         location_specs: list[LocationSpec] = []
         for location in sorted(host.locations, key=lambda loc: loc.path):
             # As for the host: only a pool-targeted location can be dropped for
             # pool reasons. A literal backend has no pool to be missing.
-            if location.upstream_id is not None:
+            if location.target is LocationTarget.pool and location.upstream_id is not None:
                 loc_pool = location.upstream
                 if loc_pool is None or not loc_pool.enabled:
                     continue
@@ -172,13 +177,24 @@ async def load_desired_state(
                     upstreams[loc_pool.id] = _upstream_spec(loc_pool)
                 if not upstreams[loc_pool.id].backends:
                     continue  # empty pool → drop this location, keep the host
+            # Dereferenced here, so the renderer stays a pure function of
+            # explicit data. A missing page means the row was edited outside
+            # the API (the FK is RESTRICT); render an empty document rather
+            # than dropping the whole host's config.
+            html = ""
+            if location.target is LocationTarget.custom_page:
+                page = location.custom_page
+                html = page.html if page is not None else ""
             location_specs.append(
                 LocationSpec(
                     path=location.path,
+                    target=str(location.target),
                     upstream_id=location.upstream_id,
                     forward_host=location.forward_host,
                     forward_port=location.forward_port,
                     forward_scheme=str(location.forward_scheme),
+                    id=location.id,
+                    html=html,
                 )
             )
         host_specs.append(
@@ -194,9 +210,7 @@ async def load_desired_state(
                 forward_scheme=str(host.forward_scheme),
                 certificate=certificate,
                 access_list=(
-                    _access_list_spec(host.access_list)
-                    if host.access_list is not None
-                    else None
+                    _access_list_spec(host.access_list) if host.access_list is not None else None
                 ),
                 ssl_forced=host.ssl_forced,
                 http2_support=host.http2_support,
@@ -216,10 +230,7 @@ async def load_desired_state(
     # These render into http{}; stream-referenced pools are collected separately.
     referenced = {h.upstream_id for h in host_specs if h.upstream_id is not None}
     referenced |= {
-        loc.upstream_id
-        for h in host_specs
-        for loc in h.locations
-        if loc.upstream_id is not None
+        loc.upstream_id for h in host_specs for loc in h.locations if loc.upstream_id is not None
     }
     upstream_specs = tuple(upstreams[i] for i in sorted(referenced))
 
@@ -328,9 +339,7 @@ async def _load_redirection_hosts(
             forward_scheme=str(r.forward_scheme),
             preserve_path=r.preserve_path,
             certificate=(
-                _certificate_spec(r.certificate, certs_dir)
-                if r.certificate is not None
-                else None
+                _certificate_spec(r.certificate, certs_dir) if r.certificate is not None else None
             ),
             ssl_forced=r.ssl_forced,
             http2_support=r.http2_support,
@@ -356,9 +365,7 @@ async def _load_dead_hosts(session: AsyncSession, certs_dir: str) -> tuple[DeadH
             id=d.id,
             domain_names=tuple(d.domain_names),
             certificate=(
-                _certificate_spec(d.certificate, certs_dir)
-                if d.certificate is not None
-                else None
+                _certificate_spec(d.certificate, certs_dir) if d.certificate is not None else None
             ),
             ssl_forced=d.ssl_forced,
             http2_support=d.http2_support,
