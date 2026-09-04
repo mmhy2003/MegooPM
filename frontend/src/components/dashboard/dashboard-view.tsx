@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { LayoutDashboard } from "lucide-react";
 
 import {
   dashboard,
@@ -90,11 +91,17 @@ export function DashboardView() {
 
   return (
     <div className="space-y-4">
-      <div>
-        <h2 className="text-lg font-semibold">Dashboard</h2>
-        <p className="text-muted-foreground text-sm">
-          Instance health, traffic and attack origins.
-        </p>
+      <div className="flex items-center gap-3">
+        <div className="bg-muted text-muted-foreground flex size-10 items-center justify-center rounded-lg">
+          {/* Decorative: the heading beside it already names the page. */}
+          <LayoutDashboard className="size-5" aria-hidden="true" />
+        </div>
+        <div className="flex-1">
+          <h2 className="text-xl font-semibold tracking-tight">Dashboard</h2>
+          <p className="text-muted-foreground text-sm">
+            Instance health, traffic and attack origins.
+          </p>
+        </div>
       </div>
 
       {error ? <p className="text-destructive text-sm">{error}</p> : null}
