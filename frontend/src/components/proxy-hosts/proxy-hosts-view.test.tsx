@@ -3,7 +3,7 @@ import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { toast } from "sonner";
 
-import { accessLists, certificates, proxyHosts, upstreams } from "@/lib/api";
+import { accessLists, certificates, customPages, proxyHosts, upstreams } from "@/lib/api";
 import { ProxyHostsView } from "@/components/proxy-hosts/proxy-hosts-view";
 import { makeHost } from "@/components/proxy-hosts/test-utils";
 
@@ -14,6 +14,8 @@ function mount() {
   vi.spyOn(upstreams, "list").mockResolvedValue([]);
   vi.spyOn(accessLists, "list").mockResolvedValue([]);
   vi.spyOn(certificates, "list").mockResolvedValue([]);
+  // The dialog offers stored pages as a location target.
+  vi.spyOn(customPages, "list").mockResolvedValue([]);
   render(<ProxyHostsView />);
 }
 
@@ -35,8 +37,6 @@ describe("ProxyHostsView enable toggle", () => {
 
     await waitFor(() => expect(update).toHaveBeenCalledWith(1, { enabled: false }));
   });
-
-
 });
 
 describe("ProxyHostsView forward target", () => {
@@ -55,6 +55,7 @@ describe("ProxyHostsView forward target", () => {
     vi.spyOn(upstreams, "list").mockResolvedValue([]);
     vi.spyOn(accessLists, "list").mockResolvedValue([]);
     vi.spyOn(certificates, "list").mockResolvedValue([]);
+    vi.spyOn(customPages, "list").mockResolvedValue([]);
     render(<ProxyHostsView />);
 
     expect(await screen.findByText("10.0.0.1:8080")).toBeInTheDocument();
@@ -84,6 +85,7 @@ describe("ProxyHostsView search", () => {
     vi.spyOn(upstreams, "list").mockResolvedValue([]);
     vi.spyOn(accessLists, "list").mockResolvedValue([]);
     vi.spyOn(certificates, "list").mockResolvedValue([]);
+    vi.spyOn(customPages, "list").mockResolvedValue([]);
     render(<ProxyHostsView />);
     await screen.findByRole("searchbox", { name: "Search proxy hosts" });
   }

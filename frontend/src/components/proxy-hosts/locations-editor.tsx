@@ -2,10 +2,11 @@
 
 import { Plus, Trash2 } from "lucide-react";
 
-import { HTTP_SCHEMES, type HttpScheme, type Upstream } from "@/lib/api";
+import { HTTP_SCHEMES, type CustomPageSummary, type HttpScheme, type Upstream } from "@/lib/api";
 import {
   newLocationRow,
   type LocationRow,
+  type LocationTargetMode,
   type TargetMode,
 } from "@/components/proxy-hosts/lib";
 import { Button } from "@/components/ui/button";
@@ -38,31 +39,44 @@ const KIND_LABELS: Record<TargetMode, string> = {
   host: "Single host",
 };
 
+/** A location can also be answered by nginx, without any backend. */
+const LOCATION_KIND_LABELS: Record<LocationTargetMode, string> = {
+  ...KIND_LABELS,
+  default_site: "Default site",
+  custom_page: "Custom page",
+};
+
 /** Pool or single backend, as a compact select rather than radios.
  *
  * These are table rows, and a radio group per row would wreck a dense table.
  * A select is one control in one cell and reads the same on every row.
+ *
+ * The root route can only forward, so it gets the two proxy kinds; a location
+ * can also be answered by nginx and gets all four.
  */
-function KindSelect({
+function KindSelect<T extends LocationTargetMode>({
   value,
   onChange,
   label,
   disabled,
+  kinds,
 }: {
-  value: TargetMode;
-  onChange: (v: TargetMode) => void;
+  value: T;
+  onChange: (v: T) => void;
   label: string;
   disabled: boolean;
+  kinds: readonly T[];
 }) {
+  const labels = Object.fromEntries(kinds.map((k) => [k, LOCATION_KIND_LABELS[k]]));
   return (
-    <Select value={value} onValueChange={(v) => onChange(v as TargetMode)} items={KIND_LABELS}>
+    <Select value={value} onValueChange={(v) => onChange(v as T)} items={labels}>
       <SelectTrigger aria-label={label} disabled={disabled}>
         <SelectValue />
       </SelectTrigger>
       <SelectContent>
-        {(["pool", "host"] as const).map((k) => (
+        {kinds.map((k) => (
           <SelectItem key={k} value={k}>
-            {KIND_LABELS[k]}
+            {LOCATION_KIND_LABELS[k]}
           </SelectItem>
         ))}
       </SelectContent>
@@ -70,30 +84,53 @@ function KindSelect({
   );
 }
 
-/** The target cell: a pool picker, or a host and port pair. */
+const ROOT_KINDS = ["pool", "host"] as const;
+const LOCATION_KINDS = ["pool", "host", "default_site", "custom_page"] as const;
+
+/** The target cell: a pool picker, a host and port pair, a page picker, or
+ *  nothing at all for the default site — which needs no input of its own. */
 function TargetCell({
   mode,
   upstreamId,
   forwardHost,
   forwardPort,
+  customPageId,
   onChange,
   pools,
+  pages,
   disabled,
   labelPrefix,
 }: {
-  mode: TargetMode;
+  mode: LocationTargetMode;
   upstreamId: string;
   forwardHost: string;
   forwardPort: string;
+  customPageId?: string;
   onChange: (patch: {
     upstreamId?: string;
     forwardHost?: string;
     forwardPort?: string;
+    customPageId?: string;
   }) => void;
   pools: Upstream[];
+  pages?: CustomPageSummary[];
   disabled: boolean;
   labelPrefix: string;
 }) {
+  if (mode === "default_site") {
+    return <p className="text-muted-foreground text-xs">Follows Settings &rarr; Default site.</p>;
+  }
+  if (mode === "custom_page") {
+    return (
+      <PageSelect
+        value={customPageId ?? ""}
+        onChange={(v) => onChange({ customPageId: v })}
+        pages={pages ?? []}
+        disabled={disabled}
+        label={`${labelPrefix} page`}
+      />
+    );
+  }
   if (mode === "pool") {
     return (
       <PoolSelect
@@ -126,6 +163,36 @@ function TargetCell({
         disabled={disabled}
       />
     </div>
+  );
+}
+
+function PageSelect({
+  value,
+  onChange,
+  pages,
+  disabled,
+  label,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  pages: CustomPageSummary[];
+  disabled: boolean;
+  label: string;
+}) {
+  const items = Object.fromEntries(pages.map((p) => [String(p.id), p.name]));
+  return (
+    <Select value={value} onValueChange={(v) => onChange(v as string)} items={items}>
+      <SelectTrigger aria-label={label} disabled={disabled || pages.length === 0}>
+        <SelectValue placeholder={pages.length === 0 ? "No pages yet" : "Choose a page"} />
+      </SelectTrigger>
+      <SelectContent>
+        {pages.map((page) => (
+          <SelectItem key={page.id} value={String(page.id)}>
+            {page.name}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
   );
 }
 
@@ -198,6 +265,7 @@ export function LocationsEditor({
   rows,
   onRowsChange,
   pools,
+  pages,
   disabled,
 }: {
   rootTargetMode: TargetMode;
@@ -215,6 +283,7 @@ export function LocationsEditor({
   rows: LocationRow[];
   onRowsChange: (rows: LocationRow[]) => void;
   pools: Upstream[];
+  pages: CustomPageSummary[];
   disabled: boolean;
 }) {
   function updateRow(key: string, patch: Partial<LocationRow>) {
@@ -258,6 +327,7 @@ export function LocationsEditor({
                   onChange={(v) => onRootChange({ rootTargetMode: v })}
                   label="Root target kind"
                   disabled={disabled}
+                  kinds={ROOT_KINDS}
                 />
               </TableCell>
               <TableCell>
@@ -305,6 +375,7 @@ export function LocationsEditor({
                     onChange={(v) => updateRow(row.key, { targetMode: v })}
                     label="Location target kind"
                     disabled={disabled}
+                    kinds={LOCATION_KINDS}
                   />
                 </TableCell>
                 <TableCell>
@@ -313,8 +384,10 @@ export function LocationsEditor({
                     upstreamId={row.upstreamId}
                     forwardHost={row.forwardHost}
                     forwardPort={row.forwardPort}
+                    customPageId={row.customPageId}
                     onChange={(patch) => updateRow(row.key, patch)}
                     pools={pools}
+                    pages={pages}
                     disabled={disabled}
                     labelPrefix="Location"
                   />

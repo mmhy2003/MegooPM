@@ -3374,6 +3374,15 @@ export interface components {
          */
         LoadBalanceMethod: "round_robin" | "least_conn" | "ip_hash" | "hash" | "random";
         /**
+         * LocationTarget
+         * @description What a proxy host's ``location`` block answers with.
+         *
+         *     ``pool`` and ``host`` proxy onward; ``default_site`` and ``custom_page``
+         *     are answered by nginx itself and never reach a backend.
+         * @enum {string}
+         */
+        LocationTarget: "pool" | "host" | "default_site" | "custom_page";
+        /**
          * LoginRequest
          * @description Credentials submitted to ``POST /auth/login``.
          */
@@ -3753,8 +3762,16 @@ export interface components {
         /**
          * ProxyHostLocationIn
          * @description One extra ``location <path>`` route of a proxy host.
+         *
+         *     Forwards to a pool or a single backend, or is answered by nginx itself:
+         *     the instance's default site, or one named custom page.
          */
         ProxyHostLocationIn: {
+            /**
+             * Custom Page Id
+             * @description Page served when the target is 'custom_page'
+             */
+            custom_page_id?: number | null;
             /** Forward Host */
             forward_host?: string | null;
             /** Forward Port */
@@ -3769,6 +3786,8 @@ export interface components {
              * @description URL prefix, e.g. /api/ (the root '/' is the host itself)
              */
             path: string;
+            /** @description What this prefix answers with. Omitted, it is inferred from the fields given, so a payload predating this field still works. */
+            target?: components["schemas"]["LocationTarget"] | null;
             /**
              * Upstream Id
              * @description Pool this prefix forwards to; null when using a host
@@ -3780,6 +3799,11 @@ export interface components {
          * @description Stored location (adds the row id).
          */
         ProxyHostLocationRead: {
+            /**
+             * Custom Page Id
+             * @description Page served when the target is 'custom_page'
+             */
+            custom_page_id?: number | null;
             /** Forward Host */
             forward_host?: string | null;
             /** Forward Port */
@@ -3796,6 +3820,8 @@ export interface components {
              * @description URL prefix, e.g. /api/ (the root '/' is the host itself)
              */
             path: string;
+            /** @description What this prefix answers with. Omitted, it is inferred from the fields given, so a payload predating this field still works. */
+            target?: components["schemas"]["LocationTarget"] | null;
             /**
              * Upstream Id
              * @description Pool this prefix forwards to; null when using a host

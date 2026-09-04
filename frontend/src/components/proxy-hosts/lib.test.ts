@@ -48,7 +48,11 @@ describe("describeError", () => {
   it("maps a 422 validation list to per-field messages", () => {
     const err = new ApiError(422, "unprocessable", {
       detail: [
-        { loc: ["body", "domain_names", 0], msg: "invalid domain name: 'bad_'", type: "value_error" },
+        {
+          loc: ["body", "domain_names", 0],
+          msg: "invalid domain name: 'bad_'",
+          type: "value_error",
+        },
         { loc: ["body", "upstream_id"], msg: "field required", type: "missing" },
       ],
     });
@@ -123,6 +127,7 @@ describe("stateFromHost / buildPayload", () => {
         forwardHost: "",
         forwardPort: "",
         scheme: "https",
+        customPageId: "",
       },
     ]);
     expect(buildPayload(form, host)).toMatchObject({
@@ -145,10 +150,12 @@ describe("stateFromHost / buildPayload", () => {
     expect(payload.locations).toEqual([
       {
         path: "/ws",
+        target: "pool",
         upstream_id: 2,
         forward_host: null,
         forward_port: null,
         forward_scheme: "http",
+        custom_page_id: null,
       },
     ]);
     expect(payload.crowdsec_enabled).toBe(false);
@@ -215,7 +222,11 @@ describe("root forward target", () => {
   });
 
   it("requires a host and a valid port in host mode", () => {
-    const base = { ...stateFromHost(null), domains: ["a.example.com"], rootTargetMode: "host" as const };
+    const base = {
+      ...stateFromHost(null),
+      domains: ["a.example.com"],
+      rootTargetMode: "host" as const,
+    };
     expect(validateForm(base)?.message).toMatch(/forward host/i);
     expect(
       validateForm({ ...base, rootForwardHost: "10.0.0.1", rootForwardPort: "70000" })?.message,
@@ -275,5 +286,77 @@ describe("location forward target", () => {
       forward_host: "10.0.0.9",
       forward_port: 9000,
     });
+  });
+});
+
+describe("locations nginx answers itself", () => {
+  it("reads a stored target rather than inferring it from the columns", () => {
+    const state = stateFromHost(
+      makeHost({
+        locations: [
+          { id: 1, path: "/legacy/", target: "default_site", forward_scheme: "http" },
+          {
+            id: 2,
+            path: "/maint/",
+            target: "custom_page",
+            custom_page_id: 4,
+            forward_scheme: "http",
+          },
+        ],
+      }) as never,
+    );
+    expect(state.locations.map((l) => l.targetMode)).toEqual(["default_site", "custom_page"]);
+    expect(state.locations[1].customPageId).toBe("4");
+  });
+
+  it("sends no backend for an answered location", () => {
+    const payload = buildPayload(
+      {
+        ...stateFromHost(makeHost()),
+        locations: [
+          { ...newLocationRow(), path: "/legacy/", targetMode: "default_site" as const },
+          {
+            ...newLocationRow(),
+            path: "/maint/",
+            targetMode: "custom_page" as const,
+            customPageId: "4",
+          },
+        ],
+      },
+      null,
+    );
+    expect(payload.locations).toEqual([
+      {
+        path: "/legacy/",
+        target: "default_site",
+        upstream_id: null,
+        forward_host: null,
+        forward_port: null,
+        forward_scheme: "http",
+        custom_page_id: null,
+      },
+      {
+        path: "/maint/",
+        target: "custom_page",
+        upstream_id: null,
+        forward_host: null,
+        forward_port: null,
+        forward_scheme: "http",
+        custom_page_id: 4,
+      },
+    ]);
+  });
+
+  it("requires a page for a custom-page location and nothing for the default site", () => {
+    expect(
+      validateLocations([
+        { ...newLocationRow(), path: "/maint/", targetMode: "custom_page" as const },
+      ]),
+    ).toEqual({ message: "Select a page for /maint/.", tab: "forwarding" });
+    expect(
+      validateLocations([
+        { ...newLocationRow(), path: "/legacy/", targetMode: "default_site" as const },
+      ]),
+    ).toBeNull();
   });
 });

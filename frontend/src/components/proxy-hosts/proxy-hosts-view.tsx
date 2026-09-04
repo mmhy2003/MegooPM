@@ -6,6 +6,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Globe, ListChecks, Pencil, Plus, Server, Trash2 } from "lucide-react";
 
 import {
+  customPages,
+  type CustomPageSummary,
   certificates,
   type Certificate,
   accessLists,
@@ -55,6 +57,8 @@ export function ProxyHostsView() {
   const [pools, setPools] = useState<Upstream[]>([]);
   const [lists, setLists] = useState<AccessList[]>([]);
   const [certs, setCerts] = useState<Certificate[]>([]);
+  // Only for the "custom page" location target; the list is small and static.
+  const [pages, setPages] = useState<CustomPageSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -69,16 +73,18 @@ export function ProxyHostsView() {
   // effect body; `refresh` (event handlers) shows the skeleton while reloading.
   const load = useCallback(async () => {
     try {
-      const [h, p, a, c] = await Promise.all([
+      const [h, p, a, c, pg] = await Promise.all([
         proxyHosts.list(),
         upstreams.list(),
         accessLists.list(),
         certificates.list(),
+        customPages.list(),
       ]);
       setHosts(h);
       setPools(p);
       setLists(a);
       setCerts(c);
+      setPages(pg);
       setLoadError(null);
     } catch (err) {
       setLoadError(describeError(err).message);
@@ -213,9 +219,7 @@ export function ProxyHostsView() {
                   const pool =
                     host.upstream_id != null ? poolsById.get(host.upstream_id) : undefined;
                   const list =
-                    host.access_list_id != null
-                      ? listsById.get(host.access_list_id)
-                      : null;
+                    host.access_list_id != null ? listsById.get(host.access_list_id) : null;
                   return (
                     <TableRow key={host.id}>
                       <TableCell className="font-medium">
@@ -254,10 +258,10 @@ export function ProxyHostsView() {
                       </TableCell>
                       <TableCell>
                         <EnabledToggle
-                      checked={host.enabled ?? true}
-                      name={host.domain_names[0]}
-                      onToggle={(next) => setEnabled(host, next)}
-                    />
+                          checked={host.enabled ?? true}
+                          name={host.domain_names[0]}
+                          onToggle={(next) => setEnabled(host, next)}
+                        />
                       </TableCell>
                       <TableCell>
                         <div className="flex justify-end gap-1">
@@ -295,6 +299,7 @@ export function ProxyHostsView() {
           onOpenChange={(open) => !open && setHostDialog({ open: false, host: null })}
           host={hostDialog.host}
           pools={pools}
+          pages={pages}
           lists={lists}
           certs={certs}
           onSaved={refresh}

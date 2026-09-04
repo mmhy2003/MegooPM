@@ -20,10 +20,7 @@ export interface DescribedError {
 }
 
 function isValidationList(detail: unknown): detail is ValidationItem[] {
-  return (
-    Array.isArray(detail) &&
-    detail.every((d) => d && typeof d === "object" && "msg" in d)
-  );
+  return Array.isArray(detail) && detail.every((d) => d && typeof d === "object" && "msg" in d);
 }
 
 /**
@@ -39,9 +36,7 @@ export function describeError(err: unknown): DescribedError {
       const fieldErrors: Record<string, string> = {};
       for (const item of detail) {
         // loc is like ["body", "domain_names", 0] — take the first field-ish part.
-        const field = item.loc?.find(
-          (part) => typeof part === "string" && part !== "body",
-        );
+        const field = item.loc?.find((part) => typeof part === "string" && part !== "body");
         if (typeof field === "string" && item.msg && !fieldErrors[field]) {
           fieldErrors[field] = item.msg;
         }
@@ -84,20 +79,26 @@ export const TOGGLE_KEYS = [
 ] as const;
 export type ToggleKey = (typeof TOGGLE_KEYS)[number];
 
-/** A forward target is either a pool or a single backend, never both. */
+/** What the root route forwards to: a pool or a single backend, never both. */
 export type TargetMode = "host" | "pool";
+
+/** What a location answers with. The two beyond {@link TargetMode} are
+ *  answered by nginx itself and take no backend. */
+export type LocationTargetMode = TargetMode | "default_site" | "custom_page";
 
 export interface LocationRow {
   /** Stable React key; `loc-<id>` for stored rows, `loc-new-<n>` for new ones. */
   key: string;
   path: string;
-  /** Which kind of target this row forwards to. */
-  targetMode: TargetMode;
+  /** Which kind of target this row answers with. */
+  targetMode: LocationTargetMode;
   /** Pool id as a Select value; "" while unset. */
   upstreamId: string;
   forwardHost: string;
   forwardPort: string;
   scheme: HttpScheme;
+  /** Custom page id as a Select value; "" while unset. */
+  customPageId: string;
 }
 
 /** A port string as a number, or null when it is not a valid port.
@@ -145,6 +146,7 @@ export function newLocationRow(): LocationRow {
     forwardHost: "",
     forwardPort: "",
     scheme: "http",
+    customPageId: "",
   };
 }
 
@@ -182,11 +184,14 @@ export function stateFromHost(host: ProxyHost | null | undefined): ProxyHostForm
     locations: (host.locations ?? []).map((l) => ({
       key: `loc-${l.id}`,
       path: l.path,
-      targetMode: l.upstream_id != null ? "pool" : "host",
+      // The stored target, falling back to the old inference for a row that
+      // predates the column.
+      targetMode: l.target ?? (l.upstream_id != null ? "pool" : "host"),
       upstreamId: l.upstream_id != null ? String(l.upstream_id) : "",
       forwardHost: l.forward_host ?? "",
       forwardPort: l.forward_port == null ? "" : String(l.forward_port),
       scheme: l.forward_scheme ?? "http",
+      customPageId: l.custom_page_id != null ? String(l.custom_page_id) : "",
     })),
     certificateId: host.certificate_id ? String(host.certificate_id) : NO_CERTIFICATE,
     toggles: Object.fromEntries(TOGGLE_KEYS.map((k) => [k, host[k] ?? false])) as Record<
@@ -213,6 +218,8 @@ export function validateLocations(rows: LocationRow[]): FormError | null {
     else if (seen.has(path)) message = `Duplicate location path "${path}".`;
     else if (row.targetMode === "pool" && !row.upstreamId)
       message = `Select an upstream pool for ${path}.`;
+    else if (row.targetMode === "custom_page" && !row.customPageId)
+      message = `Select a page for ${path}.`;
     else if (row.targetMode === "host" && !row.forwardHost.trim())
       message = `Enter a forward host for ${path}.`;
     else if (row.targetMode === "host" && parsePort(row.forwardPort) === null)
@@ -262,12 +269,17 @@ export function buildPayload(
     ...form.toggles,
     locations: form.locations.map((row) => {
       const pooled = row.targetMode === "pool";
+      const proxied = pooled || row.targetMode === "host";
       return {
         path: row.path.trim(),
+        target: row.targetMode,
         upstream_id: pooled ? Number.parseInt(row.upstreamId, 10) : null,
-        forward_host: pooled ? null : row.forwardHost.trim(),
-        forward_port: pooled ? null : parsePort(row.forwardPort),
+        // An answered location takes no backend at all; the API rejects one.
+        forward_host: proxied && !pooled ? row.forwardHost.trim() : null,
+        forward_port: proxied && !pooled ? parsePort(row.forwardPort) : null,
         forward_scheme: row.scheme,
+        custom_page_id:
+          row.targetMode === "custom_page" ? Number.parseInt(row.customPageId, 10) : null,
       };
     }),
     // `crowdsec_enabled` is a form toggle (Advanced tab). AppSec is not

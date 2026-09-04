@@ -4,6 +4,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 
 import {
+  type CustomPageSummary,
   proxyHosts,
   type AccessList,
   type Certificate,
@@ -108,6 +109,7 @@ export function ProxyHostDialog({
   onOpenChange,
   host,
   pools,
+  pages,
   lists,
   certs,
   onSaved,
@@ -116,6 +118,7 @@ export function ProxyHostDialog({
   onOpenChange: (open: boolean) => void;
   host?: ProxyHost | null;
   pools: Upstream[];
+  pages: CustomPageSummary[];
   lists: AccessList[];
   certs: Certificate[];
   onSaved: () => void;
@@ -195,8 +198,8 @@ export function ProxyHostDialog({
               disabled={saving}
             />
             <p className="text-xs text-muted-foreground">
-              Press Enter or comma after each domain. Wildcards like <code>*.example.com</code>{" "}
-              are allowed.
+              Press Enter or comma after each domain. Wildcards like <code>*.example.com</code> are
+              allowed.
             </p>
           </div>
 
@@ -264,6 +267,7 @@ export function ProxyHostDialog({
               rows={form.locations}
               onRowsChange={(locations) => patch({ locations })}
               pools={pools}
+              pages={pages}
               disabled={saving}
             />
           </TabsPanel>
@@ -296,8 +300,8 @@ export function ProxyHostDialog({
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground">
-                Without a certificate the host serves plain HTTP on :80 and the options below
-                have no effect.
+                Without a certificate the host serves plain HTTP on :80 and the options below have
+                no effect.
               </p>
             </div>
             <ToggleGrid

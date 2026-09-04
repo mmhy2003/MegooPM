@@ -38,6 +38,7 @@ function renderDialog(host = makeHost()) {
       onOpenChange={() => {}}
       host={host}
       pools={pools}
+      pages={[]}
       lists={[]}
       certs={[]}
       onSaved={() => {}}
@@ -190,6 +191,7 @@ describe("ProxyHostDialog select labels", () => {
         onOpenChange={() => {}}
         host={makeHost({ certificate_id: 7 })}
         pools={pools}
+        pages={[]}
         lists={[]}
         certs={[{ id: 7, name: "wildcard-cert", status: "active" } as never]}
         onSaved={() => {}}
@@ -209,11 +211,43 @@ describe("ProxyHostDialog select labels", () => {
         onOpenChange={() => {}}
         host={makeHost({ access_list_id: 3 })}
         pools={pools}
+        pages={[]}
         lists={[{ id: 3, name: "office-ips" } as never]}
         certs={[]}
         onSaved={() => {}}
       />,
     );
     expect(screen.getByRole("combobox", { name: "Access list" })).toHaveTextContent("office-ips");
+  });
+});
+
+describe("ProxyHostDialog location targets", () => {
+  it("swaps the target cell for a page picker, and needs no backend for the default site", async () => {
+    const user = userEvent.setup();
+    render(
+      <ProxyHostDialog
+        open
+        onOpenChange={() => {}}
+        host={makeHost()}
+        pools={[]}
+        pages={[{ id: 4, name: "Maintenance" } as never]}
+        lists={[]}
+        certs={[]}
+        onSaved={() => {}}
+      />,
+    );
+    await user.click(screen.getByRole("tab", { name: /forwarding/i }));
+    await user.click(screen.getByRole("button", { name: /add location/i }));
+
+    const kind = screen.getByRole("combobox", { name: "Location target kind" });
+    await user.click(kind);
+    await user.click(await screen.findByRole("option", { name: "Custom page" }));
+    expect(screen.getByRole("combobox", { name: "Location page" })).toBeInTheDocument();
+
+    await user.click(kind);
+    await user.click(await screen.findByRole("option", { name: "Default site" }));
+    // Nothing to fill in: it follows the instance setting.
+    expect(screen.queryByRole("combobox", { name: "Location page" })).not.toBeInTheDocument();
+    expect(screen.getByText(/follows settings/i)).toBeInTheDocument();
   });
 });
