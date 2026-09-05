@@ -103,6 +103,12 @@ One file per object, named by id so updates rewrite in place (never duplicate):
   a fresh install is fully branded with nothing configured. Binding a code to a
   Custom Page under Settings writes that page's HTML into the same filename.
 
+  A proxy host location can also be answered this way: give it the **Error
+  page** target and a status, and it renders as a bare `return <code>;`. The
+  server block's own `error_page` mapping turns that into the branded
+  document, so the visitor gets the real status and whichever body Settings
+  currently says. Nothing per-location is written to disk.
+
   Verify on a live stack:
 
   ```bash
