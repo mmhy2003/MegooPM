@@ -8,7 +8,6 @@ import { useAuth } from "@/lib/auth/context";
 import { ModeToggle } from "@/components/mode-toggle";
 import { displayName, initials } from "@/components/users/lib";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Separator } from "@/components/ui/separator";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 
 function currentTitle(pathname: string): string {
@@ -26,7 +25,6 @@ export function AppTopbar() {
   return (
     <header className="bg-background/80 supports-[backdrop-filter]:bg-background/60 sticky top-0 z-10 flex h-14 shrink-0 items-center gap-2 border-b px-4 backdrop-blur">
       <SidebarTrigger className="-ml-1" />
-      <Separator orientation="vertical" className="mr-1 data-[orientation=vertical]:h-4" />
       <h1 className="text-sm font-medium">{currentTitle(pathname)}</h1>
 
       <div className="ml-auto flex items-center gap-1">
