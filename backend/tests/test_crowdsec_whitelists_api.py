@@ -246,8 +246,9 @@ async def test_apply_enqueues_when_a_control_node_is_set(client, auth, monkeypat
 # --- authorisation ---------------------------------------------------------
 
 
-async def test_non_admin_cannot_list_whitelists(client, member_auth) -> None:
-    assert (await client.get(BASE, headers=member_auth)).status_code == 403
+async def test_a_member_may_list_whitelists(client, member_auth) -> None:
+    """Reading the Security page is a member's job; every write below is not."""
+    assert (await client.get(BASE, headers=member_auth)).status_code == 200
 
 
 async def test_anonymous_cannot_list_whitelists(client) -> None:

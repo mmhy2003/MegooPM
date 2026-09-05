@@ -12,7 +12,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Query
 
-from app.api.deps import AdminUser, SessionDep
+from app.api.deps import CurrentUser, SessionDep
 from app.api.routes.crowdsec import ClientDep
 from app.core.config import settings
 from app.schemas.dashboard import DashboardSummary, ThreatPoint, VisitorSummary
@@ -25,7 +25,7 @@ router = APIRouter(tags=["dashboard"])
 
 @router.get("/summary", response_model=DashboardSummary)
 async def dashboard_summary(
-    _admin: AdminUser, db: SessionDep, client: ClientDep
+    _user: CurrentUser, db: SessionDep, client: ClientDep
 ) -> DashboardSummary:
     """Every card's numbers in one payload.
 
@@ -41,7 +41,7 @@ ALERT_LIMIT = 500
 
 
 @router.get("/threats", response_model=list[ThreatPoint])
-async def dashboard_threats(_admin: AdminUser, client: ClientDep) -> list[ThreatPoint]:
+async def dashboard_threats(_user: CurrentUser, client: ClientDep) -> list[ThreatPoint]:
     """Attack origins by country.
 
     Separate from the summary because it is the only part that needs CrowdSec,
@@ -63,9 +63,9 @@ DaysArg = Annotated[int, Query(ge=1, le=365, description="Days to summarise")]
 
 @router.get("/visitors", response_model=VisitorSummary)
 async def dashboard_visitors(
-    _admin: AdminUser, db: SessionDep, days: DaysArg = 1
+    _user: CurrentUser, db: SessionDep, days: DaysArg = 1
 ) -> VisitorSummary:
-    """Recorded visitors and countries. Admin-only.
+    """Recorded visitors and countries. Any signed-in user may read.
 
     Inclusive of today, so days=1 is today. Clamped to the retention window,
     because rows older than that have been deleted and a larger window would

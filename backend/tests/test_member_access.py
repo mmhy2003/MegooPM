@@ -58,9 +58,7 @@ async def test_a_member_cannot_write(
     assert resp.status_code == 403
 
 
-async def test_a_member_cannot_read_the_settings(
-    db_client: AsyncClient, member_token: str
-) -> None:
+async def test_a_member_cannot_read_the_settings(db_client: AsyncClient, member_token: str) -> None:
     # Out of scope by decision: Settings stays admin, API and page both.
     resp = await db_client.get("/api/v1/settings", headers=_auth(member_token))
     assert resp.status_code == 403
@@ -78,3 +76,19 @@ async def test_a_member_may_still_read_their_own_account(
     resp = await db_client.get("/api/v1/users/me", headers=_auth(member_token))
     assert resp.status_code == 200
     assert resp.json()["role"] == "member"
+
+
+# A member may now read /api/v1/dashboard/* and the six CrowdSec reads behind
+# the Security page. Those guards are pinned by tests/test_route_authorization.py
+# rather than asserted here: the dashboard summary aggregates across most of the
+# schema, including tables the SQLite fixture cannot hold (ARRAY and JSONB
+# columns), so the request raises out of the client instead of answering.
+
+
+async def test_a_member_cannot_change_crowdsec(db_client: AsyncClient, member_token: str) -> None:
+    resp = await db_client.post(
+        "/api/v1/crowdsec/whitelists",
+        headers=_auth(member_token),
+        json={"name": "office", "kind": "ip", "value": "10.0.0.1", "reason": ""},
+    )
+    assert resp.status_code == 403

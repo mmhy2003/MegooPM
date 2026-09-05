@@ -8456,7 +8456,7 @@
     },
     "/api/v1/dashboard/visitors": {
       "get": {
-        "description": "Recorded visitors and countries. Admin-only.\n\nInclusive of today, so days=1 is today. Clamped to the retention window,\nbecause rows older than that have been deleted and a larger window would\nsilently describe a shorter one.",
+        "description": "Recorded visitors and countries. Any signed-in user may read.\n\nInclusive of today, so days=1 is today. Clamped to the retention window,\nbecause rows older than that have been deleted and a larger window would\nsilently describe a shorter one.",
         "operationId": "dashboard_visitors_api_v1_dashboard_visitors_get",
         "parameters": [
           {

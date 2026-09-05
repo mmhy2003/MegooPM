@@ -23,7 +23,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select
 
-from app.api.deps import AdminUser, SessionDep
+from app.api.deps import AdminUser, CurrentUser, SessionDep
 from app.core.celery_app import celery_app, node_queue
 from app.core.config import settings
 from app.core.redis import redis_client
@@ -104,7 +104,7 @@ def _handle(exc: CrowdSecError) -> HTTPException:
 
 
 @router.get("/health", response_model=CrowdSecHealth)
-async def crowdsec_health(_admin: AdminUser, client: ClientDep) -> CrowdSecHealth:
+async def crowdsec_health(_user: CurrentUser, client: ClientDep) -> CrowdSecHealth:
     """Report whether LAPI is configured, reachable, and has our machine (never errors)."""
     s = client.settings  # settings snapshot on the request-scoped client
     machine_registered = bool(s.crowdsec_machine_id and s.crowdsec_machine_password)
@@ -147,7 +147,7 @@ async def crowdsec_health(_admin: AdminUser, client: ClientDep) -> CrowdSecHealt
 
 @router.get("/decisions", response_model=DecisionList)
 async def list_decisions(
-    _admin: AdminUser,
+    _user: CurrentUser,
     client: ClientDep,
     page: PageArg = 1,
     page_size: PageSizeArg = 50,
@@ -174,7 +174,7 @@ async def list_decisions(
 
 @router.get("/alerts", response_model=AlertList)
 async def list_alerts(
-    _admin: AdminUser,
+    _user: CurrentUser,
     client: ClientDep,
     page: PageArg = 1,
     page_size: PageSizeArg = 50,
@@ -347,7 +347,7 @@ async def _guard_slug_unique(db: SessionDep, name: str, *, exclude_id: int | Non
 
 
 @router.get("/whitelists", response_model=list[WhitelistRead])
-async def list_whitelists(_: AdminUser, db: SessionDep) -> list[CrowdSecWhitelist]:
+async def list_whitelists(_user: CurrentUser, db: SessionDep) -> list[CrowdSecWhitelist]:
     """Every whitelist, enabled or not, oldest first."""
     result = await db.execute(select(CrowdSecWhitelist).order_by(CrowdSecWhitelist.id))
     return list(result.scalars())
@@ -446,7 +446,7 @@ async def preview_whitelist(_: AdminUser, payload: WhitelistCreate) -> Whitelist
 
 
 @router.get("/whitelists/status", response_model=WhitelistApplyStatus)
-async def whitelist_status(_: AdminUser, db: SessionDep) -> WhitelistApplyStatus:
+async def whitelist_status(_user: CurrentUser, db: SessionDep) -> WhitelistApplyStatus:
     """Whether the last apply reached CrowdSec, and whether reloads are wired."""
     row = await db.get(CrowdSecWhitelistApply, 1)
     configured = _reload_configured()
@@ -475,7 +475,7 @@ async def apply_whitelists(_: AdminUser) -> dict[str, bool]:
 
 
 @router.get("/maintenance", response_model=CrowdSecMaintenance)
-async def maintenance(_: AdminUser, db: SessionDep) -> CrowdSecMaintenance:
+async def maintenance(_user: CurrentUser, db: SessionDep) -> CrowdSecMaintenance:
     """Both maintenance jobs' last runs, and whether one is running now."""
     hub_row = await db.get(CrowdSecJobRun, CrowdSecJobKind.hub_update)
     capi_row = await db.get(CrowdSecJobRun, CrowdSecJobKind.capi_apply)
