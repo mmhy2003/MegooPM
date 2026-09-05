@@ -65,3 +65,24 @@ describe("CertificatesView search", () => {
     expect(screen.getByText(/no certificates match/i)).toBeInTheDocument();
   });
 });
+
+describe("CertificatesView DNS providers tab", () => {
+  afterEach(() => {
+    useAuth.mockReturnValue({ user: { role: "admin" } });
+  });
+
+  it("is hidden from a member", async () => {
+    // The endpoints behind it are admin-only, so the tab could only ever
+    // show a member an error.
+    useAuth.mockReturnValue({ user: { role: "member" } });
+    await renderView([]);
+
+    expect(screen.queryByRole("tab", { name: /DNS providers/i })).not.toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: /Certificates/i })).toBeInTheDocument();
+  });
+
+  it("is there for an admin", async () => {
+    await renderView([]);
+    expect(screen.getByRole("tab", { name: /DNS providers/i })).toBeInTheDocument();
+  });
+});

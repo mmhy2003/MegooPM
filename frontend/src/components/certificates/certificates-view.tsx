@@ -227,9 +227,13 @@ export function CertificatesView() {
           <TabsTab value="certificates">
             <ShieldCheck /> Certificates
           </TabsTab>
-          <TabsTab value="dns-providers">
-            <KeyRound /> DNS providers
-          </TabsTab>
+          {/* The endpoints behind this tab are admin-only, so for a member it
+              could only ever show an error. */}
+          {canWrite ? (
+            <TabsTab value="dns-providers">
+              <KeyRound /> DNS providers
+            </TabsTab>
+          ) : null}
         </TabsList>
 
         <TabsPanel value="certificates" className="space-y-6 pt-2">
@@ -386,9 +390,11 @@ export function CertificatesView() {
       </div>
         </TabsPanel>
 
-        <TabsPanel value="dns-providers" className="pt-2">
-          <DnsCredentialsView />
-        </TabsPanel>
+        {canWrite ? (
+          <TabsPanel value="dns-providers" className="pt-2">
+            <DnsCredentialsView />
+          </TabsPanel>
+        ) : null}
       </Tabs>
 
       {createOpen ? (
