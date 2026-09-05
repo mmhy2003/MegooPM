@@ -46,6 +46,17 @@ function LoadingRows({ cols }: { cols: number }) {
   );
 }
 
+/**
+ * The scheme to open the target with.
+ *
+ * `auto` means "whatever scheme the visitor arrived on", which a link from the
+ * admin UI does not have. https is the one worth checking, and a target that
+ * only speaks http almost always redirects there anyway.
+ */
+function linkScheme(scheme: RedirectionHost["forward_scheme"]): "http" | "https" {
+  return scheme === "http" ? "http" : "https";
+}
+
 export function RedirectionHostsView() {
   const [rows, setRows] = useState<RedirectionHost[]>([]);
   const [certs, setCerts] = useState<Certificate[]>([]);
@@ -194,8 +205,25 @@ export function RedirectionHostsView() {
                         />
                     </TableCell>
                     <TableCell>
-                      {schemePrefix(host.forward_scheme)}
-                      {host.forward_domain_name}
+                      {host.forward_domain_name.includes("*") ? (
+                        <>
+                          {schemePrefix(host.forward_scheme)}
+                          {host.forward_domain_name}
+                        </>
+                      ) : (
+                        <a
+                          href={`${linkScheme(host.forward_scheme)}://${host.forward_domain_name}`}
+                          target="_blank"
+                          // Without noopener the opened page holds a reference to
+                          // this one and can navigate it; a redirect points
+                          // anywhere its operator likes.
+                          rel="noopener noreferrer"
+                          className="hover:underline"
+                        >
+                          {schemePrefix(host.forward_scheme)}
+                          {host.forward_domain_name}
+                        </a>
+                      )}
                     </TableCell>
                     <TableCell>
                       <Badge variant="outline" className="tabular-nums">

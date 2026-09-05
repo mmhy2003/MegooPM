@@ -71,3 +71,46 @@ describe("RedirectionHostsView search", () => {
     expect(screen.getByText(/no redirection hosts match/i)).toBeInTheDocument();
   });
 });
+
+describe("RedirectionHostsView target link", () => {
+  it("links the target so an operator can open it", async () => {
+    await renderView([
+      makeHost({ forward_scheme: "https", forward_domain_name: "new.example.com" }),
+    ]);
+
+    const link = screen.getByRole("link", { name: "https://new.example.com" });
+    expect(link).toHaveAttribute("href", "https://new.example.com");
+    expect(link).toHaveAttribute("target", "_blank");
+    // Without noopener the opened page can navigate this one back.
+    expect(link).toHaveAttribute("rel", "noopener noreferrer");
+  });
+
+  it("links an http target over http", async () => {
+    await renderView([
+      makeHost({ forward_scheme: "http", forward_domain_name: "plain.example.com" }),
+    ]);
+
+    expect(screen.getByRole("link", { name: "http://plain.example.com" })).toHaveAttribute(
+      "href",
+      "http://plain.example.com",
+    );
+  });
+
+  it("opens an auto target over https, keeping the cell text unprefixed", async () => {
+    // 'auto' means "whatever scheme the visitor arrived on", which a link from
+    // here does not have. The cell still shows no prefix, as before.
+    await renderView([makeHost({ forward_scheme: "auto" })]);
+
+    const link = screen.getByRole("link", { name: "new.example.com" });
+    expect(link).toHaveAttribute("href", "https://new.example.com");
+  });
+
+  it("leaves a wildcard target as plain text", async () => {
+    // No single address sits behind it, so there is nothing to open.
+    await renderView([makeHost({ forward_domain_name: "*.example.com" })]);
+
+    // Narrow to the target: the source domain beside it is a link either way.
+    expect(screen.queryByRole("link", { name: "*.example.com" })).not.toBeInTheDocument();
+    expect(screen.getByText("*.example.com")).toBeInTheDocument();
+  });
+});
