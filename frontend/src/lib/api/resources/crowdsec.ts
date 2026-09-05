@@ -119,6 +119,13 @@ export const crowdsec = {
   /** A page of recent alerts, newest first. */
   listAlerts: (params?: ListParams) =>
     api.get<AlertList>(`${BASE}/alerts`, { query: listQuery(params) }),
+  /**
+   * One alert in full, as `cscli alerts inspect -d` prints it.
+   *
+   * Not carried by the list: an alert holds tens of events, each with its own
+   * parsed fields, so the table would pay for detail it never renders.
+   */
+  getAlert: (id: number) => api.get<Alert>(`${BASE}/alerts/${id}`),
 
   // --- whitelists ---
   //

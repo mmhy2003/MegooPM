@@ -545,6 +545,33 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/crowdsec/alerts/{alert_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Alert
+         * @description One alert in full, the way ``cscli alerts inspect -d`` prints it.
+         *
+         *     Separate from the list because the list has no room for it and no use for
+         *     it: an alert carries tens of events, each with its own parsed fields, so
+         *     returning them per row would bloat every page of a table that shows none.
+         *
+         *     Any signed-in user may read. LAPI's own 404 is passed through, so an id
+         *     that no longer exists reads as missing rather than as a gateway fault.
+         */
+        get: operations["get_alert_api_v1_crowdsec_alerts__alert_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/crowdsec/decisions": {
         parameters: {
             query?: never;
@@ -2232,19 +2259,41 @@ export interface components {
             created_at?: string | null;
             /** Decisions */
             decisions?: components["schemas"]["Decision"][];
+            /** Events */
+            events?: components["schemas"]["AlertEvent"][];
             /** Events Count */
             events_count?: number | null;
             /** Id */
             id?: number | null;
+            /** Machine Id */
+            machine_id?: string | null;
             /** Message */
             message?: string | null;
+            /** Meta */
+            meta?: components["schemas"]["MetaPair"][];
+            /** Remediation */
+            remediation?: boolean | null;
             /** Scenario */
             scenario?: string | null;
+            /** Simulated */
+            simulated?: boolean | null;
             source?: components["schemas"]["AlertSource"] | null;
             /** Start At */
             start_at?: string | null;
             /** Stop At */
             stop_at?: string | null;
+            /** Uuid */
+            uuid?: string | null;
+        };
+        /**
+         * AlertEvent
+         * @description One log line behind an alert, as CrowdSec parsed it.
+         */
+        AlertEvent: {
+            /** Meta */
+            meta?: components["schemas"]["MetaPair"][];
+            /** Timestamp */
+            timestamp?: string | null;
         };
         /**
          * AlertList
@@ -3014,8 +3063,12 @@ export interface components {
             scenario?: string | null;
             /** Scope */
             scope: string;
+            /** Simulated */
+            simulated?: boolean | null;
             /** Type */
             type: string;
+            /** Until */
+            until?: string | null;
             /** Value */
             value: string;
         };
@@ -3491,6 +3544,19 @@ export interface components {
             latency_ms: number;
             /** Ok */
             ok: boolean;
+        };
+        /**
+         * MetaPair
+         * @description One key/value CrowdSec parsed out of a log line.
+         *
+         *     ``cscli alerts inspect`` prints these as its Context table at alert level,
+         *     and as the per-event tables under ``-d``.
+         */
+        MetaPair: {
+            /** Key */
+            key?: string | null;
+            /** Value */
+            value?: string | null;
         };
         /**
          * MfaRequired
@@ -5993,6 +6059,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AlertList"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_alert_api_v1_crowdsec_alerts__alert_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                alert_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Alert"];
                 };
             };
             /** @description Validation Error */

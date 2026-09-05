@@ -1,11 +1,19 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
-import type { Alert, Decision } from "@/lib/api";
+import { crowdsec, type Alert, type Decision } from "@/lib/api";
 import { AlertDetailsDialog, DecisionDetailsDialog } from "@/components/security/details-dialog";
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.restoreAllMocks();
+});
+
+/** A fetch that never settles, for the tests that only care about the header. */
+function pending() {
+  vi.spyOn(crowdsec, "getAlert").mockReturnValue(new Promise(() => {}));
+}
 
 const DECISION: Decision = {
   id: 42,
@@ -18,7 +26,8 @@ const DECISION: Decision = {
   country: "DE",
 } as Decision;
 
-const ALERT: Alert = {
+/** An alert as the *list* returns it: no context, no events. */
+const ALERT_BASE = {
   id: 9,
   scenario: "crowdsecurity/http-probing",
   message: "Ip 203.0.113.7 performed 'crowdsecurity/http-probing' (12 events)",
@@ -32,10 +41,30 @@ const ALERT: Alert = {
     latitude: 52.52,
     longitude: 13.4,
   },
-  decisions: [{ type: "ban", scope: "Ip", value: "203.0.113.7", duration: "4h" } as Decision],
+  decisions: [{ type: "ban", scope: "Ip", value: "203.0.113.7", duration: "4h" }],
   created_at: "2026-09-05T10:00:00Z",
   start_at: "2026-09-05T09:58:00Z",
   stop_at: "2026-09-05T10:00:00Z",
+};
+
+const ALERT = ALERT_BASE as Alert;
+
+/** The same alert as the *detail* endpoint returns it. */
+const INSPECTED = {
+  ...ALERT_BASE,
+  machine_id: "testMachine",
+  uuid: "0061339c-f070-4859-8f2a-66249c709d73",
+  simulated: false,
+  meta: [{ key: "target_uri", value: "/lanz.php" }],
+  events: [
+    {
+      timestamp: "2026-09-05T10:00:00Z",
+      meta: [
+        { key: "http_verb", value: "GET" },
+        { key: "http_status", value: "404" },
+      ],
+    },
+  ],
 } as Alert;
 
 describe("DecisionDetailsDialog", () => {
@@ -51,6 +80,17 @@ describe("DecisionDetailsDialog", () => {
     expect(screen.getByText("crowdsec")).toBeInTheDocument();
     // The id is what you quote to support; the table has no column for it.
     expect(screen.getByText("42")).toBeInTheDocument();
+  });
+
+  it("shows the expiry LAPI sends, not only the duration", () => {
+    // "3h59m59s" cannot answer "when does this lift?" hours after the fact.
+    render(
+      <DecisionDetailsDialog
+        decision={{ ...DECISION, until: "2026-09-05T14:00:00Z" } as Decision}
+        onOpenChange={vi.fn()}
+      />,
+    );
+    expect(screen.getByText(/Expires/i)).toBeInTheDocument();
   });
 
   it("shows an em dash where CrowdSec sent nothing", () => {
@@ -76,6 +116,7 @@ describe("DecisionDetailsDialog", () => {
 
 describe("AlertDetailsDialog", () => {
   it("shows what the row truncates or omits entirely", () => {
+    pending();
     render(<AlertDetailsDialog alert={ALERT} onOpenChange={vi.fn()} />);
 
     // The table truncates the message and never renders these at all.
@@ -86,14 +127,19 @@ describe("AlertDetailsDialog", () => {
 
   it("lists the decisions the alert triggered", () => {
     // Fetched with every alert today and thrown away by the table.
+    pending();
     render(<AlertDetailsDialog alert={ALERT} onOpenChange={vi.fn()} />);
     expect(screen.getByText(/ban/)).toBeInTheDocument();
     expect(screen.getByText(/4h/)).toBeInTheDocument();
   });
 
   it("says so when an alert triggered nothing", () => {
+    pending();
     render(
-      <AlertDetailsDialog alert={{ ...ALERT, decisions: [] } as Alert} onOpenChange={vi.fn()} />,
+      <AlertDetailsDialog
+        alert={{ ...ALERT_BASE, decisions: [] } as Alert}
+        onOpenChange={vi.fn()}
+      />,
     );
     expect(screen.getByText(/no decisions/i)).toBeInTheDocument();
   });
@@ -101,9 +147,10 @@ describe("AlertDetailsDialog", () => {
   it("survives the decisions field being absent entirely", () => {
     // LAPI sends `decisions: null` for every AppSec detection; the generated
     // type keeps the field optional, so undefined has to be safe too.
+    pending();
     render(
       <AlertDetailsDialog
-        alert={{ ...ALERT, decisions: undefined } as unknown as Alert}
+        alert={{ ...ALERT_BASE, decisions: undefined } as unknown as Alert}
         onOpenChange={vi.fn()}
       />,
     );
@@ -112,12 +159,58 @@ describe("AlertDetailsDialog", () => {
 
   it("omits coordinates rather than printing a fake origin", () => {
     // CrowdSec's geoip parser fills these only sometimes; 0,0 is the Atlantic.
+    pending();
     render(
       <AlertDetailsDialog
-        alert={{ ...ALERT, source: { ...ALERT.source, latitude: null, longitude: null } } as Alert}
+        alert={
+          {
+            ...ALERT_BASE,
+            source: { ...ALERT_BASE.source, latitude: null, longitude: null },
+          } as Alert
+        }
         onOpenChange={vi.fn()}
       />,
     );
     expect(screen.queryByText(/Coordinates/i)).not.toBeInTheDocument();
+  });
+});
+
+describe("AlertDetailsDialog inspection", () => {
+  it("shows the row's own fields before the fetch resolves", () => {
+    // A dialog that blanks until the network answers reads as broken, and it
+    // must stay useful when LAPI is down.
+    pending();
+    render(<AlertDetailsDialog alert={ALERT} onOpenChange={vi.fn()} />);
+
+    expect(screen.getByText("Example Transit AG")).toBeInTheDocument();
+  });
+
+  it("fetches the alert and shows its context and events", async () => {
+    const get = vi.spyOn(crowdsec, "getAlert").mockResolvedValue(INSPECTED);
+    render(<AlertDetailsDialog alert={ALERT} onOpenChange={vi.fn()} />);
+
+    await waitFor(() => expect(get).toHaveBeenCalledWith(9));
+    // The Context table cscli prints, and one event's parsed fields.
+    expect(await screen.findByText("target_uri")).toBeInTheDocument();
+    expect(screen.getByText("/lanz.php")).toBeInTheDocument();
+    expect(screen.getByText("http_status")).toBeInTheDocument();
+    expect(screen.getByText("testMachine")).toBeInTheDocument();
+  });
+
+  it("keeps the header when the fetch fails", async () => {
+    // LAPI being unreachable must not cost the operator what we already had.
+    vi.spyOn(crowdsec, "getAlert").mockRejectedValue(new Error("LAPI is down"));
+    render(<AlertDetailsDialog alert={ALERT} onOpenChange={vi.fn()} />);
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(/LAPI is down/);
+    expect(screen.getByText("Example Transit AG")).toBeInTheDocument();
+  });
+
+  it("does not fetch an alert with no id", () => {
+    const get = vi.spyOn(crowdsec, "getAlert");
+    render(
+      <AlertDetailsDialog alert={{ ...ALERT_BASE, id: null } as Alert} onOpenChange={vi.fn()} />,
+    );
+    expect(get).not.toHaveBeenCalled();
   });
 });
