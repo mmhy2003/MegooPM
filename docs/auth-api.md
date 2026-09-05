@@ -21,14 +21,50 @@ All application routes are versioned under `/api/v1`.
 
 ## Roles (RBAC)
 
-| Role     | Meaning                              |
-| -------- | ------------------------------------ |
-| `admin`  | May perform privileged actions.      |
-| `member` | Limited user (default for new users).|
+| Role     | Meaning                                                        |
+| -------- | -------------------------------------------------------------- |
+| `admin`  | Reads and changes everything.                                   |
+| `member` | Reads every page except Settings and Users; changes nothing.    |
+
+**A member reviews the instance and changes nothing.** They read the Dashboard,
+Proxy Hosts, Upstream Pools, Certificates, Access Lists, Streams, Redirection
+Hosts, 404 Hosts, Custom Pages and Security. They create, edit and delete
+nothing, and cannot reload nginx, renew a certificate or spend LLM credit with
+Ask AI. The one place a member writes is their own account: password, 2FA and
+passkeys under `/users/me/*`.
+
+Settings and Users are admin-only, API and page both. Endpoints with no page
+behind them — `/audit-log`, `/events`, `/cluster/status`, `/nginx/preview`,
+`/dns-providers`, `/dns-credentials` — stay admin as well, because nothing a
+member can open reads them.
 
 Admin-only endpoints return **403** for authenticated non-admins. Any protected
 endpoint returns **401** when the token is missing, malformed, expired, of the
 wrong type, or belongs to a deactivated/deleted user.
+
+### Where the boundary lives
+
+**The API is the enforcement point.** The UI hides controls a member cannot
+use, but that is a courtesy: every write is refused by `require_admin`
+regardless of what the browser renders.
+
+`backend/tests/test_route_authorization.py` holds the authoritative table. It
+walks the app's real dependency tree for every route and compares it against a
+declared role, so **a new endpoint must declare its role there or the suite
+fails**. That is deliberate — it makes classifying a new route part of adding
+it, rather than something to remember later.
+
+Verify a live instance by signing in as a member and taking the token:
+
+```bash
+curl -s -o /dev/null -w '%{http_code}\n' -H "Authorization: Bearer $TOKEN" \
+  https://<host>/api/v1/proxy-hosts                                    # 200
+curl -s -o /dev/null -w '%{http_code}\n' -X POST -H "Authorization: Bearer $TOKEN" \
+  -H 'Content-Type: application/json' -d '{}' \
+  https://<host>/api/v1/proxy-hosts                                    # 403
+curl -s -o /dev/null -w '%{http_code}\n' -H "Authorization: Bearer $TOKEN" \
+  https://<host>/api/v1/settings                                       # 403
+```
 
 ## Endpoints
 
