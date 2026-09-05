@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Loader2, Sparkles } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 
 /**
@@ -28,15 +28,18 @@ export function AiPromptBar({
   enabled: boolean;
   busy: boolean;
   elapsedSeconds: number;
-  onSubmit: (instruction: string) => void;
+  /** Resolves true when the page was changed, which empties the box. */
+  onSubmit: (instruction: string) => void | boolean | Promise<boolean | void>;
   onCancel: () => void;
 }) {
   const [instruction, setInstruction] = useState("");
 
-  function submit() {
+  async function submit() {
     const trimmed = instruction.trim();
     if (!trimmed || busy) return;
-    onSubmit(trimmed);
+    // Cleared only on success: losing a carefully written paragraph to a
+    // timeout would mean retyping it to retry.
+    if ((await onSubmit(trimmed)) === true) setInstruction("");
   }
 
   if (!enabled) {
@@ -57,20 +60,27 @@ export function AiPromptBar({
   return (
     <section className="flex items-end gap-2 rounded-xl border p-3">
       <div className="flex-1 space-y-1.5">
-        <Label htmlFor="ai-instruction">Instruction</Label>
-        <Input
+        <div className="flex items-baseline justify-between gap-2">
+          <Label htmlFor="ai-instruction">Instruction</Label>
+          {/* Enter breaks a line here, so the way to send needs saying. */}
+          <span className="text-muted-foreground text-xs">Ctrl+Enter to send</span>
+        </div>
+        <Textarea
           id="ai-instruction"
+          rows={3}
           value={instruction}
           onChange={(e) => setInstruction(e.target.value)}
           onKeyDown={(e) => {
-            // One line of instruction; Enter is the obvious way to send it.
-            if (e.key === "Enter") {
+            // Enter belongs to the text: an instruction is a paragraph, and
+            // asking for two of anything reads better on its own line.
+            if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
               e.preventDefault();
-              submit();
+              void submit();
             }
           }}
           placeholder="make the heading bigger and add a support email"
           disabled={busy}
+          className="resize-y"
         />
       </div>
       {busy ? (
@@ -84,7 +94,7 @@ export function AiPromptBar({
           </Button>
         </div>
       ) : (
-        <Button onClick={submit} className="mb-0.5">
+        <Button onClick={() => void submit()} className="mb-0.5">
           <Sparkles /> Generate
         </Button>
       )}

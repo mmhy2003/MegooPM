@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import { AiPromptBar } from "@/components/custom-pages/ai-prompt-bar";
@@ -26,7 +26,9 @@ describe("AiPromptBar", () => {
     expect(onSubmit).toHaveBeenCalledWith("make the heading bigger");
   });
 
-  it("submits on Enter, since it is a one-line instruction", async () => {
+  it("keeps Enter for a new line and sends on Ctrl+Enter", async () => {
+    // The instruction is a paragraph, not a search box: Enter has to be able
+    // to break a line, so sending needs its own chord.
     const user = userEvent.setup();
     const onSubmit = vi.fn();
     render(
@@ -39,8 +41,56 @@ describe("AiPromptBar", () => {
       />,
     );
 
-    await user.type(screen.getByLabelText("Instruction"), "tidy it{Enter}");
-    expect(onSubmit).toHaveBeenCalledWith("tidy it");
+    const box = screen.getByLabelText("Instruction");
+    await user.type(box, "first line{Enter}second line");
+    expect(onSubmit).not.toHaveBeenCalled();
+    expect(box).toHaveValue("first line\nsecond line");
+
+    await user.type(box, "{Control>}{Enter}{/Control}");
+    expect(onSubmit).toHaveBeenCalledWith("first line\nsecond line");
+  });
+
+  it("empties itself once the run finishes, ready for the next instruction", async () => {
+    const user = userEvent.setup();
+    const onSubmit = vi.fn().mockResolvedValue(true);
+    render(
+      <AiPromptBar
+        enabled
+        busy={false}
+        elapsedSeconds={0}
+        onSubmit={onSubmit}
+        onCancel={() => {}}
+      />,
+    );
+
+    const box = screen.getByLabelText("Instruction");
+    await user.type(box, "make the heading bigger");
+    await user.click(screen.getByRole("button", { name: "Generate" }));
+
+    await waitFor(() => expect(box).toHaveValue(""));
+  });
+
+  it("keeps the instruction when the run fails", async () => {
+    // Losing a carefully written paragraph to a timeout would make the
+    // operator retype it to retry.
+    const user = userEvent.setup();
+    const onSubmit = vi.fn().mockResolvedValue(false);
+    render(
+      <AiPromptBar
+        enabled
+        busy={false}
+        elapsedSeconds={0}
+        onSubmit={onSubmit}
+        onCancel={() => {}}
+      />,
+    );
+
+    const box = screen.getByLabelText("Instruction");
+    await user.type(box, "make the heading bigger");
+    await user.click(screen.getByRole("button", { name: "Generate" }));
+
+    await waitFor(() => expect(onSubmit).toHaveBeenCalled());
+    expect(box).toHaveValue("make the heading bigger");
   });
 
   it("refuses to submit nothing", async () => {

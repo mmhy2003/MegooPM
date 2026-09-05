@@ -186,7 +186,8 @@ export function CustomPageEditorView({ pageId }: { pageId: number | null }) {
     }
   }
 
-  async function handleAssist(instruction: string) {
+  /** Returns true when the document was actually changed. */
+  async function handleAssist(instruction: string): Promise<boolean> {
     // Swap embedded images for placeholders first: one 200 KB screenshot is
     // ~70k tokens of base64 the model cannot read, and it never needs to leave
     // the browser.
@@ -196,7 +197,7 @@ export function CustomPageEditorView({ pageId }: { pageId: number | null }) {
         `This page is too large for AI editing — ${formatBytes(htmlByteLength(elided))} ` +
           `without its images, against a limit of ${formatBytes(MAX_ASSIST_BYTES)}.`,
       );
-      return;
+      return false;
     }
 
     setError(null);
@@ -221,12 +222,14 @@ export function CustomPageEditorView({ pageId }: { pageId: number | null }) {
       setPane("changes");
       for (const warning of restored.warnings) toast.warning(warning);
       toast.success("Page updated");
+      return true;
     } catch (err) {
       // An aborted request is the operator pressing Cancel, not a failure.
-      if (controller.signal.aborted) return;
+      if (controller.signal.aborted) return false;
       const described = describeError(err);
       setError(described.message);
       toast.error(described.message);
+      return false;
     } finally {
       assistAbort.current = null;
       setAssisting(false);
@@ -331,7 +334,7 @@ export function CustomPageEditorView({ pageId }: { pageId: number | null }) {
           enabled={llmEnabled}
           busy={assisting}
           elapsedSeconds={elapsedSeconds}
-          onSubmit={(instruction) => void handleAssist(instruction)}
+          onSubmit={handleAssist}
           onCancel={handleCancelAssist}
         />
       ) : null}
