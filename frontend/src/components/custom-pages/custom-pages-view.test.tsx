@@ -65,6 +65,35 @@ describe("CustomPagesView", () => {
     expect(push).toHaveBeenCalledWith("/custom-pages/1");
   });
 
+  it("previews a page when its name is clicked", async () => {
+    const user = userEvent.setup();
+    const get = vi.spyOn(customPages, "get").mockResolvedValue({
+      ...makeSummary(),
+      html: "<h1>Denied</h1>",
+    } as never);
+    render(<CustomPagesView />);
+
+    await user.click(await screen.findByRole("button", { name: "Preview Access denied" }));
+
+    await waitFor(() => expect(get).toHaveBeenCalledWith(1));
+    expect(await screen.findByTitle("Page preview")).toHaveAttribute("srcdoc", "<h1>Denied</h1>");
+    // A preview is not an edit: the list must not have navigated away.
+    expect(push).not.toHaveBeenCalled();
+  });
+
+  it("does not preview when a row action is clicked", async () => {
+    // Edit and Delete sit inside the clickable row; without stopPropagation
+    // each would also open the preview behind the thing you asked for.
+    const user = userEvent.setup();
+    const get = vi.spyOn(customPages, "get").mockResolvedValue({} as never);
+    render(<CustomPagesView />);
+
+    await user.click(await screen.findByRole("button", { name: "Edit Access denied" }));
+
+    expect(get).not.toHaveBeenCalled();
+    expect(screen.queryByTitle("Page preview")).not.toBeInTheDocument();
+  });
+
   it("deletes a page after the confirmation", async () => {
     const user = userEvent.setup();
     render(<CustomPagesView />);

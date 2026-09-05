@@ -27,6 +27,7 @@ import {
 } from "@/components/custom-pages/lib";
 import { HtmlEditor, type HtmlEditorHandle } from "@/components/custom-pages/html-editor";
 import { AiPromptBar } from "@/components/custom-pages/ai-prompt-bar";
+import { PagePreview } from "@/components/custom-pages/page-preview";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -464,7 +465,7 @@ export function CustomPageEditorView({ pageId }: { pageId: number | null }) {
 
         <section className="flex min-h-0 flex-col rounded-xl border">
           <div className="border-b px-3 py-2 text-sm font-medium">Preview</div>
-          <PagePreview html={form.html} />
+          <LivePreview html={form.html} />
         </section>
       </div>
     </div>
@@ -472,13 +473,12 @@ export function CustomPageEditorView({ pageId }: { pageId: number | null }) {
 }
 
 /**
- * Live preview of the document.
+ * The live pane: the shared preview, fed a debounced document.
  *
- * `sandbox="allow-scripts"` without `allow-same-origin` puts the frame on an
- * opaque origin: scripts in the page still run, so the preview is faithful, but
- * they can never reach into the admin app's DOM, storage or cookies.
+ * Debounced because this one re-renders on every keystroke; the sandbox that
+ * makes rendering arbitrary HTML safe lives in {@link PagePreview}.
  */
-function PagePreview({ html }: { html: string }) {
+function LivePreview({ html }: { html: string }) {
   const [debounced, setDebounced] = useState(html);
 
   useEffect(() => {
@@ -486,12 +486,5 @@ function PagePreview({ html }: { html: string }) {
     return () => clearTimeout(timer);
   }, [html]);
 
-  return (
-    <iframe
-      title="Page preview"
-      sandbox="allow-scripts"
-      srcDoc={debounced}
-      className="min-h-0 flex-1 rounded-b-xl bg-white"
-    />
-  );
+  return <PagePreview html={debounced} className="min-h-0 flex-1 rounded-b-xl bg-white" />;
 }

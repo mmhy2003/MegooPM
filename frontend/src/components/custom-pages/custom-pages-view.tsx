@@ -7,6 +7,7 @@ import { FileCode2, Pencil, Plus, Trash2 } from "lucide-react";
 import { customPages, type CustomPageSummary } from "@/lib/api";
 import { describeError, formatBytes } from "@/components/custom-pages/lib";
 import { ConfirmDeleteDialog } from "@/components/proxy-hosts/confirm-delete-dialog";
+import { PagePreviewDialog } from "@/components/custom-pages/page-preview-dialog";
 import { Button } from "@/components/ui/button";
 import { SearchInput } from "@/components/ui/search-input";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -55,6 +56,7 @@ export function CustomPagesView() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [deletePage, setDeletePage] = useState<CustomPageSummary | null>(null);
+  const [previewPage, setPreviewPage] = useState<CustomPageSummary | null>(null);
   const [query, setQuery] = useState("");
 
   const visible = useMemo(
@@ -160,8 +162,26 @@ export function CustomPagesView() {
               </TableRow>
             ) : (
               visible.map((page) => (
-                <TableRow key={page.id}>
-                  <TableCell className="font-medium">{page.name}</TableCell>
+                <TableRow
+                  key={page.id}
+                  className="cursor-pointer"
+                  onClick={() => setPreviewPage(page)}
+                >
+                  <TableCell className="font-medium">
+                    {/* A button, not just a clickable row: the row's onClick is
+                        invisible to the keyboard and to screen readers. */}
+                    <button
+                      type="button"
+                      aria-label={`Preview ${page.name}`}
+                      className="rounded-sm text-left hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        setPreviewPage(page);
+                      }}
+                    >
+                      {page.name}
+                    </button>
+                  </TableCell>
                   <TableCell className="text-muted-foreground">
                     {page.description || "—"}
                   </TableCell>
@@ -169,7 +189,7 @@ export function CustomPagesView() {
                   <TableCell className="text-muted-foreground">
                     {formatDate(page.updated_at)}
                   </TableCell>
-                  <TableCell>
+                  <TableCell onClick={(event) => event.stopPropagation()}>
                     <div className="flex justify-end gap-1">
                       <Button
                         variant="ghost"
@@ -195,6 +215,14 @@ export function CustomPagesView() {
           </TableBody>
         </Table>
       </div>
+
+      {previewPage ? (
+        <PagePreviewDialog
+          page={previewPage}
+          onOpenChange={(open) => !open && setPreviewPage(null)}
+          onEdit={() => router.push(`/custom-pages/${previewPage.id}`)}
+        />
+      ) : null}
 
       {deletePage ? (
         <ConfirmDeleteDialog
