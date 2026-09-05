@@ -82,6 +82,7 @@ ROUTE_ROLES: dict[tuple[str, str], str] = {
     ("POST", "/api/v1/certificates/{cert_id}/renew"): "admin",
     ("GET", "/api/v1/cluster/status"): "admin",
     ("GET", "/api/v1/crowdsec/alerts"): "member",
+    ("GET", "/api/v1/crowdsec/alerts/{alert_id}"): "member",
     ("GET", "/api/v1/crowdsec/decisions"): "member",
     ("POST", "/api/v1/crowdsec/decisions"): "admin",
     ("DELETE", "/api/v1/crowdsec/decisions/{decision_id}"): "admin",

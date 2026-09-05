@@ -420,6 +420,13 @@
             "title": "Decisions",
             "type": "array"
           },
+          "events": {
+            "items": {
+              "$ref": "#/components/schemas/AlertEvent"
+            },
+            "title": "Events",
+            "type": "array"
+          },
           "events_count": {
             "anyOf": [
               {
@@ -442,6 +449,17 @@
             ],
             "title": "Id"
           },
+          "machine_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Machine Id"
+          },
           "message": {
             "anyOf": [
               {
@@ -453,6 +471,24 @@
             ],
             "title": "Message"
           },
+          "meta": {
+            "items": {
+              "$ref": "#/components/schemas/MetaPair"
+            },
+            "title": "Meta",
+            "type": "array"
+          },
+          "remediation": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Remediation"
+          },
           "scenario": {
             "anyOf": [
               {
@@ -463,6 +499,17 @@
               }
             ],
             "title": "Scenario"
+          },
+          "simulated": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Simulated"
           },
           "source": {
             "anyOf": [
@@ -495,9 +542,45 @@
               }
             ],
             "title": "Stop At"
+          },
+          "uuid": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Uuid"
           }
         },
         "title": "Alert",
+        "type": "object"
+      },
+      "AlertEvent": {
+        "description": "One log line behind an alert, as CrowdSec parsed it.",
+        "properties": {
+          "meta": {
+            "items": {
+              "$ref": "#/components/schemas/MetaPair"
+            },
+            "title": "Meta",
+            "type": "array"
+          },
+          "timestamp": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Timestamp"
+          }
+        },
+        "title": "AlertEvent",
         "type": "object"
       },
       "AlertList": {
@@ -2095,9 +2178,31 @@
             "title": "Scope",
             "type": "string"
           },
+          "simulated": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Simulated"
+          },
           "type": {
             "title": "Type",
             "type": "string"
+          },
+          "until": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Until"
           },
           "value": {
             "title": "Value",
@@ -3094,6 +3199,35 @@
           "ok"
         ],
         "title": "MailTestResult",
+        "type": "object"
+      },
+      "MetaPair": {
+        "description": "One key/value CrowdSec parsed out of a log line.\n\n``cscli alerts inspect`` prints these as its Context table at alert level,\nand as the per-event tables under ``-d``.",
+        "properties": {
+          "key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Key"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value"
+          }
+        },
+        "title": "MetaPair",
         "type": "object"
       },
       "MfaRequired": {
@@ -7569,6 +7703,54 @@
           }
         ],
         "summary": "List Alerts",
+        "tags": [
+          "crowdsec"
+        ]
+      }
+    },
+    "/api/v1/crowdsec/alerts/{alert_id}": {
+      "get": {
+        "description": "One alert in full, the way ``cscli alerts inspect -d`` prints it.\n\nSeparate from the list because the list has no room for it and no use for\nit: an alert carries tens of events, each with its own parsed fields, so\nreturning them per row would bloat every page of a table that shows none.\n\nAny signed-in user may read. LAPI's own 404 is passed through, so an id\nthat no longer exists reads as missing rather than as a gateway fault.",
+        "operationId": "get_alert_api_v1_crowdsec_alerts__alert_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "alert_id",
+            "required": true,
+            "schema": {
+              "title": "Alert Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Alert"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Get Alert",
         "tags": [
           "crowdsec"
         ]

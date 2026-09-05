@@ -15,7 +15,9 @@ from collections.abc import AsyncIterator
 os.environ.setdefault("CELERY_TASK_ALWAYS_EAGER", "true")
 os.environ.setdefault("CELERY_RESULT_BACKEND", "cache+memory://")
 
+import httpx
 import pytest
+from app.core.config import Settings
 from app.db.session import get_session
 from app.main import app
 from app.models.audit_log import AuditLog
@@ -30,6 +32,7 @@ from app.models.passkey import Passkey
 from app.models.recovery_code import RecoveryCode
 from app.models.user import User, UserRole
 from app.services import user as user_service
+from app.services.crowdsec import CrowdSecClient, get_crowdsec_client
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import BigInteger
 from sqlalchemy.dialects.postgresql import JSONB
@@ -174,3 +177,47 @@ async def admin_token(db_client: AsyncClient, admin_user: User) -> str:
 async def member_token(db_client: AsyncClient, member_user: User) -> str:
     """A valid access token for the seeded member."""
     return await _login(db_client, member_user.email, "memberpass123")
+
+
+# --- CrowdSec LAPI ---------------------------------------------------------
+
+
+def crowdsec_settings(**over: object) -> Settings:
+    """Settings with LAPI credentials filled in, for a mock-transport client."""
+    base = {
+        "crowdsec_lapi_url": "http://crowdsec.test:8080",
+        "crowdsec_lapi_key": "bouncer-key",
+        "crowdsec_machine_id": "megoopm",
+        "crowdsec_machine_password": "secret",
+    }
+    base.update(over)
+    return Settings(**base)
+
+
+def crowdsec_client(handler, **over: object) -> CrowdSecClient:
+    """A LAPI client that answers from ``handler`` instead of the network."""
+    return CrowdSecClient(crowdsec_settings(**over), transport=httpx.MockTransport(handler))
+
+
+@pytest.fixture
+def override_crowdsec():
+    """Install a mock-transport LAPI client as the route dependency.
+
+    The same client instance is reused across requests within a test (so tests
+    that paginate over several requests don't hit a closed client); all clients
+    are closed once at fixture teardown.
+    """
+    opened: list[CrowdSecClient] = []
+
+    def _install(handler, **over: object):
+        client = crowdsec_client(handler, **over)
+        opened.append(client)
+
+        async def _dep():
+            yield client
+
+        app.dependency_overrides[get_crowdsec_client] = _dep
+        return client
+
+    yield _install
+    app.dependency_overrides.pop(get_crowdsec_client, None)

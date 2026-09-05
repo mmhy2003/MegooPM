@@ -15,12 +15,10 @@ import json
 import httpx
 import pytest
 from app.core.config import Settings
-from app.main import app
 from app.schemas.crowdsec import DecisionCreate
 from app.services.crowdsec import (
     CrowdSecClient,
     CrowdSecNotConfigured,
-    get_crowdsec_client,
 )
 from app.services.crowdsec.client import CrowdSecError
 from httpx import AsyncClient
@@ -207,30 +205,6 @@ async def test_http_error_is_translated() -> None:
 
 
 # --- API routes ------------------------------------------------------------
-
-
-@pytest.fixture
-def override_crowdsec():
-    """Install a mock-transport LAPI client as the route dependency.
-
-    The same client instance is reused across requests within a test (so tests
-    that paginate over several requests don't hit a closed client); all clients
-    are closed once at fixture teardown.
-    """
-    opened: list[CrowdSecClient] = []
-
-    def _install(handler, **over: object):
-        client = _client(handler, **over)
-        opened.append(client)
-
-        async def _dep():
-            yield client
-
-        app.dependency_overrides[get_crowdsec_client] = _dep
-        return client
-
-    yield _install
-    app.dependency_overrides.pop(get_crowdsec_client, None)
 
 
 async def test_decisions_requires_authentication(db_client: AsyncClient) -> None:

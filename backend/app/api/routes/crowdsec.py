@@ -31,6 +31,7 @@ from app.models.crowdsec_job_run import CrowdSecJobRun
 from app.models.crowdsec_whitelist import CrowdSecWhitelist, CrowdSecWhitelistApply
 from app.models.enums import AuditAction, CrowdSecJobKind
 from app.schemas.crowdsec import (
+    Alert,
     AlertList,
     CrowdSecHealth,
     CrowdSecJobRunRead,
@@ -198,6 +199,30 @@ async def list_alerts(
         items = [a for a in items if matches_alert(a, needle)]
     page_items, total = paginate(items, page=page, page_size=page_size)
     return AlertList(items=page_items, total=total, page=page, page_size=page_size)
+
+
+@router.get("/alerts/{alert_id}", response_model=Alert)
+async def get_alert(alert_id: int, _user: CurrentUser, client: ClientDep) -> Alert:
+    """One alert in full, the way ``cscli alerts inspect -d`` prints it.
+
+    Separate from the list because the list has no room for it and no use for
+    it: an alert carries tens of events, each with its own parsed fields, so
+    returning them per row would bloat every page of a table that shows none.
+
+    Any signed-in user may read. LAPI's own 404 is passed through, so an id
+    that no longer exists reads as missing rather than as a gateway fault.
+    """
+    try:
+        return await client.get_alert(alert_id)
+    except CrowdSecError as exc:
+        # _handle turns every failure into a 503 so a CDN cannot swallow it.
+        # That is right for an outage and wrong here: an id LAPI does not know
+        # is missing, not unavailable, and the operator should be told which.
+        if exc.status_code == 404:
+            raise HTTPException(
+                status.HTTP_404_NOT_FOUND, detail=f"No alert with id {alert_id}."
+            ) from exc
+        raise _handle(exc) from exc
 
 
 @router.post("/decisions", response_model=Decision, status_code=status.HTTP_201_CREATED)

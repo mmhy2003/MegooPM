@@ -32,6 +32,11 @@ class Decision(BaseModel):
     # ISO-3166 alpha-2, filled by the API from the bundled country database
     # (LAPI does not send it). None for scopes that have no country.
     country: str | None = None
+    # When the remediation lifts. LAPI sends this alongside the duration; a
+    # duration string alone cannot answer "when does this expire?".
+    until: str | None = None
+    # A simulated decision is recorded but never enforced.
+    simulated: bool | None = None
 
 
 class AlertSource(BaseModel):
@@ -50,6 +55,29 @@ class AlertSource(BaseModel):
     longitude: float | None = None
 
 
+class MetaPair(BaseModel):
+    """One key/value CrowdSec parsed out of a log line.
+
+    ``cscli alerts inspect`` prints these as its Context table at alert level,
+    and as the per-event tables under ``-d``.
+    """
+
+    key: str | None = None
+    value: str | None = None
+
+
+class AlertEvent(BaseModel):
+    """One log line behind an alert, as CrowdSec parsed it."""
+
+    timestamp: str | None = None
+    meta: list[MetaPair] = Field(default_factory=list)
+
+    @field_validator("meta", mode="before")
+    @classmethod
+    def _coerce_null_meta(cls, v: object) -> object:
+        return [] if v is None else v
+
+
 class Alert(BaseModel):
     """A detection event CrowdSec raised, with any decisions it triggered."""
 
@@ -62,6 +90,23 @@ class Alert(BaseModel):
     created_at: str | None = None
     start_at: str | None = None
     stop_at: str | None = None
+    # Everything below is what `cscli alerts inspect` prints and the list view
+    # has no room for. The list path leaves them unset rather than absent, so
+    # one schema serves both without a second model to keep in step.
+    machine_id: str | None = None
+    uuid: str | None = None
+    simulated: bool | None = None
+    remediation: bool | None = None
+    #: The Context table: what the scenario matched on.
+    meta: list[MetaPair] = Field(default_factory=list)
+    #: The individual log lines, only ever populated by the detail fetch.
+    events: list[AlertEvent] = Field(default_factory=list)
+
+    @field_validator("meta", "events", mode="before")
+    @classmethod
+    def _coerce_null_lists(cls, v: object) -> object:
+        # Same null-not-empty-list habit as `decisions` above.
+        return [] if v is None else v
 
     @field_validator("decisions", mode="before")
     @classmethod

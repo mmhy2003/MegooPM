@@ -221,6 +221,17 @@ class CrowdSecClient:
         data = await self._request("GET", "/v1/alerts", headers=headers, params={"limit": limit})
         return [Alert.model_validate(a) for a in (data or [])]
 
+    async def get_alert(self, alert_id: int) -> Alert:
+        """Return one alert in full, the way ``cscli alerts inspect -d`` does.
+
+        Fetched by id rather than carried in the list: an alert holds tens of
+        events and each event ~17 parsed fields, so returning them for every
+        row would bloat a page that renders none of it.
+        """
+        headers = await self._machine_token_header()
+        data = await self._request("GET", f"/v1/alerts/{alert_id}", headers=headers)
+        return Alert.model_validate(data)
+
     # --- write path --------------------------------------------------------
 
     async def add_decision(self, decision: DecisionCreate) -> Decision:
