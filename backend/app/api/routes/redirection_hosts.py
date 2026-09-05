@@ -26,9 +26,7 @@ router = APIRouter(tags=["redirection-hosts"])
 
 
 @router.get("", response_model=list[RedirectionHostRead])
-async def list_redirection_hosts(
-    _admin: AdminUser, db: SessionDep
-) -> list[RedirectionHostRead]:
+async def list_redirection_hosts(_admin: AdminUser, db: SessionDep) -> list[RedirectionHostRead]:
     """List all redirection hosts. Admin-only."""
     hosts = await redirection_host_service.list_redirection_hosts(db)
     return [RedirectionHostRead.model_validate(h) for h in hosts]

@@ -147,9 +147,7 @@ async def test_stream_rejects_a_missing_pool(pg_session: AsyncSession) -> None:
 async def test_narrowing_context_is_blocked_by_a_live_stream(pg_session: AsyncSession) -> None:
     """Rule 5's streams half — the count must include streams, not just hosts."""
     pool = await _pool(pg_session, "shared-stream", UpstreamContext.both)
-    await stream_service.create_stream(
-        pg_session, {"incoming_port": 15435, "upstream_id": pool.id}
-    )
+    await stream_service.create_stream(pg_session, {"incoming_port": 15435, "upstream_id": pool.id})
 
     with pytest.raises(upstream_service.InvalidPoolConfigError) as err:
         await upstream_service.update_upstream(
@@ -170,9 +168,7 @@ async def test_stream_with_an_empty_pool_is_skipped(pg_session: AsyncSession) ->
     from app.services.nginx.loader import load_desired_state
 
     pool = await _pool(pg_session, "empty", UpstreamContext.stream)
-    await stream_service.create_stream(
-        pg_session, {"incoming_port": 15440, "upstream_id": pool.id}
-    )
+    await stream_service.create_stream(pg_session, {"incoming_port": 15440, "upstream_id": pool.id})
 
     state = await load_desired_state(pg_session)
 
@@ -187,9 +183,7 @@ async def test_stream_with_a_usable_pool_is_included(pg_session: AsyncSession) -
     pool = await _pool(pg_session, "usable", UpstreamContext.stream)
     pg_session.add(UpstreamBackend(upstream_id=pool.id, host="10.0.0.1", port=5432))
     await pg_session.flush()
-    await stream_service.create_stream(
-        pg_session, {"incoming_port": 15441, "upstream_id": pool.id}
-    )
+    await stream_service.create_stream(pg_session, {"incoming_port": 15441, "upstream_id": pool.id})
 
     state = await load_desired_state(pg_session)
 

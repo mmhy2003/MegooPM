@@ -54,9 +54,7 @@ async def list_due_certificate_ids(
     )
     certs = (await db.scalars(stmt)).all()
     return [
-        c.id
-        for c in certs
-        if is_due_for_renewal(c.expires_on, now=now, before_days=before_days)
+        c.id for c in certs if is_due_for_renewal(c.expires_on, now=now, before_days=before_days)
     ]
 
 

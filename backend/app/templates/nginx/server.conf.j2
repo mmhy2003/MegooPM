@@ -29,6 +29,11 @@
         # This location's own document, so two paths can serve different pages.
         root {{ default_dir }};
         try_files /{{ location_html(loc.id) }} =404;
+{%- elif loc.target == "error_page" %}
+        # The server block maps every branded status to its document, so the
+        # bare status is enough: nginx turns it into whatever Settings ->
+        # Error pages says for this code, and the visitor gets the real status.
+        return {{ loc.error_code }};
 {%- else %}
         # Whatever Settings -> Default site says, rendered once and included
         # here: change the setting and every path using it follows.

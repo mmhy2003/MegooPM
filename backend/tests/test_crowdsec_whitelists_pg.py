@@ -68,8 +68,6 @@ async def test_round_trips_ip_and_cidr_arrays(session: AsyncSession) -> None:
 async def test_rejects_a_whitelist_matching_nothing(session: AsyncSession) -> None:
     # A whitelist with no ips and no cidrs silently matches nothing; the database
     # refuses it so a caller bypassing the API cannot create one.
-    session.add(
-        CrowdSecWhitelist(name="empty", reason="nothing", ips=[], cidrs=[])
-    )
+    session.add(CrowdSecWhitelist(name="empty", reason="nothing", ips=[], cidrs=[]))
     with pytest.raises(IntegrityError):
         await session.flush()

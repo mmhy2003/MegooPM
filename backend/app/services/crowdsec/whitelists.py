@@ -57,16 +57,12 @@ def validate_entries(ips: Sequence[str], cidrs: Sequence[str]) -> None:
         try:
             ipaddress.ip_address(ip.strip())
         except ValueError as exc:
-            raise WhitelistValidationError(
-                f"{ip!r} is not a valid IP address."
-            ) from exc
+            raise WhitelistValidationError(f"{ip!r} is not a valid IP address.") from exc
     for cidr in cidrs:
         try:
             ipaddress.ip_network(cidr.strip(), strict=False)
         except ValueError as exc:
-            raise WhitelistValidationError(
-                f"{cidr!r} is not a valid CIDR range."
-            ) from exc
+            raise WhitelistValidationError(f"{cidr!r} is not a valid CIDR range.") from exc
 
 
 def validate_expressions(expressions: Sequence[str]) -> None:
@@ -83,9 +79,7 @@ def validate_expressions(expressions: Sequence[str]) -> None:
     the two cases that are certainly wrong before paying a restart for them.
     """
     if not expressions:
-        raise WhitelistValidationError(
-            "An expression whitelist needs at least one expression."
-        )
+        raise WhitelistValidationError("An expression whitelist needs at least one expression.")
     for expression in expressions:
         if not expression.strip():
             raise WhitelistValidationError(
@@ -161,8 +155,7 @@ def render_whitelists(docs: Sequence[WhitelistDoc]) -> str:
             validate_entries(doc.ips, doc.cidrs)
             if not doc.ips and not doc.cidrs:
                 raise WhitelistValidationError(
-                    f"Whitelist {doc.name!r} needs at least one IP address or "
-                    "CIDR range."
+                    f"Whitelist {doc.name!r} needs at least one IP address or CIDR range."
                 )
     return _env().get_template("whitelist.yaml.j2").render(docs=docs)
 

@@ -40,9 +40,7 @@ async def preview_nginx_config(_admin: AdminUser, db: SessionDep) -> NginxConfig
     # HTTP-context files plus the top-level stream{} files, in stable name order.
     rendered = {**render_config(state), **render_stream_config(state)}
     return NginxConfigPreview(
-        files=[
-            NginxConfigFile(name=name, content=rendered[name]) for name in sorted(rendered)
-        ]
+        files=[NginxConfigFile(name=name, content=rendered[name]) for name in sorted(rendered)]
     )
 
 

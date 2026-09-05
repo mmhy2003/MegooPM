@@ -54,9 +54,7 @@ async def create_dead_host(db: AsyncSession, values: dict[str, Any]) -> DeadHost
     return host
 
 
-async def update_dead_host(
-    db: AsyncSession, host_id: int, changes: dict[str, Any]
-) -> DeadHost:
+async def update_dead_host(db: AsyncSession, host_id: int, changes: dict[str, Any]) -> DeadHost:
     """Apply a partial update to a dead host.
 
     Raises :class:`DeadHostNotFoundError` if missing or

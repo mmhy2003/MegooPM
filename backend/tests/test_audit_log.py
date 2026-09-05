@@ -116,9 +116,7 @@ async def test_read_endpoint_requires_auth(db_client: AsyncClient) -> None:
     assert resp.status_code == 401
 
 
-async def test_read_endpoint_forbids_non_admin(
-    db_client: AsyncClient, member_token: str
-) -> None:
+async def test_read_endpoint_forbids_non_admin(db_client: AsyncClient, member_token: str) -> None:
     resp = await db_client.get(
         "/api/v1/audit-log", headers={"Authorization": f"Bearer {member_token}"}
     )
@@ -161,9 +159,7 @@ async def test_read_endpoint_filters(
     assert body["items"][0]["object_id"] == 1
 
 
-async def test_read_endpoint_rejects_bad_action(
-    db_client: AsyncClient, admin_token: str
-) -> None:
+async def test_read_endpoint_rejects_bad_action(db_client: AsyncClient, admin_token: str) -> None:
     resp = await db_client.get(
         "/api/v1/audit-log",
         params={"action": "not-a-real-action"},

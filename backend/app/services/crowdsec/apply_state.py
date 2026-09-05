@@ -45,9 +45,7 @@ def read_apply_state(conn: Connection) -> ApplyState:
     )
 
 
-def record_apply(
-    conn: Connection, *, digest: str | None, ok: bool, error: str | None
-) -> None:
+def record_apply(conn: Connection, *, digest: str | None, ok: bool, error: str | None) -> None:
     """Record the outcome.
 
     ``applied_digest`` only advances on success, so a failed apply leaves the
@@ -60,9 +58,7 @@ def record_apply(
         values["applied_digest"] = digest
     result = conn.execute(update(table).where(table.c.id == _ROW_ID).values(**values))
     if result.rowcount == 0:  # pragma: no cover - migration seeds the row
-        conn.execute(
-            table.insert().values(id=_ROW_ID, ok=ok, error=error, applied_digest=digest)
-        )
+        conn.execute(table.insert().values(id=_ROW_ID, ok=ok, error=error, applied_digest=digest))
 
 
 __all__ = ["ApplyState", "read_apply_state", "record_apply"]

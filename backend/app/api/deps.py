@@ -58,6 +58,7 @@ async def get_current_user(
 
 CurrentUser = Annotated[User, Depends(get_current_user)]
 
+
 async def require_admin(current_user: CurrentUser) -> User:
     """Ensure the current user is an admin; otherwise raise 403."""
     if not current_user.is_admin:

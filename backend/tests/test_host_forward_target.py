@@ -80,9 +80,7 @@ async def test_accepts_a_host_target(pg_session: AsyncSession) -> None:
     await _add(pg_session, forward_host="10.0.0.1", forward_port=8080)
 
     row = (
-        await pg_session.scalars(
-            select(ProxyHost).where(ProxyHost.domain_names.any(_DOMAIN))
-        )
+        await pg_session.scalars(select(ProxyHost).where(ProxyHost.domain_names.any(_DOMAIN)))
     ).one()
     assert (row.forward_host, row.forward_port) == ("10.0.0.1", 8080)
     assert row.upstream_id is None

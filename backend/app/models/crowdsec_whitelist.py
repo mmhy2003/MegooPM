@@ -54,9 +54,7 @@ class CrowdSecWhitelist(IdMixin, TimestampMixin, Base):
         server_default=WhitelistKind.ip_cidr.value,
     )
     reason: Mapped[str] = mapped_column(Text, nullable=False)
-    description: Mapped[str] = mapped_column(
-        Text, nullable=False, default="", server_default=""
-    )
+    description: Mapped[str] = mapped_column(Text, nullable=False, default="", server_default="")
     ips: Mapped[list[str]] = mapped_column(
         ARRAY(Text), nullable=False, default=list, server_default="{}"
     )
@@ -91,10 +89,6 @@ class CrowdSecWhitelistApply(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=False)
     applied_digest: Mapped[str | None] = mapped_column(Text, nullable=True)
-    applied_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
-    ok: Mapped[bool] = mapped_column(
-        Boolean, nullable=False, default=True, server_default=true()
-    )
+    applied_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    ok: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default=true())
     error: Mapped[str | None] = mapped_column(Text, nullable=True)

@@ -49,9 +49,7 @@ class CrowdSecCredential(Base):
     bouncer_key_enc: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # When the machine/bouncer were provisioned (self-registration or env seed).
-    registered_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
+    registered_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )

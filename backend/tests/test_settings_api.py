@@ -526,9 +526,7 @@ async def test_ban_page_defaults_to_the_megoopm_document(
     assert body["crowdsec_ban_page_id"] is None
 
 
-async def test_ban_page_can_be_set_to_none(
-    client: AsyncClient, auth: dict[str, str]
-) -> None:
+async def test_ban_page_can_be_set_to_none(client: AsyncClient, auth: dict[str, str]) -> None:
     """The deliberate choice to keep today's bare 403."""
     resp = await client.patch(
         "/api/v1/settings/ban-page", json={"crowdsec_ban_mode": "none"}, headers=auth
@@ -630,8 +628,7 @@ async def member_auth(pg_conn, client: AsyncClient) -> dict[str, str]:
 async def test_smtp_is_off_on_a_fresh_instance(pg_conn) -> None:
     result = await pg_conn.execute(
         text(
-            "SELECT smtp_enabled, smtp_host, smtp_password_enc "
-            "FROM instance_settings WHERE id = 1"
+            "SELECT smtp_enabled, smtp_host, smtp_password_enc FROM instance_settings WHERE id = 1"
         )
     )
     row = result.one()

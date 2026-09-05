@@ -157,9 +157,7 @@ def test_the_flush_is_not_pinned_to_one_node() -> None:
     app.conf.beat_schedule = {}
     _configure_ha(app)
 
-    assert "app.tasks.analytics.flush_visitor_counters" not in (
-        app.conf.task_routes or {}
-    )
+    assert "app.tasks.analytics.flush_visitor_counters" not in (app.conf.task_routes or {})
 
 
 def test_the_flush_reads_utc_days() -> None:

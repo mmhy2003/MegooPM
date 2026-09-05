@@ -83,14 +83,15 @@ class HttpScheme(enum.StrEnum):
 class LocationTarget(enum.StrEnum):
     """What a proxy host's ``location`` block answers with.
 
-    ``pool`` and ``host`` proxy onward; ``default_site`` and ``custom_page``
-    are answered by nginx itself and never reach a backend.
+    ``pool`` and ``host`` proxy onward; ``default_site``, ``custom_page`` and
+    ``error_page`` are answered by nginx itself and never reach a backend.
     """
 
     pool = "pool"
     host = "host"
     default_site = "default_site"
     custom_page = "custom_page"
+    error_page = "error_page"
 
 
 class ErrorPageMode(enum.StrEnum):

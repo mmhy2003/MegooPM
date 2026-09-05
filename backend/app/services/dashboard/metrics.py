@@ -83,11 +83,7 @@ async def record_sample(
 def aggregate(rows: Iterable, *, now: datetime, stale_after: float) -> TrafficTotals:
     """Sum the live nodes. Stale rows are excluded, never counted as zero."""
     materialised = list(rows)
-    live = [
-        row
-        for row in materialised
-        if (now - row.sampled_at).total_seconds() <= stale_after
-    ]
+    live = [row for row in materialised if (now - row.sampled_at).total_seconds() <= stale_after]
     stale = len(materialised) - len(live)
     if not live:
         return TrafficTotals(None, None, 0, stale)

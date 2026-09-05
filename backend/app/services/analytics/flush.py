@@ -52,9 +52,7 @@ def parse_counters(count_map, bytes_map, day: date) -> list[VisitorCounts]:
         requests = _number(raw_count)
         if not ip or requests is None:
             continue
-        rows.append(
-            VisitorCounts(ip=ip, day=day, requests=requests, bytes=byte_totals.get(ip, 0))
-        )
+        rows.append(VisitorCounts(ip=ip, day=day, requests=requests, bytes=byte_totals.get(ip, 0)))
     return rows
 
 

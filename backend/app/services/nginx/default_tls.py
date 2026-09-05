@@ -78,9 +78,7 @@ def claimed_tls_names(state: DesiredState) -> set[str]:
     :443 today, which is precisely why HTTPS to it lands on a stranger's site.
     """
     hosts = (*state.proxy_hosts, *state.redirection_hosts, *state.dead_hosts)
-    return {
-        name for host in hosts if host.certificate is not None for name in host.domain_names
-    }
+    return {name for host in hosts if host.certificate is not None for name in host.domain_names}
 
 
 __all__ = ["claimed_tls_names", "plan_default_tls"]

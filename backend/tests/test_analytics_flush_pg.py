@@ -71,12 +71,8 @@ async def test_two_flushes_of_the_same_visitor_add_up(pg_session: AsyncSession) 
 async def test_first_seen_is_not_moved_by_a_later_flush(
     pg_session: AsyncSession,
 ) -> None:
-    await upsert_visitors(
-        pg_session, [VisitorCounts("1.2.3.4", DAY, 1, 1)], now=NOW
-    )
-    await upsert_visitors(
-        pg_session, [VisitorCounts("1.2.3.4", DAY, 1, 1)], now=LATER
-    )
+    await upsert_visitors(pg_session, [VisitorCounts("1.2.3.4", DAY, 1, 1)], now=NOW)
+    await upsert_visitors(pg_session, [VisitorCounts("1.2.3.4", DAY, 1, 1)], now=LATER)
     stored = (await pg_session.scalars(select(VisitorDay))).all()
     assert stored[0].first_seen_at == NOW
     assert stored[0].last_seen_at == LATER
@@ -85,9 +81,7 @@ async def test_first_seen_is_not_moved_by_a_later_flush(
 async def test_the_same_ip_on_two_days_is_two_rows(pg_session: AsyncSession) -> None:
     """Daily bucketing is what makes the prune a single DELETE."""
     await upsert_visitors(pg_session, [VisitorCounts("1.2.3.4", DAY, 1, 1)], now=NOW)
-    await upsert_visitors(
-        pg_session, [VisitorCounts("1.2.3.4", OTHER_DAY, 1, 1)], now=NOW
-    )
+    await upsert_visitors(pg_session, [VisitorCounts("1.2.3.4", OTHER_DAY, 1, 1)], now=NOW)
     assert len((await pg_session.scalars(select(VisitorDay))).all()) == 2
 
 
@@ -164,9 +158,7 @@ async def test_an_unlocated_visitor_is_counted_but_not_in_the_countries(
 
     today = datetime.now(UTC).date()
     # 10.0.0.1 is private, so the lookup yields no country.
-    await upsert_visitors(
-        pg_session, [VisitorCounts("10.0.0.1", today, 4, 40)], now=NOW
-    )
+    await upsert_visitors(pg_session, [VisitorCounts("10.0.0.1", today, 4, 40)], now=NOW)
 
     got = await load_visitors(pg_session, days=1)
 

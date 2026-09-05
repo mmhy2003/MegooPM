@@ -79,9 +79,9 @@ def test_satisfy_reflects_flag_when_both_gates_present() -> None:
         auth_users=(AuthUserSpec("u", _HASH),),
         client_rules=(ClientRuleSpec("allow", "192.168.0.0/16"),),
     )
-    conf = render_config(
-        DesiredState(proxy_hosts=(_host(both),), http_upstreams=(_pool(),))
-    )["megoopm-proxy-1.conf"]
+    conf = render_config(DesiredState(proxy_hosts=(_host(both),), http_upstreams=(_pool(),)))[
+        "megoopm-proxy-1.conf"
+    ]
     assert "satisfy any;" in conf
 
     allq = AccessListSpec(
@@ -91,25 +91,23 @@ def test_satisfy_reflects_flag_when_both_gates_present() -> None:
         auth_users=(AuthUserSpec("u", _HASH),),
         client_rules=(ClientRuleSpec("allow", "192.168.0.0/16"),),
     )
-    conf2 = render_config(
-        DesiredState(proxy_hosts=(_host(allq),), http_upstreams=(_pool(),))
-    )["megoopm-proxy-1.conf"]
+    conf2 = render_config(DesiredState(proxy_hosts=(_host(allq),), http_upstreams=(_pool(),)))[
+        "megoopm-proxy-1.conf"
+    ]
     assert "satisfy all;" in conf2
 
 
 def test_authorization_header_stripped_unless_pass_auth() -> None:
     strip = AccessListSpec(id=1, name="a", auth_users=(AuthUserSpec("u", _HASH),))
-    conf = render_config(
-        DesiredState(proxy_hosts=(_host(strip),), http_upstreams=(_pool(),))
-    )["megoopm-proxy-1.conf"]
+    conf = render_config(DesiredState(proxy_hosts=(_host(strip),), http_upstreams=(_pool(),)))[
+        "megoopm-proxy-1.conf"
+    ]
     assert 'proxy_set_header Authorization "";' in conf
 
-    forward = AccessListSpec(
-        id=1, name="a", pass_auth=True, auth_users=(AuthUserSpec("u", _HASH),)
-    )
-    conf2 = render_config(
-        DesiredState(proxy_hosts=(_host(forward),), http_upstreams=(_pool(),))
-    )["megoopm-proxy-1.conf"]
+    forward = AccessListSpec(id=1, name="a", pass_auth=True, auth_users=(AuthUserSpec("u", _HASH),))
+    conf2 = render_config(DesiredState(proxy_hosts=(_host(forward),), http_upstreams=(_pool(),)))[
+        "megoopm-proxy-1.conf"
+    ]
     assert 'proxy_set_header Authorization "";' not in conf2
 
 
@@ -120,9 +118,9 @@ def test_acme_challenge_bypasses_access_control() -> None:
         auth_users=(AuthUserSpec("u", _HASH),),
         client_rules=(ClientRuleSpec("deny", "all"),),
     )
-    conf = render_config(
-        DesiredState(proxy_hosts=(_host(al),), http_upstreams=(_pool(),))
-    )["megoopm-proxy-1.conf"]
+    conf = render_config(DesiredState(proxy_hosts=(_host(al),), http_upstreams=(_pool(),)))[
+        "megoopm-proxy-1.conf"
+    ]
     start = conf.index("acme-challenge/ {")
     challenge = conf[start : conf.index("}", start)]
     assert "auth_basic off;" in challenge
@@ -143,8 +141,8 @@ def test_shared_access_list_emits_one_htpasswd() -> None:
 
 
 def test_no_access_list_renders_no_auth() -> None:
-    conf = render_config(
-        DesiredState(proxy_hosts=(_host(None),), http_upstreams=(_pool(),))
-    )["megoopm-proxy-1.conf"]
+    conf = render_config(DesiredState(proxy_hosts=(_host(None),), http_upstreams=(_pool(),)))[
+        "megoopm-proxy-1.conf"
+    ]
     assert "auth_basic" not in conf
     assert "satisfy" not in conf

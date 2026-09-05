@@ -89,9 +89,7 @@ def extract_domain_names(cert: x509.Certificate) -> list[str]:
     """
     names: list[str] = []
     try:
-        san = cert.extensions.get_extension_for_oid(
-            ExtensionOID.SUBJECT_ALTERNATIVE_NAME
-        ).value
+        san = cert.extensions.get_extension_for_oid(ExtensionOID.SUBJECT_ALTERNATIVE_NAME).value
         names.extend(san.get_values_for_type(x509.DNSName))
     except x509.ExtensionNotFound:
         pass
@@ -143,20 +141,14 @@ def validate_certificate(
     except (ValueError, TypeError) as exc:
         raise CertificateValidationError(f"Could not parse private key: {exc}") from exc
     if _spki(key.public_key()) != _spki(leaf.public_key()):
-        raise CertificateValidationError(
-            "Private key does not match the certificate's public key"
-        )
+        raise CertificateValidationError("Private key does not match the certificate's public key")
 
     not_before = _not_valid_before(leaf)
     not_after = _not_valid_after(leaf)
     if now < not_before:
-        raise CertificateValidationError(
-            f"Certificate is not valid until {not_before.isoformat()}"
-        )
+        raise CertificateValidationError(f"Certificate is not valid until {not_before.isoformat()}")
     if now > not_after:
-        raise CertificateValidationError(
-            f"Certificate expired on {not_after.isoformat()}"
-        )
+        raise CertificateValidationError(f"Certificate expired on {not_after.isoformat()}")
 
     domains = extract_domain_names(leaf)
     if not domains:

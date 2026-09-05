@@ -169,8 +169,7 @@ class CrowdSecClient:
         was a slow endpoint. Always name the type, the call and the target.
         """
         return (
-            f"{method} {url} ({self._http.base_url}, "
-            f"timeout {self._s.crowdsec_timeout_seconds}s)"
+            f"{method} {url} ({self._http.base_url}, timeout {self._s.crowdsec_timeout_seconds}s)"
         )
 
     async def _request(self, method: str, url: str, *, headers: dict[str, str], **kw: Any) -> Any:
@@ -219,9 +218,7 @@ class CrowdSecClient:
     async def list_alerts(self, *, limit: int = 50) -> list[Alert]:
         """Return recent alerts, newest first (machine-authenticated)."""
         headers = await self._machine_token_header()
-        data = await self._request(
-            "GET", "/v1/alerts", headers=headers, params={"limit": limit}
-        )
+        data = await self._request("GET", "/v1/alerts", headers=headers, params={"limit": limit})
         return [Alert.model_validate(a) for a in (data or [])]
 
     # --- write path --------------------------------------------------------
@@ -284,9 +281,7 @@ class CrowdSecClient:
     async def delete_decision(self, decision_id: int) -> int:
         """Delete a decision by id; returns the number LAPI reports deleted."""
         headers = await self._machine_token_header()
-        data = await self._request(
-            "DELETE", f"/v1/decisions/{decision_id}", headers=headers
-        )
+        data = await self._request("DELETE", f"/v1/decisions/{decision_id}", headers=headers)
         try:
             return int((data or {}).get("nbDeleted", 0))
         except (TypeError, ValueError):
@@ -296,9 +291,7 @@ class CrowdSecClient:
 
     async def ping(self) -> None:
         """Raise if LAPI is unreachable. Uses the bouncer key when available."""
-        headers = (
-            self._bouncer_headers() if self._s.crowdsec_lapi_key else {}
-        )
+        headers = self._bouncer_headers() if self._s.crowdsec_lapi_key else {}
         await self._request("GET", "/v1/decisions", headers=headers, params={"limit": 1})
 
 

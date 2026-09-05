@@ -22,9 +22,7 @@ async def compute_cluster_status(db: AsyncSession) -> ClusterStatus:
     """Report the shared config version and how far each node has converged."""
     version = (
         await db.scalar(
-            select(ClusterState.config_version).where(
-                ClusterState.id == CLUSTER_STATE_ROW_ID
-            )
+            select(ClusterState.config_version).where(ClusterState.id == CLUSTER_STATE_ROW_ID)
         )
         or 0
     )

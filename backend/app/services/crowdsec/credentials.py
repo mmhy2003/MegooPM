@@ -68,9 +68,7 @@ def _decrypt_row(row: CrowdSecCredential, *, settings: Settings) -> CrowdSecCred
             else None
         ),
         bouncer_key=(
-            decrypt_secret(row.bouncer_key_enc, settings=settings)
-            if row.bouncer_key_enc
-            else None
+            decrypt_secret(row.bouncer_key_enc, settings=settings) if row.bouncer_key_enc else None
         ),
         registered_at=row.registered_at,
     )
@@ -116,9 +114,7 @@ async def save_credentials(
     row.machine_password_enc = (
         encrypt_secret(machine_password, settings=settings) if machine_password else None
     )
-    row.bouncer_key_enc = (
-        encrypt_secret(bouncer_key, settings=settings) if bouncer_key else None
-    )
+    row.bouncer_key_enc = encrypt_secret(bouncer_key, settings=settings) if bouncer_key else None
     if registered_at is not None:
         row.registered_at = registered_at
     await db.flush()

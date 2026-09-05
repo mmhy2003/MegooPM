@@ -56,9 +56,7 @@ def test_challenge_not_in_443_server() -> None:
         fullchain_path="/etc/nginx/certs/7/fullchain.pem",
         privkey_path="/etc/nginx/certs/7/privkey.pem",
     )
-    host = ProxyHostSpec(
-        id=1, domain_names=("example.com",), upstream_id=1, certificate=cert
-    )
+    host = ProxyHostSpec(id=1, domain_names=("example.com",), upstream_id=1, certificate=cert)
     server = _render(host)
     # Split at the 443 server; the challenge belongs only to the :80 block.
     tls_block = server.split("listen 443")[1]
@@ -108,7 +106,5 @@ def test_identical_material_renders_identically() -> None:
         privkey_path="/data/certs/7/privkey.pem",
         fingerprint="cafecafecafecafe",
     )
-    host = ProxyHostSpec(
-        id=1, domain_names=("example.com",), upstream_id=1, certificate=cert
-    )
+    host = ProxyHostSpec(id=1, domain_names=("example.com",), upstream_id=1, certificate=cert)
     assert _render(host) == _render(host)

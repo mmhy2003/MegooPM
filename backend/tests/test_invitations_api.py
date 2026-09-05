@@ -208,9 +208,7 @@ async def test_resend_is_refused_for_an_accepted_user(
     db_client: AsyncClient, admin_token: str, admin_user: User, mail_configured, mail
 ) -> None:
     # It would hand anyone with their inbox a way to reset their password.
-    resp = await db_client.post(
-        f"/api/v1/users/{admin_user.id}/invite", headers=_auth(admin_token)
-    )
+    resp = await db_client.post(f"/api/v1/users/{admin_user.id}/invite", headers=_auth(admin_token))
     assert resp.status_code == 409
     assert mail.calls == []
 

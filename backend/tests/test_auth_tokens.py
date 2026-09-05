@@ -29,9 +29,7 @@ async def test_issue_returns_a_token_and_stores_only_its_hash(
     assert raw not in rows[0].token_hash
 
 
-async def test_redeem_returns_the_row_for_the_right_user(
-    session_factory, admin_user: User
-) -> None:
+async def test_redeem_returns_the_row_for_the_right_user(session_factory, admin_user: User) -> None:
     async with session_factory() as db:
         raw = await issue(db, user=admin_user, kind=KIND, ttl=RESET_TTL)
         row = await redeem(db, raw=raw, kind=KIND)
@@ -69,9 +67,7 @@ async def test_a_tampered_token_is_refused(session_factory, admin_user: User) ->
             await redeem(db, raw=tampered, kind=KIND)
 
 
-async def test_issuing_again_kills_the_earlier_token(
-    session_factory, admin_user: User
-) -> None:
+async def test_issuing_again_kills_the_earlier_token(session_factory, admin_user: User) -> None:
     # Two live links for one account is one more than anyone needs, and it is
     # the state an attacker requesting resets in parallel would try to create.
     async with session_factory() as db:

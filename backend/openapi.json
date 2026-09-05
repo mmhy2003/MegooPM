@@ -3020,12 +3020,13 @@
         "type": "string"
       },
       "LocationTarget": {
-        "description": "What a proxy host's ``location`` block answers with.\n\n``pool`` and ``host`` proxy onward; ``default_site`` and ``custom_page``\nare answered by nginx itself and never reach a backend.",
+        "description": "What a proxy host's ``location`` block answers with.\n\n``pool`` and ``host`` proxy onward; ``default_site``, ``custom_page`` and\n``error_page`` are answered by nginx itself and never reach a backend.",
         "enum": [
           "pool",
           "host",
           "default_site",
-          "custom_page"
+          "custom_page",
+          "error_page"
         ],
         "title": "LocationTarget",
         "type": "string"
@@ -3664,6 +3665,18 @@
             "description": "Page served when the target is 'custom_page'",
             "title": "Custom Page Id"
           },
+          "error_code": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Status returned when the target is 'error_page'",
+            "title": "Error Code"
+          },
           "forward_host": {
             "anyOf": [
               {
@@ -3744,6 +3757,18 @@
             ],
             "description": "Page served when the target is 'custom_page'",
             "title": "Custom Page Id"
+          },
+          "error_code": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Status returned when the target is 'error_page'",
+            "title": "Error Code"
           },
           "forward_host": {
             "anyOf": [

@@ -139,7 +139,8 @@ def test_cannot_narrow_to_http_while_streams_reference_it() -> None:
     """
     with pytest.raises(upstream_service.InvalidPoolConfigError) as err:
         upstream_service.assert_context_change_allowed(
-            pool_name="db", new_context=UpstreamContext.http,
+            pool_name="db",
+            new_context=UpstreamContext.http,
             counts={"proxy_hosts": 0, "streams": 2},
         )
     assert "2 stream(s)" in str(err.value)
@@ -148,7 +149,8 @@ def test_cannot_narrow_to_http_while_streams_reference_it() -> None:
 def test_cannot_narrow_to_stream_while_proxy_hosts_reference_it() -> None:
     with pytest.raises(upstream_service.InvalidPoolConfigError) as err:
         upstream_service.assert_context_change_allowed(
-            pool_name="web", new_context=UpstreamContext.stream,
+            pool_name="web",
+            new_context=UpstreamContext.stream,
             counts={"proxy_hosts": 3, "streams": 0},
         )
     assert "3 proxy host(s)" in str(err.value)
@@ -156,13 +158,15 @@ def test_cannot_narrow_to_stream_while_proxy_hosts_reference_it() -> None:
 
 def test_widening_to_both_is_always_allowed() -> None:
     upstream_service.assert_context_change_allowed(
-        pool_name="web", new_context=UpstreamContext.both,
+        pool_name="web",
+        new_context=UpstreamContext.both,
         counts={"proxy_hosts": 3, "streams": 2},
     )
 
 
 def test_narrowing_is_allowed_once_nothing_references_it() -> None:
     upstream_service.assert_context_change_allowed(
-        pool_name="unused", new_context=UpstreamContext.http,
+        pool_name="unused",
+        new_context=UpstreamContext.http,
         counts={"proxy_hosts": 0, "streams": 0},
     )

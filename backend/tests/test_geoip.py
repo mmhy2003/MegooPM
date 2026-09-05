@@ -36,9 +36,7 @@ def test_a_missing_database_disables_lookups_without_raising(monkeypatch) -> Non
         geoip.reset_reader()
 
 
-def test_a_corrupt_database_disables_lookups_without_raising(
-    monkeypatch, tmp_path
-) -> None:
+def test_a_corrupt_database_disables_lookups_without_raising(monkeypatch, tmp_path) -> None:
     """A truncated or half-downloaded file must degrade, not crash the worker."""
     bad = tmp_path / "corrupt.mmdb"
     bad.write_bytes(b"not an mmdb")

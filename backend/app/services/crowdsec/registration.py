@@ -62,9 +62,7 @@ async def _registration_lock(db: AsyncSession) -> AsyncIterator[None]:
     the sole — and sufficient, single-host — guard.
     """
     if db.bind is not None and db.bind.dialect.name == "postgresql":
-        await db.execute(
-            text("SELECT pg_advisory_xact_lock(:k)"), {"k": _REGISTRATION_LOCK_KEY}
-        )
+        await db.execute(text("SELECT pg_advisory_xact_lock(:k)"), {"k": _REGISTRATION_LOCK_KEY})
     yield
 
 

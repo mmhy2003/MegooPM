@@ -28,6 +28,7 @@ def ha_sweep(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
 
     # certs.py imports these lazily from app.services.cluster at call time.
     import app.services.cluster as cluster
+
     monkeypatch.setattr(cluster, "sync_engine", lambda: engine)
 
     calls: list[int] = []

@@ -195,18 +195,14 @@ def test_reconcile_records_the_version_it_reloaded_to(ha_env, monkeypatch) -> No
     assert states["node-b"] == 1
 
 
-def test_reconcile_does_not_claim_convergence_when_nginx_test_fails(
-    ha_env, monkeypatch
-) -> None:
+def test_reconcile_does_not_claim_convergence_when_nginx_test_fails(ha_env, monkeypatch) -> None:
     """A node that could not load the new config must still report as lagging."""
     nginx_task.reload_nginx_config()  # shared version -> 1
 
     node_b_marker = ha_env["marker"].parent.parent / "node-b" / "nginx-config.version"
     monkeypatch.setattr(settings, "nginx_reload_marker_path", str(node_b_marker))
     monkeypatch.setattr(settings, "node_id", "node-b")
-    monkeypatch.setattr(
-        nginx_task, "build_controller", lambda: _FakeController(test_ok=False)
-    )
+    monkeypatch.setattr(nginx_task, "build_controller", lambda: _FakeController(test_ok=False))
 
     result = nginx_task.reconcile_local_nginx()
 

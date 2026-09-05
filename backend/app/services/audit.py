@@ -85,9 +85,7 @@ async def list_audit_logs(
     if action is not None:
         filters.append(AuditLog.action == action)
 
-    total = await session.scalar(
-        select(func.count()).select_from(AuditLog).where(*filters)
-    )
+    total = await session.scalar(select(func.count()).select_from(AuditLog).where(*filters))
 
     result = await session.execute(
         select(AuditLog)

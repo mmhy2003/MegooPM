@@ -197,6 +197,7 @@ async def load_desired_state(
                     forward_scheme=str(location.forward_scheme),
                     id=location.id,
                     html=html,
+                    error_code=location.error_code,
                 )
             )
         host_specs.append(

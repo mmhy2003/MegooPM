@@ -47,9 +47,7 @@ def _get_reader() -> maxminddb.Reader | None:
             # Once, not per lookup. The build ships this on a best-effort
             # download, so its absence is a supported state rather than a fault,
             # and logging it every request would drown the log.
-            log.warning(
-                "GeoIP database missing at %s; country resolution disabled", path
-            )
+            log.warning("GeoIP database missing at %s; country resolution disabled", path)
             return None
         try:
             _reader = maxminddb.open_database(str(path))

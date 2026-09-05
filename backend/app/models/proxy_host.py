@@ -15,6 +15,7 @@ from sqlalchemy import (
     Enum,
     ForeignKey,
     Integer,
+    SmallInteger,
     String,
     Text,
     UniqueConstraint,
@@ -121,9 +122,9 @@ class ProxyHostLocation(IdMixin, TimestampMixin, Base):
     """One ``location <path>`` block of a proxy host.
 
     Forwards to a pool or a single backend — the same either/or the host itself
-    has — or is answered by nginx directly: the instance's default site, or one
-    named custom page. ``target`` says which, rather than the reader inferring
-    it from which columns are null.
+    has — or is answered by nginx directly: the instance's default site, one
+    named custom page, or a branded HTTP error. ``target`` says which, rather
+    than the reader inferring it from which columns are null.
     """
 
     __tablename__ = "proxy_host_locations"
@@ -140,13 +141,15 @@ class ProxyHostLocation(IdMixin, TimestampMixin, Base):
         # forward_host is rejected, not silently rendered as one of the two.
         CheckConstraint(
             "(target = 'pool' AND upstream_id IS NOT NULL AND forward_host IS NULL"
-            " AND forward_port IS NULL AND custom_page_id IS NULL)"
+            " AND forward_port IS NULL AND custom_page_id IS NULL AND error_code IS NULL)"
             " OR (target = 'host' AND upstream_id IS NULL AND forward_host IS NOT NULL"
-            " AND forward_port IS NOT NULL AND custom_page_id IS NULL)"
+            " AND forward_port IS NOT NULL AND custom_page_id IS NULL AND error_code IS NULL)"
             " OR (target = 'default_site' AND upstream_id IS NULL AND forward_host IS NULL"
-            " AND forward_port IS NULL AND custom_page_id IS NULL)"
+            " AND forward_port IS NULL AND custom_page_id IS NULL AND error_code IS NULL)"
             " OR (target = 'custom_page' AND upstream_id IS NULL AND forward_host IS NULL"
-            " AND forward_port IS NULL AND custom_page_id IS NOT NULL)",
+            " AND forward_port IS NULL AND custom_page_id IS NOT NULL AND error_code IS NULL)"
+            " OR (target = 'error_page' AND upstream_id IS NULL AND forward_host IS NULL"
+            " AND forward_port IS NULL AND custom_page_id IS NULL AND error_code IS NOT NULL)",
             name="location_target_exactly_one",
         ),
     )
@@ -169,6 +172,9 @@ class ProxyHostLocation(IdMixin, TimestampMixin, Base):
     custom_page_id: Mapped[int | None] = mapped_column(
         ForeignKey("custom_pages.id", ondelete="RESTRICT"), nullable=True, index=True
     )
+    # Not a foreign key to error_page: an unconfigured code has no row there and
+    # still renders, so requiring one would forbid the common case.
+    error_code: Mapped[int | None] = mapped_column(SmallInteger, nullable=True)
     # RESTRICT, like ``proxy_hosts.upstream_id``: a pool in use cannot be deleted.
     upstream_id: Mapped[int | None] = mapped_column(
         ForeignKey("upstreams.id", ondelete="RESTRICT"), nullable=True, index=True

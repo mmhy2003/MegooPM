@@ -89,3 +89,34 @@ def test_the_answered_targets_need_nothing_but_their_own_field() -> None:
     assert ProxyHostLocationIn(path="/a/", target="default_site").custom_page_id is None
     page = ProxyHostLocationIn(path="/a/", target="custom_page", custom_page_id=4)
     assert page.custom_page_id == 4
+
+
+# --- the error_page location target -------------------------------------------
+
+
+def test_an_error_page_location_is_accepted() -> None:
+    loc = ProxyHostLocationIn(path="/admin/", target="error_page", error_code=404)
+    assert loc.target is LocationTarget.error_page
+    assert loc.error_code == 404
+
+
+def test_an_error_page_location_needs_a_code() -> None:
+    with pytest.raises(ValidationError, match="code"):
+        ProxyHostLocationIn(path="/admin/", target="error_page")
+
+
+def test_an_error_page_location_rejects_a_code_it_does_not_brand() -> None:
+    # 418 has no document, so the return would fall through to whatever the
+    # server does with an unmapped status.
+    with pytest.raises(ValidationError, match="418"):
+        ProxyHostLocationIn(path="/admin/", target="error_page", error_code=418)
+
+
+def test_only_an_error_page_location_takes_a_code() -> None:
+    with pytest.raises(ValidationError, match="code"):
+        ProxyHostLocationIn(path="/api/", target="pool", upstream_id=1, error_code=404)
+
+
+def test_an_error_page_location_takes_no_backend() -> None:
+    with pytest.raises(ValidationError, match="no backend"):
+        ProxyHostLocationIn(path="/admin/", target="error_page", error_code=404, upstream_id=1)

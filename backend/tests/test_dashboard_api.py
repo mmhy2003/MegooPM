@@ -119,9 +119,7 @@ async def test_summary_survives_crowdsec_being_unavailable(
     assert body["config"] is not None
 
 
-async def test_summary_reports_config_health(
-    client: AsyncClient, auth: dict[str, str]
-) -> None:
+async def test_summary_reports_config_health(client: AsyncClient, auth: dict[str, str]) -> None:
     body = (await client.get("/api/v1/dashboard/summary", headers=auth)).json()
     assert body["config"]["config_version"] == 0
     assert body["config"]["nodes_total"] == 0
@@ -150,9 +148,7 @@ async def test_visitors_window_is_clamped_to_the_retention_limit(
     30-day figure labelled as a year."""
     from app.core.config import settings
 
-    body = (
-        await client.get("/api/v1/dashboard/visitors?days=365", headers=auth)
-    ).json()
+    body = (await client.get("/api/v1/dashboard/visitors?days=365", headers=auth)).json()
     assert body["days"] == settings.visitor_retention_days
 
 

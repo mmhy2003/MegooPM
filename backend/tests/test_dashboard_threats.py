@@ -16,9 +16,7 @@ def _alert(cn: str | None) -> Alert:
 
 
 def test_groups_alerts_by_country() -> None:
-    points = group_by_country(
-        [_alert("DE"), _alert("DE"), _alert("FR")]
-    )
+    points = group_by_country([_alert("DE"), _alert("DE"), _alert("FR")])
     assert {p.country: p.count for p in points} == {"DE": 2, "FR": 1}
 
 

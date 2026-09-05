@@ -55,12 +55,8 @@ async def _certificates(db: AsyncSession, now: datetime) -> CertificateHealth:
             Certificate.expires_on <= cutoff,
             Certificate.expires_on > now,
         ),
-        expired=await _count(
-            db, Certificate, Certificate.status == CertificateStatus.expired
-        ),
-        failed=await _count(
-            db, Certificate, Certificate.status == CertificateStatus.failed
-        ),
+        expired=await _count(db, Certificate, Certificate.status == CertificateStatus.expired),
+        failed=await _count(db, Certificate, Certificate.status == CertificateStatus.failed),
         total=await _count(db, Certificate),
     )
 
@@ -104,9 +100,7 @@ async def build_summary(db: AsyncSession, *, crowdsec_client) -> DashboardSummar
     """Assemble every card's numbers."""
     now = datetime.now(UTC)
     cluster = await compute_cluster_status(db)
-    totals = await load_traffic(
-        db, now=now, stale_after=settings.node_liveness_window_seconds
-    )
+    totals = await load_traffic(db, now=now, stale_after=settings.node_liveness_window_seconds)
     return DashboardSummary(
         certificates=await _certificates(db, now),
         inventory=await _inventory(db),

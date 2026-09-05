@@ -16,9 +16,7 @@ from app.models.visitor_day import VisitorDay
 from app.schemas.dashboard import CountryCount, VisitorRow, VisitorSummary
 
 
-async def load_visitors(
-    db: AsyncSession, *, days: int, top: int = 20
-) -> VisitorSummary:
+async def load_visitors(db: AsyncSession, *, days: int, top: int = 20) -> VisitorSummary:
     """Aggregate retained rows over the last ``days`` days."""
     since = datetime.now(UTC).date() - timedelta(days=days - 1)
     window = VisitorDay.day >= since

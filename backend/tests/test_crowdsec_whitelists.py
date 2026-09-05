@@ -98,9 +98,7 @@ def test_renders_one_document_per_whitelist() -> None:
 
 
 def test_a_whitelist_with_only_cidrs_omits_the_ip_key() -> None:
-    doc = WhitelistDoc(
-        name="range only", reason="r", description="", ips=[], cidrs=["10.0.0.0/8"]
-    )
+    doc = WhitelistDoc(name="range only", reason="r", description="", ips=[], cidrs=["10.0.0.0/8"])
     rendered = next(d for d in yaml.safe_load_all(render_whitelists([doc])) if d)
     assert "ip" not in rendered["whitelist"]
     assert rendered["whitelist"]["cidr"] == ["10.0.0.0/8"]
@@ -129,9 +127,7 @@ def test_reason_containing_yaml_metacharacters_stays_one_scalar() -> None:
 
 
 def test_render_rejects_an_invalid_entry_before_producing_anything() -> None:
-    bad = WhitelistDoc(
-        name="bad", reason="typo", description="", ips=["10.10.0.999"], cidrs=[]
-    )
+    bad = WhitelistDoc(name="bad", reason="typo", description="", ips=["10.10.0.999"], cidrs=[])
     with pytest.raises(WhitelistValidationError, match=r"10\.10\.0\.999"):
         render_whitelists([bad])
 
@@ -197,13 +193,7 @@ def test_renders_an_expression_whitelist() -> None:
 
 
 def test_expression_filter_is_optional() -> None:
-    doc = next(
-        d
-        for d in yaml.safe_load_all(
-            render_whitelists([replace(EXPR, filter=None)])
-        )
-        if d
-    )
+    doc = next(d for d in yaml.safe_load_all(render_whitelists([replace(EXPR, filter=None)])) if d)
     # An absent filter means "evaluate against every event", which is what
     # CrowdSec does when the key is missing. Rendering `filter: null` would not
     # be the same thing.
@@ -211,7 +201,7 @@ def test_expression_filter_is_optional() -> None:
 
 
 def test_an_expression_containing_quotes_survives_the_round_trip() -> None:
-    tricky = replace(EXPR, filter=None, expressions=["evt.Meta.x == \"a: b #c\""])
+    tricky = replace(EXPR, filter=None, expressions=['evt.Meta.x == "a: b #c"'])
     doc = next(d for d in yaml.safe_load_all(render_whitelists([tricky])) if d)
     assert doc["whitelist"]["expression"] == ['evt.Meta.x == "a: b #c"']
 

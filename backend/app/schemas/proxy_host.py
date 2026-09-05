@@ -16,6 +16,7 @@ from datetime import datetime
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from app.models.enums import HttpScheme, LocationTarget
+from app.models.error_page import ERROR_CODES
 
 # A lenient hostname matcher that also accepts a leading wildcard label
 # (``*.example.com``). Full RFC compliance is not the goal — we reject obvious
@@ -97,6 +98,9 @@ class ProxyHostLocationIn(BaseModel):
     custom_page_id: int | None = Field(
         default=None, description="Page served when the target is 'custom_page'"
     )
+    error_code: int | None = Field(
+        default=None, description="Status returned when the target is 'error_page'"
+    )
 
     @field_validator("path")
     @classmethod
@@ -129,8 +133,19 @@ class ProxyHostLocationIn(BaseModel):
             raise ValueError("A 'host' location needs a forward host and port.")
         if self.target is LocationTarget.custom_page and self.custom_page_id is None:
             raise ValueError("A 'custom_page' location needs a page.")
+        if self.target is LocationTarget.error_page:
+            if self.error_code is None:
+                raise ValueError("An 'error_page' location needs a status code.")
+            if self.error_code not in ERROR_CODES:
+                # Only the branded codes have a document mapped in the server
+                # block; any other would fall through to nginx's own page.
+                raise ValueError(f"{self.error_code} is not one of the codes MegooPM brands.")
 
-        if self.target in (LocationTarget.default_site, LocationTarget.custom_page) and (
+        if self.target in (
+            LocationTarget.default_site,
+            LocationTarget.custom_page,
+            LocationTarget.error_page,
+        ) and (
             self.upstream_id is not None
             or self.forward_host is not None
             or self.forward_port is not None
@@ -138,6 +153,8 @@ class ProxyHostLocationIn(BaseModel):
             raise ValueError("A location nginx answers itself takes no backend.")
         if self.target is not LocationTarget.custom_page and self.custom_page_id is not None:
             raise ValueError("Only a 'custom_page' location takes a page.")
+        if self.target is not LocationTarget.error_page and self.error_code is not None:
+            raise ValueError("Only an 'error_page' location takes a status code.")
         if self.target is LocationTarget.pool and (
             self.forward_host is not None or self.forward_port is not None
         ):

@@ -64,9 +64,7 @@ class User(IdMixin, TimestampMixin, Base):
     # enabled_at is a *pending* enrolment: shown, but never proven to work.
     # Login ignores it entirely, so an abandoned setup locks nobody out.
     totp_secret_enc: Mapped[str | None] = mapped_column(Text, nullable=True)
-    totp_enabled_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
+    totp_enabled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     # The time-step of the last code accepted. A code whose step is not later
     # is refused even if correct: a code is valid for up to ninety seconds
     # under the drift window, which is ninety seconds to replay one seen over

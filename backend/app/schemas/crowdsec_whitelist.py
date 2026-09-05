@@ -33,12 +33,8 @@ class WhitelistBase(BaseModel):
         description="Why these addresses are exempt; appears in CrowdSec's logs",
     )
     description: str = Field(default="", description="Free-text note")
-    ips: list[str] = Field(
-        default_factory=list, description="Exact IP addresses to exempt"
-    )
-    cidrs: list[str] = Field(
-        default_factory=list, description="CIDR ranges to exempt"
-    )
+    ips: list[str] = Field(default_factory=list, description="Exact IP addresses to exempt")
+    cidrs: list[str] = Field(default_factory=list, description="CIDR ranges to exempt")
     filter: str | None = Field(
         default=None,
         description=(
@@ -54,9 +50,7 @@ class WhitelistBase(BaseModel):
             "apply's rollback"
         ),
     )
-    enabled: bool = Field(
-        default=True, description="Disabled whitelists are not rendered"
-    )
+    enabled: bool = Field(default=True, description="Disabled whitelists are not rendered")
 
     @model_validator(mode="after")
     def _check_entries(self) -> WhitelistBase:
@@ -81,9 +75,7 @@ class WhitelistBase(BaseModel):
                         "filter; use the Expression kind for those."
                     )
                 if not self.ips and not self.cidrs:
-                    raise ValueError(
-                        "A whitelist needs at least one IP address or CIDR range."
-                    )
+                    raise ValueError("A whitelist needs at least one IP address or CIDR range.")
                 validate_entries(self.ips, self.cidrs)
         except WhitelistValidationError as exc:
             raise ValueError(str(exc)) from exc
@@ -129,9 +121,7 @@ class WhitelistApplyStatus(BaseModel):
     """Whether the last render actually reached CrowdSec."""
 
     ok: bool = Field(description="False when the last apply failed")
-    error: str | None = Field(
-        default=None, description="Operator-facing failure text"
-    )
+    error: str | None = Field(default=None, description="Operator-facing failure text")
     applied_at: datetime | None = Field(
         default=None, description="When the last apply attempt finished"
     )

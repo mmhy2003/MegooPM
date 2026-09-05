@@ -75,9 +75,7 @@ async def _scrape_async(*, session_factory=None) -> None:
         session_factory = async_sessionmaker(engine, expire_on_commit=False)
 
     async with session_factory() as session:
-        await record_sample(
-            session, settings.effective_node_id, sample, now=datetime.now(UTC)
-        )
+        await record_sample(session, settings.effective_node_id, sample, now=datetime.now(UTC))
 
 
 @celery_app.task(name="app.tasks.metrics.scrape_local_nginx")

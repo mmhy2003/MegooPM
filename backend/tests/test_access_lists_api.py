@@ -225,9 +225,7 @@ async def test_client_rule_subresource(client: AsyncClient, auth) -> None:
     assert patched.status_code == 200
     assert patched.json()["directive"] == "deny"
 
-    removed = await client.delete(
-        f"/api/v1/access-lists/{al_id}/clients/{rule_id}", headers=auth
-    )
+    removed = await client.delete(f"/api/v1/access-lists/{al_id}/clients/{rule_id}", headers=auth)
     assert removed.status_code == 204
 
 
@@ -253,8 +251,10 @@ async def test_attached_list_enforces_auth_and_ip_in_rendered_config(
         json={
             "name": "guard",
             "auth_users": [{"username": "dave", "password": "hunter2"}],
-            "clients": [{"address": "203.0.113.0/24", "directive": "allow"},
-                        {"address": "all", "directive": "deny"}],
+            "clients": [
+                {"address": "203.0.113.0/24", "directive": "allow"},
+                {"address": "all", "directive": "deny"},
+            ],
         },
     )
     al_id = al.json()["id"]
@@ -282,8 +282,7 @@ async def test_attached_list_enforces_auth_and_ip_in_rendered_config(
     assert "satisfy all;" in config
     # The htpasswd sidecar file is rendered with dave's apr1 hash.
     assert any(
-        f["name"] == f"megoopm-access-{al_id}.htpasswd"
-        and f["content"].startswith("dave:$apr1$")
+        f["name"] == f"megoopm-access-{al_id}.htpasswd" and f["content"].startswith("dave:$apr1$")
         for f in preview.json()["files"]
     )
 

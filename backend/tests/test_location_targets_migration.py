@@ -148,3 +148,42 @@ def test_the_new_constraint_rejects_a_mismatched_shape(migrated) -> None:
             ]
         )
     )
+
+
+def test_the_error_page_arm_of_the_constraint(migrated) -> None:
+    """0033 adds a fifth target that carries a status code instead of a target."""
+    migrated("0033_location_error_page")
+    asyncio.run(
+        _exec(
+            [
+                "INSERT INTO upstreams (id, name, lb_method, context, enabled)"
+                " VALUES (1, 'pool-a', 'round_robin', 'http', true)",
+                "INSERT INTO proxy_hosts (id, domain_names, upstream_id, forward_scheme, enabled)"
+                " VALUES (1, ARRAY['a.example.com'], 1, 'http', true)",
+            ]
+        )
+    )
+
+    # A code without the target, and the target without a code, are both
+    # nonsense; so is a code carried alongside a backend.
+    for sql in (
+        "INSERT INTO proxy_host_locations (proxy_host_id, path, target, forward_scheme)"
+        " VALUES (1, '/a/', 'error_page', 'http')",
+        "INSERT INTO proxy_host_locations (proxy_host_id, path, target, error_code,"
+        " forward_scheme) VALUES (1, '/b/', 'default_site', 404, 'http')",
+        "INSERT INTO proxy_host_locations (proxy_host_id, path, target, error_code,"
+        " upstream_id, forward_scheme) VALUES (1, '/c/', 'error_page', 404, 1, 'http')",
+    ):
+        with pytest.raises(Exception, match="location_target_exactly_one"):
+            asyncio.run(_exec([sql]))
+
+    asyncio.run(
+        _exec(
+            [
+                "INSERT INTO proxy_host_locations (proxy_host_id, path, target, error_code,"
+                " forward_scheme) VALUES (1, '/admin/', 'error_page', 404, 'http')"
+            ]
+        )
+    )
+    rows = asyncio.run(_exec(["SELECT path, target, error_code FROM proxy_host_locations"]))
+    assert [tuple(r) for r in rows] == [("/admin/", "error_page", 404)]

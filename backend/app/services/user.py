@@ -81,7 +81,6 @@ async def create_user(
     return user
 
 
-
 async def invite_user(db: AsyncSession, *, email: str, full_name: str, role: UserRole) -> User:
     """Create an inactive row that reserves the address until they accept.
 
@@ -125,6 +124,7 @@ async def accept_invitation(db: AsyncSession, user: User, *, full_name: str, pas
     # moved" should hold everywhere a password is set.
     user.token_version += 1
     await db.commit()
+
 
 async def _any_user_exists(db: AsyncSession) -> bool:
     result = await db.execute(select(User.id).limit(1))

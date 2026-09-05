@@ -98,8 +98,7 @@ def assert_context_change_allowed(
         return
     if new_context is UpstreamContext.http and counts.get("streams"):
         raise InvalidPoolConfigError(
-            f"Pool '{pool_name}' is used by {counts['streams']} stream(s); "
-            "keep 'stream' or 'both'."
+            f"Pool '{pool_name}' is used by {counts['streams']} stream(s); keep 'stream' or 'both'."
         )
     if new_context is UpstreamContext.stream and counts.get("proxy_hosts"):
         raise InvalidPoolConfigError(
@@ -111,9 +110,7 @@ def assert_context_change_allowed(
 async def reference_counts(db: AsyncSession, upstream_id: int) -> dict[str, int]:
     """How many objects point at this pool, split by nginx context."""
     hosts = await db.scalar(
-        select(func.count())
-        .select_from(ProxyHost)
-        .where(ProxyHost.upstream_id == upstream_id)
+        select(func.count()).select_from(ProxyHost).where(ProxyHost.upstream_id == upstream_id)
     )
     locations = await db.scalar(
         select(func.count())
@@ -132,9 +129,7 @@ async def reference_counts(db: AsyncSession, upstream_id: int) -> dict[str, int]
 async def get_upstream(db: AsyncSession, upstream_id: int) -> Upstream | None:
     """Return the pool (with its backends) or ``None``."""
     result = await db.execute(
-        select(Upstream)
-        .where(Upstream.id == upstream_id)
-        .options(selectinload(Upstream.backends))
+        select(Upstream).where(Upstream.id == upstream_id).options(selectinload(Upstream.backends))
     )
     return result.scalar_one_or_none()
 
@@ -188,9 +183,7 @@ async def create_upstream(
     return refreshed
 
 
-async def update_upstream(
-    db: AsyncSession, upstream_id: int, changes: dict[str, Any]
-) -> Upstream:
+async def update_upstream(db: AsyncSession, upstream_id: int, changes: dict[str, Any]) -> Upstream:
     """Apply a partial update to a pool's own attributes.
 
     Raises :class:`UpstreamNotFoundError` if the pool does not exist.

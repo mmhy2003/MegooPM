@@ -49,9 +49,7 @@ def test_bump_stamps_updating_node(tmp_path: Path) -> None:
     engine = _engine(tmp_path)
     with engine.begin() as conn:
         bump_config_version(conn, node_id="node-xyz")
-        updated_by = conn.execute(
-            select(ClusterState.__table__.c.updated_by)
-        ).scalar_one()
+        updated_by = conn.execute(select(ClusterState.__table__.c.updated_by)).scalar_one()
     assert updated_by == "node-xyz"
 
 

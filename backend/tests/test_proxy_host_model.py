@@ -41,7 +41,13 @@ def test_location_target_column_and_page_fk() -> None:
     assert {c.name for c in table.columns} >= {"target", "custom_page_id"}
     target = table.c.target
     assert target.nullable is False
-    assert set(target.type.enums) == {"pool", "host", "default_site", "custom_page"}
+    assert set(target.type.enums) == {
+        "pool",
+        "host",
+        "default_site",
+        "custom_page",
+        "error_page",
+    }
     fks = {fk.column.table.name: fk.ondelete for fk in table.foreign_keys}
     # RESTRICT: a page a location serves cannot be deleted out from under it.
     assert fks["custom_pages"] == "RESTRICT"

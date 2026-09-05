@@ -101,8 +101,9 @@ class LocationSpec:
 
     Either forwards — to a pool or a single backend, exactly as the host itself
     does — or is answered by nginx: ``default_site`` includes the same fragment
-    the catch-all server uses, and ``custom_page`` serves this location's own
-    document.
+    the catch-all server uses, ``custom_page`` serves this location's own
+    document, and ``error_page`` returns ``error_code`` for the server block's
+    own ``error_page`` mapping to turn into the branded document.
 
     ``id`` names that document's file, so two locations wanting different pages
     cannot collide. ``html`` is dereferenced by the loader, keeping the renderer
@@ -117,6 +118,7 @@ class LocationSpec:
     forward_scheme: str = "http"
     id: int | None = None
     html: str = ""
+    error_code: int | None = None
 
 
 @dataclass(frozen=True, slots=True)

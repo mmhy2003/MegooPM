@@ -85,14 +85,10 @@ def live_peers(conn: Connection, *, exclude: str, max_age_seconds: float) -> lis
     cutoff = func.now() - func.make_interval(0, 0, 0, 0, 0, 0, max_age_seconds)
     if conn.dialect.name != "postgresql":
         # SQLite (tests): no make_interval; every registered node counts.
-        rows = conn.execute(
-            select(table.c.node_id).where(table.c.node_id != exclude)
-        ).scalars()
+        rows = conn.execute(select(table.c.node_id).where(table.c.node_id != exclude)).scalars()
         return sorted(rows)
     rows = conn.execute(
-        select(table.c.node_id).where(
-            table.c.node_id != exclude, table.c.last_seen_at >= cutoff
-        )
+        select(table.c.node_id).where(table.c.node_id != exclude, table.c.last_seen_at >= cutoff)
     ).scalars()
     return sorted(rows)
 

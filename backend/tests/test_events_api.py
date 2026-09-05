@@ -136,9 +136,7 @@ async def test_a_published_event_arrives_as_a_frame() -> None:
     try:
         await gen.__anext__()  # the opening frame
         await asyncio.sleep(0.3)  # let the subscription register
-        await publish(
-            Event(type="config.changed", at=datetime.now(UTC), detail={"version": 4})
-        )
+        await publish(Event(type="config.changed", at=datetime.now(UTC), detail={"version": 4}))
         frame = await asyncio.wait_for(gen.__anext__(), timeout=5)
     except (OSError, RedisError):  # pragma: no cover - no Redis available
         pytest.skip("No Redis reachable at REDIS_URL")
@@ -185,9 +183,7 @@ async def test_a_bearer_token_is_accepted(session_factory, admin_token: str) -> 
     assert user.is_admin
 
 
-async def test_a_cookie_authenticates_nothing(
-    client: AsyncClient, admin_token: str
-) -> None:
+async def test_a_cookie_authenticates_nothing(client: AsyncClient, admin_token: str) -> None:
     """No route accepts a cookie any more — not the stream, not anything else.
 
     A credential the browser attaches automatically is a CSRF surface, and the

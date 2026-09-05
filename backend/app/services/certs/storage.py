@@ -94,9 +94,9 @@ def read_fullchain(certs_dir: str, cert_id: int) -> str:
 
 def material_exists(certs_dir: str, cert_id: int) -> bool:
     """True if both the fullchain and private key are present on disk."""
-    return fullchain_path(certs_dir, cert_id).is_file() and privkey_path(
-        certs_dir, cert_id
-    ).is_file()
+    return (
+        fullchain_path(certs_dir, cert_id).is_file() and privkey_path(certs_dir, cert_id).is_file()
+    )
 
 
 def delete_material(certs_dir: str, cert_id: int) -> None:
@@ -116,9 +116,7 @@ def read_account_key(certs_dir: str, directory_url: str, email: str | None) -> s
     return path.read_text() if path.is_file() else None
 
 
-def write_account_key(
-    certs_dir: str, directory_url: str, email: str | None, key_pem: str
-) -> None:
+def write_account_key(certs_dir: str, directory_url: str, email: str | None, key_pem: str) -> None:
     """Persist the ACME account key (mode ``0600``)."""
     _atomic_write(account_key_path(certs_dir, directory_url, email), key_pem, mode=0o600)
 

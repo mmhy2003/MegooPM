@@ -29,9 +29,7 @@ from app.schemas.crowdsec import Alert, Decision
 
 # Origins considered "community" (hidden unless ``include_community=true``),
 # lower-cased for case-insensitive matching.
-COMMUNITY_ORIGINS = frozenset(
-    {"capi", "lists", "cscli-import", "community-blocklist"}
-)
+COMMUNITY_ORIGINS = frozenset({"capi", "lists", "cscli-import", "community-blocklist"})
 
 # Max records fetched from LAPI for a single alerts listing before server-side
 # pagination; ``total`` is documented as relative to this window.

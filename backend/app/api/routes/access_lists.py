@@ -78,15 +78,11 @@ async def create_access_list(
 
 
 @router.get("/{access_list_id}", response_model=AccessListRead)
-async def get_access_list(
-    access_list_id: int, _admin: AdminUser, db: SessionDep
-) -> AccessListRead:
+async def get_access_list(access_list_id: int, _admin: AdminUser, db: SessionDep) -> AccessListRead:
     """Fetch a single access list. Admin-only."""
     access_list = await access_list_service.get_access_list(db, access_list_id)
     if access_list is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Access list not found"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Access list not found")
     return AccessListRead.model_validate(access_list)
 
 
@@ -311,9 +307,7 @@ async def update_client_rule(
     """Update a client rule within an access list. Admin-only."""
     changes = body.model_dump(exclude_unset=True)
     try:
-        rule = await access_list_service.update_client_rule(
-            db, access_list_id, rule_id, changes
-        )
+        rule = await access_list_service.update_client_rule(db, access_list_id, rule_id, changes)
     except access_list_service.ClientRuleNotFoundError:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Client rule not found in this list"

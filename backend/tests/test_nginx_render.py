@@ -592,3 +592,40 @@ def test_proxy_and_answered_locations_coexist() -> None:
     server = out["megoopm-proxy-1.conf"]
     assert "proxy_pass http://megoopm_upstream_2;" in server
     assert "location ^~ /legacy/ {" in server
+
+
+def test_an_error_page_location_returns_the_status_it_names() -> None:
+    """The server block already maps every branded code, so a bare return is
+    enough: nginx's own error_page turns it into the branded document, and
+    whatever Settings -> Error pages says for that code is what gets served.
+    """
+    host = _host(locations=(LocationSpec(path="/admin/", target="error_page", error_code=404),))
+    server = render_config(DesiredState(proxy_hosts=(host,), http_upstreams=(_pool(),)))[
+        "megoopm-proxy-1.conf"
+    ]
+    assert "location ^~ /admin/ {" in server
+    assert "return 404;" in server
+    # Answered here: nothing about it reaches a backend.
+    assert server.count("proxy_pass") == 1
+
+
+def test_each_error_page_location_returns_its_own_code() -> None:
+    host = _host(
+        locations=(
+            LocationSpec(path="/gone/", target="error_page", error_code=404),
+            LocationSpec(path="/down/", target="error_page", error_code=503),
+        )
+    )
+    server = render_config(DesiredState(proxy_hosts=(host,), http_upstreams=(_pool(),)))[
+        "megoopm-proxy-1.conf"
+    ]
+    assert "return 404;" in server
+    assert "return 503;" in server
+
+
+def test_an_error_page_location_writes_no_document_of_its_own() -> None:
+    # The eight shipped documents already exist; a per-location copy would be a
+    # second place to change and could drift from the setting.
+    host = _host(locations=(LocationSpec(path="/admin/", target="error_page", error_code=403),))
+    files = render_default_site(DesiredState(proxy_hosts=(host,), http_upstreams=(_pool(),)))
+    assert not any(key.startswith("megoopm-location-") for key in files)

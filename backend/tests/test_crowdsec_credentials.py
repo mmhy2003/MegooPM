@@ -152,8 +152,12 @@ async def test_resolve_settings_overlay(session_factory: async_sessionmaker) -> 
     s = _settings(crowdsec_origin="megoopm")
     async with session_factory() as db:
         await creds_service.save_credentials(
-            db, lapi_url="http://db-lapi:8080", machine_id="dbm",
-            machine_password="dbp", bouncer_key="dbk", settings=s,
+            db,
+            lapi_url="http://db-lapi:8080",
+            machine_id="dbm",
+            machine_password="dbp",
+            bouncer_key="dbk",
+            settings=s,
         )
         await db.commit()
     creds_service.invalidate_cache()
@@ -227,7 +231,8 @@ async def test_ensure_registered_noop_when_env_present(
     _FakeClient.registrations = []
     monkeypatch.setattr(registration, "CrowdSecClient", _FakeClient)
     s = _settings(
-        crowdsec_machine_id="env-m", crowdsec_machine_password="env-p",
+        crowdsec_machine_id="env-m",
+        crowdsec_machine_password="env-p",
         crowdsec_lapi_key="env-b",
     )
     async with session_factory() as db:
@@ -299,8 +304,12 @@ async def test_configured_lapi_url_wins_over_the_stored_one(
     s = _settings(crowdsec_lapi_url="http://10.10.0.16:8080")
     async with session_factory() as db:
         await creds_service.save_credentials(
-            db, lapi_url="http://crowdsec:8080", machine_id="dbm",
-            machine_password="dbp", bouncer_key="dbk", settings=s,
+            db,
+            lapi_url="http://crowdsec:8080",
+            machine_id="dbm",
+            machine_password="dbp",
+            bouncer_key="dbk",
+            settings=s,
         )
         await db.commit()
     creds_service.invalidate_cache()
@@ -323,8 +332,12 @@ async def test_machine_is_reregistered_when_the_endpoint_changes(
     old = _settings(crowdsec_lapi_url="http://crowdsec:8080")
     async with session_factory() as db:
         await creds_service.save_credentials(
-            db, lapi_url="http://crowdsec:8080", machine_id="old-machine",
-            machine_password="old-pw", bouncer_key="dbk", settings=old,
+            db,
+            lapi_url="http://crowdsec:8080",
+            machine_id="old-machine",
+            machine_password="old-pw",
+            bouncer_key="dbk",
+            settings=old,
         )
         await db.commit()
     creds_service.invalidate_cache()
@@ -350,8 +363,12 @@ async def test_no_reregistration_when_the_endpoint_is_unchanged(
     s = _settings(crowdsec_lapi_url="http://crowdsec:8080")
     async with session_factory() as db:
         await creds_service.save_credentials(
-            db, lapi_url="http://crowdsec:8080", machine_id="m",
-            machine_password="p", bouncer_key="b", settings=s,
+            db,
+            lapi_url="http://crowdsec:8080",
+            machine_id="m",
+            machine_password="p",
+            bouncer_key="b",
+            settings=s,
         )
         await db.commit()
     creds_service.invalidate_cache()

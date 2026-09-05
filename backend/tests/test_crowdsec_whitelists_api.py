@@ -73,9 +73,7 @@ async def client(pg_conn) -> AsyncIterator[AsyncClient]:
 
     app.dependency_overrides[get_session] = _override_get_session
     try:
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as ac:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
             yield ac
     finally:
         app.dependency_overrides.pop(get_session, None)
@@ -145,9 +143,7 @@ async def test_rejects_a_bad_ip_before_writing_anything(client, auth) -> None:
 
 
 async def test_rejects_a_bad_cidr(client, auth) -> None:
-    resp = await client.post(
-        BASE, headers=auth, json=_body(ips=[], cidrs=["10.10.0.0/99"])
-    )
+    resp = await client.post(BASE, headers=auth, json=_body(ips=[], cidrs=["10.10.0.0/99"]))
     assert resp.status_code == 422
     assert "10.10.0.0/99" in resp.text
 
@@ -182,9 +178,7 @@ async def test_create_then_list_and_toggle(client, auth) -> None:
     assert listed.status_code == 200
     assert [r["id"] for r in listed.json()] == [row_id]
 
-    patched = await client.patch(
-        f"{BASE}/{row_id}", headers=auth, json=_body(enabled=False)
-    )
+    patched = await client.patch(f"{BASE}/{row_id}", headers=auth, json=_body(enabled=False))
     assert patched.status_code == 200
     assert patched.json()["enabled"] is False
 
@@ -215,9 +209,7 @@ async def test_preview_returns_the_yaml_that_would_be_written(client, auth) -> N
 # --- status ----------------------------------------------------------------
 
 
-async def test_status_reports_when_reload_is_not_configured(
-    client, auth, monkeypatch
-) -> None:
+async def test_status_reports_when_reload_is_not_configured(client, auth, monkeypatch) -> None:
     # Under HA with no control node named, there is no queue to send the apply
     # to. Saving must not silently imply the whitelist is in force.
     monkeypatch.setattr(settings, "ha_enabled", True)
@@ -227,9 +219,7 @@ async def test_status_reports_when_reload_is_not_configured(
     assert resp.json()["reload_configured"] is False
 
 
-async def test_apply_refuses_when_reload_is_not_configured(
-    client, auth, monkeypatch
-) -> None:
+async def test_apply_refuses_when_reload_is_not_configured(client, auth, monkeypatch) -> None:
     monkeypatch.setattr(settings, "ha_enabled", True)
     monkeypatch.setattr(settings, "crowdsec_control_node_id", None)
     resp = await client.post(f"{BASE}/apply", headers=auth)
@@ -237,9 +227,7 @@ async def test_apply_refuses_when_reload_is_not_configured(
     assert "CROWDSEC_CONTROL_NODE_ID" in resp.text
 
 
-async def test_apply_enqueues_when_a_control_node_is_set(
-    client, auth, monkeypatch
-) -> None:
+async def test_apply_enqueues_when_a_control_node_is_set(client, auth, monkeypatch) -> None:
     sent: dict[str, object] = {}
     monkeypatch.setattr(settings, "ha_enabled", True)
     monkeypatch.setattr(settings, "crowdsec_control_node_id", "node-1")
@@ -313,9 +301,7 @@ async def test_an_expression_whitelist_refuses_ips(client, auth) -> None:
 
 
 async def test_an_ip_whitelist_refuses_expressions(client, auth) -> None:
-    resp = await client.post(
-        BASE, headers=auth, json=_body(expressions=["evt.Meta.x == 'y'"])
-    )
+    resp = await client.post(BASE, headers=auth, json=_body(expressions=["evt.Meta.x == 'y'"]))
     assert resp.status_code == 422
     assert "cannot carry expressions" in resp.text
 
@@ -359,9 +345,7 @@ async def test_single_node_reload_is_configured_without_a_node_id(
     assert resp.json()["reload_configured"] is True
 
 
-async def test_single_node_apply_goes_to_the_default_queue(
-    client, auth, monkeypatch
-) -> None:
+async def test_single_node_apply_goes_to_the_default_queue(client, auth, monkeypatch) -> None:
     sent: dict[str, object] = {}
     monkeypatch.setattr(settings, "ha_enabled", False)
     monkeypatch.setattr(settings, "crowdsec_control_node_id", None)
@@ -376,18 +360,14 @@ async def test_single_node_apply_goes_to_the_default_queue(
     assert sent["queue"] is None
 
 
-async def test_ha_without_a_control_node_is_not_configured(
-    client, auth, monkeypatch
-) -> None:
+async def test_ha_without_a_control_node_is_not_configured(client, auth, monkeypatch) -> None:
     monkeypatch.setattr(settings, "ha_enabled", True)
     monkeypatch.setattr(settings, "crowdsec_control_node_id", None)
     resp = await client.get(f"{BASE}/status", headers=auth)
     assert resp.json()["reload_configured"] is False
 
 
-async def test_ha_apply_is_addressed_to_the_control_node(
-    client, auth, monkeypatch
-) -> None:
+async def test_ha_apply_is_addressed_to_the_control_node(client, auth, monkeypatch) -> None:
     sent: dict[str, object] = {}
     monkeypatch.setattr(settings, "ha_enabled", True)
     monkeypatch.setattr(settings, "crowdsec_control_node_id", "node-1")
