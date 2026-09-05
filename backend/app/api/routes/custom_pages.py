@@ -18,7 +18,7 @@ from __future__ import annotations
 from fastapi import APIRouter, HTTPException, Response, status
 from sqlalchemy.exc import IntegrityError
 
-from app.api.deps import AdminUser, SessionDep
+from app.api.deps import AdminUser, CurrentUser, SessionDep
 from app.api.routes._config_writes import after_config_write
 from app.models.enums import AuditAction
 from app.models.instance_settings import InstanceSettings
@@ -64,8 +64,8 @@ async def _is_default_site(db: SessionDep, page_id: int) -> bool:
 
 
 @router.get("", response_model=list[CustomPageSummary])
-async def list_custom_pages(_admin: AdminUser, db: SessionDep) -> list[CustomPageSummary]:
-    """List every page, without their documents. Admin-only."""
+async def list_custom_pages(_user: CurrentUser, db: SessionDep) -> list[CustomPageSummary]:
+    """List every page, without their documents. Any signed-in user may read."""
     pages = await custom_page_service.list_custom_pages(db)
     return [CustomPageSummary.from_page(p) for p in pages]
 
@@ -143,8 +143,8 @@ async def assist_custom_page(
 
 
 @router.get("/{page_id}", response_model=CustomPageRead)
-async def get_custom_page(page_id: int, _admin: AdminUser, db: SessionDep) -> CustomPageRead:
-    """Fetch one page including its document. Admin-only."""
+async def get_custom_page(page_id: int, _user: CurrentUser, db: SessionDep) -> CustomPageRead:
+    """Fetch one page including its document. Any signed-in user may read."""
     page = await custom_page_service.get_custom_page(db, page_id)
     if page is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Custom page not found")

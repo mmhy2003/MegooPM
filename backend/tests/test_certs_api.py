@@ -20,9 +20,11 @@ async def test_list_requires_authentication(db_client: AsyncClient) -> None:
     assert resp.status_code == 401
 
 
-async def test_list_forbidden_for_non_admin(db_client: AsyncClient, member_token: str) -> None:
-    resp = await db_client.get(BASE, headers={"Authorization": f"Bearer {member_token}"})
-    assert resp.status_code == 403
+# A member may now read the certificate list. That is asserted in
+# tests/test_route_authorization.py, which pins the guard on this exact
+# route: the request cannot be made here because the SQLite test database
+# cannot hold `certificates` (ARRAY and JSONB columns), and the query would
+# raise out of the client rather than answering. Writes below stay admin.
 
 
 async def test_custom_upload_requires_admin(db_client: AsyncClient, member_token: str) -> None:

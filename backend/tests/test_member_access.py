@@ -1,0 +1,80 @@
+"""A member reviews the instance and changes nothing.
+
+The matrix test proves the guard on all 122 routes by inspection; these prove
+the shape of the rule end to end over HTTP, so a dependency that resolves but
+does not actually refuse would still be caught.
+
+``/api/v1/custom-pages`` is the subject because it needs no PostgreSQL ARRAY
+column and so works against the SQLite ``db_client`` fixture.
+"""
+
+from __future__ import annotations
+
+import pytest
+from httpx import AsyncClient
+
+
+def _auth(token: str) -> dict[str, str]:
+    return {"Authorization": f"Bearer {token}"}
+
+
+async def test_a_member_may_list_custom_pages(db_client: AsyncClient, member_token: str) -> None:
+    resp = await db_client.get("/api/v1/custom-pages", headers=_auth(member_token))
+    assert resp.status_code == 200
+
+
+async def test_a_member_may_read_one_custom_page(
+    db_client: AsyncClient, admin_token: str, member_token: str
+) -> None:
+    created = await db_client.post(
+        "/api/v1/custom-pages",
+        headers=_auth(admin_token),
+        json={"name": "Notice", "description": "", "html": "<h1>hi</h1>"},
+    )
+    assert created.status_code == 201, created.text
+    page_id = created.json()["id"]
+
+    resp = await db_client.get(f"/api/v1/custom-pages/{page_id}", headers=_auth(member_token))
+
+    assert resp.status_code == 200
+    assert resp.json()["html"] == "<h1>hi</h1>"
+
+
+@pytest.mark.parametrize(
+    ("method", "path", "body"),
+    [
+        ("post", "/api/v1/custom-pages", {"name": "x", "description": "", "html": "<p>x</p>"}),
+        (
+            "post",
+            "/api/v1/custom-pages/assist",
+            {"instruction": "make it blue", "html": "<p>x</p>"},
+        ),
+    ],
+)
+async def test_a_member_cannot_write(
+    db_client: AsyncClient, member_token: str, method: str, path: str, body: dict
+) -> None:
+    resp = await getattr(db_client, method)(path, headers=_auth(member_token), json=body)
+    assert resp.status_code == 403
+
+
+async def test_a_member_cannot_read_the_settings(
+    db_client: AsyncClient, member_token: str
+) -> None:
+    # Out of scope by decision: Settings stays admin, API and page both.
+    resp = await db_client.get("/api/v1/settings", headers=_auth(member_token))
+    assert resp.status_code == 403
+
+
+async def test_a_member_cannot_list_users(db_client: AsyncClient, member_token: str) -> None:
+    resp = await db_client.get("/api/v1/users", headers=_auth(member_token))
+    assert resp.status_code == 403
+
+
+async def test_a_member_may_still_read_their_own_account(
+    db_client: AsyncClient, member_token: str
+) -> None:
+    """The one place a member writes is their own row; reading it must work."""
+    resp = await db_client.get("/api/v1/users/me", headers=_auth(member_token))
+    assert resp.status_code == 200
+    assert resp.json()["role"] == "member"

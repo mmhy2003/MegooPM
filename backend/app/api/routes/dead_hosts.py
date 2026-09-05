@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException, Response, status
 
-from app.api.deps import AdminUser, SessionDep
+from app.api.deps import AdminUser, CurrentUser, SessionDep
 from app.api.routes._config_writes import after_config_write
 from app.models.enums import AuditAction
 from app.schemas.dead_host import DeadHostCreate, DeadHostRead, DeadHostUpdate
@@ -22,8 +22,8 @@ router = APIRouter(tags=["dead-hosts"])
 
 
 @router.get("", response_model=list[DeadHostRead])
-async def list_dead_hosts(_admin: AdminUser, db: SessionDep) -> list[DeadHostRead]:
-    """List all dead hosts. Admin-only."""
+async def list_dead_hosts(_user: CurrentUser, db: SessionDep) -> list[DeadHostRead]:
+    """List all dead hosts. Any signed-in user may read."""
     hosts = await dead_host_service.list_dead_hosts(db)
     return [DeadHostRead.model_validate(h) for h in hosts]
 
@@ -55,8 +55,8 @@ async def create_dead_host(
 
 
 @router.get("/{host_id}", response_model=DeadHostRead)
-async def get_dead_host(host_id: int, _admin: AdminUser, db: SessionDep) -> DeadHostRead:
-    """Fetch a single dead host. Admin-only."""
+async def get_dead_host(host_id: int, _user: CurrentUser, db: SessionDep) -> DeadHostRead:
+    """Fetch a single dead host. Any signed-in user may read."""
     host = await dead_host_service.get_dead_host(db, host_id)
     if host is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Dead host not found")

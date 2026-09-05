@@ -50,13 +50,15 @@ def test_status_helper_pending_for_unknown_id() -> None:
     assert status.ready is False
 
 
-async def test_enqueue_and_lookup_via_api(client: AsyncClient) -> None:
-    enqueue = await client.post("/api/v1/tasks/sample", json={"x": 7, "y": 8})
+async def test_enqueue_and_lookup_via_api(client: AsyncClient, admin_token: str) -> None:
+    """Enqueuing starts work, so it is an admin act; the status read is not."""
+    auth = {"Authorization": f"Bearer {admin_token}"}
+    enqueue = await client.post("/api/v1/tasks/sample", headers=auth, json={"x": 7, "y": 8})
     assert enqueue.status_code == 202
     task_id = enqueue.json()["task_id"]
     assert task_id
 
-    lookup = await client.get(f"/api/v1/tasks/{task_id}")
+    lookup = await client.get(f"/api/v1/tasks/{task_id}", headers=auth)
     assert lookup.status_code == 200
     body = lookup.json()
     assert body["status"] == "SUCCESS"

@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException, Response, status
 
-from app.api.deps import AdminUser, SessionDep
+from app.api.deps import AdminUser, CurrentUser, SessionDep
 from app.api.routes._config_writes import after_config_write
 from app.models.enums import AuditAction
 from app.schemas.stream import StreamCreate, StreamRead, StreamUpdate
@@ -22,8 +22,8 @@ router = APIRouter(tags=["streams"])
 
 
 @router.get("", response_model=list[StreamRead])
-async def list_streams(_admin: AdminUser, db: SessionDep) -> list[StreamRead]:
-    """List all streams. Admin-only."""
+async def list_streams(_user: CurrentUser, db: SessionDep) -> list[StreamRead]:
+    """List all streams. Any signed-in user may read."""
     streams = await stream_service.list_streams(db)
     return [StreamRead.model_validate(s) for s in streams]
 
@@ -60,8 +60,8 @@ async def create_stream(
 
 
 @router.get("/{stream_id}", response_model=StreamRead)
-async def get_stream(stream_id: int, _admin: AdminUser, db: SessionDep) -> StreamRead:
-    """Fetch a single stream. Admin-only."""
+async def get_stream(stream_id: int, _user: CurrentUser, db: SessionDep) -> StreamRead:
+    """Fetch a single stream. Any signed-in user may read."""
     stream = await stream_service.get_stream(db, stream_id)
     if stream is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Stream not found")
