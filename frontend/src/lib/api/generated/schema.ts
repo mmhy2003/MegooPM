@@ -13,7 +13,7 @@ export interface paths {
         };
         /**
          * List Access Lists
-         * @description List all access lists with their users and rules. Admin-only.
+         * @description List all access lists with their users and rules. Any signed-in user may read.
          */
         get: operations["list_access_lists_api_v1_access_lists_get"];
         put?: never;
@@ -37,7 +37,7 @@ export interface paths {
         };
         /**
          * Get Access List
-         * @description Fetch a single access list. Admin-only.
+         * @description Fetch a single access list. Any signed-in user may read.
          */
         get: operations["get_access_list_api_v1_access_lists__access_list_id__get"];
         put?: never;
@@ -401,7 +401,7 @@ export interface paths {
         };
         /**
          * List Certificates
-         * @description List all certificates. Admin-only.
+         * @description List all certificates. Any signed-in user may read.
          */
         get: operations["list_certificates_api_v1_certificates_get"];
         put?: never;
@@ -464,7 +464,7 @@ export interface paths {
         };
         /**
          * Get Certificate
-         * @description Return one certificate. Admin-only.
+         * @description Return one certificate. Any signed-in user may read.
          */
         get: operations["get_certificate_api_v1_certificates__cert_id__get"];
         put?: never;
@@ -639,6 +639,9 @@ export interface paths {
         /**
          * Maintenance
          * @description Both maintenance jobs' last runs, and whether one is running now.
+         *
+         *     Admin-only: the Updates tab is the only reader, and it is admin-only
+         *     because it also reads the instance settings and triggers a hub update.
          */
         get: operations["maintenance_api_v1_crowdsec_maintenance_get"];
         put?: never;
@@ -770,7 +773,7 @@ export interface paths {
         };
         /**
          * List Custom Pages
-         * @description List every page, without their documents. Admin-only.
+         * @description List every page, without their documents. Any signed-in user may read.
          */
         get: operations["list_custom_pages_api_v1_custom_pages_get"];
         put?: never;
@@ -826,7 +829,7 @@ export interface paths {
         };
         /**
          * Get Custom Page
-         * @description Fetch one page including its document. Admin-only.
+         * @description Fetch one page including its document. Any signed-in user may read.
          */
         get: operations["get_custom_page_api_v1_custom_pages__page_id__get"];
         put?: never;
@@ -902,7 +905,7 @@ export interface paths {
         };
         /**
          * Dashboard Visitors
-         * @description Recorded visitors and countries. Admin-only.
+         * @description Recorded visitors and countries. Any signed-in user may read.
          *
          *     Inclusive of today, so days=1 is today. Clamped to the retention window,
          *     because rows older than that have been deleted and a larger window would
@@ -926,7 +929,7 @@ export interface paths {
         };
         /**
          * List Dead Hosts
-         * @description List all dead hosts. Admin-only.
+         * @description List all dead hosts. Any signed-in user may read.
          */
         get: operations["list_dead_hosts_api_v1_dead_hosts_get"];
         put?: never;
@@ -950,7 +953,7 @@ export interface paths {
         };
         /**
          * Get Dead Host
-         * @description Fetch a single dead host. Admin-only.
+         * @description Fetch a single dead host. Any signed-in user may read.
          */
         get: operations["get_dead_host_api_v1_dead_hosts__host_id__get"];
         put?: never;
@@ -1126,7 +1129,7 @@ export interface paths {
         };
         /**
          * List Proxy Hosts
-         * @description List all proxy hosts. Admin-only.
+         * @description List all proxy hosts. Any signed-in user may read.
          */
         get: operations["list_proxy_hosts_api_v1_proxy_hosts_get"];
         put?: never;
@@ -1150,7 +1153,7 @@ export interface paths {
         };
         /**
          * Get Proxy Host
-         * @description Fetch a single proxy host. Admin-only.
+         * @description Fetch a single proxy host. Any signed-in user may read.
          */
         get: operations["get_proxy_host_api_v1_proxy_hosts__host_id__get"];
         put?: never;
@@ -1178,7 +1181,7 @@ export interface paths {
         };
         /**
          * List Redirection Hosts
-         * @description List all redirection hosts. Admin-only.
+         * @description List all redirection hosts. Any signed-in user may read.
          */
         get: operations["list_redirection_hosts_api_v1_redirection_hosts_get"];
         put?: never;
@@ -1202,7 +1205,7 @@ export interface paths {
         };
         /**
          * Get Redirection Host
-         * @description Fetch a single redirection host. Admin-only.
+         * @description Fetch a single redirection host. Any signed-in user may read.
          */
         get: operations["get_redirection_host_api_v1_redirection_hosts__host_id__get"];
         put?: never;
@@ -1477,7 +1480,7 @@ export interface paths {
         };
         /**
          * List Streams
-         * @description List all streams. Admin-only.
+         * @description List all streams. Any signed-in user may read.
          */
         get: operations["list_streams_api_v1_streams_get"];
         put?: never;
@@ -1501,7 +1504,7 @@ export interface paths {
         };
         /**
          * Get Stream
-         * @description Fetch a single stream. Admin-only.
+         * @description Fetch a single stream. Any signed-in user may read.
          */
         get: operations["get_stream_api_v1_streams__stream_id__get"];
         put?: never;
@@ -1569,7 +1572,7 @@ export interface paths {
         };
         /**
          * List Upstreams
-         * @description List all upstream pools with their backends. Admin-only.
+         * @description List all upstream pools with their backends. Any signed-in user may read.
          */
         get: operations["list_upstreams_api_v1_upstreams_get"];
         put?: never;
@@ -1593,7 +1596,7 @@ export interface paths {
         };
         /**
          * Get Upstream
-         * @description Fetch a single upstream pool. Admin-only.
+         * @description Fetch a single upstream pool. Any signed-in user may read.
          */
         get: operations["get_upstream_api_v1_upstreams__upstream_id__get"];
         put?: never;

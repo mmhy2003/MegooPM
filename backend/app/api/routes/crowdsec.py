@@ -475,8 +475,12 @@ async def apply_whitelists(_: AdminUser) -> dict[str, bool]:
 
 
 @router.get("/maintenance", response_model=CrowdSecMaintenance)
-async def maintenance(_user: CurrentUser, db: SessionDep) -> CrowdSecMaintenance:
-    """Both maintenance jobs' last runs, and whether one is running now."""
+async def maintenance(_admin: AdminUser, db: SessionDep) -> CrowdSecMaintenance:
+    """Both maintenance jobs' last runs, and whether one is running now.
+
+    Admin-only: the Updates tab is the only reader, and it is admin-only
+    because it also reads the instance settings and triggers a hub update.
+    """
     hub_row = await db.get(CrowdSecJobRun, CrowdSecJobKind.hub_update)
     capi_row = await db.get(CrowdSecJobRun, CrowdSecJobKind.capi_apply)
     return CrowdSecMaintenance(

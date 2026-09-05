@@ -7827,7 +7827,7 @@
     },
     "/api/v1/crowdsec/maintenance": {
       "get": {
-        "description": "Both maintenance jobs' last runs, and whether one is running now.",
+        "description": "Both maintenance jobs' last runs, and whether one is running now.\n\nAdmin-only: the Updates tab is the only reader, and it is admin-only\nbecause it also reads the instance settings and triggers a hub update.",
         "operationId": "maintenance_api_v1_crowdsec_maintenance_get",
         "responses": {
           "200": {

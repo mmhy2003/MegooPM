@@ -449,9 +449,13 @@ export function SecurityView() {
           <TabsTab value="whitelists">
             <ShieldCheck /> Whitelists
           </TabsTab>
-          <TabsTab value="updates">
-            <RefreshCw /> Updates
-          </TabsTab>
+          {/* Reads the instance settings and triggers a hub update, both of
+              which are admin-only: for a member it could only show an error. */}
+          {canWrite ? (
+            <TabsTab value="updates">
+              <RefreshCw /> Updates
+            </TabsTab>
+          ) : null}
         </TabsList>
 
         {/* ---- Dashboard ---- */}
@@ -727,9 +731,11 @@ export function SecurityView() {
         </TabsPanel>
 
         {/* ---- Updates ---- */}
-        <TabsPanel value="updates" className="space-y-3">
-          <UpdatesTab />
-        </TabsPanel>
+        {canWrite ? (
+          <TabsPanel value="updates" className="space-y-3">
+            <UpdatesTab />
+          </TabsPanel>
+        ) : null}
       </Tabs>
 
       {wlDialog ? (

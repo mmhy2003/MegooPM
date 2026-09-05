@@ -418,3 +418,37 @@ describe("SecurityView alert search", () => {
     expect(listAlerts.mock.calls.at(-1)?.[0]).toMatchObject({ q: "ssh", page: 1 });
   });
 });
+
+describe("SecurityView updates tab", () => {
+  beforeEach(() => {
+    vi.spyOn(crowdsec, "health").mockResolvedValue(healthOk as never);
+    vi.spyOn(crowdsec, "listDecisions").mockResolvedValue(decisionList(0) as never);
+    vi.spyOn(crowdsec, "listAlerts").mockResolvedValue(emptyAlerts as never);
+    vi.spyOn(crowdsec, "listWhitelists").mockResolvedValue([] as never);
+    vi.spyOn(crowdsec, "whitelistStatus").mockResolvedValue({
+      ok: true,
+      error: null,
+      applied_at: null,
+      reload_configured: true,
+    } as never);
+  });
+  afterEach(() => {
+    cleanup();
+    vi.restoreAllMocks();
+    useAuth.mockReturnValue({ user: { role: "admin" } });
+  });
+
+  it("is hidden from a member", async () => {
+    // It reads the instance settings and offers a hub update — both admin.
+    useAuth.mockReturnValue({ user: { role: "member" } });
+    render(<SecurityView />);
+
+    expect(await screen.findByRole("tab", { name: /Dashboard/i })).toBeInTheDocument();
+    expect(screen.queryByRole("tab", { name: /Updates/i })).not.toBeInTheDocument();
+  });
+
+  it("is there for an admin", async () => {
+    render(<SecurityView />);
+    expect(await screen.findByRole("tab", { name: /Updates/i })).toBeInTheDocument();
+  });
+});
