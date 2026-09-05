@@ -9,6 +9,7 @@ import { describeError, formatBytes } from "@/components/custom-pages/lib";
 import { ConfirmDeleteDialog } from "@/components/proxy-hosts/confirm-delete-dialog";
 import { PagePreviewDialog } from "@/components/custom-pages/page-preview-dialog";
 import { Button } from "@/components/ui/button";
+import { useCanWrite } from "@/lib/auth/can-write";
 import { SearchInput } from "@/components/ui/search-input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { filterBySearch } from "@/lib/search";
@@ -53,6 +54,7 @@ function formatDate(iso: string): string {
 export function CustomPagesView() {
   const router = useRouter();
   const [pages, setPages] = useState<CustomPageSummary[]>([]);
+  const canWrite = useCanWrite();
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [deletePage, setDeletePage] = useState<CustomPageSummary | null>(null);
@@ -101,9 +103,15 @@ export function CustomPagesView() {
             embedded in the document, so a page is a single self-contained file.
           </p>
         </div>
-        <Button size="sm" onClick={() => router.push("/custom-pages/new")}>
-          <Plus /> New page
-        </Button>
+        {canWrite ? (
+          <Button size="sm" onClick={() => router.push("/custom-pages/new")}>
+            <Plus /> New page
+          </Button>
+        ) : (
+          <p className="text-muted-foreground text-sm">
+            Read-only — ask an admin to make changes.
+          </p>
+        )}
       </div>
 
       {loadError ? (
@@ -191,22 +199,26 @@ export function CustomPagesView() {
                   </TableCell>
                   <TableCell onClick={(event) => event.stopPropagation()}>
                     <div className="flex justify-end gap-1">
-                      <Button
-                        variant="ghost"
-                        size="icon-sm"
-                        aria-label={`Edit ${page.name}`}
-                        onClick={() => router.push(`/custom-pages/${page.id}`)}
-                      >
-                        <Pencil />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon-sm"
-                        aria-label={`Delete ${page.name}`}
-                        onClick={() => setDeletePage(page)}
-                      >
-                        <Trash2 />
-                      </Button>
+                      {canWrite ? (
+                        <>
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
+                          aria-label={`Edit ${page.name}`}
+                          onClick={() => router.push(`/custom-pages/${page.id}`)}
+                        >
+                          <Pencil />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
+                          aria-label={`Delete ${page.name}`}
+                          onClick={() => setDeletePage(page)}
+                        >
+                          <Trash2 />
+                        </Button>
+                        </>
+                      ) : null}
                     </div>
                   </TableCell>
                 </TableRow>

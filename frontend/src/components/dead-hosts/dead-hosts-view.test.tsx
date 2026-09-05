@@ -6,6 +6,11 @@ import { toast } from "sonner";
 import { certificates, deadHosts, type DeadHost } from "@/lib/api";
 import { DeadHostsView } from "@/components/dead-hosts/dead-hosts-view";
 
+// vi.mock factories are hoisted above the imports, so a factory closing
+// over a plain const fails at collection. vi.hoisted is the way in.
+const useAuth = vi.hoisted(() => vi.fn(() => ({ user: { role: "admin" } })));
+vi.mock("@/lib/auth/context", () => ({ useAuth }));
+
 function makeDeadHost(over: Partial<DeadHost> = {}): DeadHost {
   return {
     id: 1,

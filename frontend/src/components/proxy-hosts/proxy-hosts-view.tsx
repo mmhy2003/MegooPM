@@ -24,6 +24,7 @@ import { Badge } from "@/components/ui/badge";
 import { EnabledToggle } from "@/components/hosts/enabled-toggle";
 import { DomainLinks } from "@/components/hosts/domain-links";
 import { Button } from "@/components/ui/button";
+import { useCanWrite } from "@/lib/auth/can-write";
 import { SearchInput } from "@/components/ui/search-input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { filterBySearch } from "@/lib/search";
@@ -54,6 +55,7 @@ function LoadingRows({ cols }: { cols: number }) {
 
 export function ProxyHostsView() {
   const [hosts, setHosts] = useState<ProxyHost[]>([]);
+  const canWrite = useCanWrite();
   const [pools, setPools] = useState<Upstream[]>([]);
   const [lists, setLists] = useState<AccessList[]>([]);
   const [certs, setCerts] = useState<Certificate[]>([]);
@@ -175,9 +177,15 @@ export function ProxyHostsView() {
             label="Search proxy hosts"
             placeholder="Domain or forward host"
           />
-          <Button size="sm" onClick={() => setHostDialog({ open: true, host: null })}>
-            <Plus /> New proxy host
-          </Button>
+          {canWrite ? (
+            <Button size="sm" onClick={() => setHostDialog({ open: true, host: null })}>
+              <Plus /> New proxy host
+            </Button>
+          ) : (
+            <p className="text-muted-foreground text-sm">
+              Read-only — ask an admin to make changes.
+            </p>
+          )}
         </div>
         <div className="bg-card text-card-foreground rounded-xl border shadow-xs">
           <Table>
@@ -261,26 +269,31 @@ export function ProxyHostsView() {
                           checked={host.enabled ?? true}
                           name={host.domain_names[0]}
                           onToggle={(next) => setEnabled(host, next)}
+                          disabled={!canWrite}
                         />
                       </TableCell>
                       <TableCell>
                         <div className="flex justify-end gap-1">
-                          <Button
-                            variant="ghost"
-                            size="icon-sm"
-                            aria-label={`Edit ${host.domain_names[0]}`}
-                            onClick={() => setHostDialog({ open: true, host })}
-                          >
-                            <Pencil />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon-sm"
-                            aria-label={`Delete ${host.domain_names[0]}`}
-                            onClick={() => setDeleteHost(host)}
-                          >
-                            <Trash2 />
-                          </Button>
+                          {canWrite ? (
+                            <>
+                              <Button
+                                variant="ghost"
+                                size="icon-sm"
+                                aria-label={`Edit ${host.domain_names[0]}`}
+                                onClick={() => setHostDialog({ open: true, host })}
+                              >
+                                <Pencil />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon-sm"
+                                aria-label={`Delete ${host.domain_names[0]}`}
+                                onClick={() => setDeleteHost(host)}
+                              >
+                                <Trash2 />
+                              </Button>
+                            </>
+                          ) : null}
                         </div>
                       </TableCell>
                     </TableRow>

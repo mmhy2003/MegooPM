@@ -17,6 +17,7 @@ import { UpstreamDialog } from "@/components/upstreams/upstream-dialog";
 import { Badge } from "@/components/ui/badge";
 import { EnabledToggle } from "@/components/hosts/enabled-toggle";
 import { Button } from "@/components/ui/button";
+import { useCanWrite } from "@/lib/auth/can-write";
 import { SearchInput } from "@/components/ui/search-input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { filterBySearch } from "@/lib/search";
@@ -59,6 +60,7 @@ function LoadingRows({ cols }: { cols: number }) {
 
 export function UpstreamsView() {
   const [pools, setPools] = useState<Upstream[]>([]);
+  const canWrite = useCanWrite();
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -156,9 +158,15 @@ export function UpstreamsView() {
             label="Search upstream pools"
             placeholder="Pool name or backend host"
           />
-          <Button size="sm" onClick={() => setPoolDialog({ open: true, pool: null })}>
-            <Plus /> New upstream pool
-          </Button>
+          {canWrite ? (
+            <Button size="sm" onClick={() => setPoolDialog({ open: true, pool: null })}>
+              <Plus /> New upstream pool
+            </Button>
+          ) : (
+            <p className="text-muted-foreground text-sm">
+              Read-only — ask an admin to make changes.
+            </p>
+          )}
         </div>
         <div className="bg-card text-card-foreground rounded-xl border shadow-xs">
           <Table>
@@ -231,26 +239,31 @@ export function UpstreamsView() {
                           checked={pool.enabled ?? true}
                           name={pool.name}
                           onToggle={(next) => setPoolEnabled(pool, next)}
+                          disabled={!canWrite}
                         />
                       </TableCell>
                       <TableCell>
                         <div className="flex justify-end gap-1">
-                          <Button
-                            variant="ghost"
-                            size="icon-sm"
-                            aria-label={`Edit ${pool.name}`}
-                            onClick={() => setPoolDialog({ open: true, pool })}
-                          >
-                            <Pencil />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon-sm"
-                            aria-label={`Delete ${pool.name}`}
-                            onClick={() => setDeletePool(pool)}
-                          >
-                            <Trash2 />
-                          </Button>
+                          {canWrite ? (
+                            <>
+                            <Button
+                              variant="ghost"
+                              size="icon-sm"
+                              aria-label={`Edit ${pool.name}`}
+                              onClick={() => setPoolDialog({ open: true, pool })}
+                            >
+                              <Pencil />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon-sm"
+                              aria-label={`Delete ${pool.name}`}
+                              onClick={() => setDeletePool(pool)}
+                            >
+                              <Trash2 />
+                            </Button>
+                            </>
+                          ) : null}
                         </div>
                       </TableCell>
                     </TableRow>

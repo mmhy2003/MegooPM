@@ -7,6 +7,11 @@ import { accessLists, certificates, customPages, proxyHosts, upstreams } from "@
 import { ProxyHostsView } from "@/components/proxy-hosts/proxy-hosts-view";
 import { makeHost } from "@/components/proxy-hosts/test-utils";
 
+// vi.mock factories are hoisted above the imports, so a factory closing
+// over a plain const fails at collection. vi.hoisted is the way in.
+const useAuth = vi.hoisted(() => vi.fn(() => ({ user: { role: "admin" } })));
+vi.mock("@/lib/auth/context", () => ({ useAuth }));
+
 function mount() {
   vi.spyOn(proxyHosts, "list").mockResolvedValue([makeHost()]);
   // The hosts table still resolves pool names for its Upstream column, even
@@ -154,5 +159,32 @@ describe("ProxyHostsView search", () => {
     await user.click(screen.getByRole("button", { name: "Clear search" }));
 
     expect(screen.getByText("api.example.com")).toBeInTheDocument();
+  });
+});
+
+describe("ProxyHostsView write controls", () => {
+  afterEach(() => {
+    cleanup();
+    vi.restoreAllMocks();
+    useAuth.mockReturnValue({ user: { role: "admin" } });
+  });
+
+  it("offers no write controls to a member", async () => {
+    // Hidden, not disabled: a disabled button invites a click and explains
+    // nothing, and the API would refuse it anyway.
+    useAuth.mockReturnValue({ user: { role: "member" } });
+    mount();
+    await screen.findByRole("searchbox", { name: "Search proxy hosts" });
+
+    expect(screen.queryByRole("button", { name: /New proxy host/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^Edit / })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^Delete / })).not.toBeInTheDocument();
+    expect(screen.getByText(/read-only/i)).toBeInTheDocument();
+  });
+
+  it("offers them to an admin", async () => {
+    mount();
+    expect(await screen.findByRole("button", { name: /New proxy host/i })).toBeInTheDocument();
+    expect(screen.queryByText(/read-only/i)).not.toBeInTheDocument();
   });
 });

@@ -5,6 +5,11 @@ import userEvent from "@testing-library/user-event";
 import { certificates, streams, upstreams, type Stream } from "@/lib/api";
 import { StreamsView } from "@/components/streams/streams-view";
 
+// vi.mock factories are hoisted above the imports, so a factory closing
+// over a plain const fails at collection. vi.hoisted is the way in.
+const useAuth = vi.hoisted(() => vi.fn(() => ({ user: { role: "admin" } })));
+vi.mock("@/lib/auth/context", () => ({ useAuth }));
+
 function makeStream(over: Partial<Stream> = {}): Stream {
   return {
     id: 1,

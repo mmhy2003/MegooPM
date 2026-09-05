@@ -34,6 +34,7 @@ import {
 import { DnsCredentialsView } from "@/components/dns-providers/dns-credentials-view";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { useCanWrite } from "@/lib/auth/can-write";
 import { SearchInput } from "@/components/ui/search-input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { filterBySearch } from "@/lib/search";
@@ -101,6 +102,7 @@ function LoadingRows({ cols }: { cols: number }) {
 
 export function CertificatesView() {
   const [certs, setCerts] = useState<Certificate[]>([]);
+  const canWrite = useCanWrite();
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
@@ -209,9 +211,15 @@ export function CertificatesView() {
             TLS certificates from Let&apos;s Encrypt or your own PEM material.
           </p>
         </div>
-        <Button size="sm" onClick={() => setCreateOpen(true)}>
-          <Plus /> New certificate
-        </Button>
+        {canWrite ? (
+          <Button size="sm" onClick={() => setCreateOpen(true)}>
+            <Plus /> New certificate
+          </Button>
+        ) : (
+          <p className="text-muted-foreground text-sm">
+            Read-only — ask an admin to make changes.
+          </p>
+        )}
       </div>
 
       <Tabs defaultValue="certificates">
@@ -338,31 +346,35 @@ export function CertificatesView() {
                     </TableCell>
                     <TableCell>
                       <div className="flex justify-end gap-1">
-                        {canRenew ? (
+                        {canWrite ? (
+                          <>
+                          {canRenew ? (
+                            <Button
+                              variant="ghost"
+                              size="icon-sm"
+                              aria-label={`Renew ${cert.name}`}
+                              title="Renew"
+                              disabled={renewing}
+                              onClick={() => handleRenew(cert)}
+                            >
+                              {renewing ? (
+                                <Loader2 className="animate-spin" />
+                              ) : (
+                                <RefreshCw />
+                              )}
+                            </Button>
+                          ) : null}
                           <Button
                             variant="ghost"
                             size="icon-sm"
-                            aria-label={`Renew ${cert.name}`}
-                            title="Renew"
-                            disabled={renewing}
-                            onClick={() => handleRenew(cert)}
+                            aria-label={`Delete ${cert.name}`}
+                            title="Delete"
+                            onClick={() => setDeleteCert(cert)}
                           >
-                            {renewing ? (
-                              <Loader2 className="animate-spin" />
-                            ) : (
-                              <RefreshCw />
-                            )}
+                            <Trash2 />
                           </Button>
+                          </>
                         ) : null}
-                        <Button
-                          variant="ghost"
-                          size="icon-sm"
-                          aria-label={`Delete ${cert.name}`}
-                          title="Delete"
-                          onClick={() => setDeleteCert(cert)}
-                        >
-                          <Trash2 />
-                        </Button>
                       </div>
                     </TableCell>
                   </TableRow>

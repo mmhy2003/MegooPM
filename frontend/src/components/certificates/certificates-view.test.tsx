@@ -5,6 +5,11 @@ import userEvent from "@testing-library/user-event";
 import { certificates, dnsCredentials, dnsProviders, type Certificate } from "@/lib/api";
 import { CertificatesView } from "@/components/certificates/certificates-view";
 
+// vi.mock factories are hoisted above the imports, so a factory closing
+// over a plain const fails at collection. vi.hoisted is the way in.
+const useAuth = vi.hoisted(() => vi.fn(() => ({ user: { role: "admin" } })));
+vi.mock("@/lib/auth/context", () => ({ useAuth }));
+
 function makeCert(over: Partial<Certificate> = {}): Certificate {
   return {
     id: 1,

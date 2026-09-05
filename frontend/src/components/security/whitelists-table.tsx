@@ -34,6 +34,7 @@ export function WhitelistsTable({
   onToggle,
   onEdit,
   onDelete,
+  canWrite = true,
 }: {
   rows: Whitelist[];
   /** The active search, so the empty state can say which kind of empty it is. */
@@ -42,6 +43,8 @@ export function WhitelistsTable({
   onToggle: (row: Whitelist, next: boolean) => Promise<void>;
   onEdit: (row: Whitelist) => void;
   onDelete: (row: Whitelist) => void;
+  /** False for a member: the row's controls are hidden rather than refused. */
+  canWrite?: boolean;
 }) {
   if (rows.length === 0) {
     const searching = query.trim();
@@ -95,25 +98,30 @@ export function WhitelistsTable({
                   checked={row.enabled}
                   name={row.name}
                   onToggle={(next) => onToggle(row, next)}
+                  disabled={!canWrite}
                 />
               </TableCell>
               <TableCell className="text-right">
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  aria-label={`Edit ${row.name}`}
-                  onClick={() => onEdit(row)}
-                >
-                  <Pencil className="size-4" />
-                </Button>
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  aria-label={`Delete ${row.name}`}
-                  onClick={() => onDelete(row)}
-                >
-                  <Trash2 className="size-4" />
-                </Button>
+                {canWrite ? (
+                  <>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      aria-label={`Edit ${row.name}`}
+                      onClick={() => onEdit(row)}
+                    >
+                      <Pencil className="size-4" />
+                    </Button>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      aria-label={`Delete ${row.name}`}
+                      onClick={() => onDelete(row)}
+                    >
+                      <Trash2 className="size-4" />
+                    </Button>
+                  </>
+                ) : null}
               </TableCell>
             </TableRow>
           ))}

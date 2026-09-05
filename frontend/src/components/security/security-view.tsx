@@ -45,6 +45,7 @@ import { WhitelistsTable } from "@/components/security/whitelists-table";
 import { Badge } from "@/components/ui/badge";
 import { CountryFlag } from "@/components/ui/country-flag";
 import { Button } from "@/components/ui/button";
+import { useCanWrite } from "@/lib/auth/can-write";
 import { Label } from "@/components/ui/label";
 import { SearchInput } from "@/components/ui/search-input";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -157,6 +158,7 @@ function TableError({ message, onRetry }: { message: string; onRetry: () => void
 
 export function SecurityView() {
   const [health, setHealth] = useState<CrowdSecHealth | null>(null);
+  const canWrite = useCanWrite();
   const [nowMs, setNowMs] = useState<number>(() => Date.now());
   // Bumped by ban/unban to force both lists to refetch without a full reload.
   const [refreshTick, setRefreshTick] = useState(0);
@@ -420,9 +422,13 @@ export function SecurityView() {
             aria-label="Include community and CAPI records"
           />
         </div>
-        <Button size="sm" onClick={() => openBan()}>
-          <Plus /> Manual decision
-        </Button>
+        {canWrite ? (
+          <Button size="sm" onClick={() => openBan()}>
+            <Plus /> Manual decision
+          </Button>
+        ) : (
+          <p className="text-muted-foreground text-sm">Read-only — ask an admin to make changes.</p>
+        )}
       </div>
 
       {/* Deliberately outside the tabs: this explains why the lists below are
@@ -542,7 +548,7 @@ export function SecurityView() {
                                 variant="ghost"
                                 size="icon-sm"
                                 aria-label={`Lift decision on ${d.value}`}
-                                disabled={d.id == null}
+                                disabled={d.id == null || !canWrite}
                                 title={
                                   d.id == null
                                     ? "This decision has no id and can't be lifted"
@@ -703,9 +709,11 @@ export function SecurityView() {
               label="Search whitelists"
               placeholder="Name or expression"
             />
-            <Button size="sm" onClick={() => setWlDialog({ row: null })}>
-              <Plus /> Add whitelist
-            </Button>
+            {canWrite ? (
+              <Button size="sm" onClick={() => setWlDialog({ row: null })}>
+                <Plus /> Add whitelist
+              </Button>
+            ) : null}
           </div>
           <WhitelistsTable
             rows={visibleWhitelists}
@@ -714,6 +722,7 @@ export function SecurityView() {
             onToggle={toggleWhitelist}
             onEdit={(row) => setWlDialog({ row })}
             onDelete={deleteWhitelist}
+            canWrite={canWrite}
           />
         </TabsPanel>
 

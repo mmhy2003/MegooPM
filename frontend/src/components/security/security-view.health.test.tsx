@@ -4,6 +4,11 @@ import { cleanup, render, screen } from "@testing-library/react";
 import { crowdsec } from "@/lib/api";
 import { SecurityView } from "@/components/security/security-view";
 
+// vi.mock factories are hoisted above the imports, so a factory closing
+// over a plain const fails at collection. vi.hoisted is the way in.
+const useAuth = vi.hoisted(() => vi.fn(() => ({ user: { role: "admin" } })));
+vi.mock("@/lib/auth/context", () => ({ useAuth }));
+
 const empty = { total: 0, page: 1, page_size: 50, items: [] };
 
 describe("SecurityView health banner", () => {

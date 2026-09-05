@@ -9,6 +9,7 @@ import { AccessListDialog } from "@/components/access-lists/access-list-dialog";
 import { ConfirmDeleteDialog } from "@/components/proxy-hosts/confirm-delete-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { useCanWrite } from "@/lib/auth/can-write";
 import { SearchInput } from "@/components/ui/search-input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { filterBySearch } from "@/lib/search";
@@ -39,6 +40,7 @@ function LoadingRows({ cols }: { cols: number }) {
 
 export function AccessListsView() {
   const [lists, setLists] = useState<AccessList[]>([]);
+  const canWrite = useCanWrite();
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -94,9 +96,15 @@ export function AccessListsView() {
             host.
           </p>
         </div>
-        <Button size="sm" onClick={() => setEditing(undefined)}>
-          <Plus /> New access list
-        </Button>
+        {canWrite ? (
+          <Button size="sm" onClick={() => setEditing(undefined)}>
+            <Plus /> New access list
+          </Button>
+        ) : (
+          <p className="text-muted-foreground text-sm">
+            Read-only — ask an admin to make changes.
+          </p>
+        )}
       </div>
 
       {loadError ? (
@@ -185,22 +193,26 @@ export function AccessListsView() {
                   </TableCell>
                   <TableCell>
                     <div className="flex justify-end gap-1">
-                      <Button
-                        variant="ghost"
-                        size="icon-sm"
-                        aria-label={`Edit ${list.name}`}
-                        onClick={() => setEditing(list)}
-                      >
-                        <Pencil />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon-sm"
-                        aria-label={`Delete ${list.name}`}
-                        onClick={() => setDeleteList(list)}
-                      >
-                        <Trash2 />
-                      </Button>
+                      {canWrite ? (
+                        <>
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
+                          aria-label={`Edit ${list.name}`}
+                          onClick={() => setEditing(list)}
+                        >
+                          <Pencil />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
+                          aria-label={`Delete ${list.name}`}
+                          onClick={() => setDeleteList(list)}
+                        >
+                          <Trash2 />
+                        </Button>
+                        </>
+                      ) : null}
                     </div>
                   </TableCell>
                 </TableRow>

@@ -5,6 +5,11 @@ import userEvent from "@testing-library/user-event";
 import { crowdsec } from "@/lib/api";
 import { SecurityView } from "@/components/security/security-view";
 
+// vi.mock factories are hoisted above the imports, so a factory closing
+// over a plain const fails at collection. vi.hoisted is the way in.
+const useAuth = vi.hoisted(() => vi.fn(() => ({ user: { role: "admin" } })));
+vi.mock("@/lib/auth/context", () => ({ useAuth }));
+
 // Stub the ban/unban dialogs: they own their own Select/portal machinery which
 // is irrelevant here — we only care that SecurityView wires their callbacks and
 // re-fetches (ban/unban reflected without a full reload).

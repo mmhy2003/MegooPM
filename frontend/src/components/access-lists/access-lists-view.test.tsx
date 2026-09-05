@@ -5,6 +5,11 @@ import userEvent from "@testing-library/user-event";
 import { accessLists, type AccessList } from "@/lib/api";
 import { AccessListsView } from "@/components/access-lists/access-lists-view";
 
+// vi.mock factories are hoisted above the imports, so a factory closing
+// over a plain const fails at collection. vi.hoisted is the way in.
+const useAuth = vi.hoisted(() => vi.fn(() => ({ user: { role: "admin" } })));
+vi.mock("@/lib/auth/context", () => ({ useAuth }));
+
 function makeList(over: Partial<AccessList> = {}): AccessList {
   return {
     id: 1,

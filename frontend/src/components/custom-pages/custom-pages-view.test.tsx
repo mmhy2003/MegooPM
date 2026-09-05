@@ -8,6 +8,11 @@ vi.mock("next/navigation", () => ({ useRouter: () => ({ push }) }));
 import { customPages, type CustomPageSummary } from "@/lib/api";
 import { CustomPagesView } from "@/components/custom-pages/custom-pages-view";
 
+// vi.mock factories are hoisted above the imports, so a factory closing
+// over a plain const fails at collection. vi.hoisted is the way in.
+const useAuth = vi.hoisted(() => vi.fn(() => ({ user: { role: "admin" } })));
+vi.mock("@/lib/auth/context", () => ({ useAuth }));
+
 function makeSummary(overrides: Partial<CustomPageSummary> = {}): CustomPageSummary {
   return {
     id: 1,
