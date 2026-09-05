@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import { proxyHosts, type Upstream } from "@/lib/api";
@@ -84,6 +84,25 @@ describe("ProxyHostDialog", () => {
     renderDialog(makeHost({ certificate_id: 7 }));
     await user.click(screen.getByRole("tab", { name: "Certificate" }));
     expect(await screen.findByLabelText("Force SSL")).not.toHaveAttribute("aria-disabled", "true");
+  });
+
+  it("offers the branded error codes for a location", async () => {
+    const user = userEvent.setup();
+    renderDialog();
+    await user.click(screen.getByRole("button", { name: "Add location" }));
+
+    await user.click(screen.getByRole("combobox", { name: "Location target kind" }));
+    await user.click(await screen.findByRole("option", { name: "Error page" }));
+
+    // The code picker replaces the pool picker: this location has no backend.
+    // Scoped to the row — the root route keeps its own pool picker.
+    const code = screen.getByRole("combobox", { name: "Location status code" });
+    const row = code.closest("tr")!;
+    expect(within(row).queryByRole("combobox", { name: "Upstream pool" })).not.toBeInTheDocument();
+
+    await user.click(code);
+    expect(await screen.findByRole("option", { name: "404 — Not found" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "503 — Service unavailable" })).toBeInTheDocument();
   });
 
   it("jumps to the Forwarding tab and reports a bad location on save", async () => {

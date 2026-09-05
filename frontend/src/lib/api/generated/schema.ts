@@ -3445,11 +3445,11 @@ export interface components {
          * LocationTarget
          * @description What a proxy host's ``location`` block answers with.
          *
-         *     ``pool`` and ``host`` proxy onward; ``default_site`` and ``custom_page``
-         *     are answered by nginx itself and never reach a backend.
+         *     ``pool`` and ``host`` proxy onward; ``default_site``, ``custom_page`` and
+         *     ``error_page`` are answered by nginx itself and never reach a backend.
          * @enum {string}
          */
-        LocationTarget: "pool" | "host" | "default_site" | "custom_page";
+        LocationTarget: "pool" | "host" | "default_site" | "custom_page" | "error_page";
         /**
          * LoginRequest
          * @description Credentials submitted to ``POST /auth/login``.
@@ -3840,6 +3840,11 @@ export interface components {
              * @description Page served when the target is 'custom_page'
              */
             custom_page_id?: number | null;
+            /**
+             * Error Code
+             * @description Status returned when the target is 'error_page'
+             */
+            error_code?: number | null;
             /** Forward Host */
             forward_host?: string | null;
             /** Forward Port */
@@ -3872,6 +3877,11 @@ export interface components {
              * @description Page served when the target is 'custom_page'
              */
             custom_page_id?: number | null;
+            /**
+             * Error Code
+             * @description Status returned when the target is 'error_page'
+             */
+            error_code?: number | null;
             /** Forward Host */
             forward_host?: string | null;
             /** Forward Port */

@@ -128,6 +128,7 @@ describe("stateFromHost / buildPayload", () => {
         forwardPort: "",
         scheme: "https",
         customPageId: "",
+        errorCode: "",
       },
     ]);
     expect(buildPayload(form, host)).toMatchObject({
@@ -156,6 +157,7 @@ describe("stateFromHost / buildPayload", () => {
         forward_port: null,
         forward_scheme: "http",
         custom_page_id: null,
+        error_code: null,
       },
     ]);
     expect(payload.crowdsec_enabled).toBe(false);
@@ -334,6 +336,7 @@ describe("locations nginx answers itself", () => {
         forward_port: null,
         forward_scheme: "http",
         custom_page_id: null,
+        error_code: null,
       },
       {
         path: "/maint/",
@@ -343,6 +346,7 @@ describe("locations nginx answers itself", () => {
         forward_port: null,
         forward_scheme: "http",
         custom_page_id: 4,
+        error_code: null,
       },
     ]);
   });
@@ -358,5 +362,62 @@ describe("locations nginx answers itself", () => {
         { ...newLocationRow(), path: "/legacy/", targetMode: "default_site" as const },
       ]),
     ).toBeNull();
+  });
+});
+
+describe("a location answered with a branded error page", () => {
+  it("reads the stored code back onto the row", () => {
+    const state = stateFromHost(
+      makeHost({
+        locations: [
+          {
+            id: 1,
+            path: "/admin/",
+            target: "error_page",
+            error_code: 404,
+            forward_scheme: "http",
+          },
+        ],
+      }) as never,
+    );
+    expect(state.locations[0].targetMode).toBe("error_page");
+    expect(state.locations[0].errorCode).toBe("404");
+  });
+
+  it("sends the code, and no backend", () => {
+    const payload = buildPayload(
+      {
+        ...stateFromHost(makeHost()),
+        locations: [
+          {
+            ...newLocationRow(),
+            path: "/admin/",
+            targetMode: "error_page" as const,
+            errorCode: "404",
+          },
+        ],
+      },
+      null,
+    );
+    expect(payload.locations).toEqual([
+      {
+        path: "/admin/",
+        target: "error_page",
+        upstream_id: null,
+        forward_host: null,
+        forward_port: null,
+        forward_scheme: "http",
+        custom_page_id: null,
+        error_code: 404,
+      },
+    ]);
+  });
+
+  it("refuses to save one with no code chosen", () => {
+    const error = validateLocations([
+      { ...newLocationRow(), path: "/admin/", targetMode: "error_page" as const },
+    ]);
+    expect(error?.message).toContain("/admin/");
+    expect(error?.tab).toBe("forwarding");
   });
 });

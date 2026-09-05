@@ -4,6 +4,8 @@ import { Plus, Trash2 } from "lucide-react";
 
 import { HTTP_SCHEMES, type CustomPageSummary, type HttpScheme, type Upstream } from "@/lib/api";
 import {
+  ERROR_CODE_LABELS,
+  ERROR_CODES,
   newLocationRow,
   type LocationRow,
   type LocationTargetMode,
@@ -44,6 +46,7 @@ const LOCATION_KIND_LABELS: Record<LocationTargetMode, string> = {
   ...KIND_LABELS,
   default_site: "Default site",
   custom_page: "Custom page",
+  error_page: "Error page",
 };
 
 /** Pool or single backend, as a compact select rather than radios.
@@ -52,7 +55,7 @@ const LOCATION_KIND_LABELS: Record<LocationTargetMode, string> = {
  * A select is one control in one cell and reads the same on every row.
  *
  * The root route can only forward, so it gets the two proxy kinds; a location
- * can also be answered by nginx and gets all four.
+ * can also be answered by nginx and gets all five.
  */
 function KindSelect<T extends LocationTargetMode>({
   value,
@@ -85,16 +88,18 @@ function KindSelect<T extends LocationTargetMode>({
 }
 
 const ROOT_KINDS = ["pool", "host"] as const;
-const LOCATION_KINDS = ["pool", "host", "default_site", "custom_page"] as const;
+const LOCATION_KINDS = ["pool", "host", "default_site", "custom_page", "error_page"] as const;
 
-/** The target cell: a pool picker, a host and port pair, a page picker, or
- *  nothing at all for the default site — which needs no input of its own. */
+/** The target cell: a pool picker, a host and port pair, a page picker, a
+ *  status picker, or nothing at all for the default site — which needs no
+ *  input of its own. */
 function TargetCell({
   mode,
   upstreamId,
   forwardHost,
   forwardPort,
   customPageId,
+  errorCode,
   onChange,
   pools,
   pages,
@@ -106,11 +111,13 @@ function TargetCell({
   forwardHost: string;
   forwardPort: string;
   customPageId?: string;
+  errorCode?: string;
   onChange: (patch: {
     upstreamId?: string;
     forwardHost?: string;
     forwardPort?: string;
     customPageId?: string;
+    errorCode?: string;
   }) => void;
   pools: Upstream[];
   pages?: CustomPageSummary[];
@@ -128,6 +135,16 @@ function TargetCell({
         pages={pages ?? []}
         disabled={disabled}
         label={`${labelPrefix} page`}
+      />
+    );
+  }
+  if (mode === "error_page") {
+    return (
+      <ErrorCodeSelect
+        value={errorCode ?? ""}
+        onChange={(v) => onChange({ errorCode: v })}
+        disabled={disabled}
+        label={`${labelPrefix} status code`}
       />
     );
   }
@@ -163,6 +180,41 @@ function TargetCell({
         disabled={disabled}
       />
     </div>
+  );
+}
+
+/** The branded statuses, named so the choice is about meaning, not numbers.
+ *
+ * The body is whatever Settings -> Error pages says for the code, so this
+ * picker binds a path to a status and nothing more.
+ */
+function ErrorCodeSelect({
+  value,
+  onChange,
+  disabled,
+  label,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  disabled: boolean;
+  label: string;
+}) {
+  const items = Object.fromEntries(
+    ERROR_CODES.map((code) => [String(code), `${code} — ${ERROR_CODE_LABELS[code]}`]),
+  );
+  return (
+    <Select value={value} onValueChange={(v) => onChange(v as string)} items={items}>
+      <SelectTrigger aria-label={label} disabled={disabled}>
+        <SelectValue placeholder="Choose a status" />
+      </SelectTrigger>
+      <SelectContent>
+        {ERROR_CODES.map((code) => (
+          <SelectItem key={code} value={String(code)}>
+            {code} — {ERROR_CODE_LABELS[code]}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
   );
 }
 
@@ -385,6 +437,7 @@ export function LocationsEditor({
                     forwardHost={row.forwardHost}
                     forwardPort={row.forwardPort}
                     customPageId={row.customPageId}
+                    errorCode={row.errorCode}
                     onChange={(patch) => updateRow(row.key, patch)}
                     pools={pools}
                     pages={pages}

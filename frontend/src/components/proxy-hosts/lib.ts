@@ -82,9 +82,27 @@ export type ToggleKey = (typeof TOGGLE_KEYS)[number];
 /** What the root route forwards to: a pool or a single backend, never both. */
 export type TargetMode = "host" | "pool";
 
-/** What a location answers with. The two beyond {@link TargetMode} are
+/** What a location answers with. The three beyond {@link TargetMode} are
  *  answered by nginx itself and take no backend. */
-export type LocationTargetMode = TargetMode | "default_site" | "custom_page";
+export type LocationTargetMode = TargetMode | "default_site" | "custom_page" | "error_page";
+
+/** The statuses MegooPM brands, with what each one means to a visitor.
+ *
+ * Mirrors ERROR_CODES and ERROR_COPY in the backend renderer. A code outside
+ * this list has no document mapped in the server block, so the API rejects it.
+ */
+export const ERROR_CODES = [400, 401, 403, 404, 500, 502, 503, 504] as const;
+
+export const ERROR_CODE_LABELS: Record<number, string> = {
+  400: "Bad request",
+  401: "Authentication required",
+  403: "Access denied",
+  404: "Not found",
+  500: "Something went wrong",
+  502: "Bad gateway",
+  503: "Service unavailable",
+  504: "Gateway timeout",
+};
 
 export interface LocationRow {
   /** Stable React key; `loc-<id>` for stored rows, `loc-new-<n>` for new ones. */
@@ -99,6 +117,8 @@ export interface LocationRow {
   scheme: HttpScheme;
   /** Custom page id as a Select value; "" while unset. */
   customPageId: string;
+  /** Status code as a Select value; "" while unset. */
+  errorCode: string;
 }
 
 /** A port string as a number, or null when it is not a valid port.
@@ -147,6 +167,7 @@ export function newLocationRow(): LocationRow {
     forwardPort: "",
     scheme: "http",
     customPageId: "",
+    errorCode: "",
   };
 }
 
@@ -192,6 +213,7 @@ export function stateFromHost(host: ProxyHost | null | undefined): ProxyHostForm
       forwardPort: l.forward_port == null ? "" : String(l.forward_port),
       scheme: l.forward_scheme ?? "http",
       customPageId: l.custom_page_id != null ? String(l.custom_page_id) : "",
+      errorCode: l.error_code != null ? String(l.error_code) : "",
     })),
     certificateId: host.certificate_id ? String(host.certificate_id) : NO_CERTIFICATE,
     toggles: Object.fromEntries(TOGGLE_KEYS.map((k) => [k, host[k] ?? false])) as Record<
@@ -220,6 +242,8 @@ export function validateLocations(rows: LocationRow[]): FormError | null {
       message = `Select an upstream pool for ${path}.`;
     else if (row.targetMode === "custom_page" && !row.customPageId)
       message = `Select a page for ${path}.`;
+    else if (row.targetMode === "error_page" && !row.errorCode)
+      message = `Select a status code for ${path}.`;
     else if (row.targetMode === "host" && !row.forwardHost.trim())
       message = `Enter a forward host for ${path}.`;
     else if (row.targetMode === "host" && parsePort(row.forwardPort) === null)
@@ -280,6 +304,7 @@ export function buildPayload(
         forward_scheme: row.scheme,
         custom_page_id:
           row.targetMode === "custom_page" ? Number.parseInt(row.customPageId, 10) : null,
+        error_code: row.targetMode === "error_page" ? Number.parseInt(row.errorCode, 10) : null,
       };
     }),
     // `crowdsec_enabled` is a form toggle (Advanced tab). AppSec is not
