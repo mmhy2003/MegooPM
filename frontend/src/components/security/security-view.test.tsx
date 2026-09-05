@@ -452,3 +452,50 @@ describe("SecurityView updates tab", () => {
     expect(await screen.findByRole("tab", { name: /Updates/i })).toBeInTheDocument();
   });
 });
+
+describe("SecurityView row details", () => {
+  beforeEach(() => {
+    vi.spyOn(crowdsec, "health").mockResolvedValue(healthOk as never);
+    vi.spyOn(crowdsec, "listDecisions").mockResolvedValue(decisionList(1) as never);
+    vi.spyOn(crowdsec, "listAlerts").mockResolvedValue(emptyAlerts as never);
+    vi.spyOn(crowdsec, "listWhitelists").mockResolvedValue([] as never);
+    vi.spyOn(crowdsec, "whitelistStatus").mockResolvedValue({
+      ok: true,
+      error: null,
+      applied_at: null,
+      reload_configured: true,
+    } as never);
+  });
+  afterEach(() => {
+    cleanup();
+    vi.restoreAllMocks();
+    useAuth.mockReturnValue({ user: { role: "admin" } });
+  });
+
+  it("opens a decision's details from its row", async () => {
+    const user = userEvent.setup();
+    render(<SecurityView />);
+    // The table lives in a tab panel that is not mounted until selected.
+    await user.click(await screen.findByRole("tab", { name: /Active decisions/ }));
+
+    // decisionList seeds more than one row; any of them will do.
+    const details = await screen.findAllByRole("button", { name: /^Details for / });
+    await user.click(details[0]);
+
+    expect(await screen.findByRole("dialog")).toBeInTheDocument();
+    expect(screen.getByText(/What the bouncer is enforcing/i)).toBeInTheDocument();
+  });
+
+  it("offers details to a member but not the lift", async () => {
+    // Inspecting is a read; lifting a decision is not.
+    useAuth.mockReturnValue({ user: { role: "member" } });
+    const user = userEvent.setup();
+    render(<SecurityView />);
+    await user.click(await screen.findByRole("tab", { name: /Active decisions/ }));
+
+    expect(
+      (await screen.findAllByRole("button", { name: /^Details for / })).length,
+    ).toBeGreaterThan(0);
+    expect(screen.queryByRole("button", { name: /^Lift decision/ })).not.toBeInTheDocument();
+  });
+});

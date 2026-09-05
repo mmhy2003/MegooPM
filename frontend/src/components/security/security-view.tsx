@@ -6,6 +6,7 @@ import {
   LayoutDashboard,
   Plus,
   RefreshCw,
+  Eye,
   ShieldAlert,
   ShieldCheck,
   ShieldX,
@@ -19,6 +20,7 @@ import {
   DEFAULT_PAGE_SIZE,
   type AlertList,
   type CrowdSecHealth,
+  type Alert,
   type Decision,
   type DecisionList,
   type DecisionScope,
@@ -44,6 +46,7 @@ import { UpdatesTab } from "@/components/security/updates-tab";
 import { WhitelistsTable } from "@/components/security/whitelists-table";
 import { Badge } from "@/components/ui/badge";
 import { CountryFlag } from "@/components/ui/country-flag";
+import { AlertDetailsDialog, DecisionDetailsDialog } from "@/components/security/details-dialog";
 import { Button } from "@/components/ui/button";
 import { useCanWrite } from "@/lib/auth/can-write";
 import { Label } from "@/components/ui/label";
@@ -190,6 +193,8 @@ export function SecurityView() {
     scope: "Ip",
   });
   const [unban, setUnban] = useState<Decision | null>(null);
+  const [detailDecision, setDetailDecision] = useState<Decision | null>(null);
+  const [detailAlert, setDetailAlert] = useState<Alert | null>(null);
 
   // Whitelists. `wlStatus` is separate from the rows on purpose: a row can
   // exist while its apply has failed, and the banner is what says so.
@@ -547,21 +552,39 @@ export function SecurityView() {
                           <TableCell className="text-muted-foreground">{d.origin ?? "—"}</TableCell>
                           <TableCell className="tabular-nums">{d.duration}</TableCell>
                           <TableCell>
-                            <div className="flex justify-end">
+                            <div className="flex justify-end gap-1">
+                              {/* Inspecting changes nothing, so it is not
+                                  gated: a member reviewing a block needs it
+                                  most. */}
                               <Button
                                 variant="ghost"
                                 size="icon-sm"
-                                aria-label={`Lift decision on ${d.value}`}
-                                disabled={d.id == null || !canWrite}
-                                title={
-                                  d.id == null
-                                    ? "This decision has no id and can't be lifted"
-                                    : "Lift decision"
-                                }
-                                onClick={() => setUnban(d)}
+                                aria-label={`Details for ${d.value}`}
+                                title="Details"
+                                onClick={() => setDetailDecision(d)}
                               >
-                                <Trash2 />
+                                <Eye />
                               </Button>
+                              {/* Hidden for a member rather than disabled: a
+                                  dead button invites a click and explains
+                                  nothing. Still disabled when the decision has
+                                  no id, where the title says why. */}
+                              {canWrite ? (
+                                <Button
+                                  variant="ghost"
+                                  size="icon-sm"
+                                  aria-label={`Lift decision on ${d.value}`}
+                                  disabled={d.id == null}
+                                  title={
+                                    d.id == null
+                                      ? "This decision has no id and can't be lifted"
+                                      : "Lift decision"
+                                  }
+                                  onClick={() => setUnban(d)}
+                                >
+                                  <Trash2 />
+                                </Button>
+                              ) : null}
                             </div>
                           </TableCell>
                         </TableRow>
@@ -665,17 +688,31 @@ export function SecurityView() {
                               {formatRelativeTime(a.start_at ?? a.created_at, nowMs)}
                             </TableCell>
                             <TableCell>
-                              <div className="flex justify-end">
+                              <div className="flex justify-end gap-1">
                                 <Button
                                   variant="ghost"
                                   size="icon-sm"
-                                  aria-label={source ? `Ban ${source}` : "Ban source"}
-                                  disabled={!source}
-                                  title={source ? "Ban this source" : "No source IP to ban"}
-                                  onClick={() => source && openBan({ value: source, scope: "Ip" })}
+                                  aria-label={`Details for alert ${a.id ?? ""}`.trim()}
+                                  title="Details"
+                                  onClick={() => setDetailAlert(a)}
                                 >
-                                  <ShieldX />
+                                  <Eye />
                                 </Button>
+                                {/* Banning writes a decision. */}
+                                {canWrite ? (
+                                  <Button
+                                    variant="ghost"
+                                    size="icon-sm"
+                                    aria-label={source ? `Ban ${source}` : "Ban source"}
+                                    disabled={!source}
+                                    title={source ? "Ban this source" : "No source IP to ban"}
+                                    onClick={() =>
+                                      source && openBan({ value: source, scope: "Ip" })
+                                    }
+                                  >
+                                    <ShieldX />
+                                  </Button>
+                                ) : null}
                               </div>
                             </TableCell>
                           </TableRow>
@@ -757,6 +794,20 @@ export function SecurityView() {
           onSaved={refresh}
         />
       ) : null}
+      {detailDecision ? (
+        <DecisionDetailsDialog
+          decision={detailDecision}
+          onOpenChange={(open) => !open && setDetailDecision(null)}
+        />
+      ) : null}
+
+      {detailAlert ? (
+        <AlertDetailsDialog
+          alert={detailAlert}
+          onOpenChange={(open) => !open && setDetailAlert(null)}
+        />
+      ) : null}
+
       {unban ? (
         <UnbanDialog
           open
