@@ -108,19 +108,28 @@ class EditDocument:
         if problem:
             return problem
 
-        for edit in self._staged:
+        before = "\n".join(self._lines[start - 1 : end])
+
+        for index, edit in enumerate(self._staged):
+            if edit.start == start and edit.end == end:
+                # The same range again is a correction, not a collision. Without
+                # this the model cannot fix an edit it got wrong: the overlap
+                # error below would tell it to revise with no way to do so.
+                self._staged[index] = StagedEdit(start=start, end=end, before=before, after=text)
+                return f"Revised the staged edit for lines {start}-{end}, which replace:\n{before}"
             if start <= edit.end and edit.start <= end:
                 return (
                     f"Error: lines {start}-{end} overlap a staged edit covering "
-                    f"{edit.start}-{edit.end}. Revise one of them instead of "
-                    "staging both."
+                    f"{edit.start}-{edit.end}. Restage the whole of "
+                    f"{edit.start}-{edit.end} instead of staging both."
                 )
 
-        before = "\n".join(self._lines[start - 1 : end])
         self._staged.append(StagedEdit(start=start, end=end, before=before, after=text))
         return (
-            f"Staged: lines {start}-{end} will be replaced. {_ORIGINAL_NOTE} "
-            f"{len(self._staged)} edit(s) staged so far."
+            # Echo what is being replaced: a model that aimed at the wrong range
+            # can see it here, rather than discovering it in a mangled document.
+            f"Staged: lines {start}-{end} will be replaced. They currently read:\n"
+            f"{before}\n{_ORIGINAL_NOTE} {len(self._staged)} edit(s) staged so far."
         )
 
     # --- apply -------------------------------------------------------------

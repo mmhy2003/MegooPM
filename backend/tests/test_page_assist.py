@@ -290,3 +290,79 @@ async def test_a_provider_that_rejects_tools_falls_back_to_a_rewrite(captured, m
     result = await assist_page(LlmConfig(model="gpt-4o"), instruction="edit", html=PAGE)
     assert result.mode == "rewrite"
     assert "rewritten" in result.html
+
+
+# --- the structural check ------------------------------------------------------
+
+
+def test_check_html_is_offered_as_a_tool() -> None:
+    from app.services.page_assist import TOOL_SCHEMAS
+
+    names = {t["function"]["name"] for t in TOOL_SCHEMAS}
+    assert "check_html" in names
+
+
+async def test_the_model_can_check_the_document_mid_edit(scripted) -> None:
+    """The tool reports on the document as the staged edits would leave it."""
+    scripted["turns"] = [
+        _tool_turn("replace_lines", start=4, end=4, text="    <h1>New"),
+        _tool_turn("check_html"),
+        # Having been told, it restages the same range — a revision, not a
+        # collision — and the gate finds nothing left to complain about.
+        _tool_turn("replace_lines", start=4, end=4, text="    <h1>New</h1>"),
+        _done_turn(),
+    ]
+    result = await assist_page(LlmConfig(model="gpt-4o"), instruction="rename", html=PAGE)
+    assert "<h1>New</h1>" in result.html
+
+    tool_replies = [
+        m["content"]
+        for seen in scripted["seen"]
+        for m in seen["messages"]
+        if m.get("role") == "tool"
+    ]
+    assert any("h1" in reply for reply in tool_replies)
+
+
+async def test_a_broken_result_earns_one_repair_round(scripted) -> None:
+    # The model leaves an unclosed <h1>, is told, and fixes it.
+    scripted["turns"] = [
+        _tool_turn("replace_lines", start=4, end=4, text="    <h1>New"),
+        _done_turn(),
+        _tool_turn("replace_lines", start=4, end=4, text="    <h1>New</h1>"),
+        _done_turn(),
+    ]
+
+    result = await assist_page(LlmConfig(model="gpt-4o"), instruction="rename", html=PAGE)
+
+    assert "<h1>New</h1>" in result.html
+    # The repair round is a real message naming the fault, not a silent retry.
+    last_opening = scripted["seen"][-1]["messages"]
+    assert any("h1" in str(m.get("content", "")) for m in last_opening)
+
+
+async def test_a_clean_result_earns_no_repair_round(scripted) -> None:
+    scripted["turns"] = [
+        _tool_turn("replace_lines", start=4, end=4, text="    <h1>New</h1>"),
+        _done_turn(),
+    ]
+
+    result = await assist_page(LlmConfig(model="gpt-4o"), instruction="rename", html=PAGE)
+
+    assert "<h1>New</h1>" in result.html
+    # Both scripted turns consumed and no more asked for: no repair happened.
+    assert scripted["turns"] == []
+
+
+async def test_a_page_still_broken_after_the_repair_is_returned_anyway(scripted) -> None:
+    """One repair round, not a loop. A model that cannot fix it in one pass
+    will thrash, and the operator still has the preview and the undo."""
+    scripted["turns"] = [
+        _tool_turn("replace_lines", start=4, end=4, text="    <h1>New"),
+        _done_turn(),
+        _done_turn(),
+    ]
+
+    result = await assist_page(LlmConfig(model="gpt-4o"), instruction="rename", html=PAGE)
+
+    assert "<h1>New" in result.html

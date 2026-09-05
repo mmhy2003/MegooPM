@@ -207,3 +207,13 @@ def test_a_replacement_that_re_emits_the_line_inserts_after_it() -> None:
     html, _ = doc.apply()
     assert "<h1>Access denied</h1>" in html
     assert "support@example.com" in html
+
+
+def test_replace_lines_echoes_what_it_is_replacing() -> None:
+    """Without this the model cannot tell it aimed at the wrong range: the old
+    reply confirmed the line numbers it had just sent, and nothing else."""
+    doc = EditDocument("<html>\n<body>\n<h1>Old</h1>\n</body>\n</html>")
+
+    reply = doc.replace_lines(3, 3, "<h1>New</h1>")
+
+    assert "<h1>Old</h1>" in reply

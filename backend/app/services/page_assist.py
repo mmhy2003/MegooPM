@@ -24,6 +24,7 @@ import json
 import re
 from dataclasses import dataclass, field
 
+from app.services.html_check import check_html, describe_problems
 from app.services.llm import LlmConfig, LlmError, complete, complete_with_tools
 from app.services.page_tools import EditDocument, StagedEdit
 
@@ -79,6 +80,8 @@ How to work:
 - To insert, replace a line with itself plus the new content. To delete,
   replace with empty text.
 - grep matches literal text, not regular expressions.
+- Call check_html before you finish, and fix what it reports.
+- Restaging the same line range revises that edit rather than adding one.
 - When the instruction is satisfied, reply with a short sentence and no
   further tool calls.
 
@@ -120,6 +123,18 @@ TOOL_SCHEMAS: list[dict] = [
                 },
                 "required": ["start", "end"],
             },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "check_html",
+            "description": (
+                "Check the document, with your staged edits applied, for "
+                "unclosed tags, stray end tags and mismatched nesting. Takes "
+                "no arguments. Call it before you finish."
+            ),
+            "parameters": {"type": "object", "properties": {}},
         },
     },
     {
@@ -220,7 +235,29 @@ def _run_tool(doc: EditDocument, call) -> str:
         return doc.replace_lines(
             int(args.get("start", 0)), int(args.get("end", 0)), str(args.get("text", ""))
         )
-    return f"Error: unknown tool {call.name!r}. Available: grep, read_lines, replace_lines."
+    if call.name == "check_html":
+        return _structure_report(doc)
+    return (
+        f"Error: unknown tool {call.name!r}. "
+        "Available: grep, read_lines, replace_lines, check_html."
+    )
+
+
+def _structure_report(doc: EditDocument) -> str:
+    """How the document reads with every staged edit applied.
+
+    ``apply`` does not consume the staged edits, so this is a preview and can
+    be asked for as often as the model likes.
+    """
+    previewed, _ = doc.apply()
+    problems = check_html(previewed)
+    if not problems:
+        return "No structural problems found."
+    return (
+        describe_problems(problems, previewed)
+        + "\n\nLine numbers above are the edited document; the editing tools "
+        "still use the original numbering, so find these with grep."
+    )
 
 
 async def _rewrite(config: LlmConfig, instruction: str, html: str, timeout: float) -> str:
@@ -248,12 +285,32 @@ async def _edit_with_tools(
     ]
 
     truncated = True
+    nudged = False
     for _ in range(MAX_TOOL_TURNS):
         turn = await complete_with_tools(
             config, messages=messages, tools=TOOL_SCHEMAS, timeout=timeout
         )
         messages.append(turn.message)
         if not turn.tool_calls:
+            # The model thinks it is finished. Check before believing it: the
+            # failure this guards against is the model not knowing it broke
+            # something, so leaving the check to it would not help.
+            report = _structure_report(doc)
+            if not nudged and not report.startswith("No structural"):
+                nudged = True
+                messages.append(
+                    {
+                        "role": "user",
+                        "content": (
+                            f"The document is not structurally sound yet.\n{report}\n"
+                            "Fix this and nothing else. Restaging the same line "
+                            "range revises that edit."
+                        ),
+                    }
+                )
+                continue
+            # Once only. A model that cannot fix it in one pass will thrash,
+            # and the operator still has the preview and the undo.
             truncated = False
             break
         for call in turn.tool_calls:
