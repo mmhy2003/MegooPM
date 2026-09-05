@@ -415,6 +415,79 @@ async def test_pool_used_only_by_a_location_cannot_be_deleted(client: AsyncClien
     assert resp.status_code == 409, resp.text
 
 
+async def test_a_location_can_be_edited_without_moving_its_path(client: AsyncClient, auth) -> None:
+    """Editing a location in place must not trip the (host, path) unique index.
+
+    The update replaces the whole collection, so the replacement row carries
+    the path the outgoing row still holds. Nothing about this is specific to
+    what the location answers with: a plain pool location reproduces it.
+    """
+    root = await _make_pool(client, auth)
+    api = await _make_named_pool(client, auth, "api-pool")
+    other = await _make_named_pool(client, auth, "other-pool")
+
+    created = await client.post(
+        "/api/v1/proxy-hosts",
+        headers=auth,
+        json={
+            "domain_names": ["edit.example.com"],
+            "upstream_id": root,
+            "locations": [{"path": "/docs", "upstream_id": api, "forward_scheme": "http"}],
+        },
+    )
+    assert created.status_code == 201, created.text
+    host_id = created.json()["id"]
+
+    # Same path, different pool: an edit, not a move.
+    patched = await client.patch(
+        f"/api/v1/proxy-hosts/{host_id}",
+        headers=auth,
+        json={"locations": [{"path": "/docs", "upstream_id": other, "forward_scheme": "http"}]},
+    )
+
+    assert patched.status_code == 200, patched.text
+    assert [(loc["path"], loc["upstream_id"]) for loc in patched.json()["locations"]] == [
+        ("/docs", other)
+    ]
+
+
+async def test_a_location_keeps_its_path_when_its_target_changes(client: AsyncClient, auth) -> None:
+    """The same edit across target kinds: pool -> answered by nginx."""
+    root = await _make_pool(client, auth)
+    api = await _make_named_pool(client, auth, "api-pool")
+
+    created = await client.post(
+        "/api/v1/proxy-hosts",
+        headers=auth,
+        json={
+            "domain_names": ["swap.example.com"],
+            "upstream_id": root,
+            "locations": [{"path": "/docs", "upstream_id": api, "forward_scheme": "http"}],
+        },
+    )
+    assert created.status_code == 201, created.text
+    host_id = created.json()["id"]
+
+    patched = await client.patch(
+        f"/api/v1/proxy-hosts/{host_id}",
+        headers=auth,
+        json={
+            "locations": [
+                {
+                    "path": "/docs",
+                    "target": "error_page",
+                    "error_code": 404,
+                    "forward_scheme": "http",
+                }
+            ]
+        },
+    )
+
+    assert patched.status_code == 200, patched.text
+    loc = patched.json()["locations"][0]
+    assert (loc["path"], loc["target"], loc["error_code"]) == ("/docs", "error_page", 404)
+
+
 async def test_deleting_host_cascades_locations(client: AsyncClient, auth) -> None:
     root = await _make_pool(client, auth)
     api = await _make_named_pool(client, auth, "cascade-pool")

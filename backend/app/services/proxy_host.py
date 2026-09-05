@@ -158,6 +158,13 @@ async def update_proxy_host(db: AsyncSession, host_id: int, changes: dict[str, A
             continue
         setattr(host, field, value)
     if locations is not None:
+        # Empty and flush before re-adding. A replacement row usually carries a
+        # (host, path) pair the outgoing row still holds, and SQLAlchemy emits
+        # this table's INSERTs before its DELETEs, so the unique index sees a
+        # duplicate that never really exists. Editing a location in place is
+        # the common case, so this is not an edge.
+        host.locations.clear()
+        await db.flush()
         host.locations = _location_rows(locations)
     try:
         await db.commit()
