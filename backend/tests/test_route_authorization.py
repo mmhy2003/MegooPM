@@ -144,8 +144,8 @@ ROUTE_ROLES: dict[tuple[str, str], str] = {
     ("DELETE", "/api/v1/streams/{stream_id}"): "admin",
     ("GET", "/api/v1/streams/{stream_id}"): "admin",
     ("PATCH", "/api/v1/streams/{stream_id}"): "admin",
-    ("POST", "/api/v1/tasks/sample"): "public",
-    ("GET", "/api/v1/tasks/{task_id}"): "public",
+    ("POST", "/api/v1/tasks/sample"): "admin",
+    ("GET", "/api/v1/tasks/{task_id}"): "member",
     ("GET", "/api/v1/upstreams"): "admin",
     ("POST", "/api/v1/upstreams"): "admin",
     ("DELETE", "/api/v1/upstreams/{upstream_id}"): "admin",
@@ -203,23 +203,7 @@ def test_the_table_has_no_routes_the_app_lost() -> None:
     assert set(ROUTE_ROLES) - live == set()
 
 
-@pytest.mark.parametrize(
-    "method",
-    [
-        # Only POST fails today: /api/v1/tasks/sample takes no authentication
-        # at all. The next commit gives it a guard and this marker goes away.
-        # Strict, so fixing it early is reported rather than silently passing.
-        pytest.param(
-            "POST",
-            marks=pytest.mark.xfail(
-                reason="POST /api/v1/tasks/sample is unauthenticated", strict=True
-            ),
-        ),
-        "PATCH",
-        "PUT",
-        "DELETE",
-    ],
-)
+@pytest.mark.parametrize("method", ["POST", "PATCH", "PUT", "DELETE"])
 def test_writes_are_admin_only(method: str) -> None:
     """The rule the whole feature rests on, stated once.
 
