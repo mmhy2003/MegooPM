@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { toast } from "sonner";
 
 const push = vi.fn();
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push }) }));
@@ -186,6 +187,7 @@ describe("CustomPageEditorView", () => {
 
 describe("CustomPageEditorView — AI", () => {
   beforeEach(() => {
+    vi.spyOn(toast, "warning").mockImplementation(() => "" as never);
     vi.spyOn(customPages, "get").mockResolvedValue(makePage());
     vi.spyOn(customPages, "update").mockResolvedValue(makePage());
     vi.spyOn(customPages, "assist").mockResolvedValue({
@@ -233,6 +235,65 @@ describe("CustomPageEditorView — AI", () => {
       html: HTML,
     });
     await waitFor(() => expect(screen.getByLabelText("HTML source")).toHaveValue(AI_DOC));
+  });
+
+  it("asks for one repair when the returned script will not parse", async () => {
+    const user = userEvent.setup();
+    const broken = "<body><script>const a = (1 + 2));</script></body>";
+    const fixed = "<body><script>const a = 1 + 2;</script></body>";
+    vi.mocked(customPages.assist)
+      .mockResolvedValueOnce({ html: broken, mode: "tools", truncated: false, changes: [] })
+      .mockResolvedValueOnce({ html: fixed, mode: "tools", truncated: false, changes: [] });
+    render(<CustomPageEditorView pageId={7} />);
+    await waitFor(() => expect(screen.getByLabelText("HTML source")).toHaveValue(HTML));
+
+    await generate(user, "add a counter");
+
+    await waitFor(() => expect(customPages.assist).toHaveBeenCalledTimes(2));
+    // The repair names the error, so the model has something to act on.
+    const repair = vi.mocked(customPages.assist).mock.calls[1][0];
+    expect(repair.instruction).toMatch(/script/i);
+    expect(repair.instruction).toContain("const a = (1 + 2));");
+    // The fixed document is what lands in the editor, not the broken one.
+    await waitFor(() => expect(screen.getByLabelText("HTML source")).toHaveValue(fixed));
+  });
+
+  it("asks for no repair when the script parses", async () => {
+    const user = userEvent.setup();
+    const good = "<body><script>const a = obj?.b ?? 1;</script></body>";
+    vi.mocked(customPages.assist).mockResolvedValue({
+      html: good,
+      mode: "tools",
+      truncated: false,
+      changes: [],
+    });
+    render(<CustomPageEditorView pageId={7} />);
+    await waitFor(() => expect(screen.getByLabelText("HTML source")).toHaveValue(HTML));
+
+    await generate(user, "add a counter");
+
+    await waitFor(() => expect(screen.getByLabelText("HTML source")).toHaveValue(good));
+    // Modern syntax must not be mistaken for breakage and cost a second call.
+    expect(customPages.assist).toHaveBeenCalledTimes(1);
+  });
+
+  it("stops after one repair and says the script is still broken", async () => {
+    const user = userEvent.setup();
+    const broken = "<body><script>const a = (1 + 2));</script></body>";
+    vi.mocked(customPages.assist).mockResolvedValue({
+      html: broken,
+      mode: "tools",
+      truncated: false,
+      changes: [],
+    });
+    render(<CustomPageEditorView pageId={7} />);
+    await waitFor(() => expect(screen.getByLabelText("HTML source")).toHaveValue(HTML));
+
+    await generate(user, "add a counter");
+
+    // Two calls, never three: a model that cannot fix it in one pass thrashes.
+    await waitFor(() => expect(customPages.assist).toHaveBeenCalledTimes(2));
+    expect(toast.warning).toHaveBeenCalledWith(expect.stringMatching(/will not parse/i));
   });
 
   it("elides images before sending and restores them after", async () => {

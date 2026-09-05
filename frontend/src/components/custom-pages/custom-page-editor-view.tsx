@@ -28,6 +28,10 @@ import {
 import { HtmlEditor, type HtmlEditorHandle } from "@/components/custom-pages/html-editor";
 import { AiPromptBar } from "@/components/custom-pages/ai-prompt-bar";
 import { PagePreview } from "@/components/custom-pages/page-preview";
+import {
+  checkScripts,
+  describeScriptProblems,
+} from "@/components/custom-pages/script-check";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -210,13 +214,41 @@ export function CustomPageEditorView({ pageId }: { pageId: number | null }) {
         { instruction, html: elided },
         { signal: controller.signal },
       );
-      const restored = restoreImages(result.html, images);
+      let restored = restoreImages(result.html, images);
+      let edit = result;
+
+      // The browser is the only JavaScript parser in this stack that accepts
+      // modern syntax on every architecture, so the syntax check happens here
+      // rather than in the assist loop. See script-check.ts.
+      const problems = checkScripts(restored.html);
+      if (problems.length > 0) {
+        const repair = await customPages.assist(
+          {
+            instruction: describeScriptProblems(problems),
+            html: elideImages(restored.html).html,
+          },
+          { signal: controller.signal },
+        );
+        const repaired = restoreImages(repair.html, images);
+        // One round, not a cycle: a model that cannot fix it in one pass will
+        // thrash. If it is still broken the operator is told, and still has
+        // the preview and the undo.
+        if (checkScripts(repaired.html).length === 0) {
+          restored = repaired;
+          edit = repair;
+        } else {
+          toast.warning(
+            "The page still has a script that will not parse — check it before saving.",
+          );
+        }
+      }
+
       setHtmlBeforeAi(form.html);
       patch({ html: restored.html });
       setLastEdit({
-        mode: result.mode,
-        truncated: result.truncated ?? false,
-        changes: result.changes ?? [],
+        mode: edit.mode,
+        truncated: edit.truncated ?? false,
+        changes: edit.changes ?? [],
       });
       // Show what changed without making the operator go looking for it.
       setPane("changes");
