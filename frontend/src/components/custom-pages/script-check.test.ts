@@ -1,6 +1,16 @@
 import { describe, expect, it } from "vitest";
 
-import { checkScripts, extractScripts } from "@/components/custom-pages/script-check";
+import {
+  checkScripts,
+  describeScriptProblems,
+  extractScripts,
+  MAX_INSTRUCTION_CHARS,
+} from "@/components/custom-pages/script-check";
+
+/** A script far longer than any instruction the API will accept. */
+function longScript(lines: number): string {
+  return Array.from({ length: lines }, (_, i) => `  const v${i} = ${i};`).join("\n");
+}
 
 describe("extractScripts", () => {
   it("finds an inline script body", () => {
@@ -93,10 +103,50 @@ describe("checkScripts", () => {
 });
 
 describe("describeScriptProblems", () => {
-  it("reads as an instruction naming the error and the code", async () => {
-    const { describeScriptProblems } = await import("@/components/custom-pages/script-check");
+  it("reads as an instruction naming the error and the code", () => {
     const text = describeScriptProblems(checkScripts("<script>const a = (1 + 2));</script>"));
     expect(text).toMatch(/script/i);
     expect(text).toContain("const a =");
+  });
+
+  it("stays within the instruction the API will accept", () => {
+    // The repair goes out as an assist instruction, which the API caps at 2000
+    // characters. A real page's script is far longer than that, so quoting one
+    // whole made every repair fail validation instead of fixing anything.
+    const big = longScript(500);
+    const text = describeScriptProblems(checkScripts(`<script>${big}\nconst a = (1 + 2));</script>`));
+
+    expect(big.length).toBeGreaterThan(MAX_INSTRUCTION_CHARS);
+    expect(text.length).toBeLessThanOrEqual(MAX_INSTRUCTION_CHARS);
+  });
+
+  it("says when it has shortened the code it quotes", () => {
+    // Otherwise the model reads an excerpt as the whole script and "fixes" an
+    // ending that was never missing.
+    const text = describeScriptProblems(
+      checkScripts(`<script>${longScript(500)}\nconst a = (1 + 2));</script>`),
+    );
+    expect(text).toMatch(/shortened|truncat|excerpt/i);
+  });
+
+  it("still names the error after shortening", () => {
+    const text = describeScriptProblems(
+      checkScripts(`<script>${longScript(500)}\nconst a = (1 + 2));</script>`),
+    );
+    expect(text).toMatch(/script 1/i);
+  });
+
+  it("quotes a short script in full", () => {
+    const text = describeScriptProblems(checkScripts("<script>const a = (1 + 2));</script>"));
+    expect(text).toContain("const a = (1 + 2));");
+    expect(text).not.toMatch(/shortened/i);
+  });
+
+  it("stays within the cap even with several broken scripts", () => {
+    const one = longScript(300);
+    const html = `<script>${one}\nconst x = (;</script><script>${one}\nconst y = (;</script>`;
+    expect(describeScriptProblems(checkScripts(html)).length).toBeLessThanOrEqual(
+      MAX_INSTRUCTION_CHARS,
+    );
   });
 });

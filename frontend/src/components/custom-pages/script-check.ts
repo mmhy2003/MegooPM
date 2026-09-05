@@ -22,6 +22,19 @@ export interface ScriptProblem {
   source: string;
 }
 
+/**
+ * The API's cap on an assist instruction, mirroring MAX_INSTRUCTION_CHARS in
+ * the backend's page_assist service. A repair goes out as an instruction, so a
+ * report longer than this is rejected before the model ever sees it.
+ */
+export const MAX_INSTRUCTION_CHARS = 2000;
+
+/**
+ * How much of one script to quote. The model is sent the whole document
+ * anyway; the quote only has to say which script is meant.
+ */
+const EXCERPT_CHARS = 400;
+
 const SCRIPT_PATTERN = /<script\b([^>]*)>([\s\S]*?)<\/script\s*>/gi;
 
 /**
@@ -59,15 +72,43 @@ export function checkScripts(html: string): ScriptProblem[] {
   return problems;
 }
 
-/** The faults as an instruction for whoever has to fix them. */
+function excerpt(source: string, budget: number): { text: string; shortened: boolean } {
+  const limit = Math.max(80, Math.min(EXCERPT_CHARS, budget));
+  if (source.length <= limit) return { text: source, shortened: false };
+  return { text: source.slice(0, limit), shortened: true };
+}
+
+/**
+ * The faults as an instruction for whoever has to fix them.
+ *
+ * Bounded to {@link MAX_INSTRUCTION_CHARS}. Quoting a real page's script whole
+ * produced a 4,000-character instruction that the API rejected outright, so
+ * every repair failed validation instead of fixing anything.
+ */
 export function describeScriptProblems(problems: ScriptProblem[]): string {
   if (problems.length === 0) return "";
-  const lines = [
+  const header =
     `The page has ${problems.length} script(s) that will not parse. ` +
-      `Fix the JavaScript and change nothing else.`,
-  ];
-  for (const problem of problems) {
-    lines.push(`\nScript ${problem.index} — ${problem.message}\n${problem.source}`);
-  }
-  return lines.join("\n");
+    `Fix the JavaScript and change nothing else.`;
+
+  const parts: string[] = [header];
+  let budget = MAX_INSTRUCTION_CHARS - header.length;
+
+  problems.forEach((problem, i) => {
+    const head = `\nScript ${problem.index} - ${problem.message}`;
+    const remaining = problems.length - i;
+    if (budget - head.length < 80) return;
+    // Share what is left between the faults still to come, so several broken
+    // scripts cannot overflow the cap between them.
+    const share = Math.floor((budget - head.length) / remaining);
+    const { text, shortened } = excerpt(problem.source, share);
+    // Say so when the quote is partial: otherwise the model reads an excerpt
+    // as the whole script and "fixes" an ending that was never missing.
+    const body = shortened ? `${text}\n... (shortened; the full script is in the page)` : text;
+    const block = `${head}\n${body}`;
+    parts.push(block);
+    budget -= block.length;
+  });
+
+  return parts.join("\n").slice(0, MAX_INSTRUCTION_CHARS);
 }
