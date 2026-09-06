@@ -117,6 +117,67 @@ One file per object, named by id so updates rewrite in place (never duplicate):
   curl -sI https://<a-managed-domain>/definitely-not-here | head -1   # 404
   ```
 
+- `megoopm-maintenance.html` — the **maintenance page**, written only while at
+  least one proxy host has maintenance switched on (the directory is reconciled
+  by prefix, so a document nobody references would be swept anyway). Its own
+  document rather than a binding onto the branded 503: "we are doing planned
+  work" and "an upstream failed" are different messages. Chosen once under
+  Settings → Maintenance page, shipped template or a Custom Page; a page that
+  has gone missing falls back to the shipped one, because an empty maintenance
+  page is worse than a generic one.
+
+  A host under maintenance renders three extra things, and two of them are in
+  a particular order for reasons measured against openresty 1.25.3.2:
+
+  ```nginx
+  # Above the server blocks: which addresses skip maintenance for this host.
+  geo $mgm_maint_7 {
+      default 1;
+      203.0.113.5 0;
+  }
+
+  server {
+      # BEFORE the errors include: at one configuration level the FIRST
+      # error_page for a status wins. Reversed, the branded 503 is served and
+      # maintenance silently does nothing.
+      error_page 503 /megoopm-maintenance.html;
+      location = /megoopm-maintenance.html {
+          root /data/nginx/default;
+          internal;
+          add_header Retry-After 3600 always;
+      }
+      include /data/nginx/default/megoopm-errors.conf.inc;
+      ...
+      location / {
+          # The guard lives in EVERY location, not once at server level: a
+          # server-level `if` runs in the rewrite phase, where a `return`
+          # bypasses error_page and nginx serves its own body instead of ours.
+          # A `rewrite` to an internal location fails the same way.
+          if ($mgm_maint_7) { return 503; }
+          proxy_pass ...;
+      }
+  }
+  ```
+
+  The response is **503 with `Retry-After`** (minutes in the UI, seconds in the
+  header), so a crawler comes back rather than de-indexing the site.
+
+  `^~ /.well-known/acme-challenge/` is **never** guarded: maintenance lasts
+  hours or days, and guarding it turns planned downtime into a certificate that
+  expires days later, far from the change that caused it.
+
+  The allow-list is validated as addresses and ranges by the API before it can
+  reach the file — nginx refuses to load a `geo` block containing anything
+  else, and that failure takes the whole edge down.
+
+  Verify on a live stack:
+
+  ```bash
+  curl -sI https://<a-host-under-maintenance>/ | head -1              # 503
+  curl -sI https://<a-host-under-maintenance>/ | grep -i retry-after
+  docker compose exec nginx head -20 /data/nginx/conf.d/megoopm-proxy-<id>.conf
+  ```
+
 Only files beginning with `NGINX_MANAGED_PREFIX` (default `megoopm-`) are managed;
 hand-placed configs in `conf.d` are never touched. The websocket
 `map $http_upgrade $connection_upgrade` lives once in the base
