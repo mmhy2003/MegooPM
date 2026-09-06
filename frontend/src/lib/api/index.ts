@@ -86,6 +86,13 @@ export type {
   VisitorSummary,
   TrafficSummary,
 } from "@/lib/api/resources/dashboard";
+export { auditLog } from "@/lib/api/resources/audit-log";
+export type {
+  AuditAction,
+  AuditLogEntry,
+  AuditLogPage,
+  AuditLogQuery,
+} from "@/lib/api/resources/audit-log";
 export { instanceSettings } from "@/lib/api/resources/settings";
 export type {
   CrowdSecBanMode,

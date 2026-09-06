@@ -5760,7 +5760,7 @@ export interface operations {
                 object_type?: string | null;
                 /** @description Filter by the mutated object's id */
                 object_id?: number | null;
-                /** @description Filter by actor (exact match) */
+                /** @description Filter by actor; matches part of it, ignoring case */
                 actor?: string | null;
                 /** @description Filter by mutation action */
                 action?: components["schemas"]["AuditAction"] | null;

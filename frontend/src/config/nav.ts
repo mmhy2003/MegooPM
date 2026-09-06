@@ -11,6 +11,7 @@ import {
   FileCode2,
   ShieldAlert,
   Users,
+  ScrollText,
   type LucideIcon,
 } from "lucide-react";
 
@@ -94,6 +95,13 @@ export const primaryNav: NavItem[] = [
     href: "/users",
     icon: Users,
     description: "Accounts and roles for people who sign in to MegooPM.",
+    adminOnly: true,
+  },
+  {
+    title: "Audit Log",
+    href: "/audit-log",
+    icon: ScrollText,
+    description: "Every change made through MegooPM, and who made it.",
     adminOnly: true,
   },
   {

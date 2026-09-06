@@ -18,6 +18,7 @@ describe("primaryNav", () => {
       "Custom Pages",
       "Security",
       "Users",
+      "Audit Log",
       "Settings",
     ]);
   });
@@ -34,7 +35,7 @@ describe("primaryNav", () => {
 
   it("marks only Users as admin-only", () => {
     const adminOnly = primaryNav.filter((item) => item.adminOnly).map((item) => item.href);
-    expect(adminOnly).toEqual(["/users", "/settings"]);
+    expect(adminOnly).toEqual(["/users", "/audit-log", "/settings"]);
   });
 });
 
@@ -45,6 +46,9 @@ describe("navForRole", () => {
 
   it("hides admin-only items from members and signed-out visitors", () => {
     expect(navForRole("member").map((i) => i.href)).not.toContain("/users");
+    // The log names who changed what across the whole instance; a member has
+    // no business reading it, and the API answers 403 either way.
+    expect(navForRole("member").map((i) => i.href)).not.toContain("/audit-log");
     expect(navForRole(null).map((i) => i.href)).not.toContain("/users");
     expect(navForRole(undefined).map((i) => i.href)).not.toContain("/users");
   });
