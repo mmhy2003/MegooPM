@@ -20,6 +20,7 @@ import pytest
 from app.core.config import Settings
 from app.db.session import get_session
 from app.main import app
+from app.models.api_key import ApiKey
 from app.models.audit_log import AuditLog
 from app.models.auth_token import AuthToken
 from app.models.crowdsec import CrowdSecCredential
@@ -107,6 +108,7 @@ async def session_factory() -> AsyncIterator[async_sessionmaker]:
                 CustomPage.__table__,
                 ErrorPage.__table__,
                 Passkey.__table__,
+                ApiKey.__table__,
                 CrowdSecJobRun.__table__,
             ],
         )

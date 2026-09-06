@@ -10,6 +10,7 @@ from app.models.access_list import (  # noqa: F401
     AccessListAuth,
     AccessListClient,
 )
+from app.models.api_key import ApiKey  # noqa: F401
 from app.models.audit_log import AuditLog  # noqa: F401
 from app.models.auth_token import AuthToken  # noqa: F401
 from app.models.certificate import Certificate  # noqa: F401
@@ -60,6 +61,7 @@ __all__ = [
     "ErrorPage",
     "InstanceSettings",
     "NodeMetrics",
+    "ApiKey",
     "Passkey",
     "VisitorDay",
     "ProxyHost",
