@@ -19,6 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import CurrentUser, SessionAdminUser, SessionDep, SessionUser
 from app.models.enums import AuditAction, AuthTokenKind
 from app.models.user import User
+from app.schemas.api_key import ApiKeyCreate, ApiKeyCreated, ApiKeyRead, ApiKeyUpdate
 from app.schemas.auth import PasskeyOptions
 from app.schemas.user import (
     PasskeyRead,
@@ -34,7 +35,7 @@ from app.schemas.user import (
     UserRead,
     UserUpdate,
 )
-from app.services import auth_tokens, passkeys, totp, webauthn_challenge
+from app.services import api_keys, auth_tokens, passkeys, totp, webauthn_challenge
 from app.services import instance_settings as settings_service
 from app.services import user as user_service
 from app.services.audit import record_audit
@@ -259,6 +260,11 @@ async def _relying_party(db: AsyncSession) -> passkeys.RelyingParty:
         ) from None
 
 
+def _api_key_not_found() -> HTTPException:
+    """404, never 403: an id someone else owns must not be confirmed to exist."""
+    return HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="API key not found")
+
+
 def _passkey_not_added() -> HTTPException:
     return HTTPException(
         status_code=status.HTTP_400_BAD_REQUEST,
@@ -364,6 +370,92 @@ async def passkey_remove(
         action=AuditAction.update,
         object_id=current_user.id,
         meta={"passkey": "removed"},
+    )
+
+
+# --- API keys -----------------------------------------------------------------
+
+
+async def _audit_key(
+    db: AsyncSession, *, actor: User, action: AuditAction, key_id: int | None, name: str
+) -> None:
+    """One ``api_key`` audit row, committed. Never the token or its digest."""
+    await record_audit(
+        db,
+        actor=actor.email,
+        action=action,
+        object_type="api_key",
+        object_id=key_id,
+        meta={"name": name},
+    )
+    await db.commit()
+
+
+@router.get("/me/api-keys", response_model=list[ApiKeyRead])
+async def list_api_keys(current_user: SessionUser, db: SessionDep) -> list[ApiKeyRead]:
+    """Your API keys.
+
+    Expired and disabled ones stay listed until you delete them: a key that
+    vanished on expiry would hide the reason a script broke at exactly the
+    moment someone is looking for it.
+    """
+    return [ApiKeyRead.model_validate(k) for k in await api_keys.list_for(db, current_user)]
+
+
+@router.post("/me/api-keys", response_model=ApiKeyCreated, status_code=status.HTTP_201_CREATED)
+async def create_api_key(
+    body: ApiKeyCreate, current_user: SessionUser, db: SessionDep
+) -> ApiKeyCreated:
+    """Mint a key.
+
+    This response is the only time the token exists outside the caller — only a
+    digest is stored, so it cannot be recovered or shown again.
+    """
+    try:
+        row, token = await api_keys.create(
+            db, current_user, name=body.name, expires_at=body.expires_at
+        )
+    except api_keys.ApiKeyLimitReached:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"You can have up to {api_keys.MAX_KEYS} API keys. Delete one first.",
+        ) from None
+    await _audit_key(
+        db, actor=current_user, action=AuditAction.create, key_id=row.id, name=row.name
+    )
+    return ApiKeyCreated(**ApiKeyRead.model_validate(row).model_dump(), token=token)
+
+
+@router.patch("/me/api-keys/{key_id}", response_model=ApiKeyRead)
+async def update_api_key(
+    key_id: int, body: ApiKeyUpdate, current_user: SessionUser, db: SessionDep
+) -> ApiKeyRead:
+    """Switch a key off, or back on."""
+    key = await api_keys.get_owned(db, current_user, key_id)
+    if key is None:
+        raise _api_key_not_found()
+    name = key.name
+    row = await api_keys.set_enabled(db, key, body.enabled)
+    await _audit_key(
+        db,
+        actor=current_user,
+        action=AuditAction.enable if body.enabled else AuditAction.disable,
+        key_id=key_id,
+        name=name,
+    )
+    return ApiKeyRead.model_validate(row)
+
+
+@router.delete("/me/api-keys/{key_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_api_key(key_id: int, current_user: SessionUser, db: SessionDep) -> None:
+    """Revoke a key for good. Anything using it stops on its next request."""
+    key = await api_keys.get_owned(db, current_user, key_id)
+    if key is None:
+        raise _api_key_not_found()
+    name = key.name
+    await api_keys.delete(db, key)
+    await _audit_key(
+        db, actor=current_user, action=AuditAction.delete, key_id=key_id, name=name
     )
 
 
