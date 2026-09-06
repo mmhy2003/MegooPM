@@ -162,6 +162,33 @@ describe("ProxyHostsView search", () => {
   });
 });
 
+describe("ProxyHostsView maintenance", () => {
+  afterEach(() => {
+    cleanup();
+    vi.restoreAllMocks();
+  });
+
+  it("badges a host that is under maintenance", async () => {
+    // The only other signal is inside a dialog, and a host left in maintenance
+    // for a week looks exactly like a host that is simply down.
+    vi.spyOn(proxyHosts, "list").mockResolvedValue([makeHost({ maintenance_enabled: true })]);
+    vi.spyOn(upstreams, "list").mockResolvedValue([]);
+    vi.spyOn(accessLists, "list").mockResolvedValue([]);
+    vi.spyOn(certificates, "list").mockResolvedValue([]);
+    vi.spyOn(customPages, "list").mockResolvedValue([]);
+    render(<ProxyHostsView />);
+
+    expect(await screen.findByText("Maintenance")).toBeInTheDocument();
+  });
+
+  it("badges nothing when the host is serving normally", async () => {
+    mount();
+    await screen.findByRole("searchbox", { name: "Search proxy hosts" });
+
+    expect(screen.queryByText("Maintenance")).not.toBeInTheDocument();
+  });
+});
+
 describe("ProxyHostsView write controls", () => {
   afterEach(() => {
     cleanup();

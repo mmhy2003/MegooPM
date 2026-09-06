@@ -421,3 +421,45 @@ describe("a location answered with a branded error page", () => {
     expect(error?.tab).toBe("forwarding");
   });
 });
+
+describe("maintenance", () => {
+  it("round-trips the switch and the allow list", () => {
+    const state = stateFromHost(
+      makeHost({ maintenance_enabled: true, maintenance_allow: ["203.0.113.5"] }),
+    );
+    expect(state.toggles.maintenance_enabled).toBe(true);
+    expect(state.maintenanceAllow).toEqual(["203.0.113.5"]);
+
+    const payload = buildPayload(state, null);
+    expect(payload.maintenance_enabled).toBe(true);
+    expect(payload.maintenance_allow).toEqual(["203.0.113.5"]);
+  });
+
+  it("sends an empty allow list rather than null", () => {
+    // The column is NOT NULL; null would be a 422 on every save.
+    const payload = buildPayload(stateFromHost(makeHost({ maintenance_enabled: true })), null);
+
+    expect(payload.maintenance_allow).toEqual([]);
+  });
+
+  it("rejects an allow-list entry that is not an address", () => {
+    // The API is the enforcement point; this is the message that names the
+    // offending entry instead of a 422 body.
+    const error = validateForm({
+      ...stateFromHost(makeHost()),
+      maintenanceAllow: ["not-an-ip"],
+    });
+
+    expect(error?.message).toMatch(/address/i);
+    expect(error?.tab).toBe("advanced");
+  });
+
+  it("accepts addresses and ranges, v4 and v6", () => {
+    const error = validateForm({
+      ...stateFromHost(makeHost()),
+      maintenanceAllow: ["203.0.113.5", "10.0.0.0/8", "2001:db8::/32"],
+    });
+
+    expect(error).toBeNull();
+  });
+});

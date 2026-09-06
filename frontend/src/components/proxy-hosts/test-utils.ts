@@ -18,6 +18,8 @@ export function makeHost(patch: Partial<ProxyHost> = {}): ProxyHost {
     allow_websocket_upgrade: false,
     crowdsec_enabled: false,
     crowdsec_appsec_enabled: false,
+    maintenance_enabled: false,
+    maintenance_allow: [],
     advanced_config: "",
     enabled: true,
     locations: [],

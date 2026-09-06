@@ -235,6 +235,17 @@ export function ProxyHostsView() {
                           domains={host.domain_names}
                           secure={host.certificate_id != null}
                         />
+                        {host.maintenance_enabled ? (
+                          // A host left under maintenance looks exactly like a
+                          // host that is down, and the only other signal for it
+                          // is inside the edit dialog.
+                          <Badge
+                            variant="outline"
+                            className="mt-1 border-amber-500/40 text-amber-600 dark:text-amber-400"
+                          >
+                            Maintenance
+                          </Badge>
+                        ) : null}
                       </TableCell>
                       <TableCell>
                         {host.upstream_id == null ? (

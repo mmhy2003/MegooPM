@@ -24,6 +24,7 @@ import {
 } from "@/components/proxy-hosts/lib";
 import { LocationsEditor } from "@/components/proxy-hosts/locations-editor";
 import { DomainTagsInput } from "@/components/domains/domain-tags-input";
+import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -71,7 +72,24 @@ const SECURITY_TOGGLES: readonly ToggleDef[] = [
     "CrowdSec protection",
     "Enforce CrowdSec bans (and the AppSec WAF) for this host at the edge",
   ],
+  [
+    "maintenance_enabled",
+    "Under maintenance",
+    "Serve the maintenance page with a 503 instead of proxying",
+  ],
 ];
+
+/** Split what an operator types into allow-list entries.
+ *
+ * Commas, spaces and newlines all separate, because a list of addresses gets
+ * pasted from wherever it was written down.
+ */
+function parseAllowList(input: string): string[] {
+  return input
+    .split(/[\s,]+/)
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+}
 
 function ToggleGrid({
   defs,
@@ -131,6 +149,10 @@ export function ProxyHostDialog({
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [domainsInvalid, setDomainsInvalid] = useState(false);
+  // The allow list is held as text as well as parsed: rendering the parsed
+  // array back into the field eats the separator the operator just typed, so
+  // "10.0.0.0/8, 203" becomes "10.0.0.0/8203" mid-edit.
+  const [allowText, setAllowText] = useState(() => (host?.maintenance_allow ?? []).join(", "));
 
   function patch(changes: Partial<ProxyHostFormState>) {
     setForm((prev) => ({ ...prev, ...changes }));
@@ -319,6 +341,26 @@ export function ProxyHostDialog({
               disabled={saving}
               onChange={setToggle}
             />
+            {form.toggles.maintenance_enabled ? (
+              <div className="space-y-1.5">
+                <Label htmlFor="host-maintenance-allow">Allowed while under maintenance</Label>
+                <Input
+                  id="host-maintenance-allow"
+                  value={allowText}
+                  onChange={(e) => {
+                    setAllowText(e.target.value);
+                    patch({ maintenanceAllow: parseAllowList(e.target.value) });
+                  }}
+                  placeholder="203.0.113.5, 10.0.0.0/8"
+                  className="font-mono text-xs"
+                  disabled={saving}
+                />
+                <p className="text-xs text-muted-foreground">
+                  These addresses still reach the real site, so you can check a deploy before
+                  switching maintenance off. Everyone else gets the maintenance page.
+                </p>
+              </div>
+            ) : null}
             <div className="space-y-1.5">
               <Label htmlFor="host-advanced">Advanced nginx config</Label>
               <Textarea

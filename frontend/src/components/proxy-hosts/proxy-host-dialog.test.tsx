@@ -152,6 +152,53 @@ describe("ProxyHostDialog", () => {
       crowdsec_enabled: true,
     });
   });
+
+  it("shows the allow list only once maintenance is on", async () => {
+    // Empty and hidden are the same thing when maintenance is off; showing it
+    // anyway invites an operator to fill in a field that does nothing.
+    const user = userEvent.setup();
+    renderDialog();
+    await user.click(screen.getByRole("tab", { name: "Advanced" }));
+
+    expect(screen.queryByLabelText(/allowed while under maintenance/i)).not.toBeInTheDocument();
+    await user.click(await screen.findByLabelText("Under maintenance"));
+
+    expect(screen.getByLabelText(/allowed while under maintenance/i)).toBeInTheDocument();
+  });
+
+  it("saves the switch and the addresses that bypass it", async () => {
+    const user = userEvent.setup();
+    renderDialog();
+    await user.click(screen.getByRole("tab", { name: "Advanced" }));
+    await user.click(await screen.findByLabelText("Under maintenance"));
+
+    await user.type(
+      screen.getByLabelText(/allowed while under maintenance/i),
+      "203.0.113.5, 10.0.0.0/8",
+    );
+    await user.click(screen.getByRole("button", { name: "Save changes" }));
+
+    await waitFor(() => expect(proxyHosts.update).toHaveBeenCalledTimes(1));
+    expect(vi.mocked(proxyHosts.update).mock.calls[0][1]).toMatchObject({
+      maintenance_enabled: true,
+      maintenance_allow: ["203.0.113.5", "10.0.0.0/8"],
+    });
+  });
+
+  it("refuses an allow-list entry that is not an address", async () => {
+    // Saving it would take nginx down on the next reload, so the dialog says so
+    // rather than letting the API answer 422.
+    const user = userEvent.setup();
+    renderDialog();
+    await user.click(screen.getByRole("tab", { name: "Advanced" }));
+    await user.click(await screen.findByLabelText("Under maintenance"));
+
+    await user.type(screen.getByLabelText(/allowed while under maintenance/i), "not-an-ip");
+    await user.click(screen.getByRole("button", { name: "Save changes" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(/address/i);
+    expect(proxyHosts.update).not.toHaveBeenCalled();
+  });
 });
 
 describe("ProxyHostDialog forward target", () => {

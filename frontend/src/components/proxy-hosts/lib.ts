@@ -76,6 +76,7 @@ export const TOGGLE_KEYS = [
   "block_exploits",
   "allow_websocket_upgrade",
   "crowdsec_enabled",
+  "maintenance_enabled",
 ] as const;
 export type ToggleKey = (typeof TOGGLE_KEYS)[number];
 
@@ -145,6 +146,8 @@ export interface ProxyHostFormState {
   locations: LocationRow[];
   certificateId: string;
   toggles: Record<ToggleKey, boolean>;
+  /** IPs and CIDRs that reach the real site while the host is under maintenance. */
+  maintenanceAllow: string[];
   advancedConfig: string;
 }
 
@@ -190,6 +193,7 @@ export function stateFromHost(host: ProxyHost | null | undefined): ProxyHostForm
       locations: [],
       certificateId: NO_CERTIFICATE,
       toggles: emptyToggles(),
+      maintenanceAllow: [],
       advancedConfig: "",
     };
   }
@@ -220,6 +224,7 @@ export function stateFromHost(host: ProxyHost | null | undefined): ProxyHostForm
       ToggleKey,
       boolean
     >,
+    maintenanceAllow: [...(host.maintenance_allow ?? [])],
     advancedConfig: host.advanced_config ?? "",
   };
 }
@@ -265,7 +270,40 @@ export function validateForm(form: ProxyHostFormState): FormError | null {
     if (parsePort(form.rootForwardPort) === null)
       return { message: "Forward port must be between 1 and 65535.", tab: "forwarding" };
   }
+  for (const entry of form.maintenanceAllow) {
+    if (!isIpOrCidr(entry))
+      return { message: `"${entry}" is not an IP address or CIDR range.`, tab: "advanced" };
+  }
   return validateLocations(form.locations);
+}
+
+/** Accepts an IP address or a CIDR range, v4 or v6.
+ *
+ * A courtesy check, not the enforcement point: the API validates the same
+ * thing, because nginx refuses to load a geo block containing anything else and
+ * that failure takes the whole edge down. Checking here names the offending
+ * entry instead of surfacing a 422 body.
+ */
+export function isIpOrCidr(entry: string): boolean {
+  const value = entry.trim();
+  if (value === "") return false;
+  const [address, prefix, ...rest] = value.split("/");
+  if (rest.length > 0) return false;
+
+  const v6 = address.includes(":");
+  if (prefix !== undefined) {
+    if (!/^\d{1,3}$/.test(prefix)) return false;
+    if (Number(prefix) > (v6 ? 128 : 32)) return false;
+  }
+  if (v6) {
+    // Deliberately loose: full v6 grammar is not worth reimplementing when the
+    // API rejects what this lets through.
+    return /^[0-9a-fA-F:]+$/.test(address) && !address.includes(":::");
+  }
+  const octets = address.split(".");
+  return (
+    octets.length === 4 && octets.every((octet) => /^\d{1,3}$/.test(octet) && Number(octet) <= 255)
+  );
 }
 
 function idOrNull(value: string, sentinel: string): number | null {
@@ -289,6 +327,9 @@ export function buildPayload(
     certificate_id: idOrNull(form.certificateId, NO_CERTIFICATE),
     access_list_id: idOrNull(form.accessListId, NO_ACCESS_LIST),
     enabled: form.enabled,
+    // Always an array: the column is NOT NULL, so null would be a 422 on
+    // every save rather than "no addresses bypass maintenance".
+    maintenance_allow: form.maintenanceAllow,
     advanced_config: form.advancedConfig,
     ...form.toggles,
     locations: form.locations.map((row) => {
