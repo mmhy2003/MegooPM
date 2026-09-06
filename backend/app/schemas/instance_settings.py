@@ -27,7 +27,13 @@ from pydantic import (
     model_validator,
 )
 
-from app.models.enums import CrowdSecBanMode, DefaultSiteMode, HubUpdateFrequency, SmtpSecurity
+from app.models.enums import (
+    CrowdSecBanMode,
+    DefaultSiteMode,
+    HubUpdateFrequency,
+    MaintenancePageMode,
+    SmtpSecurity,
+)
 
 _ALLOWED_SCHEMES = {"http", "https"}
 
@@ -110,6 +116,9 @@ class InstanceSettingsRead(BaseModel):
     default_site_page_id: int | None
     crowdsec_ban_mode: CrowdSecBanMode
     crowdsec_ban_page_id: int | None
+    maintenance_mode: MaintenancePageMode
+    maintenance_page_id: int | None
+    maintenance_retry_after_minutes: int
     llm_enabled: bool
     llm_model: str | None
     llm_api_base: str | None
@@ -144,6 +153,9 @@ class InstanceSettingsRead(BaseModel):
             default_site_page_id=row.default_site_page_id,
             crowdsec_ban_mode=row.crowdsec_ban_mode,
             crowdsec_ban_page_id=row.crowdsec_ban_page_id,
+            maintenance_mode=row.maintenance_mode,
+            maintenance_page_id=row.maintenance_page_id,
+            maintenance_retry_after_minutes=row.maintenance_retry_after_minutes,
             llm_enabled=row.llm_enabled,
             llm_model=row.llm_model,
             llm_api_base=row.llm_api_base,
@@ -219,6 +231,34 @@ class CrowdSecBanUpdate(BaseModel):
             and self.crowdsec_ban_page_id is None
         ):
             raise ValueError("crowdsec_ban_page_id is required when the mode is 'custom_page'")
+        return self
+
+
+class MaintenanceUpdate(BaseModel):
+    """The maintenance page, chosen once for every host that uses it.
+
+    ``mode`` is required for the same reason its siblings require theirs:
+    "custom_page needs a page" cannot be checked against a payload that omits
+    the mode, and a schema never sees the stored row.
+    """
+
+    mode: MaintenancePageMode
+    page_id: int | None = Field(
+        default=None, description="Required when the mode is 'custom_page'"
+    )
+    retry_after_minutes: int = Field(
+        default=60,
+        ge=1,
+        le=10080,
+        description="Emitted as Retry-After; a week is the longest that says anything useful",
+    )
+
+    @model_validator(mode="after")
+    def _coherent(self) -> MaintenanceUpdate:
+        if self.mode is MaintenancePageMode.custom_page and self.page_id is None:
+            raise ValueError("page_id is required when the mode is 'custom_page'")
+        if self.mode is MaintenancePageMode.megoopm and self.page_id is not None:
+            raise ValueError("the MegooPM maintenance page takes no page_id of its own")
         return self
 
 
@@ -370,6 +410,7 @@ __all__ = [
     "CrowdSecHubUpdate",
     "InstanceSettingsRead",
     "MailTestRequest",
+    "MaintenanceUpdate",
     "MailTestResult",
     "SmtpSettingsUpdate",
     "reject_newlines",

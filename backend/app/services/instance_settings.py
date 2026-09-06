@@ -18,7 +18,12 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.crypto import decrypt_secret, encrypt_secret
-from app.models.enums import CrowdSecBanMode, DefaultSiteMode, SmtpSecurity
+from app.models.enums import (
+    CrowdSecBanMode,
+    DefaultSiteMode,
+    MaintenancePageMode,
+    SmtpSecurity,
+)
 from app.models.instance_settings import InstanceSettings
 from app.services.llm import LlmConfig
 from app.services.mail.config import MailConfig
@@ -73,6 +78,28 @@ async def update_ban_page(db: AsyncSession, changes: dict[str, Any]) -> Instance
     row.crowdsec_ban_page_id = (
         changes.get("crowdsec_ban_page_id") if mode is CrowdSecBanMode.custom_page else None
     )
+
+    try:
+        await db.commit()
+    except IntegrityError as exc:
+        await db.rollback()
+        # The only FK touched here is the custom page, so a violation means the
+        # id is bogus.
+        raise UnknownCustomPageError(str(exc.orig)) from exc
+    await db.refresh(row)
+    return row
+
+
+async def update_maintenance(db: AsyncSession, changes: dict[str, Any]) -> InstanceSettings:
+    """Apply a coherent maintenance payload, clearing the unused column."""
+    row = await get_instance_settings(db)
+    mode = changes["mode"]
+
+    row.maintenance_mode = mode
+    row.maintenance_page_id = (
+        changes.get("page_id") if mode is MaintenancePageMode.custom_page else None
+    )
+    row.maintenance_retry_after_minutes = changes["retry_after_minutes"]
 
     try:
         await db.commit()

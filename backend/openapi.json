@@ -2817,6 +2817,24 @@
             ],
             "title": "Llm Model"
           },
+          "maintenance_mode": {
+            "$ref": "#/components/schemas/MaintenancePageMode"
+          },
+          "maintenance_page_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Maintenance Page Id"
+          },
+          "maintenance_retry_after_minutes": {
+            "title": "Maintenance Retry After Minutes",
+            "type": "integer"
+          },
           "smtp_enabled": {
             "title": "Smtp Enabled",
             "type": "boolean"
@@ -2888,6 +2906,9 @@
           "default_site_page_id",
           "crowdsec_ban_mode",
           "crowdsec_ban_page_id",
+          "maintenance_mode",
+          "maintenance_page_id",
+          "maintenance_retry_after_minutes",
           "llm_enabled",
           "llm_model",
           "llm_api_base",
@@ -3244,6 +3265,48 @@
           "ok"
         ],
         "title": "MailTestResult",
+        "type": "object"
+      },
+      "MaintenancePageMode": {
+        "description": "What a visitor sees while a host is under maintenance.\n\nNo ``none``: a host under maintenance must answer *something*. A bare 503\nwith no body tells a visitor nothing and tells a crawler nothing about\nwhether to come back.",
+        "enum": [
+          "megoopm",
+          "custom_page"
+        ],
+        "title": "MaintenancePageMode",
+        "type": "string"
+      },
+      "MaintenanceUpdate": {
+        "description": "The maintenance page, chosen once for every host that uses it.\n\n``mode`` is required for the same reason its siblings require theirs:\n\"custom_page needs a page\" cannot be checked against a payload that omits\nthe mode, and a schema never sees the stored row.",
+        "properties": {
+          "mode": {
+            "$ref": "#/components/schemas/MaintenancePageMode"
+          },
+          "page_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Required when the mode is 'custom_page'",
+            "title": "Page Id"
+          },
+          "retry_after_minutes": {
+            "default": 60,
+            "description": "Emitted as Retry-After; a week is the longest that says anything useful",
+            "maximum": 10080.0,
+            "minimum": 1.0,
+            "title": "Retry After Minutes",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "mode"
+        ],
+        "title": "MaintenanceUpdate",
         "type": "object"
       },
       "MetaPair": {
@@ -3804,6 +3867,20 @@
             "title": "Locations",
             "type": "array"
           },
+          "maintenance_allow": {
+            "description": "IPs and CIDRs that reach the real site while under maintenance",
+            "items": {
+              "type": "string"
+            },
+            "title": "Maintenance Allow",
+            "type": "array"
+          },
+          "maintenance_enabled": {
+            "default": false,
+            "description": "Serve the maintenance page instead of proxying",
+            "title": "Maintenance Enabled",
+            "type": "boolean"
+          },
           "ssl_forced": {
             "default": false,
             "description": "Redirect :80 to HTTPS",
@@ -4165,6 +4242,20 @@
             "title": "Locations",
             "type": "array"
           },
+          "maintenance_allow": {
+            "description": "IPs and CIDRs that reach the real site while under maintenance",
+            "items": {
+              "type": "string"
+            },
+            "title": "Maintenance Allow",
+            "type": "array"
+          },
+          "maintenance_enabled": {
+            "default": false,
+            "description": "Serve the maintenance page instead of proxying",
+            "title": "Maintenance Enabled",
+            "type": "boolean"
+          },
           "ssl_forced": {
             "default": false,
             "description": "Redirect :80 to HTTPS",
@@ -4397,6 +4488,31 @@
               }
             ],
             "title": "Locations"
+          },
+          "maintenance_allow": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Maintenance Allow"
+          },
+          "maintenance_enabled": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Maintenance Enabled"
           },
           "ssl_forced": {
             "anyOf": [
@@ -10151,6 +10267,53 @@
           }
         ],
         "summary": "Test Llm Connection",
+        "tags": [
+          "settings"
+        ]
+      }
+    },
+    "/api/v1/settings/maintenance": {
+      "patch": {
+        "description": "Choose what a host under maintenance serves. Admin-only.\n\n``after_config_write`` like the ban page: this decides a document nginx\nserves, so the config has to be rewritten and reloaded for the choice to\ntake effect at all.",
+        "operationId": "update_maintenance_settings_api_v1_settings_maintenance_patch",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MaintenanceUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InstanceSettingsRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Update Maintenance Settings",
         "tags": [
           "settings"
         ]

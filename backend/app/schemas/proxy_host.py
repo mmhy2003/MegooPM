@@ -10,6 +10,7 @@ is stable regardless of how the client capitalises them.
 
 from __future__ import annotations
 
+import ipaddress
 import re
 from datetime import datetime
 
@@ -172,6 +173,25 @@ class ProxyHostLocationRead(ProxyHostLocationIn):
     id: int
 
 
+def _validate_allow_list(value: list[str]) -> list[str]:
+    """Every entry must be an address or a range.
+
+    nginx refuses to load a ``geo`` block containing anything else, and that
+    failure takes the whole edge down — so a bad entry must never reach the
+    file. ``strict=False`` accepts a host address written with a prefix
+    (``10.0.0.5/8``), which nginx also accepts.
+    """
+    cleaned: list[str] = []
+    for entry in value:
+        stripped = entry.strip()
+        try:
+            ipaddress.ip_network(stripped, strict=False)
+        except ValueError as exc:
+            raise ValueError(f"{entry!r} is not an IP address or CIDR range") from exc
+        cleaned.append(stripped)
+    return cleaned
+
+
 class ProxyHostBase(BaseModel):
     """Fields shared by proxy-host read/write schemas."""
 
@@ -218,6 +238,13 @@ class ProxyHostBase(BaseModel):
         default=False,
         description="Route requests through CrowdSec inline AppSec/WAF (needs crowdsec_enabled)",
     )
+    maintenance_enabled: bool = Field(
+        default=False, description="Serve the maintenance page instead of proxying"
+    )
+    maintenance_allow: list[str] = Field(
+        default_factory=list,
+        description="IPs and CIDRs that reach the real site while under maintenance",
+    )
     advanced_config: str = Field(
         default="", description="Raw nginx directives injected into the server block"
     )
@@ -226,6 +253,11 @@ class ProxyHostBase(BaseModel):
         default_factory=list,
         description="Extra path-prefixed routes to other pools (rendered as location ^~ <path>)",
     )
+
+    @field_validator("maintenance_allow")
+    @classmethod
+    def _validate_allow(cls, value: list[str]) -> list[str]:
+        return _validate_allow_list(value)
 
     @model_validator(mode="after")
     def _require_exactly_one_target(self) -> ProxyHostBase:
@@ -274,6 +306,8 @@ class ProxyHostUpdate(BaseModel):
     allow_websocket_upgrade: bool | None = None
     crowdsec_enabled: bool | None = None
     crowdsec_appsec_enabled: bool | None = None
+    maintenance_enabled: bool | None = None
+    maintenance_allow: list[str] | None = None
     advanced_config: str | None = None
     enabled: bool | None = None
     locations: list[ProxyHostLocationIn] | None = None
@@ -284,6 +318,11 @@ class ProxyHostUpdate(BaseModel):
         if value is None:
             return None
         return _normalise_domains(value)
+
+    @field_validator("maintenance_allow")
+    @classmethod
+    def _validate_allow(cls, value: list[str] | None) -> list[str] | None:
+        return None if value is None else _validate_allow_list(value)
 
     @field_validator("locations")
     @classmethod

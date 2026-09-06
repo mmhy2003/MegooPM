@@ -132,6 +132,7 @@ ROUTE_ROLES: dict[tuple[str, str], str] = {
     ("PATCH", "/api/v1/redirection-hosts/{host_id}"): "admin",
     ("GET", "/api/v1/settings"): "admin",
     ("PATCH", "/api/v1/settings/ban-page"): "admin",
+    ("PATCH", "/api/v1/settings/maintenance"): "admin",
     ("PATCH", "/api/v1/settings/crowdsec-capi"): "admin",
     ("PATCH", "/api/v1/settings/crowdsec-hub"): "admin",
     ("PATCH", "/api/v1/settings/default-site"): "admin",

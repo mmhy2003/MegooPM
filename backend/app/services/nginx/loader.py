@@ -34,6 +34,7 @@ from app.models.enums import (
     CrowdSecBanMode,
     DefaultSiteMode,
     LocationTarget,
+    MaintenancePageMode,
 )
 from app.models.error_page import ErrorPage
 from app.models.instance_settings import InstanceSettings
@@ -54,6 +55,7 @@ from app.services.nginx.state import (
     DesiredState,
     ErrorPageSpec,
     LocationSpec,
+    MaintenanceSpec,
     ProxyHostSpec,
     RedirectionHostSpec,
     StreamSpec,
@@ -224,6 +226,8 @@ async def load_desired_state(
                 allow_websocket_upgrade=host.allow_websocket_upgrade,
                 crowdsec_enabled=host.crowdsec_enabled,
                 crowdsec_appsec_enabled=host.crowdsec_appsec_enabled,
+                maintenance_enabled=host.maintenance_enabled,
+                maintenance_allow=tuple(host.maintenance_allow),
                 advanced_config=host.advanced_config,
                 locations=tuple(location_specs),
             )
@@ -242,6 +246,7 @@ async def load_desired_state(
     stream_specs, stream_upstream_specs = await _load_streams(session, certs_dir)
     default_site = await _load_default_site(session)
     ban_page = await _load_ban_page(session)
+    maintenance = await _load_maintenance(session)
     error_pages = await _load_error_pages(session)
 
     state = DesiredState(
@@ -253,6 +258,7 @@ async def load_desired_state(
         stream_upstreams=stream_upstream_specs,
         default_site=default_site,
         ban_page=ban_page,
+        maintenance=maintenance,
         error_pages=error_pages,
     )
     # Built from the finished state so the claimed-name set comes from exactly
@@ -317,6 +323,30 @@ async def _load_ban_page(session: AsyncSession) -> BanPageSpec | None:
         html = page.html if page is not None else ""
 
     return BanPageSpec(mode=row.crowdsec_ban_mode.value, html=html)
+
+
+async def _load_maintenance(session: AsyncSession) -> MaintenanceSpec | None:
+    """Read the maintenance setting, resolving a referenced page into its HTML.
+
+    Dereferenced here for the same reason the ban page is: the renderer stays a
+    pure function of explicit data. A page that has gone missing yields an empty
+    ``html``, which the renderer reads as "use the shipped page" — an empty
+    maintenance page would be worse than a generic one.
+    """
+    row = await session.get(InstanceSettings, 1)
+    if row is None:
+        return None
+
+    html = ""
+    if row.maintenance_mode is MaintenancePageMode.custom_page and row.maintenance_page_id:
+        page = await session.get(CustomPage, row.maintenance_page_id)
+        html = page.html if page is not None else ""
+
+    return MaintenanceSpec(
+        mode=row.maintenance_mode.value,
+        html=html,
+        retry_after_minutes=row.maintenance_retry_after_minutes,
+    )
 
 
 async def _load_default_site(session: AsyncSession) -> DefaultSiteSpec | None:

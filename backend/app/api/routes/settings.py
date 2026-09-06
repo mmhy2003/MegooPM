@@ -41,6 +41,7 @@ from app.schemas.instance_settings import (
     LlmTestResult,
     MailTestRequest,
     MailTestResult,
+    MaintenanceUpdate,
     SmtpSettingsUpdate,
 )
 from app.services import error_page as error_page_service
@@ -123,6 +124,39 @@ async def update_ban_page_settings(
         object_type="instance_settings",
         object_id=row.id,
         meta={"crowdsec_ban_mode": row.crowdsec_ban_mode.value},
+    )
+    return InstanceSettingsRead.from_row(row)
+
+
+@router.patch("/maintenance", response_model=InstanceSettingsRead)
+async def update_maintenance_settings(
+    body: MaintenanceUpdate,
+    admin: AdminUser,
+    db: SessionDep,
+    response: Response,
+) -> InstanceSettingsRead:
+    """Choose what a host under maintenance serves. Admin-only.
+
+    ``after_config_write`` like the ban page: this decides a document nginx
+    serves, so the config has to be rewritten and reloaded for the choice to
+    take effect at all.
+    """
+    changes = body.model_dump()
+    try:
+        row = await settings_service.update_maintenance(db, changes)
+    except settings_service.UnknownCustomPageError:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="page_id does not reference an existing custom page",
+        ) from None
+    await after_config_write(
+        db,
+        response,
+        actor=admin,
+        action=AuditAction.update,
+        object_type="instance_settings",
+        object_id=row.id,
+        meta={"maintenance_mode": row.maintenance_mode.value},
     )
     return InstanceSettingsRead.from_row(row)
 

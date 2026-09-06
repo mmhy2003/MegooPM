@@ -557,6 +557,115 @@ async def test_ban_page_rejects_a_page_that_does_not_exist(
     assert resp.status_code == 422
 
 
+# --- The maintenance page --------------------------------------------------
+
+
+async def test_maintenance_defaults_to_the_megoopm_page(
+    client: AsyncClient, auth: dict[str, str]
+) -> None:
+    """A host switched into maintenance must have something to serve on day one."""
+    body = (await client.get("/api/v1/settings", headers=auth)).json()
+
+    assert body["maintenance_mode"] == "megoopm"
+    assert body["maintenance_page_id"] is None
+    assert body["maintenance_retry_after_minutes"] == 60
+
+
+async def test_maintenance_can_be_bound_to_a_custom_page(
+    client: AsyncClient, auth: dict[str, str]
+) -> None:
+    page = (
+        await client.post(
+            "/api/v1/custom-pages",
+            json={"name": "Back soon", "html": "<h1>brb</h1>"},
+            headers=auth,
+        )
+    ).json()
+
+    resp = await client.patch(
+        "/api/v1/settings/maintenance",
+        json={"mode": "custom_page", "page_id": page["id"], "retry_after_minutes": 30},
+        headers=auth,
+    )
+
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["maintenance_page_id"] == page["id"]
+    assert resp.json()["maintenance_retry_after_minutes"] == 30
+
+
+async def test_maintenance_custom_mode_requires_a_page(
+    client: AsyncClient, auth: dict[str, str]
+) -> None:
+    resp = await client.patch(
+        "/api/v1/settings/maintenance", json={"mode": "custom_page"}, headers=auth
+    )
+
+    assert resp.status_code == 422
+    assert "page" in resp.text.lower()
+
+
+async def test_the_megoopm_maintenance_page_takes_no_page_id(
+    client: AsyncClient, auth: dict[str, str]
+) -> None:
+    # A reference the mode ignores is a trap: switch the mode months later and
+    # a forgotten document appears on every host under maintenance.
+    resp = await client.patch(
+        "/api/v1/settings/maintenance", json={"mode": "megoopm", "page_id": 1}, headers=auth
+    )
+
+    assert resp.status_code == 422
+
+
+async def test_maintenance_rejects_a_page_that_does_not_exist(
+    client: AsyncClient, auth: dict[str, str]
+) -> None:
+    resp = await client.patch(
+        "/api/v1/settings/maintenance",
+        json={"mode": "custom_page", "page_id": 999999},
+        headers=auth,
+    )
+
+    assert resp.status_code == 422
+
+
+@pytest.mark.parametrize("minutes", [0, -5, 100000])
+async def test_an_unusable_retry_after_is_rejected(
+    client: AsyncClient, auth: dict[str, str], minutes: int
+) -> None:
+    # Retry-After is a promise to a crawler; zero or negative says nothing.
+    resp = await client.patch(
+        "/api/v1/settings/maintenance",
+        json={"mode": "megoopm", "retry_after_minutes": minutes},
+        headers=auth,
+    )
+
+    assert resp.status_code == 422
+
+
+async def test_switching_away_from_a_custom_maintenance_page_clears_it(
+    client: AsyncClient, auth: dict[str, str]
+) -> None:
+    """The stored row must always describe exactly one configuration."""
+    page = (
+        await client.post(
+            "/api/v1/custom-pages",
+            json={"name": "Back soon", "html": "<h1>brb</h1>"},
+            headers=auth,
+        )
+    ).json()
+    await client.patch(
+        "/api/v1/settings/maintenance",
+        json={"mode": "custom_page", "page_id": page["id"]},
+        headers=auth,
+    )
+
+    await client.patch("/api/v1/settings/maintenance", json={"mode": "megoopm"}, headers=auth)
+
+    body = (await client.get("/api/v1/settings", headers=auth)).json()
+    assert body["maintenance_mode"] == "megoopm"
+    assert body["maintenance_page_id"] is None
+
+
 async def test_switching_away_from_custom_page_clears_the_reference(
     client: AsyncClient, auth: dict[str, str]
 ) -> None:
