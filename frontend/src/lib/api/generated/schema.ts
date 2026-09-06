@@ -572,6 +572,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/crowdsec/capi/register": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Capi Register Now
+         * @description Replace the central-API credentials with fresh ones and restart onto them.
+         *
+         *     The repair for credentials CAPI has started refusing. It only works while
+         *     the container is still running: exec cannot reach one that is crash
+         *     looping, which is why the hourly check exists to catch this first.
+         */
+        post: operations["capi_register_now_api_v1_crowdsec_capi_register_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/crowdsec/decisions": {
         parameters: {
             query?: never;
@@ -2536,6 +2560,22 @@ export interface components {
             weight?: number | null;
         };
         /**
+         * CapiCredentialHealth
+         * @description The last answer from ``cscli capi status``, recorded by the worker.
+         *
+         *     ``ok`` is three-valued. ``null`` means the question could not be answered
+         *     — the blocklist is off, the check has never run, or the container could
+         *     not be reached — and must not be shown as either healthy or rejected.
+         */
+        CapiCredentialHealth: {
+            /** Checked At */
+            checked_at?: string | null;
+            /** Detail */
+            detail?: string | null;
+            /** Ok */
+            ok?: boolean | null;
+        };
+        /**
          * CertificateHealth
          * @description Counts an operator would want to act on, not an inventory.
          */
@@ -2782,6 +2822,7 @@ export interface components {
          */
         CrowdSecMaintenance: {
             capi: components["schemas"]["CrowdSecJobRunRead"] | null;
+            capi_credentials: components["schemas"]["CapiCredentialHealth"];
             hub: components["schemas"]["CrowdSecJobRunRead"] | null;
             /** Reload Configured */
             reload_configured: boolean;
@@ -6099,6 +6140,28 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    capi_register_now_api_v1_crowdsec_capi_register_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: boolean;
+                    };
                 };
             };
         };

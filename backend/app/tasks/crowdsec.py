@@ -395,7 +395,10 @@ def register_capi() -> dict:
                     ok=result.ok,
                     error=result.error,
                     restarted=result.restarted,
-                    detail={"registered": True},
+                    # `enabled` too: the Updates card reads it to decide
+                    # whether the last CAPI action left the blocklist on,
+                    # and registering only happens while it is.
+                    detail={"enabled": True, "registered": True},
                     finished_at=_now(),
                 )
                 # Refresh the health this was repairing, so a fixed instance

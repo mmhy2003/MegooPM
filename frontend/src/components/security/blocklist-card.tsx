@@ -4,7 +4,12 @@ import { useState } from "react";
 import { Globe } from "lucide-react";
 import { toast } from "sonner";
 
-import { instanceSettings, type CrowdSecJobRun } from "@/lib/api";
+import {
+  crowdsec,
+  instanceSettings,
+  type CapiCredentialHealth,
+  type CrowdSecJobRun,
+} from "@/lib/api";
 import { describeError } from "@/components/proxy-hosts/lib";
 import { ConfirmDeleteDialog } from "@/components/proxy-hosts/confirm-delete-dialog";
 import { describeCapiRun } from "@/components/security/updates-lib";
@@ -17,15 +22,22 @@ export function BlocklistCard({
   run,
   running,
   reloadConfigured,
+  credentials,
   onChanged,
 }: {
   desired: boolean;
   run: CrowdSecJobRun | null;
   running: boolean;
   reloadConfigured: boolean;
+  /** The worker's last answer from `cscli capi status`; `ok: null` = not asked. */
+  credentials: CapiCredentialHealth;
   onChanged: () => void;
 }) {
   const [pending, setPending] = useState<boolean | null>(null);
+  const [registering, setRegistering] = useState(false);
+  // Only false is actionable. null means the check has not run, or could not
+  // run, and a warning nobody can act on is worse than silence.
+  const refused = desired && credentials.ok === false;
   const state = describeCapiRun(desired, run, running);
 
   async function apply(enabled: boolean) {
@@ -73,6 +85,41 @@ export function BlocklistCard({
             >
               Retry
             </Button>
+          </div>
+        ) : null}
+        {refused ? (
+          <div className="border-destructive/30 bg-destructive/5 grid gap-2 rounded-lg border p-3">
+            {/* Stated in full: the engine is up right now, so this reads as
+                harmless unless the consequence is spelled out. */}
+            <p role="alert" className="text-destructive text-sm">
+              {credentials.detail}
+            </p>
+            <div>
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={running || !reloadConfigured || registering}
+                onClick={() => {
+                  setRegistering(true);
+                  crowdsec
+                    .capiRegister()
+                    .then(() => {
+                      toast.success("Re-registering…");
+                      onChanged();
+                    })
+                    .catch((err: unknown) => toast.error(describeError(err).message))
+                    .finally(() => setRegistering(false));
+                }}
+              >
+                Re-register with CrowdSec
+              </Button>
+            </div>
+            {/* The repair execs into the container, so it cannot help once
+                the engine is already failing to start. */}
+            <p className="text-muted-foreground text-xs">
+              Do this while CrowdSec is still running. Once it fails to start, the credentials have
+              to be replaced from a shell on the host.
+            </p>
           </div>
         ) : null}
         {!reloadConfigured ? (

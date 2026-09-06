@@ -148,6 +148,7 @@ export type {
   AlertSource,
   CrowdSecHealth,
   CrowdSecJobRun,
+  CapiCredentialHealth,
   CrowdSecMaintenance,
   Decision,
   DecisionCreate,

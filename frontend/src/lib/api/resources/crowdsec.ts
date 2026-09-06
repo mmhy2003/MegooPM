@@ -26,6 +26,7 @@ export type WhitelistPreview = Schemas["WhitelistPreview"];
 export type WhitelistApplyStatus = Schemas["WhitelistApplyStatus"];
 export type WhitelistKind = Schemas["WhitelistKind"];
 export type CrowdSecMaintenance = Schemas["CrowdSecMaintenance"];
+export type CapiCredentialHealth = Schemas["CapiCredentialHealth"];
 export type CrowdSecJobRun = Schemas["CrowdSecJobRunRead"];
 
 /**
@@ -159,4 +160,11 @@ export const crowdsec = {
   maintenance: () => api.get<CrowdSecMaintenance>(`${BASE}/maintenance`),
   /** 202 and a run is queued; 409 while one is running or reloads are unwired. */
   hubUpdateNow: () => api.post<{ queued: boolean }>(`${BASE}/hub/update`, {}),
+  /**
+   * Replace the central-API credentials and restart onto them.
+   *
+   * Only works while the container is still running: exec cannot reach one
+   * that is crash-looping, which is why the hourly check warns first.
+   */
+  capiRegister: () => api.post<{ queued: boolean }>(`${BASE}/capi/register`, {}),
 } as const;

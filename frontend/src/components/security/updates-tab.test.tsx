@@ -36,6 +36,8 @@ const SETTINGS = {
 const EMPTY = {
   hub: null,
   capi: null,
+  // Never checked: not healthy, not rejected.
+  capi_credentials: { ok: null, detail: null, checked_at: null },
   reload_configured: true,
   running: { hub: false, capi: false },
 };

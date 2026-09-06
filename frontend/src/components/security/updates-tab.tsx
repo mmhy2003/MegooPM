@@ -84,6 +84,7 @@ export function UpdatesTab() {
         run={maint.capi}
         running={maint.running.capi}
         reloadConfigured={maint.reload_configured}
+        credentials={maint.capi_credentials}
         onChanged={() => void load()}
       />
     </div>

@@ -237,6 +237,10 @@ def test_re_registering_records_the_outcome(engine, fakes, tmp_path) -> None:
         row = read_job_run(conn, CrowdSecJobKind.capi_apply)
         settings_row = conn.execute(select(InstanceSettings.__table__)).one()
     assert row is not None and row.ok
+    # `enabled` is what the Updates card reads to decide whether the last CAPI
+    # action left the blocklist on; without it the card reports "Off — not
+    # applied yet" straight after a successful re-registration.
+    assert row.detail == {"enabled": True, "registered": True}
     # The repair refreshes the health it was repairing, so the warning clears
     # without waiting for the next scheduled check.
     assert settings_row.crowdsec_capi_status_ok is True
