@@ -308,21 +308,42 @@ That is why the apply validates before writing, keeps the previous bytes, and
 **restores them and restarts again** if LAPI does not answer within
 `CROWDSEC_RELOAD_HEALTH_TIMEOUT_SECONDS`. Rollback is part of the feature.
 
-**An expression cannot be validated before you save it.** CrowdSec compiles
-`expr` itself and there is no offline compiler to call from the backend, so the
-first time a typo is caught is when CrowdSec refuses to start. Measured on
-v1.6.4:
+**An expression is validated before anything restarts.** CrowdSec compiles
+`expr` itself and there is no offline compiler to call from the backend — but
+there is no need for one, because the engine ships its own config test.
+`crowdsec -t` is the `nginx -t` of this stack: it loads every parser, reports
+what it cannot compile, and exits non-zero, all **without touching the running
+process**.
+
+So the apply is write → `crowdsec -t` → restart, and a config that will not
+load never reaches a restart. The previous bytes go back and the operator gets
+the compiler's own words. Measured on v1.6.4, with a broken whitelist written
+into a live container's mounted file: the container stayed up, and the test
+returned exit 1 with
 
 ```
-level=fatal msg="crowdsec init: while loading parsers: failed to compile node
-'megoopm/wl-broken-expr' in '/etc/crowdsec/parsers/s02-enrich/99-megoopm-whitelist.yaml'
-: unable to compile whitelist expression '...' : unexpected token Operator("==") (1:22)"
+level=fatal msg="crowdsec init: while loading parsers: failed to load parser
+config : failed to compile node 'megoopm/wl-swetrix' in
+'/etc/crowdsec/parsers/s02-enrich/99-megoopm-whitelist.yaml' : unable to compile
+whitelist expression 'evt.Meta.http_path startsWith '/backend/v1' : literal not
+terminated (1:43)"
 ```
 
-The rollback catches it — LAPI never answers, the previous file goes back — so
-the cost is one restart cycle, not an outage. But it *is* a real restart cycle
-triggered from a form, which is why the dialog says so plainly. IP/CIDR
-whitelists carry no such risk.
+Only the `level=fatal` line is kept for the UI; the rest is a page of "Loaded N
+parser nodes" that would bury the one line saying what to fix.
+
+**An unreachable container counts as a failure, not a pass.** Being unable to
+check is not permission to restart onto something unchecked — and a container
+that cannot be exec'd into is usually one that is already crash-looping.
+
+There is deliberately **no offline YAML or expr parser**. A second
+implementation of a compiler CrowdSec already ships could only ever disagree
+with the real one, in both directions, and the obvious quote-counting
+heuristic rejects valid expressions such as `evt.Meta.ua == "it's"`.
+
+The restart-and-rollback path above still exists for everything `-t` cannot
+foresee — a container that dies for an unrelated reason — but a bad expression
+no longer costs a restart cycle at all.
 
 **Applying restarts CrowdSec, which briefly denies traffic.** For the few
 seconds the container is down, AppSec is unreachable and the bouncer fails
