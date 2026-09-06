@@ -117,10 +117,54 @@ async def require_admin(current_user: CurrentUser) -> User:
 
 AdminUser = Annotated[User, Depends(require_admin)]
 
+
+_SESSION_ONLY = HTTPException(
+    status_code=status.HTTP_403_FORBIDDEN,
+    detail="API keys cannot manage accounts or users. Sign in to do this.",
+)
+
+
+def _refuse_keys(user: User) -> User:
+    """The boundary: keys manage infrastructure, not people.
+
+    Configuration damage done with a stolen key is recoverable, audited, and
+    stops when the key is revoked. A key that could change its owner's password,
+    disable their 2FA, or mint a successor would not be a leaked credential — it
+    would be a permanent account takeover that survives revoking the key you
+    know about.
+    """
+    if current_api_key.get() is not None:
+        raise _SESSION_ONLY
+    return user
+
+
+async def require_session_user(current_user: CurrentUser) -> User:
+    """A signed-in human, not a key.
+
+    Depends on ``get_current_user`` rather than resolving the user itself:
+    tests/test_route_authorization.py classifies a route by walking its
+    dependency graph for that name, so replacing it would silently reclassify
+    every route it guards.
+    """
+    return _refuse_keys(current_user)
+
+
+async def require_session_admin(admin: AdminUser) -> User:
+    """An admin in a browser. Composed over ``require_admin`` for the same reason."""
+    return _refuse_keys(admin)
+
+
+SessionUser = Annotated[User, Depends(require_session_user)]
+SessionAdminUser = Annotated[User, Depends(require_session_admin)]
+
 __all__ = [
     "AdminUser",
     "CurrentUser",
+    "SessionAdminUser",
     "SessionDep",
+    "SessionUser",
     "get_current_user",
     "require_admin",
+    "require_session_admin",
+    "require_session_user",
 ]

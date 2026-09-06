@@ -16,7 +16,7 @@ from typing import Any
 from fastapi import APIRouter, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import AdminUser, CurrentUser, SessionDep
+from app.api.deps import CurrentUser, SessionAdminUser, SessionDep, SessionUser
 from app.models.enums import AuditAction, AuthTokenKind
 from app.models.user import User
 from app.schemas.auth import PasskeyOptions
@@ -126,7 +126,7 @@ async def read_current_user(current_user: CurrentUser) -> UserRead:
 @router.patch("/me", response_model=UserRead)
 async def update_current_user(
     body: ProfileUpdate,
-    current_user: CurrentUser,
+    current_user: SessionUser,
     db: SessionDep,
 ) -> UserRead:
     """Edit the caller's own display name."""
@@ -147,7 +147,7 @@ async def update_current_user(
 @router.put("/me/password", status_code=status.HTTP_204_NO_CONTENT)
 async def change_current_user_password(
     body: PasswordChange,
-    current_user: CurrentUser,
+    current_user: SessionUser,
     db: SessionDep,
 ) -> None:
     """Change the caller's own password (no current-password check; the session is the proof)."""
@@ -172,7 +172,7 @@ def _totp_off() -> HTTPException:
 
 
 @router.post("/me/totp/setup", response_model=TotpSetup)
-async def totp_setup(current_user: CurrentUser, db: SessionDep) -> TotpSetup:
+async def totp_setup(current_user: SessionUser, db: SessionDep) -> TotpSetup:
     """Start enrolling an authenticator app. 2FA stays off until confirmed."""
     try:
         secret = await totp.start_enrolment(db, current_user)
@@ -186,7 +186,7 @@ async def totp_setup(current_user: CurrentUser, db: SessionDep) -> TotpSetup:
 
 @router.post("/me/totp/enable", response_model=TotpCodes)
 async def totp_enable(
-    body: TotpCodeRequest, current_user: CurrentUser, db: SessionDep
+    body: TotpCodeRequest, current_user: SessionUser, db: SessionDep
 ) -> TotpCodes:
     """Prove the app works, then turn 2FA on. Returns the recovery codes once."""
     try:
@@ -208,7 +208,7 @@ async def totp_enable(
 
 
 @router.post("/me/totp/disable", status_code=status.HTTP_204_NO_CONTENT)
-async def totp_disable(body: TotpCodeRequest, current_user: CurrentUser, db: SessionDep) -> None:
+async def totp_disable(body: TotpCodeRequest, current_user: SessionUser, db: SessionDep) -> None:
     """Turn 2FA off. A valid code is required: a stolen session must not be
     able to strip the second factor."""
     if not current_user.totp_enabled:
@@ -227,7 +227,7 @@ async def totp_disable(body: TotpCodeRequest, current_user: CurrentUser, db: Ses
 
 @router.post("/me/totp/recovery-codes", response_model=TotpCodes)
 async def totp_regenerate(
-    body: TotpCodeRequest, current_user: CurrentUser, db: SessionDep
+    body: TotpCodeRequest, current_user: SessionUser, db: SessionDep
 ) -> TotpCodes:
     """Replace every recovery code. A valid code is required."""
     if not current_user.totp_enabled:
@@ -289,7 +289,7 @@ async def _require_code(db: AsyncSession, user: User, code: str) -> None:
 
 @router.post("/me/passkeys/options", response_model=PasskeyOptions)
 async def passkey_options(
-    body: TotpCodeRequest, current_user: CurrentUser, db: SessionDep
+    body: TotpCodeRequest, current_user: SessionUser, db: SessionDep
 ) -> PasskeyOptions:
     """Start registering a passkey. Requires a valid code and the app URL."""
     await _require_code(db, current_user, body.code)
@@ -309,7 +309,7 @@ async def passkey_options(
 
 @router.post("/me/passkeys", response_model=PasskeyRead, status_code=status.HTTP_201_CREATED)
 async def passkey_register(
-    body: PasskeyRegisterRequest, current_user: CurrentUser, db: SessionDep
+    body: PasskeyRegisterRequest, current_user: SessionUser, db: SessionDep
 ) -> PasskeyRead:
     """Finish registering: verify the browser's credential against the stored challenge."""
     if not current_user.totp_enabled:
@@ -346,13 +346,13 @@ async def passkey_register(
 
 
 @router.get("/me/passkeys", response_model=list[PasskeyRead])
-async def passkey_list(current_user: CurrentUser, db: SessionDep) -> list[PasskeyRead]:
+async def passkey_list(current_user: SessionUser, db: SessionDep) -> list[PasskeyRead]:
     return [PasskeyRead.model_validate(p) for p in await passkeys.list_for(db, current_user)]
 
 
 @router.post("/me/passkeys/{passkey_id}/remove", status_code=status.HTTP_204_NO_CONTENT)
 async def passkey_remove(
-    passkey_id: int, body: TotpCodeRequest, current_user: CurrentUser, db: SessionDep
+    passkey_id: int, body: TotpCodeRequest, current_user: SessionUser, db: SessionDep
 ) -> None:
     """Remove one passkey. A POST with a body: DELETE bodies are dropped by some proxies."""
     await _require_code(db, current_user, body.code)
@@ -372,7 +372,7 @@ async def passkey_remove(
 
 @router.get("", response_model=list[UserRead])
 async def list_users(
-    _admin: AdminUser,
+    _admin: SessionAdminUser,
     db: SessionDep,
 ) -> list[UserRead]:
     """List all users. Admin-only."""
@@ -383,7 +383,7 @@ async def list_users(
 @router.post("", response_model=UserRead, status_code=status.HTTP_201_CREATED)
 async def create_user(
     body: UserCreate,
-    admin: AdminUser,
+    admin: SessionAdminUser,
     db: SessionDep,
 ) -> UserRead:
     """Create a user with an explicit role. Admin-only."""
@@ -412,7 +412,7 @@ async def create_user(
 
 
 @router.post("/invite", response_model=UserRead, status_code=status.HTTP_201_CREATED)
-async def invite_user(body: UserInvite, admin: AdminUser, db: SessionDep) -> UserRead:
+async def invite_user(body: UserInvite, admin: SessionAdminUser, db: SessionDep) -> UserRead:
     """Create an invited user and send them the link. Admin-only.
 
     409 on a taken address in every state — active, inactive, or already
@@ -447,7 +447,7 @@ async def invite_user(body: UserInvite, admin: AdminUser, db: SessionDep) -> Use
 
 
 @router.post("/{user_id}/invite", status_code=status.HTTP_204_NO_CONTENT)
-async def resend_invitation(user_id: int, admin: AdminUser, db: SessionDep) -> None:
+async def resend_invitation(user_id: int, admin: SessionAdminUser, db: SessionDep) -> None:
     """Send a fresh invitation to a user who has not yet accepted. Admin-only.
 
     Refused for an accepted user: they have a password, and re-inviting them
@@ -473,7 +473,7 @@ async def resend_invitation(user_id: int, admin: AdminUser, db: SessionDep) -> N
 async def update_user(
     user_id: int,
     body: UserUpdate,
-    admin: AdminUser,
+    admin: SessionAdminUser,
     db: SessionDep,
 ) -> UserRead:
     """Partially update another user (name, role, active). Admin-only.
@@ -503,7 +503,7 @@ async def update_user(
 async def reset_password(
     user_id: int,
     body: PasswordReset,
-    admin: AdminUser,
+    admin: SessionAdminUser,
     db: SessionDep,
 ) -> None:
     """Set a new password for another user. Admin-only."""
@@ -517,7 +517,7 @@ async def reset_password(
 @router.delete("/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_user(
     user_id: int,
-    admin: AdminUser,
+    admin: SessionAdminUser,
     db: SessionDep,
 ) -> None:
     """Hard-delete a user. Admin-only. 409 under the lock-out rules."""
@@ -531,7 +531,7 @@ async def delete_user(
 
 
 @router.post("/{user_id}/totp/disable", status_code=status.HTTP_204_NO_CONTENT)
-async def admin_totp_disable(user_id: int, admin: AdminUser, db: SessionDep) -> None:
+async def admin_totp_disable(user_id: int, admin: SessionAdminUser, db: SessionDep) -> None:
     """Turn off another user's 2FA. Admin-only; no code — this is the
     lost-phone backstop. The user is told by email, naming the admin."""
     user = await _get_or_404(db, user_id)
