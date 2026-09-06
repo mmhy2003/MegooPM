@@ -17,6 +17,13 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 
 /** The order is the recommendation: an expiry first, Never last. */
@@ -46,10 +53,16 @@ function hasExpired(key: ApiKey): boolean {
   return key.expires_at !== null && new Date(key.expires_at).getTime() <= Date.now();
 }
 
-/** ISO for the API, or null for a key that never expires. */
+/** ISO for the API, or null for a key that never expires.
+ *
+ * "custom" with no date never reaches here — Create is disabled — because
+ * quietly reading it as "never" would hand back a key that outlives everything
+ * to someone who explicitly asked for an expiry.
+ */
 function expiresAt(choice: string, customDate: string): string | null {
-  if (choice === "never") return null;
-  if (choice === "custom") return customDate ? new Date(customDate).toISOString() : null;
+  if (choice === "never" || choice === "custom") {
+    return customDate && choice === "custom" ? new Date(customDate).toISOString() : null;
+  }
   const at = new Date();
   at.setDate(at.getDate() + Number(choice));
   return at.toISOString();
@@ -243,21 +256,22 @@ export function ApiKeysCard() {
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="api-key-expiry">Expires</Label>
-              {/* A native select: the choice is five fixed options and this
-                  card is already the page's densest panel. */}
-              <select
-                id="api-key-expiry"
-                className="border-input bg-transparent text-sm h-9 w-full rounded-md border px-3"
+              <Select
                 value={choice}
-                onChange={(e) => setChoice(e.target.value)}
-                disabled={busy}
+                onValueChange={(value) => setChoice(value as string)}
+                items={Object.fromEntries(EXPIRY_OPTIONS.map((o) => [o.value, o.label]))}
               >
-                {EXPIRY_OPTIONS.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
+                <SelectTrigger id="api-key-expiry" disabled={busy} className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {EXPIRY_OPTIONS.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             {choice === "custom" ? (
               <div className="space-y-1.5">
@@ -336,7 +350,10 @@ export function ApiKeysCard() {
             <Button variant="ghost" onClick={reset} disabled={busy}>
               Cancel
             </Button>
-            <Button onClick={() => void create()} disabled={busy || !name.trim()}>
+            <Button
+              onClick={() => void create()}
+              disabled={busy || !name.trim() || (choice === "custom" && !customDate)}
+            >
               {busy ? "Creating…" : "Create key"}
             </Button>
           </>

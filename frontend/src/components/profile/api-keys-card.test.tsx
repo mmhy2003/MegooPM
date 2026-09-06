@@ -102,6 +102,51 @@ describe("ApiKeysCard", () => {
     expect(create.mock.calls[0][0].expires_at).not.toBeNull();
   });
 
+  it("sends no expiry when Never is chosen", async () => {
+    const user = userEvent.setup();
+    const create = vi.spyOn(users, "createApiKey").mockResolvedValue({
+      ...makeKey(),
+      token: "mgm_the-actual-secret",
+    });
+    render(<ApiKeysCard />);
+
+    await user.click(await screen.findByRole("button", { name: /new api key/i }));
+    await user.type(screen.getByLabelText("Name"), "CI deploy");
+    await user.click(screen.getByRole("combobox", { name: "Expires" }));
+    await user.click(await screen.findByRole("option", { name: "Never" }));
+    await user.click(screen.getByRole("button", { name: "Create key" }));
+
+    await waitFor(() => expect(create).toHaveBeenCalled());
+    expect(create.mock.calls[0][0].expires_at).toBeNull();
+  });
+
+  it("asks for a date only when Custom is chosen", async () => {
+    const user = userEvent.setup();
+    render(<ApiKeysCard />);
+
+    await user.click(await screen.findByRole("button", { name: /new api key/i }));
+    expect(screen.queryByLabelText("Expiry date")).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("combobox", { name: "Expires" }));
+    await user.click(await screen.findByRole("option", { name: "Custom date" }));
+
+    expect(screen.getByLabelText("Expiry date")).toBeInTheDocument();
+  });
+
+  it("will not create a custom expiry with no date", async () => {
+    // Silently falling back to "never" is the worst answer: the operator asked
+    // for an expiry and would get a key that outlives everything.
+    const user = userEvent.setup();
+    render(<ApiKeysCard />);
+
+    await user.click(await screen.findByRole("button", { name: /new api key/i }));
+    await user.type(screen.getByLabelText("Name"), "CI deploy");
+    await user.click(screen.getByRole("combobox", { name: "Expires" }));
+    await user.click(await screen.findByRole("option", { name: "Custom date" }));
+
+    expect(screen.getByRole("button", { name: "Create key" })).toBeDisabled();
+  });
+
   it("disables a key from its row", async () => {
     const user = userEvent.setup();
     vi.mocked(users.apiKeys).mockResolvedValue([makeKey()]);
