@@ -104,6 +104,8 @@ export type {
   LlmTestResult,
   MailTestRequest,
   MailTestResult,
+  MaintenancePageMode,
+  MaintenanceUpdate,
   SmtpSecurity,
   SmtpSettingsUpdate,
 } from "@/lib/api/resources/settings";

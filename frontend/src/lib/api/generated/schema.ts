@@ -1469,6 +1469,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/settings/maintenance": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Update Maintenance Settings
+         * @description Choose what a host under maintenance serves. Admin-only.
+         *
+         *     ``after_config_write`` like the ban page: this decides a document nginx
+         *     serves, so the config has to be rewritten and reloaded for the choice to
+         *     take effect at all.
+         */
+        patch: operations["update_maintenance_settings_api_v1_settings_maintenance_patch"];
+        trace?: never;
+    };
     "/api/v1/settings/smtp": {
         parameters: {
             query?: never;
@@ -3394,6 +3418,11 @@ export interface components {
             llm_enabled: boolean;
             /** Llm Model */
             llm_model: string | null;
+            maintenance_mode: components["schemas"]["MaintenancePageMode"];
+            /** Maintenance Page Id */
+            maintenance_page_id: number | null;
+            /** Maintenance Retry After Minutes */
+            maintenance_retry_after_minutes: number;
             /** Smtp Enabled */
             smtp_enabled: boolean;
             /** Smtp From */
@@ -3585,6 +3614,38 @@ export interface components {
             latency_ms: number;
             /** Ok */
             ok: boolean;
+        };
+        /**
+         * MaintenancePageMode
+         * @description What a visitor sees while a host is under maintenance.
+         *
+         *     No ``none``: a host under maintenance must answer *something*. A bare 503
+         *     with no body tells a visitor nothing and tells a crawler nothing about
+         *     whether to come back.
+         * @enum {string}
+         */
+        MaintenancePageMode: "megoopm" | "custom_page";
+        /**
+         * MaintenanceUpdate
+         * @description The maintenance page, chosen once for every host that uses it.
+         *
+         *     ``mode`` is required for the same reason its siblings require theirs:
+         *     "custom_page needs a page" cannot be checked against a payload that omits
+         *     the mode, and a schema never sees the stored row.
+         */
+        MaintenanceUpdate: {
+            mode: components["schemas"]["MaintenancePageMode"];
+            /**
+             * Page Id
+             * @description Required when the mode is 'custom_page'
+             */
+            page_id?: number | null;
+            /**
+             * Retry After Minutes
+             * @description Emitted as Retry-After; a week is the longest that says anything useful
+             * @default 60
+             */
+            retry_after_minutes: number;
         };
         /**
          * MetaPair
@@ -3926,6 +3987,17 @@ export interface components {
              */
             locations?: components["schemas"]["ProxyHostLocationIn"][];
             /**
+             * Maintenance Allow
+             * @description IPs and CIDRs that reach the real site while under maintenance
+             */
+            maintenance_allow?: string[];
+            /**
+             * Maintenance Enabled
+             * @description Serve the maintenance page instead of proxying
+             * @default false
+             */
+            maintenance_enabled: boolean;
+            /**
              * Ssl Forced
              * @description Redirect :80 to HTTPS
              * @default false
@@ -4121,6 +4193,17 @@ export interface components {
             /** Locations */
             locations?: components["schemas"]["ProxyHostLocationRead"][];
             /**
+             * Maintenance Allow
+             * @description IPs and CIDRs that reach the real site while under maintenance
+             */
+            maintenance_allow?: string[];
+            /**
+             * Maintenance Enabled
+             * @description Serve the maintenance page instead of proxying
+             * @default false
+             */
+            maintenance_enabled: boolean;
+            /**
              * Ssl Forced
              * @description Redirect :80 to HTTPS
              * @default false
@@ -4175,6 +4258,10 @@ export interface components {
             http2_support?: boolean | null;
             /** Locations */
             locations?: components["schemas"]["ProxyHostLocationIn"][] | null;
+            /** Maintenance Allow */
+            maintenance_allow?: string[] | null;
+            /** Maintenance Enabled */
+            maintenance_enabled?: boolean | null;
             /** Ssl Forced */
             ssl_forced?: boolean | null;
             /** Upstream Id */
@@ -7711,6 +7798,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["LlmTestResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_maintenance_settings_api_v1_settings_maintenance_patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MaintenanceUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InstanceSettingsRead"];
                 };
             };
             /** @description Validation Error */
