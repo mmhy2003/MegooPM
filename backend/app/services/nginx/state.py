@@ -148,6 +148,9 @@ class ProxyHostSpec:
     # CrowdSec (MEG-22): edge bouncer + optional inline AppSec/WAF for this host.
     crowdsec_enabled: bool = False
     crowdsec_appsec_enabled: bool = False
+    # Maintenance: everyone outside maintenance_allow gets the page and a 503.
+    maintenance_enabled: bool = False
+    maintenance_allow: tuple[str, ...] = ()
     advanced_config: str = ""
     # Extra path-prefixed routes; the root ``/`` is ``upstream_id``/``forward_scheme``.
     locations: tuple[LocationSpec, ...] = ()
@@ -241,6 +244,22 @@ class ErrorPageSpec:
 
 
 @dataclass(frozen=True, slots=True)
+class MaintenanceSpec:
+    """What a host under maintenance serves, instance-wide.
+
+    ``html`` is already resolved for ``custom_page``: the loader reads the
+    referenced document and puts it here, so the renderer never reaches into
+    the database — the same division :class:`BanPageSpec` makes.
+    """
+
+    #: One of MaintenancePageMode's values, as a plain string.
+    mode: str
+    html: str = ""
+    #: Emitted as Retry-After, in minutes.
+    retry_after_minutes: int = 60
+
+
+@dataclass(frozen=True, slots=True)
 class BanPageSpec:
     """What a CrowdSec-blocked visitor is served.
 
@@ -308,6 +327,7 @@ class DesiredState:
     default_site: DefaultSiteSpec | None = None
     default_tls: tuple[DefaultTlsSpec, ...] = field(default_factory=tuple)
     ban_page: BanPageSpec | None = None
+    maintenance: MaintenanceSpec | None = None
     #: Only the codes an operator configured; the rest render shipped pages.
     error_pages: tuple[ErrorPageSpec, ...] = ()
 

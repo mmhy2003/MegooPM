@@ -294,6 +294,7 @@ def location_html(location_id: int) -> str:
 # The CrowdSec ban page, written into the same directory. Not a *.conf, so
 # the base config's `include .../*.conf` never parses it as configuration.
 BAN_PAGE_HTML = "megoopm-ban.html"
+MAINTENANCE_HTML = "megoopm-maintenance.html"
 
 # The error documents and the fragment that points nginx at them, written into
 # the same shared directory. `.inc` for the same reason as above: the base
@@ -400,11 +401,21 @@ def render_default_site(state: DesiredState) -> dict[str, str]:
         if body:
             files[BAN_PAGE_HTML] = body
 
+    # Only when something serves it: this directory is reconciled by prefix,
+    # so a document nobody references would otherwise be left behind for good.
+    if any(host.maintenance_enabled for host in state.proxy_hosts):
+        spec = state.maintenance
+        body = spec.html if spec is not None and spec.mode != "megoopm" else ""
+        # A custom page that has gone missing falls back to the shipped one:
+        # an empty maintenance page is worse than a generic one.
+        files[MAINTENANCE_HTML] = body or _env().get_template("maintenance.html.j2").render()
+
     return {name: files[name] for name in sorted(files)}
 
 
 __all__ = [
     "DEFAULT_SITE_BODY",
+    "MAINTENANCE_HTML",
     "DEFAULT_SITE_CONF",
     "ERRORS_CONF",
     "ERROR_COPY",
