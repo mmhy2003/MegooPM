@@ -66,9 +66,7 @@ def upgrade() -> None:
 def downgrade() -> None:
     op.drop_constraint(_TARGET_CK, "streams", type_="check")
     op.drop_constraint(_PORT_CK, "streams", type_="check")
-    op.create_check_constraint(
-        "forward_port_range", "streams", "forward_port BETWEEN 1 AND 65535"
-    )
+    op.create_check_constraint("forward_port_range", "streams", "forward_port BETWEEN 1 AND 65535")
     # Lossy: a pool-targeted stream has no host:port to fall back to.
     op.execute("DELETE FROM streams WHERE upstream_id IS NOT NULL")
     op.drop_constraint(op.f("fk_streams_upstream_id_upstreams"), "streams", type_="foreignkey")

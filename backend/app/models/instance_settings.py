@@ -31,6 +31,7 @@ from app.models.enums import (
     CrowdSecBanMode,
     DefaultSiteMode,
     HubUpdateFrequency,
+    MaintenancePageMode,
     SmtpSecurity,
 )
 from app.models.mixins import TimestampMixin
@@ -104,6 +105,30 @@ class InstanceSettings(TimestampMixin, Base):
         ForeignKey("custom_pages.id", ondelete="RESTRICT"),
         nullable=True,
         index=True,
+    )
+    # Maintenance: the page every host switched into maintenance serves,
+    # chosen once for the instance exactly like the ban page above.
+    maintenance_mode: Mapped[MaintenancePageMode] = mapped_column(
+        Enum(
+            MaintenancePageMode,
+            name="maintenance_page_mode",
+            values_callable=lambda e: [m.value for m in e],
+        ),
+        nullable=False,
+        default=MaintenancePageMode.megoopm,
+        server_default=MaintenancePageMode.megoopm.value,
+    )
+    # RESTRICT, like the ban page: a page in use cannot be deleted.
+    maintenance_page_id: Mapped[int | None] = mapped_column(
+        BigInteger,
+        ForeignKey("custom_pages.id", ondelete="RESTRICT"),
+        nullable=True,
+        index=True,
+    )
+    #: Emitted as Retry-After. Configurable because a fixed guess is wrong for
+    #: someone, and the alternative is editing advanced config.
+    maintenance_retry_after_minutes: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=60, server_default="60"
     )
 
     # --- LLM integration -----------------------------------------------

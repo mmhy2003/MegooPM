@@ -101,6 +101,17 @@ class ProxyHost(IdMixin, TimestampMixin, Base):
     crowdsec_appsec_enabled: Mapped[bool] = mapped_column(
         Boolean, nullable=False, server_default="false"
     )
+    # Maintenance (planned downtime): every visitor outside maintenance_allow
+    # is served the maintenance page with a 503, so crawlers keep the site's
+    # rankings and monitoring sees a real outage.
+    maintenance_enabled: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, server_default="false"
+    )
+    #: IPs and CIDRs that reach the real site anyway, so the operator can
+    #: verify a deploy before switching maintenance off.
+    maintenance_allow: Mapped[list[str]] = mapped_column(
+        ARRAY(String(64)), nullable=False, default=list, server_default="{}"
+    )
     advanced_config: Mapped[str] = mapped_column(
         Text, nullable=False, default="", server_default=""
     )

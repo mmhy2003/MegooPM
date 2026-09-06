@@ -126,6 +126,18 @@ class DefaultSiteMode(enum.StrEnum):
     custom_page = "custom_page"
 
 
+class MaintenancePageMode(enum.StrEnum):
+    """What a visitor sees while a host is under maintenance.
+
+    No ``none``: a host under maintenance must answer *something*. A bare 503
+    with no body tells a visitor nothing and tells a crawler nothing about
+    whether to come back.
+    """
+
+    megoopm = "megoopm"
+    custom_page = "custom_page"
+
+
 class CrowdSecBanMode(enum.StrEnum):
     """What a CrowdSec-blocked visitor is served.
 

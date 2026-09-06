@@ -53,9 +53,7 @@ def upgrade() -> None:
         "crowdsec_whitelists",
         sa.Column("kind", _KIND, server_default="ip_cidr", nullable=False),
     )
-    op.add_column(
-        "crowdsec_whitelists", sa.Column("filter", sa.Text(), nullable=True)
-    )
+    op.add_column("crowdsec_whitelists", sa.Column("filter", sa.Text(), nullable=True))
     op.add_column(
         "crowdsec_whitelists",
         sa.Column(
