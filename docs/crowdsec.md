@@ -462,6 +462,59 @@ the blocklist every two hours by itself.
 `crowdsec_capi_enabled` is the **desired** state; `crowdsec_job_run
 (kind=capi_apply)` is what was achieved. The tab shows both when they differ.
 
+### When credentials go stale
+
+CrowdSec authenticates to CAPI during LAPI init and treats a rejection as
+**fatal**:
+
+```
+level=fatal msg="api server init: unable to run local API: authenticate
+watcher (<capi-machine-id>): API error: Forbidden"
+```
+
+So credentials CAPI later refuses do nothing at all in a running container,
+and then stop it from starting — taking local detection with them, which needs
+CAPI for nothing. The gap between the two can be days, and the restart that
+exposes it is usually unrelated.
+
+`app.tasks.crowdsec.check_capi_credentials` runs hourly, asks `cscli capi
+status`, and records the answer on `instance_settings`
+(`crowdsec_capi_status_ok`, `..._detail`, `crowdsec_capi_checked_at`). The
+Updates tab warns from those columns. `ok` is **three-valued**: `null` means
+the blocklist is off, the check has not run, or the container could not be
+reached — reporting a docker socket problem as a rejection would send an
+operator re-registering working credentials.
+
+`POST /api/v1/crowdsec/capi/register` (`app.tasks.crowdsec.register_capi`) is
+the repair: re-register, restart, then confirm. Confirming before the restart
+would only report on the credentials the running process already loaded, and a
+failed registration never restarts — restarting onto credentials known to be
+bad is exactly how the crash loop starts. Nothing is rolled back, because the
+credentials being replaced are the ones already refused.
+
+**The repair has a deadline.** It execs into the container, and `docker exec`
+cannot reach one that is crash-looping. Once CrowdSec is already failing to
+start, recovery is manual:
+
+```bash
+# Get it up with the blocklist off (local detection keeps working):
+docker compose exec worker python -c "
+from pathlib import Path
+p = Path('/data/crowdsec/config.yaml.local')
+s = p.read_text()
+i = s.find('    # Community blocklist')
+p.write_text(s[:i] if i != -1 else s)
+"
+docker compose restart crowdsec
+
+# Then get fresh credentials — cscli does not need the daemon:
+docker compose run --rm --no-deps --entrypoint sh crowdsec -c \
+  'cscli capi register -f /etc/crowdsec/online_api_credentials.yaml && cscli capi status'
+```
+
+Afterwards toggle the blocklist off and on in the UI so MegooPM rewrites
+`config.yaml.local` itself and its stored state matches the file.
+
 ### Wiring
 
 - `config.yaml.local` is a single-FILE mount out of the data path, seeded by
