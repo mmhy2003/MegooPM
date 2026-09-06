@@ -59,6 +59,33 @@ describe("describeHubRun", () => {
 });
 
 describe("describeCapiRun", () => {
+  it("says what was restored after a failed switch", () => {
+    const label = describeCapiRun(
+      true,
+      run({ kind: "capi_apply", ok: false, error: "boom", detail: { enabled: true } }),
+      false,
+    ).label;
+    expect(label).toMatch(/previous configuration was restored/i);
+  });
+
+  it("does not claim a restore after a failed re-registration", () => {
+    // Nothing is rolled back there: the credentials being replaced are the
+    // ones the central API already refuses, so saying otherwise is a lie
+    // told at the exact moment the operator is trying to understand things.
+    const label = describeCapiRun(
+      true,
+      run({
+        kind: "capi_apply",
+        ok: false,
+        error: "Docker refused to exec: container is restarting",
+        detail: { enabled: true, registered: true },
+      }),
+      false,
+    ).label;
+    expect(label).toContain("Docker refused to exec");
+    expect(label).not.toMatch(/previous configuration was restored/i);
+  });
+
   it("off with nothing applied", () => {
     expect(describeCapiRun(false, null, false)).toEqual({ label: "Off", failed: false });
   });

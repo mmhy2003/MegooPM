@@ -35,6 +35,18 @@ _EACCES_HINT = (
 )
 
 
+_RESTARTING_HINT = (
+    " CrowdSec is crash-looping, and docker cannot exec into a container that "
+    "is not running — so this repair, and every other one in the app, is out "
+    "of reach until it starts. Recover from the host: remove the "
+    "online_client block from /data/crowdsec/config.yaml.local (via "
+    "`docker compose exec worker`), `docker compose restart crowdsec`, then "
+    "`docker compose run --rm --no-deps --entrypoint sh crowdsec -c 'cscli "
+    "capi register -f /etc/crowdsec/online_api_credentials.yaml'`. See "
+    "docs/crowdsec.md."
+)
+
+
 def _connect_failure(where: str, verb: str, exc: httpx.HTTPError) -> CrowdSecReloadError:
     """One wording for every failure to reach the daemon, with the EACCES fix named.
 
@@ -123,10 +135,13 @@ def exec_in_container(
                 json={"AttachStdout": True, "AttachStderr": True, "Tty": True, "Cmd": argv},
             )
             if created.status_code != httpx.codes.CREATED:
-                raise CrowdSecReloadError(
-                    f"Docker refused to exec in {where}: HTTP {created.status_code} — "
-                    f"{created.text.strip() or 'no body'}"
-                )
+                body = created.text.strip() or "no body"
+                message = f"Docker refused to exec in {where}: HTTP {created.status_code} — {body}"
+                # Docker names the cause and stops. This is the one failure an
+                # operator meets at their worst moment, so name the cure too.
+                if created.status_code == httpx.codes.CONFLICT and "restarting" in body:
+                    message += _RESTARTING_HINT
+                raise CrowdSecReloadError(message)
             exec_id = created.json()["Id"]
             started = client.post(
                 f"/{_DOCKER_API}/exec/{exec_id}/start", json={"Detach": False, "Tty": True}

@@ -90,3 +90,48 @@ def test_socket_error_names_the_socket_path() -> None:
             transport=httpx.MockTransport(handler),
         )
     assert "/var/run/docker.sock" in str(exc.value)
+
+
+def test_a_restarting_container_says_what_to_do_about_it() -> None:
+    """The one failure an operator meets at their worst moment.
+
+    Every exec-based repair — the hub refresh, the blocklist apply, and above
+    all Re-register — is unreachable exactly when CrowdSec is crash-looping,
+    which is when someone reaches for it. Docker's own words name the cause
+    and stop there; this has to name the cure.
+    """
+    body = '{"message":"Container abc is restarting, wait until the container is running"}'
+    transport = httpx.MockTransport(lambda _r: httpx.Response(409, text=body))
+
+    with pytest.raises(CrowdSecReloadError) as exc:
+        exec_in_container(
+            "megoopm-crowdsec-1",
+            ["cscli", "capi", "status"],
+            socket_path="/var/run/docker.sock",
+            timeout_seconds=30,
+            transport=transport,
+        )
+
+    message = str(exc.value)
+    # Docker's own words survive: the operator can search for them.
+    assert "restarting" in message
+    # And the way out, which docker does not know about.
+    assert "host" in message.lower()
+    assert "docker compose" in message
+
+
+def test_an_unrelated_conflict_is_not_given_the_restart_advice() -> None:
+    # Sending someone to the host for a conflict that has nothing to do with
+    # a crash loop would be worse than saying nothing.
+    transport = httpx.MockTransport(lambda _r: httpx.Response(409, text='{"message":"paused"}'))
+
+    with pytest.raises(CrowdSecReloadError) as exc:
+        exec_in_container(
+            "megoopm-crowdsec-1",
+            ["true"],
+            socket_path="/var/run/docker.sock",
+            timeout_seconds=30,
+            transport=transport,
+        )
+
+    assert "docker compose" not in str(exc.value)

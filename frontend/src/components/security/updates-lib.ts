@@ -50,10 +50,12 @@ export function describeCapiRun(
     return { label: desired ? "Turning on…" : "Turning off…", failed: false };
   }
   if (run && !run.ok) {
-    return {
-      label: `Failed: ${run.error ?? "unknown error"} — the previous configuration was restored.`,
-      failed: true,
-    };
+    // A failed re-registration restores nothing: the credentials it replaces
+    // are the ones the central API already refuses, so there is no earlier
+    // good state to go back to. Only the on/off switch rolls back.
+    const restored =
+      run.detail.registered === true ? "" : " — the previous configuration was restored.";
+    return { label: `Failed: ${run.error ?? "unknown error"}${restored}`, failed: true };
   }
   const achieved = run ? run.detail.enabled === true : false;
   if (desired === achieved) return { label: desired ? "On" : "Off", failed: false };
