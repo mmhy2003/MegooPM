@@ -7,6 +7,7 @@
    Shared fragments live in macros so the proxy body is defined once. #}
 {%- macro proxy_block(path, scheme, target, modifier="") %}
     location {{ modifier }}{{ path }} {
+{{- maintenance_guard() }}
         proxy_pass {{ scheme }}://{{ target }};
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
@@ -25,6 +26,7 @@
 {%- endmacro -%}
 {%- macro answered_block(loc) %}
     location ^~ {{ loc.path }} {
+{{- maintenance_guard() }}
 {%- if loc.target == "custom_page" %}
         # This location's own document, so two paths can serve different pages.
         root {{ default_dir }};
@@ -55,6 +57,7 @@
 {%- if host.caching_enabled %}
 
     location ~* \.(?:jpg|jpeg|gif|png|ico|css|js|woff2?|svg)$ {
+{{- maintenance_guard() }}
         proxy_pass {{ host.forward_scheme }}://{{ target }};
         proxy_set_header Host $host;
         # The same client identity every other location forwards: an asset
@@ -107,6 +110,29 @@
 {%- endif %}
 {%- endif %}
 {%- endmacro -%}
+{%- macro maintenance_guard() %}
+{%- if host.maintenance_enabled %}
+        # Under maintenance: everyone outside the bypass list gets the page. The
+        # guard lives in each location because a server-level `if` runs in the
+        # rewrite phase, where a `return` bypasses error_page entirely and nginx
+        # serves its own body instead of ours.
+        if ($mgm_maint_{{ host.id }}) { return 503; }
+{%- endif %}
+{%- endmacro -%}
+{%- macro maintenance_page() %}
+{%- if host.maintenance_enabled %}
+    # BEFORE the errors include: at one configuration level the FIRST error_page
+    # for a status wins, so reversing these two serves the branded 503 and
+    # maintenance silently does nothing.
+    error_page 503 /{{ maintenance_html }};
+
+    location = /{{ maintenance_html }} {
+        root {{ default_dir }};
+        internal;
+        add_header Retry-After {{ maintenance_retry_after_seconds }} always;
+    }
+{%- endif %}
+{%- endmacro -%}
 {%- macro acme_challenge() %}
 
     # ACME HTTP-01 challenge webroot (Let's Encrypt issuance/renewal, MEG-19).
@@ -124,8 +150,20 @@
 {%- endmacro -%}
 # Managed by MegooPM — do not edit by hand.
 # proxy host id={{ host.id }}
+{%- if host.maintenance_enabled %}
+
+# Which addresses skip maintenance for this host. 0 lets the address through.
+# `geo` is an http-context directive and this file is included from http{}.
+geo $mgm_maint_{{ host.id }} {
+    default 1;
+{%- for entry in host.maintenance_allow %}
+    {{ entry }} 0;
+{%- endfor %}
+}
+{%- endif %}
 {%- if host.certificate %}
 server {
+{{- maintenance_page() }}
     # Branded error pages for the statuses nginx itself produces. A status
     # the backend returns is untouched: there is no proxy_intercept_errors.
     include {{ default_dir }}/{{ errors_conf }};
@@ -146,6 +184,7 @@ server {
 }
 
 server {
+{{- maintenance_page() }}
     # Branded error pages for the statuses nginx itself produces. A status
     # the backend returns is untouched: there is no proxy_intercept_errors.
     include {{ default_dir }}/{{ errors_conf }};
@@ -170,6 +209,7 @@ server {
 }
 {%- else %}
 server {
+{{- maintenance_page() }}
     # Branded error pages for the statuses nginx itself produces. A status
     # the backend returns is untouched: there is no proxy_intercept_errors.
     include {{ default_dir }}/{{ errors_conf }};

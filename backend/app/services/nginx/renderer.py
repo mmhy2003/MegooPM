@@ -28,6 +28,7 @@ from app.services.nginx.state import (
     DefaultTlsSpec,
     DesiredState,
     LocationSpec,
+    MaintenanceSpec,
     ProxyHostSpec,
     RedirectionHostSpec,
     StreamSpec,
@@ -142,7 +143,7 @@ def _target(spec: ProxyHostSpec | LocationSpec) -> str:
 _PROXY_TARGETS = frozenset({"pool", "host"})
 
 
-def _render_proxy_host(host: ProxyHostSpec) -> str:
+def _render_proxy_host(host: ProxyHostSpec, maintenance: MaintenanceSpec | None) -> str:
     access_list = host.access_list
     return (
         _env()
@@ -158,6 +159,11 @@ def _render_proxy_host(host: ProxyHostSpec) -> str:
             default_dir=settings.nginx_default_dir,
             errors_conf=ERRORS_CONF,
             default_site_body=DEFAULT_SITE_BODY,
+            maintenance_html=MAINTENANCE_HTML,
+            # Minutes in the UI, seconds in the header: Retry-After is seconds.
+            maintenance_retry_after_seconds=(
+                (maintenance.retry_after_minutes if maintenance else 60) * 60
+            ),
             location_html=location_html,
             server_names=" ".join(host.domain_names),
             # Deployment-constant webroot the ACME HTTP-01 challenge location serves
@@ -244,7 +250,7 @@ def render_config(state: DesiredState) -> dict[str, str]:
     for upstream in state.http_upstreams:
         files[f"megoopm-upstream-{upstream.id}.conf"] = _render_upstream(upstream)
     for host in state.proxy_hosts:
-        files[f"megoopm-proxy-{host.id}.conf"] = _render_proxy_host(host)
+        files[f"megoopm-proxy-{host.id}.conf"] = _render_proxy_host(host, state.maintenance)
         # One htpasswd file per referenced access list that has basic-auth users.
         # Lists are shareable across hosts, so key by access-list id to dedupe.
         access_list = host.access_list

@@ -347,4 +347,5 @@ __all__ = [
     "DesiredState",
     "ErrorPageSpec",
     "LocationSpec",
+    "MaintenanceSpec",
 ]
