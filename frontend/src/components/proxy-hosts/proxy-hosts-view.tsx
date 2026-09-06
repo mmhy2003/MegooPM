@@ -144,6 +144,25 @@ export function ProxyHostsView() {
     }
   }
 
+  /** Same optimistic flip as setEnabled, for the other switch on the row.
+   *
+   * On the list rather than only in the dialog because planned downtime starts
+   * and ends at a moment someone is watching a deploy, and the allow-list that
+   * makes it usable is set once, in the dialog, long before that moment. */
+  async function setMaintenance(row: ProxyHost, next: boolean) {
+    setHosts((prev) =>
+      prev.map((r) => (r.id === row.id ? { ...r, maintenance_enabled: next } : r)),
+    );
+    try {
+      await proxyHosts.update(row.id, { maintenance_enabled: next });
+    } catch (err) {
+      setHosts((prev) =>
+        prev.map((r) => (r.id === row.id ? { ...r, maintenance_enabled: !next } : r)),
+      );
+      toast.error(describeError(err).message);
+    }
+  }
+
   return (
     <div className="mx-auto flex max-w-6xl flex-col gap-6">
       <div className="flex items-center gap-3">
@@ -196,15 +215,16 @@ export function ProxyHostsView() {
                 <TableHead>Access list</TableHead>
                 <TableHead>Scheme</TableHead>
                 <TableHead>Status</TableHead>
+                <TableHead>Maintenance</TableHead>
                 <TableHead className="w-24 text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {loading ? (
-                <LoadingRows cols={6} />
+                <LoadingRows cols={7} />
               ) : visible.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="py-10 text-center text-muted-foreground">
+                  <TableCell colSpan={7} className="py-10 text-center text-muted-foreground">
                     {query.trim() ? (
                       <>
                         No proxy hosts match “{query.trim()}”.{" "}
@@ -280,6 +300,15 @@ export function ProxyHostsView() {
                           checked={host.enabled ?? true}
                           name={host.domain_names[0]}
                           onToggle={(next) => setEnabled(host, next)}
+                          disabled={!canWrite}
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <EnabledToggle
+                          checked={host.maintenance_enabled ?? false}
+                          name={host.domain_names[0]}
+                          label={`Maintenance for ${host.domain_names[0]}`}
+                          onToggle={(next) => setMaintenance(host, next)}
                           disabled={!canWrite}
                         />
                       </TableCell>

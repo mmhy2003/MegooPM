@@ -163,29 +163,90 @@ describe("ProxyHostsView search", () => {
 });
 
 describe("ProxyHostsView maintenance", () => {
+  beforeEach(() => {
+    vi.spyOn(toast, "error").mockImplementation(() => "" as never);
+  });
   afterEach(() => {
     cleanup();
     vi.restoreAllMocks();
   });
 
-  it("badges a host that is under maintenance", async () => {
-    // The only other signal is inside a dialog, and a host left in maintenance
-    // for a week looks exactly like a host that is simply down.
-    vi.spyOn(proxyHosts, "list").mockResolvedValue([makeHost({ maintenance_enabled: true })]);
+  function mountWith(host = makeHost()) {
+    vi.spyOn(proxyHosts, "list").mockResolvedValue([host]);
     vi.spyOn(upstreams, "list").mockResolvedValue([]);
     vi.spyOn(accessLists, "list").mockResolvedValue([]);
     vi.spyOn(certificates, "list").mockResolvedValue([]);
     vi.spyOn(customPages, "list").mockResolvedValue([]);
     render(<ProxyHostsView />);
+  }
 
-    expect(await screen.findByText("Maintenance")).toBeInTheDocument();
+  it("switches a host into maintenance from its row", async () => {
+    // Planned downtime starts and ends at a moment someone is watching a
+    // deploy; making them open a dialog to flip it adds a step to both ends.
+    const user = userEvent.setup();
+    const update = vi
+      .spyOn(proxyHosts, "update")
+      .mockResolvedValue(makeHost({ maintenance_enabled: true }));
+    mountWith();
+
+    await user.click(await screen.findByLabelText("Maintenance for app.example.com"));
+
+    await waitFor(() => expect(update).toHaveBeenCalledWith(1, { maintenance_enabled: true }));
+  });
+
+  it("shows the switch on for a host already under maintenance", async () => {
+    mountWith(makeHost({ maintenance_enabled: true }));
+
+    expect(await screen.findByLabelText("Maintenance for app.example.com")).toHaveAttribute(
+      "aria-checked",
+      "true",
+    );
+  });
+
+  it("puts the switch back when the write fails", async () => {
+    // Otherwise the row claims a host is under maintenance when it is still
+    // serving traffic — the one state an operator must not be wrong about.
+    const user = userEvent.setup();
+    vi.spyOn(proxyHosts, "update").mockRejectedValue(new Error("nope"));
+    mountWith();
+
+    await user.click(await screen.findByLabelText("Maintenance for app.example.com"));
+
+    await waitFor(() =>
+      expect(screen.getByLabelText("Maintenance for app.example.com")).toHaveAttribute(
+        "aria-checked",
+        "false",
+      ),
+    );
+    expect(toast.error).toHaveBeenCalled();
+  });
+
+  it("badges a host that is under maintenance", async () => {
+    // The switch says which host; the badge is what makes a host left in
+    // maintenance stand out while scanning a long list.
+    mountWith(makeHost({ maintenance_enabled: true }));
+
+    // Scoped to the badge itself: the column header carries the same word.
+    expect(await screen.findByText("Maintenance", { selector: "span" })).toBeInTheDocument();
   });
 
   it("badges nothing when the host is serving normally", async () => {
     mount();
     await screen.findByRole("searchbox", { name: "Search proxy hosts" });
 
-    expect(screen.queryByText("Maintenance")).not.toBeInTheDocument();
+    expect(screen.queryByText("Maintenance", { selector: "span" })).not.toBeInTheDocument();
+  });
+
+  it("offers a member the state but not the control", async () => {
+    useAuth.mockReturnValue({ user: { role: "member" } });
+    mountWith(makeHost({ maintenance_enabled: true }));
+
+    // base-ui renders the switch as a span, so `disabled` is aria-disabled.
+    expect(await screen.findByLabelText("Maintenance for app.example.com")).toHaveAttribute(
+      "aria-disabled",
+      "true",
+    );
+    useAuth.mockReturnValue({ user: { role: "admin" } });
   });
 });
 

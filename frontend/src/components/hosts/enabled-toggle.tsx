@@ -20,17 +20,22 @@ import { Switch } from "@/components/ui/switch";
  * `name` identifies the row in the accessible name. Every row renders one of
  * these, so a bare "Enabled" would leave a screen reader reading out a column of
  * identical switches with no way to tell which host each belongs to.
+ *
+ * `label` replaces that name outright, for a second switch on the same row: two
+ * columns of "Enable <host>" would be indistinguishable to a screen reader.
  */
 export function EnabledToggle({
   checked,
   name,
   onToggle,
   disabled,
+  label,
 }: {
   checked: boolean;
   name: string;
   onToggle: (next: boolean) => Promise<void>;
   disabled?: boolean;
+  label?: string;
 }) {
   const [pending, setPending] = useState(false);
 
@@ -53,7 +58,7 @@ export function EnabledToggle({
 
   return (
     <Switch
-      aria-label={`Enable ${name}`}
+      aria-label={label ?? `Enable ${name}`}
       checked={checked}
       onCheckedChange={handleChange}
       disabled={disabled || pending}
