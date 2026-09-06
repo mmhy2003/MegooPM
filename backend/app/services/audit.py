@@ -10,6 +10,12 @@ Two responsibilities live here:
 No FastAPI imports — callers pass an :class:`~sqlalchemy.ext.asyncio.AsyncSession`
 and plain values, mirroring ``app/services/user.py``.
 
+``actor`` arrives implicitly enriched: when the request was authenticated by an
+API key, :data:`app.core.auth_context.current_api_key` holds it and the actor
+string names it. That is deliberate — the alternative is passing a decorated
+actor at two dozen call sites, which is correct exactly until someone adds the
+next one.
+
 ``record_audit`` deliberately does **not** commit. It ``add``s the row (and
 ``flush``es to populate its id) so that the audit entry participates in the
 caller's transaction: the mutation and its audit record commit atomically, or
@@ -23,6 +29,7 @@ from typing import Any
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.auth_context import current_api_key
 from app.models.audit_log import AuditLog
 from app.models.enums import AuditAction
 
@@ -47,6 +54,13 @@ async def record_audit(
     The row is added and flushed (so ``entry.id`` is available) but **not**
     committed — the caller commits alongside the mutation it is recording.
     """
+    key = current_api_key.get()
+    if actor is not None and key is not None:
+        # Truncated to the column: users.email is String(320) and this column is
+        # String(255), so a long address plus a suffix would raise on insert and
+        # lose the audit row along with the mutation it was recording.
+        actor = f"{actor} (key: {key.name})"[:255]
+
     entry = AuditLog(
         actor=actor,
         action=action,
