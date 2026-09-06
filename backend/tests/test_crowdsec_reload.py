@@ -13,9 +13,14 @@ from pathlib import Path
 
 import httpx
 import pytest
-from app.services.crowdsec.reload import CrowdSecReloadError, restart_container
+from app.services.crowdsec.reload import (
+    CrowdSecReloadError,
+    ExecResult,
+    restart_container,
+)
 from app.services.crowdsec.whitelists import (
     WhitelistDoc,
+    config_test_error,
     content_digest,
     render_whitelists,
 )
@@ -96,6 +101,7 @@ class _Recorder:
 
     def __init__(self, *, healthy: bool) -> None:
         self.restarts = 0
+        self.validations = 0
         self._healthy = healthy
 
     def restart(self) -> None:
@@ -104,6 +110,11 @@ class _Recorder:
     def healthy(self) -> bool:
         return self._healthy
 
+    def validate(self) -> ExecResult:
+        """`crowdsec -t` passing. Tests about validation pass their own."""
+        self.validations += 1
+        return ExecResult(0, 'level=info msg="Configuration test done"')
+
 
 def test_writes_renders_and_restarts(tmp_path: Path) -> None:
     path = tmp_path / "megoopm.yaml"
@@ -111,7 +122,12 @@ def test_writes_renders_and_restarts(tmp_path: Path) -> None:
     rec = _Recorder(healthy=True)
 
     result = apply_whitelists_to_disk(
-        [DOC], path=path, applied_digest=None, restart=rec.restart, healthy=rec.healthy
+        [DOC],
+        path=path,
+        validate=rec.validate,
+        applied_digest=None,
+        restart=rec.restart,
+        healthy=rec.healthy,
     )
 
     assert result.ok is True
@@ -131,6 +147,7 @@ def test_unchanged_content_does_not_restart_crowdsec(tmp_path: Path) -> None:
     result = apply_whitelists_to_disk(
         [DOC],
         path=path,
+        validate=rec.validate,
         applied_digest=content_digest(content),
         restart=rec.restart,
         healthy=rec.healthy,
@@ -151,6 +168,7 @@ def test_a_matching_digest_with_a_stale_file_still_rewrites(tmp_path: Path) -> N
         [DOC],
         path=path,
         applied_digest=content_digest(render_whitelists([DOC])),
+        validate=rec.validate,
         restart=rec.restart,
         healthy=rec.healthy,
     )
@@ -170,7 +188,12 @@ def test_rolls_back_when_crowdsec_does_not_come_back(tmp_path: Path) -> None:
     rec = _Recorder(healthy=False)
 
     result = apply_whitelists_to_disk(
-        [DOC], path=path, applied_digest=None, restart=rec.restart, healthy=rec.healthy
+        [DOC],
+        path=path,
+        validate=rec.validate,
+        applied_digest=None,
+        restart=rec.restart,
+        healthy=rec.healthy,
     )
 
     assert result.ok is False
@@ -186,7 +209,12 @@ def test_rollback_preserves_the_inode(tmp_path: Path) -> None:
     rec = _Recorder(healthy=False)
 
     apply_whitelists_to_disk(
-        [DOC], path=path, applied_digest=None, restart=rec.restart, healthy=rec.healthy
+        [DOC],
+        path=path,
+        validate=rec.validate,
+        applied_digest=None,
+        restart=rec.restart,
+        healthy=rec.healthy,
     )
 
     assert path.stat().st_ino == before
@@ -201,7 +229,12 @@ def test_a_failed_restart_puts_the_previous_file_back(tmp_path: Path) -> None:
         raise CrowdSecReloadError("docker socket not mounted")
 
     result = apply_whitelists_to_disk(
-        [DOC], path=path, applied_digest=None, restart=boom, healthy=lambda: True
+        [DOC],
+        path=path,
+        applied_digest=None,
+        validate=lambda: ExecResult(0, "Configuration test done"),
+        restart=boom,
+        healthy=lambda: True,
     )
 
     assert result.ok is False
@@ -216,7 +249,12 @@ def test_invalid_entry_never_reaches_the_file(tmp_path: Path) -> None:
     rec = _Recorder(healthy=True)
 
     result = apply_whitelists_to_disk(
-        [bad], path=path, applied_digest=None, restart=rec.restart, healthy=rec.healthy
+        [bad],
+        path=path,
+        validate=rec.validate,
+        applied_digest=None,
+        restart=rec.restart,
+        healthy=rec.healthy,
     )
 
     assert result.ok is False
@@ -238,3 +276,113 @@ def test_permission_denied_names_the_fix() -> None:
             timeout_seconds=30,
             transport=httpx.MockTransport(handler),
         )
+
+
+# --- validating before the restart ---------------------------------------------
+
+#: What `crowdsec -t` really prints for an unterminated string literal,
+#: captured from crowdsecurity/crowdsec:v1.6.4 with this exact whitelist.
+CONFIG_TEST_FAILURE = "\n".join(
+    [
+        'time="2026-09-06T08:19:14Z" level=info msg="Loaded 2 parser nodes"',
+        'time="2026-09-06T08:19:14Z" level=fatal msg="crowdsec init: while loading '
+        "parsers: failed to load parser config : failed to compile node "
+        "'megoopm/wl-swetrix' in "
+        "'/etc/crowdsec/parsers/s02-enrich/99-megoopm-whitelist.yaml' : unable to "
+        "compile whitelist expression 'evt.Meta.http_path startsWith '/backend/v1' "
+        ': literal not terminated (1:43)"',
+        "",
+    ]
+)
+CONFIG_TEST_OK = 'time="2026-09-06T08:19:01Z" level=info msg="Configuration test done"'
+
+
+def test_a_passing_config_test_reports_no_error() -> None:
+    assert config_test_error(ExecResult(0, CONFIG_TEST_OK)) is None
+
+
+def test_a_failing_config_test_returns_the_compilers_own_words() -> None:
+    """The caret and the column are the whole value: they say what to fix."""
+    message = config_test_error(ExecResult(1, CONFIG_TEST_FAILURE))
+
+    assert message is not None
+    assert "literal not terminated (1:43)" in message
+    # The info lines above it are noise in a dialog.
+    assert "Loaded 2 parser nodes" not in message
+
+
+def test_a_failure_with_no_fatal_line_still_says_something() -> None:
+    message = config_test_error(ExecResult(1, "something went wrong\n"))
+    assert message is not None and "something went wrong" in message
+
+
+def test_an_empty_failure_is_still_reported_as_one() -> None:
+    assert config_test_error(ExecResult(1, "")) is not None
+
+
+def test_a_config_that_does_not_load_is_never_restarted_onto(tmp_path: Path) -> None:
+    """The whole point: the engine keeps running on what it already loaded.
+
+    Restarting first is what turned a typo in a text box into a crash loop.
+    """
+    path = tmp_path / "megoopm.yaml"
+    path.write_text("# seed\n", encoding="utf-8")
+    rec = _Recorder(healthy=True)
+
+    result = apply_whitelists_to_disk(
+        [DOC],
+        path=path,
+        applied_digest=None,
+        validate=lambda: ExecResult(1, CONFIG_TEST_FAILURE),
+        restart=rec.restart,
+        healthy=rec.healthy,
+    )
+
+    assert result.ok is False
+    assert rec.restarts == 0
+    assert "literal not terminated (1:43)" in (result.error or "")
+    # And the file goes back, so a later restart for any other reason is safe.
+    assert path.read_text(encoding="utf-8") == "# seed\n"
+
+
+def test_a_container_that_cannot_be_reached_does_not_restart_either(tmp_path: Path) -> None:
+    # Unable to validate is not permission to proceed: an unchecked file is
+    # exactly what we are trying to stop reaching a restart.
+    path = tmp_path / "megoopm.yaml"
+    path.write_text("# seed\n", encoding="utf-8")
+    rec = _Recorder(healthy=True)
+
+    def _validate() -> ExecResult:
+        raise CrowdSecReloadError("container is restarting")
+
+    result = apply_whitelists_to_disk(
+        [DOC],
+        path=path,
+        applied_digest=None,
+        validate=_validate,
+        restart=rec.restart,
+        healthy=rec.healthy,
+    )
+
+    assert result.ok is False
+    assert rec.restarts == 0
+    assert "restarting" in (result.error or "")
+    assert path.read_text(encoding="utf-8") == "# seed\n"
+
+
+def test_a_passing_config_test_lets_the_restart_happen(tmp_path: Path) -> None:
+    path = tmp_path / "megoopm.yaml"
+    path.write_text("# seed\n", encoding="utf-8")
+    rec = _Recorder(healthy=True)
+
+    result = apply_whitelists_to_disk(
+        [DOC],
+        path=path,
+        applied_digest=None,
+        validate=lambda: ExecResult(0, CONFIG_TEST_OK),
+        restart=rec.restart,
+        healthy=rec.healthy,
+    )
+
+    assert result.ok is True
+    assert rec.restarts == 1

@@ -42,8 +42,10 @@ from app.services.crowdsec.reload import (
     restart_container,
 )
 from app.services.crowdsec.whitelists import (
+    CMD_CONFIG_TEST,
     WhitelistDoc,
     WhitelistValidationError,
+    config_test_error,
     content_digest,
     read_whitelist_file,
     render_whitelists,
@@ -74,10 +76,18 @@ def apply_whitelists_to_disk(
     *,
     path: Path,
     applied_digest: str | None,
+    validate: Callable[[], ExecResult],
     restart: Callable[[], None],
     healthy: Callable[[], bool],
 ) -> ApplyResult:
-    """Render, write in place, restart, verify — and roll back if it fails."""
+    """Render, write, **test the config**, restart, verify — rolling back if it fails.
+
+    The test is the whole point. CrowdSec compiles whitelist expressions
+    itself and refuses to start on one it cannot parse, so before this the
+    only way to discover a typo was to restart onto it and watch the engine
+    die. ``crowdsec -t`` asks the same compiler while the process keeps
+    running, which turns an outage into an error message.
+    """
     try:
         content = render_whitelists(docs)
     except WhitelistValidationError as exc:
@@ -90,6 +100,18 @@ def apply_whitelists_to_disk(
         return ApplyResult(ok=True, digest=digest, error=None, restarted=False)
 
     write_whitelist_file(path, content)
+
+    # Ask CrowdSec whether it would load this, before making it live. An
+    # unreachable container counts as "no": unable to check is not permission
+    # to restart onto something unchecked.
+    try:
+        problem = config_test_error(validate())
+    except CrowdSecReloadError as exc:
+        write_whitelist_file(path, previous)
+        return ApplyResult(ok=False, digest=None, error=str(exc), restarted=False)
+    if problem:
+        write_whitelist_file(path, previous)
+        return ApplyResult(ok=False, digest=None, error=problem, restarted=False)
 
     try:
         restart()
@@ -177,6 +199,7 @@ def apply_crowdsec_whitelists() -> dict:
             docs,
             path=Path(settings.crowdsec_whitelist_path),
             applied_digest=state.applied_digest,
+            validate=lambda: _container_exec(CMD_CONFIG_TEST),
             restart=lambda: restart_container(
                 settings.crowdsec_container_name,
                 socket_path=settings.docker_socket_path,

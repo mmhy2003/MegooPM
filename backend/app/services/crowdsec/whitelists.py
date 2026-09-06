@@ -23,6 +23,8 @@ from pathlib import Path
 
 from jinja2 import Environment, FileSystemLoader, StrictUndefined
 
+from app.services.crowdsec.reload import ExecResult
+
 TEMPLATES_DIR = Path(__file__).resolve().parents[2] / "templates" / "crowdsec"
 
 
@@ -163,6 +165,29 @@ def render_whitelists(docs: Sequence[WhitelistDoc]) -> str:
 def content_digest(content: str) -> str:
     """sha256 of rendered content; decides whether a reload is needed at all."""
     return hashlib.sha256(content.encode("utf-8")).hexdigest()
+
+
+#: CrowdSec's own config test — the `nginx -t` of this stack. It loads every
+#: parser, reports what it cannot compile, and exits non-zero, all without
+#: touching the running process. Measured on v1.6.4: with a broken whitelist
+#: mounted, a live container stayed up and this returned exit 1 with the
+#: compiler's message and a caret at the offending column.
+CMD_CONFIG_TEST = ["crowdsec", "-t"]
+
+
+def config_test_error(result: ExecResult) -> str | None:
+    """What `crowdsec -t` objected to, or ``None`` when the config loads.
+
+    Only the ``level=fatal`` line is kept. The rest is a page of "Loaded N
+    parser nodes" that would bury the one line saying what to fix.
+    """
+    if result.exit_code == 0:
+        return None
+    lines = [line for line in result.output.splitlines() if line.strip()]
+    for line in reversed(lines):
+        if "level=fatal" in line:
+            return line.strip()
+    return lines[-1].strip() if lines else "crowdsec -t failed without saying why."
 
 
 def read_whitelist_file(path: Path) -> str:
