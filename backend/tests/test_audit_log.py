@@ -95,6 +95,57 @@ async def test_list_audit_logs_newest_first_and_filters(session_factory) -> None
         assert total == 2
 
 
+async def test_the_actor_filter_finds_a_key_attributed_row(session_factory) -> None:
+    """Searching a person must find what their API key did.
+
+    Since API keys, an actor reads "alice@example.com (key: CI deploy)". An
+    exact-match filter would silently hide exactly the rows an investigation is
+    looking for, which is the opposite of what an audit log is for.
+    """
+    async with session_factory() as session:
+        await audit_service.record_audit(
+            session,
+            actor="alice@example.com (key: CI deploy)",
+            action=AuditAction.create,
+            object_type="proxy_host",
+            object_id=3,
+        )
+        await session.commit()
+
+        rows, total = await audit_service.list_audit_logs(session, actor="alice@example.com")
+
+    assert total == 1
+    assert rows[0].object_id == 3
+
+
+async def test_the_actor_filter_ignores_case(session_factory) -> None:
+    # Addresses get typed however they get typed.
+    async with session_factory() as session:
+        await audit_service.record_audit(
+            session,
+            actor="Alice@Example.com",
+            action=AuditAction.create,
+            object_type="upstream",
+            object_id=9,
+        )
+        await session.commit()
+
+        rows, total = await audit_service.list_audit_logs(session, actor="alice@example")
+
+    assert total == 1
+    assert rows[0].object_id == 9
+
+
+async def test_the_actor_filter_still_excludes_other_people(session_factory) -> None:
+    # Widening the match must not turn the filter into no filter.
+    await _seed(session_factory)
+    async with session_factory() as session:
+        rows, total = await audit_service.list_audit_logs(session, actor="someone-else@example.com")
+
+    assert total == 0
+    assert rows == []
+
+
 async def test_list_audit_logs_pagination(session_factory) -> None:
     await _seed(session_factory)
     async with session_factory() as session:

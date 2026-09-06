@@ -31,7 +31,9 @@ async def list_audit_log(
         str | None, Query(description="Filter by object type, e.g. proxy_host")
     ] = None,
     object_id: Annotated[int | None, Query(description="Filter by the mutated object's id")] = None,
-    actor: Annotated[str | None, Query(description="Filter by actor (exact match)")] = None,
+    actor: Annotated[
+        str | None, Query(description="Filter by actor; matches part of it, ignoring case")
+    ] = None,
     action: Annotated[AuditAction | None, Query(description="Filter by mutation action")] = None,
     limit: Annotated[int, Query(ge=1, le=200, description="Max entries to return")] = 50,
     offset: Annotated[int, Query(ge=0, description="Entries to skip (pagination)")] = 0,

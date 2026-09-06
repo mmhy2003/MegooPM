@@ -85,9 +85,10 @@ async def list_audit_logs(
 ) -> tuple[list[AuditLog], int]:
     """Return a newest-first page of audit rows plus the total match count.
 
-    Filters are combined with ``AND``; any left ``None`` is not applied. The
-    returned ``total`` reflects the filters but not the pagination window, so
-    callers can render page counts.
+    Filters are combined with ``AND``; any left ``None`` is not applied.
+    ``actor`` matches a substring, case-insensitively — everything else is exact.
+    The returned ``total`` reflects the filters but not the pagination window,
+    so callers can render page counts.
     """
     filters = []
     if object_type is not None:
@@ -95,7 +96,11 @@ async def list_audit_logs(
     if object_id is not None:
         filters.append(AuditLog.object_id == object_id)
     if actor is not None:
-        filters.append(AuditLog.actor == actor)
+        # Contains, not equals: since API keys an actor reads
+        # "alice@example.com (key: CI deploy)", and an exact match would hide
+        # exactly the rows an investigation is looking for. ``ilike`` also
+        # spares the caller matching the stored capitalisation.
+        filters.append(AuditLog.actor.ilike(f"%{actor}%"))
     if action is not None:
         filters.append(AuditLog.action == action)
 

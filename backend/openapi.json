@@ -7182,7 +7182,7 @@
             }
           },
           {
-            "description": "Filter by actor (exact match)",
+            "description": "Filter by actor; matches part of it, ignoring case",
             "in": "query",
             "name": "actor",
             "required": false,
@@ -7195,7 +7195,7 @@
                   "type": "null"
                 }
               ],
-              "description": "Filter by actor (exact match)",
+              "description": "Filter by actor; matches part of it, ignoring case",
               "title": "Actor"
             }
           },
