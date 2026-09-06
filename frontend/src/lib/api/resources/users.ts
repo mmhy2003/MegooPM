@@ -21,6 +21,9 @@ export type TotpCodes = Schemas["TotpCodes"];
 export type Passkey = Schemas["PasskeyRead"];
 export type PasskeyRegister = Schemas["PasskeyRegisterRequest"];
 export type PasskeyOptions = Schemas["PasskeyOptions"];
+export type ApiKey = Schemas["ApiKeyRead"];
+export type ApiKeyCreated = Schemas["ApiKeyCreated"];
+export type ApiKeyCreate = Schemas["ApiKeyCreate"];
 
 const BASE = "/api/v1/users";
 
@@ -58,6 +61,17 @@ export const users = {
   /** Remove one. A valid code is required; a POST so the body survives proxies. */
   removePasskey: (id: number, code: string) =>
     api.post<void>(`${BASE}/me/passkeys/${id}/remove`, { code }),
+  /** Your API keys: names, prefixes and dates. Never a token. */
+  apiKeys: () => api.get<ApiKey[]>(`${BASE}/me/api-keys`),
+  /**
+   * The response carries the token. It is the only time it exists outside the
+   * caller — only a digest is stored, so it cannot be shown again.
+   */
+  createApiKey: (body: ApiKeyCreate) => api.post<ApiKeyCreated>(`${BASE}/me/api-keys`, body),
+  setApiKeyEnabled: (id: number, enabled: boolean) =>
+    api.patch<ApiKey>(`${BASE}/me/api-keys/${id}`, { enabled }),
+  /** Final. Anything using the key stops on its next request. */
+  deleteApiKey: (id: number) => api.delete<void>(`${BASE}/me/api-keys/${id}`),
 } as const;
 
 export const USER_ROLES: readonly UserRole[] = ["admin", "member"] as const;

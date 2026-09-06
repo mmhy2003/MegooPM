@@ -1805,6 +1805,61 @@ export interface paths {
         patch: operations["update_current_user_api_v1_users_me_patch"];
         trace?: never;
     };
+    "/api/v1/users/me/api-keys": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Api Keys
+         * @description Your API keys.
+         *
+         *     Expired and disabled ones stay listed until you delete them: a key that
+         *     vanished on expiry would hide the reason a script broke at exactly the
+         *     moment someone is looking for it.
+         */
+        get: operations["list_api_keys_api_v1_users_me_api_keys_get"];
+        put?: never;
+        /**
+         * Create Api Key
+         * @description Mint a key.
+         *
+         *     This response is the only time the token exists outside the caller — only a
+         *     digest is stored, so it cannot be recovered or shown again.
+         */
+        post: operations["create_api_key_api_v1_users_me_api_keys_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/users/me/api-keys/{key_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete Api Key
+         * @description Revoke a key for good. Anything using it stops on its next request.
+         */
+        delete: operations["delete_api_key_api_v1_users_me_api_keys__key_id__delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Update Api Key
+         * @description Switch a key off, or back on.
+         */
+        patch: operations["update_api_key_api_v1_users_me_api_keys__key_id__patch"];
+        trace?: never;
+    };
     "/api/v1/users/me/passkeys": {
         parameters: {
             query?: never;
@@ -2385,6 +2440,81 @@ export interface components {
             scope?: string | null;
             /** Value */
             value?: string | null;
+        };
+        /**
+         * ApiKeyCreate
+         * @description Name it, and choose whether it should stop working on its own.
+         */
+        ApiKeyCreate: {
+            /**
+             * Expires At
+             * @description When the key stops working; null for never
+             */
+            expires_at?: string | null;
+            /**
+             * Name
+             * @description What this key is for
+             */
+            name: string;
+        };
+        /**
+         * ApiKeyCreated
+         * @description The 201 body. The only time the token exists outside the caller.
+         */
+        ApiKeyCreated: {
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Enabled */
+            enabled: boolean;
+            /** Expires At */
+            expires_at: string | null;
+            /** Id */
+            id: number;
+            /** Last Used At */
+            last_used_at: string | null;
+            /** Name */
+            name: string;
+            /** Token */
+            token: string;
+            /** Token Prefix */
+            token_prefix: string;
+        };
+        /**
+         * ApiKeyRead
+         * @description One key. Never the token, and never its digest.
+         */
+        ApiKeyRead: {
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Enabled */
+            enabled: boolean;
+            /** Expires At */
+            expires_at: string | null;
+            /** Id */
+            id: number;
+            /** Last Used At */
+            last_used_at: string | null;
+            /** Name */
+            name: string;
+            /** Token Prefix */
+            token_prefix: string;
+        };
+        /**
+         * ApiKeyUpdate
+         * @description Only ``enabled``.
+         *
+         *     A key's name and expiry are fixed at creation, so an audit row keeps meaning
+         *     what it said when it was written.
+         */
+        ApiKeyUpdate: {
+            /** Enabled */
+            enabled: boolean;
         };
         /**
          * AuditAction
@@ -8497,6 +8627,123 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["UserRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_api_keys_api_v1_users_me_api_keys_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiKeyRead"][];
+                };
+            };
+        };
+    };
+    create_api_key_api_v1_users_me_api_keys_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ApiKeyCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiKeyCreated"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_api_key_api_v1_users_me_api_keys__key_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                key_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_api_key_api_v1_users_me_api_keys__key_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                key_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ApiKeyUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiKeyRead"];
                 };
             };
             /** @description Validation Error */

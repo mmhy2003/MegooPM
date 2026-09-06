@@ -37,6 +37,9 @@ describe("ProfileView", () => {
       full_name: "Renamed",
     });
     vi.spyOn(users, "changeMyPassword").mockResolvedValue(undefined);
+    // The API-keys card loads on mount; unmocked, its failure renders a second
+    // role="alert" and the assertions below stop being about this page.
+    vi.spyOn(users, "apiKeys").mockResolvedValue([]);
   });
   afterEach(() => {
     cleanup();

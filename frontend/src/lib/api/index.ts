@@ -168,6 +168,9 @@ export type {
 
 export { users, USER_ROLES, USER_ROLE_LABELS } from "@/lib/api/resources/users";
 export type {
+  ApiKey,
+  ApiKeyCreate,
+  ApiKeyCreated,
   Passkey,
   PasskeyOptions,
   PasskeyRegister,
