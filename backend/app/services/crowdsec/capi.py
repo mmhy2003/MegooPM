@@ -70,6 +70,63 @@ def parse_capi_status(result: ExecResult) -> bool:
 
 
 @dataclass(frozen=True, slots=True)
+class CapiStatus:
+    """Whether the stored central-API credentials still work.
+
+    ``ok`` is deliberately three-valued. ``None`` means "we could not find
+    out" — the blocklist is off, or the container could not be reached — and
+    that is not the same as "rejected": reporting rejection for a docker
+    socket problem would send an operator re-registering working credentials.
+    """
+
+    enabled: bool
+    ok: bool | None
+    detail: str | None
+
+
+def read_capi_enabled(path: Path) -> bool:
+    """Whether ``config.yaml.local`` currently carries the online_client block.
+
+    Read from the file rather than the settings row because the file is what
+    CrowdSec loads: if the two ever disagree, this answers for the engine.
+    """
+    return "online_client:" in _read(path)
+
+
+def check_capi_status(*, path: Path, exec: Callable[[list[str]], ExecResult]) -> CapiStatus:
+    """Ask the engine whether CAPI still accepts us.
+
+    Worth doing on its own, away from any change: CrowdSec authenticates to
+    CAPI during LAPI init and treats a rejection as fatal, so credentials that
+    have gone stale sit harmlessly in a running container until something
+    restarts it — and then nothing starts. This is the warning before that.
+    """
+    if not read_capi_enabled(path):
+        return CapiStatus(enabled=False, ok=None, detail=None)
+
+    try:
+        result = exec(CMD_STATUS)
+    except CrowdSecReloadError as exc:
+        # Unknown, not broken. A container we cannot exec into tells us
+        # nothing about the credentials inside it.
+        return CapiStatus(enabled=True, ok=None, detail=str(exc))
+
+    if parse_capi_status(result):
+        return CapiStatus(enabled=True, ok=True, detail=None)
+
+    tail = result.output.strip().splitlines()[-1:] or ["cscli capi status said nothing"]
+    return CapiStatus(
+        enabled=True,
+        ok=False,
+        detail=(
+            "CrowdSec's central API is refusing these credentials. The engine "
+            "is running on what it loaded at start, but it will not survive a "
+            f"restart until this is fixed. {tail[0]}"
+        ),
+    )
+
+
+@dataclass(frozen=True, slots=True)
 class CapiApplyResult:
     ok: bool
     error: str | None
@@ -89,6 +146,74 @@ def _write(path: Path, content: str) -> None:
     # inode it saw at start (see the whitelist writer for the same rule).
     with path.open("w", encoding="utf-8") as fh:
         fh.write(content)
+
+
+def run_capi_register(
+    *,
+    path: Path,
+    exec: Callable[[list[str]], ExecResult],
+    restart: Callable[[], None],
+    healthy: Callable[[], bool],
+) -> CapiApplyResult:
+    """Get fresh central-API credentials, then prove they work.
+
+    The repair for :func:`check_capi_status` reporting a rejection. Only
+    useful while the container is still up: ``docker exec`` cannot reach one
+    that is crash-looping, which is why the check exists to catch this before
+    the next restart rather than after.
+
+    Nothing is rolled back on failure. The credentials being replaced are the
+    ones CAPI already refuses, so keeping them has no value — unlike the
+    config file, which :func:`run_capi_apply` does restore.
+    """
+    if not read_capi_enabled(path):
+        return CapiApplyResult(
+            False,
+            "The community blocklist is off, so there is nothing to register.",
+            False,
+            False,
+        )
+
+    try:
+        registered = exec(CMD_REGISTER)
+    except CrowdSecReloadError as exc:
+        return CapiApplyResult(False, str(exc), False, True)
+    if registered.exit_code != 0:
+        # Never restart on credentials we know are bad: that is exactly how
+        # the container ends up in a crash loop.
+        tail = registered.output.strip().splitlines()[-1:] or ["no output"]
+        return CapiApplyResult(
+            False, f"Registering with CrowdSec's central API failed: {tail[0]}", False, True
+        )
+
+    try:
+        restart()
+    except CrowdSecReloadError as exc:
+        return CapiApplyResult(False, str(exc), False, True)
+
+    if not healthy():
+        return CapiApplyResult(
+            False,
+            "CrowdSec did not come back after registering. Check its logs.",
+            True,
+            True,
+        )
+
+    # Confirm after the restart, not before: before, cscli would only be
+    # telling us about the credentials the running process already loaded.
+    try:
+        status = exec(CMD_STATUS)
+    except CrowdSecReloadError as exc:
+        return CapiApplyResult(False, str(exc), True, True)
+    if not parse_capi_status(status):
+        tail = status.output.strip().splitlines()[-1:] or ["no output"]
+        return CapiApplyResult(
+            False,
+            f"The new credentials were not accepted either: {tail[0]}",
+            True,
+            True,
+        )
+    return CapiApplyResult(True, None, True, True)
 
 
 def run_capi_apply(

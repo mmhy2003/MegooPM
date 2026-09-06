@@ -87,6 +87,14 @@ def create_celery() -> Celery:
             "task": "app.tasks.analytics.prune_visitor_days",
             "schedule": crontab(hour=3, minute=30),
         },
+        # CAPI credentials that go stale are silent until the next restart,
+        # which is then fatal. Checking hourly means the UI can warn while the
+        # engine is still up — the only window in which it can be repaired.
+        "capi-credential-check-hourly": {
+            "task": "app.tasks.crowdsec.check_capi_credentials",
+            "schedule": crontab(minute=25),
+            "options": {"expires": 3000},
+        },
         "hub-update-tick-hourly": {
             "task": "app.tasks.crowdsec.hub_update_tick",
             # The tick decides whether this hour is the configured slot; a
@@ -178,6 +186,10 @@ def _configure_ha(celery_app: Celery) -> None:
             "app.tasks.crowdsec.hub_update_tick",
             "app.tasks.crowdsec.update_hub",
             "app.tasks.crowdsec.apply_capi",
+            # These two exec into the container as well, so they belong on the
+            # node holding the socket like the rest.
+            "app.tasks.crowdsec.check_capi_credentials",
+            "app.tasks.crowdsec.register_capi",
         ):
             celery_app.conf.task_routes[name] = {"queue": control_queue}
     celery_app.conf.beat_schedule["reconcile-nginx-across-nodes"] = {

@@ -324,6 +324,90 @@ def hub_update_tick() -> dict:
     return {"ran": True, **outcome}
 
 
+def _record_capi_status(conn: Connection, status: capi.CapiStatus) -> None:
+    """Write the last CAPI answer onto the settings row."""
+    table = InstanceSettings.__table__
+    conn.execute(
+        table.update()
+        .where(table.c.id == 1)
+        .values(
+            crowdsec_capi_status_ok=status.ok,
+            crowdsec_capi_status_detail=status.detail,
+            crowdsec_capi_checked_at=_now(),
+        )
+    )
+
+
+@celery_app.task(name="app.tasks.crowdsec.check_capi_credentials")
+def check_capi_credentials() -> dict:
+    """Ask whether CAPI still accepts us, and remember the answer.
+
+    Scheduled rather than on demand, because the failure this catches is
+    silent: CrowdSec authenticates to CAPI at start and treats a rejection as
+    fatal, so stale credentials do nothing at all until the next restart, and
+    then nothing starts. Recording it while the engine is up is what turns a
+    crash loop into a warning — and the container being up is also the only
+    state in which the repair can run, since exec cannot reach a restarting
+    one.
+    """
+    status = capi.check_capi_status(
+        path=Path(settings.crowdsec_config_local_path), exec=_container_exec
+    )
+    engine = sync_engine()
+    try:
+        with engine.begin() as conn:
+            _record_capi_status(conn, status)
+    finally:
+        engine.dispose()
+    return {"enabled": status.enabled, "ok": status.ok}
+
+
+@celery_app.task(name="app.tasks.crowdsec.register_capi")
+def register_capi() -> dict:
+    """Replace the central-API credentials and prove the new ones work.
+
+    Shares the CAPI lock with the apply: both rewrite what the container reads
+    and restart it, and running them at once would race.
+    """
+
+    def _go() -> dict:
+        engine = sync_engine()
+        try:
+            path = Path(settings.crowdsec_config_local_path)
+            with engine.begin() as conn:
+                start_job_run(
+                    conn,
+                    CrowdSecJobKind.capi_apply,
+                    trigger=CrowdSecJobTrigger.manual,
+                    started_at=_now(),
+                )
+            result = capi.run_capi_register(
+                path=path,
+                exec=_container_exec,
+                restart=_container_restart,
+                healthy=_wait_for_lapi,
+            )
+            status = capi.check_capi_status(path=path, exec=_container_exec)
+            with engine.begin() as conn:
+                finish_job_run(
+                    conn,
+                    CrowdSecJobKind.capi_apply,
+                    ok=result.ok,
+                    error=result.error,
+                    restarted=result.restarted,
+                    detail={"registered": True},
+                    finished_at=_now(),
+                )
+                # Refresh the health this was repairing, so a fixed instance
+                # stops warning without waiting for the next scheduled check.
+                _record_capi_status(conn, status)
+            return result.as_dict()
+        finally:
+            engine.dispose()
+
+    return _run_locked(CAPI_LOCK_KEY, _go)
+
+
 @celery_app.task(name="app.tasks.crowdsec.apply_capi")
 def apply_capi() -> dict:
     """Make the container's config match the desired blocklist state."""

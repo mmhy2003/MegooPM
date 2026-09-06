@@ -14,7 +14,7 @@ from app.services.crowdsec import capi, hub
 from app.services.crowdsec.job_run import read_job_run
 from app.services.crowdsec.reload import ExecResult
 from app.tasks import crowdsec as tasks
-from sqlalchemy import create_engine, insert
+from sqlalchemy import create_engine, insert, select
 from sqlalchemy.pool import StaticPool
 
 
@@ -168,3 +168,97 @@ def test_maintenance_settings_loader_maps_the_enum(engine) -> None:
     with engine.begin() as conn:
         s = tasks._load_maintenance_settings(conn)
     assert s.frequency is HubUpdateFrequency.daily and s.hour_utc == 3 and s.capi_enabled is False
+
+
+# --- CAPI credential health ----------------------------------------------------
+
+
+def test_the_check_records_healthy_credentials(engine, fakes, tmp_path) -> None:
+    (tmp_path / "config.yaml.local").write_text(
+        capi.render_config_local(capi_enabled=True), encoding="utf-8"
+    )
+    with engine.begin() as conn:
+        conn.execute(InstanceSettings.__table__.update().values(crowdsec_capi_enabled=True))
+
+    out = tasks.check_capi_credentials.run()
+
+    assert out == {"enabled": True, "ok": True}
+    with engine.begin() as conn:
+        row = conn.execute(select(InstanceSettings.__table__)).one()
+    assert row.crowdsec_capi_status_ok is True
+    assert row.crowdsec_capi_status_detail is None
+    assert row.crowdsec_capi_checked_at is not None
+
+
+def test_the_check_records_a_rejection_with_its_reason(
+    engine, fakes, tmp_path, monkeypatch
+) -> None:
+    """The whole point: this is written down while the container is still up."""
+    (tmp_path / "config.yaml.local").write_text(
+        capi.render_config_local(capi_enabled=True), encoding="utf-8"
+    )
+    monkeypatch.setattr(
+        tasks, "_container_exec", lambda argv: ExecResult(1, 'msg="API error: Forbidden"')
+    )
+
+    out = tasks.check_capi_credentials.run()
+
+    assert out == {"enabled": True, "ok": False}
+    with engine.begin() as conn:
+        row = conn.execute(select(InstanceSettings.__table__)).one()
+    assert row.crowdsec_capi_status_ok is False
+    assert "Forbidden" in row.crowdsec_capi_status_detail
+    assert "restart" in row.crowdsec_capi_status_detail.lower()
+
+
+def test_the_check_does_nothing_when_the_blocklist_is_off(engine, fakes, tmp_path) -> None:
+    (tmp_path / "config.yaml.local").write_text(
+        capi.render_config_local(capi_enabled=False), encoding="utf-8"
+    )
+
+    out = tasks.check_capi_credentials.run()
+
+    assert out == {"enabled": False, "ok": None}
+    with engine.begin() as conn:
+        row = conn.execute(select(InstanceSettings.__table__)).one()
+    # Not "healthy" and not "rejected": there is nothing to authenticate.
+    assert row.crowdsec_capi_status_ok is None
+
+
+def test_re_registering_records_the_outcome(engine, fakes, tmp_path) -> None:
+    (tmp_path / "config.yaml.local").write_text(
+        capi.render_config_local(capi_enabled=True), encoding="utf-8"
+    )
+
+    out = tasks.register_capi.run()
+
+    assert out["ok"] is True and out["restarted"] is True
+    with engine.begin() as conn:
+        row = read_job_run(conn, CrowdSecJobKind.capi_apply)
+        settings_row = conn.execute(select(InstanceSettings.__table__)).one()
+    assert row is not None and row.ok
+    # The repair refreshes the health it was repairing, so the warning clears
+    # without waiting for the next scheduled check.
+    assert settings_row.crowdsec_capi_status_ok is True
+
+
+def test_a_failed_re_registration_is_recorded_as_failed(
+    engine, fakes, tmp_path, monkeypatch
+) -> None:
+    (tmp_path / "config.yaml.local").write_text(
+        capi.render_config_local(capi_enabled=True), encoding="utf-8"
+    )
+
+    def _exec(argv):
+        if argv == capi.CMD_REGISTER:
+            return ExecResult(1, 'msg="too many requests"')
+        return ExecResult(0, "")
+
+    monkeypatch.setattr(tasks, "_container_exec", _exec)
+
+    out = tasks.register_capi.run()
+
+    assert out["ok"] is False
+    with engine.begin() as conn:
+        row = read_job_run(conn, CrowdSecJobKind.capi_apply)
+    assert row is not None and not row.ok and "too many requests" in row.error

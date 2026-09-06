@@ -33,6 +33,7 @@ from app.models.enums import AuditAction, CrowdSecJobKind
 from app.schemas.crowdsec import (
     Alert,
     AlertList,
+    CapiCredentialHealth,
     CrowdSecHealth,
     CrowdSecJobRunRead,
     CrowdSecMaintenance,
@@ -49,6 +50,7 @@ from app.schemas.crowdsec_whitelist import (
 )
 from app.schemas.events import Event
 from app.services import audit as audit_service
+from app.services import instance_settings as instance_settings_service
 from app.services.crowdsec import (
     CrowdSecClient,
     CrowdSecError,
@@ -508,15 +510,49 @@ async def maintenance(_admin: AdminUser, db: SessionDep) -> CrowdSecMaintenance:
     """
     hub_row = await db.get(CrowdSecJobRun, CrowdSecJobKind.hub_update)
     capi_row = await db.get(CrowdSecJobRun, CrowdSecJobKind.capi_apply)
+    # Read, never measured here: the docker socket is on the worker, and the
+    # backend takes internet traffic, so it must never hold one.
+    row = await instance_settings_service.get_instance_settings(db)
     return CrowdSecMaintenance(
         hub=CrowdSecJobRunRead.model_validate(hub_row) if hub_row else None,
         capi=CrowdSecJobRunRead.model_validate(capi_row) if capi_row else None,
+        capi_credentials=CapiCredentialHealth(
+            ok=row.crowdsec_capi_status_ok,
+            detail=row.crowdsec_capi_status_detail,
+            checked_at=row.crowdsec_capi_checked_at,
+        ),
         reload_configured=_reload_configured(),
         running={
             "hub": await _job_running(HUB_LOCK_KEY),
             "capi": await _job_running(CAPI_LOCK_KEY),
         },
     )
+
+
+@router.post("/capi/register", status_code=status.HTTP_202_ACCEPTED)
+async def capi_register_now(admin: AdminUser, db: SessionDep) -> dict[str, bool]:
+    """Replace the central-API credentials with fresh ones and restart onto them.
+
+    The repair for credentials CAPI has started refusing. It only works while
+    the container is still running: exec cannot reach one that is crash
+    looping, which is why the hourly check exists to catch this first.
+    """
+    if await _job_running(CAPI_LOCK_KEY):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="A community-blocklist change is already running.",
+        )
+    if not enqueue_control_task("app.tasks.crowdsec.register_capi"):
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=RELOADS_NOT_CONFIGURED)
+    await audit_service.record_audit(
+        db,
+        actor=admin.email,
+        action=AuditAction.update,
+        object_type="crowdsec_capi",
+        meta={"register": True},
+    )
+    await db.commit()
+    return {"queued": True}
 
 
 @router.post("/hub/update", status_code=status.HTTP_202_ACCEPTED)

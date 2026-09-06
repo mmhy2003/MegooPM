@@ -12,7 +12,18 @@ request matching no configured host.
 
 from __future__ import annotations
 
-from sqlalchemy import BigInteger, Boolean, CheckConstraint, Enum, ForeignKey, Integer, Text
+from datetime import datetime
+
+from sqlalchemy import (
+    BigInteger,
+    Boolean,
+    CheckConstraint,
+    DateTime,
+    Enum,
+    ForeignKey,
+    Integer,
+    Text,
+)
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
@@ -169,6 +180,14 @@ class InstanceSettings(TimestampMixin, Base):
     # crowdsec_job_run(kind=capi_apply); the UI shows both when they differ.
     crowdsec_capi_enabled: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=False, server_default="false"
+    )
+    # The last answer from `cscli capi status`, recorded by the worker. Three
+    # states on purpose: None means never checked or not checkable, which is
+    # not the same as checked-and-rejected.
+    crowdsec_capi_status_ok: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    crowdsec_capi_status_detail: Mapped[str | None] = mapped_column(Text, nullable=True)
+    crowdsec_capi_checked_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
     )
 
 

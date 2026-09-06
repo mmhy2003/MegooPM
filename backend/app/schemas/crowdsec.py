@@ -182,16 +182,31 @@ class CrowdSecJobRunRead(BaseModel):
     detail: dict[str, Any]
 
 
+class CapiCredentialHealth(BaseModel):
+    """The last answer from ``cscli capi status``, recorded by the worker.
+
+    ``ok`` is three-valued. ``null`` means the question could not be answered
+    — the blocklist is off, the check has never run, or the container could
+    not be reached — and must not be shown as either healthy or rejected.
+    """
+
+    ok: bool | None = None
+    detail: str | None = None
+    checked_at: datetime | None = None
+
+
 class CrowdSecMaintenance(BaseModel):
     """What the Updates tab needs in one call."""
 
     hub: CrowdSecJobRunRead | None
     capi: CrowdSecJobRunRead | None
+    capi_credentials: CapiCredentialHealth
     reload_configured: bool
     running: dict[str, bool]
 
 
 __all__ = [
+    "CapiCredentialHealth",
     "CrowdSecJobRunRead",
     "CrowdSecMaintenance",
     "Alert",

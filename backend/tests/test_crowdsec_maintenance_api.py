@@ -109,6 +109,8 @@ async def test_maintenance_is_empty_at_first(
     assert body == {
         "hub": None,
         "capi": None,
+        # Never checked is its own state: not healthy, not rejected.
+        "capi_credentials": {"ok": None, "detail": None, "checked_at": None},
         "reload_configured": True,
         "running": {"hub": False, "capi": False},
     }

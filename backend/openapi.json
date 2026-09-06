@@ -1070,6 +1070,47 @@
         "title": "BackendUpdate",
         "type": "object"
       },
+      "CapiCredentialHealth": {
+        "description": "The last answer from ``cscli capi status``, recorded by the worker.\n\n``ok`` is three-valued. ``null`` means the question could not be answered\n— the blocklist is off, the check has never run, or the container could\nnot be reached — and must not be shown as either healthy or rejected.",
+        "properties": {
+          "checked_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Checked At"
+          },
+          "detail": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detail"
+          },
+          "ok": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ok"
+          }
+        },
+        "title": "CapiCredentialHealth",
+        "type": "object"
+      },
       "CertificateHealth": {
         "description": "Counts an operator would want to act on, not an inventory.",
         "properties": {
@@ -1606,6 +1647,9 @@
               }
             ]
           },
+          "capi_credentials": {
+            "$ref": "#/components/schemas/CapiCredentialHealth"
+          },
           "hub": {
             "anyOf": [
               {
@@ -1631,6 +1675,7 @@
         "required": [
           "hub",
           "capi",
+          "capi_credentials",
           "reload_configured",
           "running"
         ],
@@ -7751,6 +7796,37 @@
           }
         ],
         "summary": "Get Alert",
+        "tags": [
+          "crowdsec"
+        ]
+      }
+    },
+    "/api/v1/crowdsec/capi/register": {
+      "post": {
+        "description": "Replace the central-API credentials with fresh ones and restart onto them.\n\nThe repair for credentials CAPI has started refusing. It only works while\nthe container is still running: exec cannot reach one that is crash\nlooping, which is why the hourly check exists to catch this first.",
+        "operationId": "capi_register_now_api_v1_crowdsec_capi_register_post",
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "boolean"
+                  },
+                  "title": "Response Capi Register Now Api V1 Crowdsec Capi Register Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Capi Register Now",
         "tags": [
           "crowdsec"
         ]
