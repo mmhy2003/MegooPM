@@ -33,9 +33,11 @@ describe("primaryNav", () => {
     expect(primaryNav.some((item) => item.href === HOME_ROUTE)).toBe(true);
   });
 
-  it("marks only Users as admin-only", () => {
-    const adminOnly = primaryNav.filter((item) => item.adminOnly).map((item) => item.href);
-    expect(adminOnly).toEqual(["/users", "/audit-log", "/settings"]);
+  it("marks everything but the dashboard admin-only", () => {
+    // A member is a dashboard observer: the API refuses them every inventory
+    // read, so a sidebar entry would open a page whose every request fails.
+    const open = primaryNav.filter((item) => !item.adminOnly).map((item) => item.href);
+    expect(open).toEqual(["/"]);
   });
 });
 
@@ -56,6 +58,10 @@ describe("navForRole", () => {
   it("keeps the public items and their order for every role", () => {
     const publicHrefs = primaryNav.filter((i) => !i.adminOnly).map((i) => i.href);
     expect(navForRole("member").map((i) => i.href)).toEqual(publicHrefs);
+  });
+
+  it("shows a member the dashboard and nothing else", () => {
+    expect(navForRole("member").map((i) => i.href)).toEqual(["/"]);
   });
 });
 

@@ -21,7 +21,8 @@ export interface NavItem {
   icon: LucideIcon;
   /** Short description used for the page header / tooltips. */
   description: string;
-  /** Only rendered for `admin` users (see `navForRole`). */
+  /** Only rendered for `admin` users (see `navForRole`). A member is a
+   *  dashboard observer, so every item but the dashboard carries this. */
   adminOnly?: boolean;
 }
 
@@ -41,54 +42,63 @@ export const primaryNav: NavItem[] = [
     href: "/proxy-hosts",
     icon: Globe,
     description: "Reverse-proxy hosts forwarding traffic to upstream services.",
+    adminOnly: true,
   },
   {
     title: "Upstream Pools",
     href: "/upstreams",
     icon: Server,
     description: "Backend server pools that proxy hosts and streams forward to.",
+    adminOnly: true,
   },
   {
     title: "Certificates",
     href: "/certificates",
     icon: ShieldCheck,
     description: "TLS certificates and Let's Encrypt automation.",
+    adminOnly: true,
   },
   {
     title: "Access Lists",
     href: "/access-lists",
     icon: ListChecks,
     description: "Authorization rules controlling who can reach a host.",
+    adminOnly: true,
   },
   {
     title: "Streams",
     href: "/streams",
     icon: Network,
     description: "Raw TCP/UDP stream forwarding.",
+    adminOnly: true,
   },
   {
     title: "Redirection Hosts",
     href: "/redirection-hosts",
     icon: ArrowRightLeft,
     description: "Redirect domains to another domain with a chosen status code.",
+    adminOnly: true,
   },
   {
     title: "404 Hosts",
     href: "/dead-hosts",
     icon: Ban,
     description: "Park domains and return a 404 for every request.",
+    adminOnly: true,
   },
   {
     title: "Custom Pages",
     href: "/custom-pages",
     icon: FileCode2,
     description: "HTML pages you author here and reference elsewhere.",
+    adminOnly: true,
   },
   {
     title: "Security",
     href: "/security",
     icon: ShieldAlert,
     description: "CrowdSec integration, bouncers and blocklists.",
+    adminOnly: true,
   },
   {
     title: "Users",
