@@ -5,6 +5,11 @@ import userEvent from "@testing-library/user-event";
 import { auditLog, type AuditLogEntry } from "@/lib/api";
 import { AuditLogView } from "@/components/audit-log/audit-log-view";
 
+// jsdom has no matchMedia, so the real hook would throw; and the layout under
+// test must be chosen deliberately, not by whatever width jsdom pretends to be.
+const useIsMobile = vi.hoisted(() => vi.fn(() => false));
+vi.mock("@/hooks/use-mobile", () => ({ useIsMobile }));
+
 function makeEntry(over: Partial<AuditLogEntry> = {}): AuditLogEntry {
   return {
     id: 1,
@@ -28,6 +33,7 @@ beforeEach(() => {
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
+  useIsMobile.mockReturnValue(false);
 });
 
 describe("AuditLogView", () => {
@@ -37,6 +43,8 @@ describe("AuditLogView", () => {
     expect(await screen.findByText("admin@example.com")).toBeInTheDocument();
     expect(screen.getByText("Proxy host #7")).toBeInTheDocument();
     expect(screen.getByText("is_active: true → false")).toBeInTheDocument();
+    // Wide viewport: the table, with its header row.
+    expect(screen.getByRole("table")).toBeInTheDocument();
   });
 
   it("names the system when nobody is recorded", async () => {
@@ -152,5 +160,47 @@ describe("AuditLogView", () => {
 
     expect(await screen.findByRole("alert")).toBeInTheDocument();
     expect(screen.queryByText(/no audit entries/i)).not.toBeInTheDocument();
+  });
+});
+
+describe("AuditLogView on a phone", () => {
+  beforeEach(() => {
+    useIsMobile.mockReturnValue(true);
+  });
+
+  it("lays each entry out as a card, not a six-column table", async () => {
+    // Six columns in 360px crushes the actor into one character per line and
+    // pushes Details off the edge; a card keeps every fact readable.
+    render(<AuditLogView />);
+
+    expect(await screen.findByText("admin@example.com")).toBeInTheDocument();
+    expect(screen.queryByRole("table")).not.toBeInTheDocument();
+    expect(screen.getByText("Proxy host #7")).toBeInTheDocument();
+    expect(screen.getByText("is_active: true → false")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /details/i })).toBeInTheDocument();
+  });
+
+  it("still opens the full record", async () => {
+    const user = userEvent.setup();
+    render(<AuditLogView />);
+
+    await user.click(await screen.findByRole("button", { name: /details/i }));
+
+    expect(await screen.findByText(/"is_active"/)).toBeInTheDocument();
+  });
+
+  it("names the system when nobody is recorded", async () => {
+    vi.mocked(auditLog.list).mockResolvedValue(page([makeEntry({ actor: null })]));
+    render(<AuditLogView />);
+
+    expect(await screen.findByText("System")).toBeInTheDocument();
+  });
+
+  it("keeps the empty state and the pager", async () => {
+    vi.mocked(auditLog.list).mockResolvedValue(page([], 0));
+    render(<AuditLogView />);
+
+    expect(await screen.findByText(/no audit entries/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Next page" })).toBeDisabled();
   });
 });

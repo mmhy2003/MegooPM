@@ -29,6 +29,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useDebouncedValue } from "@/lib/use-debounced-value";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 const PAGE_SIZE = 50;
 const ANY = "any";
@@ -93,6 +94,10 @@ export function AuditLogView() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<AuditLogEntry | null>(null);
+  // Six columns do not fit in 360px: the actor breaks one character per line
+  // and Details is pushed off the edge. Below the breakpoint each entry is a
+  // card instead — same data, same dialog, a shape that fits the width.
+  const isMobile = useIsMobile();
   // Read once per load, not per render: "3h ago" must not shift under a
   // re-render, and calling Date.now() while rendering is impure.
   const [nowMs, setNowMs] = useState<number>(() => Date.now());
@@ -223,78 +228,137 @@ export function AuditLogView() {
           </div>
         ) : null}
 
-        <div className="bg-card text-card-foreground rounded-xl border shadow-xs">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-28">When</TableHead>
-                <TableHead>Actor</TableHead>
-                <TableHead className="w-24">Action</TableHead>
-                <TableHead>Object</TableHead>
-                <TableHead>Summary</TableHead>
-                <TableHead className="w-24 text-right">Details</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {loading ? (
-                [0, 1, 2].map((i) => (
-                  <TableRow key={i}>
-                    {Array.from({ length: 6 }).map((_, c) => (
-                      <TableCell key={c}>
-                        <Skeleton className="h-4 w-full" />
-                      </TableCell>
-                    ))}
-                  </TableRow>
-                ))
-              ) : entries.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={6} className="text-muted-foreground py-10 text-center">
-                    {error
-                      ? "The audit log could not be loaded."
-                      : total === 0 && !actor && action === ANY && objectType === ANY
-                        ? "No audit entries yet. Changes you make will appear here."
-                        : "No audit entries match these filters."}
-                  </TableCell>
-                </TableRow>
-              ) : (
-                entries.map((entry) => (
-                  <TableRow key={entry.id}>
-                    <TableCell
-                      className="text-muted-foreground whitespace-nowrap"
-                      title={new Date(entry.created_at).toLocaleString()}
-                    >
-                      {formatRelativeTime(entry.created_at, nowMs)}
-                    </TableCell>
-                    <TableCell className="font-medium break-all">
-                      {entry.actor ?? <span className="text-muted-foreground">System</span>}
-                    </TableCell>
-                    <TableCell>
+        {isMobile ? (
+          <div className="bg-card text-card-foreground rounded-xl border shadow-xs">
+            {loading ? (
+              <div className="space-y-3 p-4">
+                <Skeleton className="h-4 w-2/3" />
+                <Skeleton className="h-4 w-1/2" />
+                <Skeleton className="h-4 w-3/5" />
+              </div>
+            ) : entries.length === 0 ? (
+              <p className="text-muted-foreground px-4 py-10 text-center text-sm">
+                {error
+                  ? "The audit log could not be loaded."
+                  : total === 0 && !actor && action === ANY && objectType === ANY
+                    ? "No audit entries yet. Changes you make will appear here."
+                    : "No audit entries match these filters."}
+              </p>
+            ) : (
+              <ul className="divide-y">
+                {entries.map((entry) => (
+                  <li key={entry.id} className="space-y-2 p-4 text-sm">
+                    <div className="flex items-start justify-between gap-3">
+                      {/* break-words, not break-all: an email wraps where it
+                          must, not one character per line. */}
+                      <span className="min-w-0 font-medium break-words">
+                        {entry.actor ?? <span className="text-muted-foreground">System</span>}
+                      </span>
+                      <span
+                        className="text-muted-foreground shrink-0 text-xs whitespace-nowrap"
+                        title={new Date(entry.created_at).toLocaleString()}
+                      >
+                        {formatRelativeTime(entry.created_at, nowMs)}
+                      </span>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2">
                       <Badge variant="outline" className={TONE_CLASS[actionTone(entry.action)]}>
                         {entry.action}
                       </Badge>
-                    </TableCell>
-                    <TableCell className="whitespace-nowrap">
-                      {describeObject(entry.object_type, entry.object_id)}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground text-xs break-all">
+                      <span>{describeObject(entry.object_type, entry.object_id)}</span>
+                    </div>
+                    <p className="text-muted-foreground text-xs break-words">
                       {summarise(entry.meta)}
-                    </TableCell>
-                    <TableCell className="text-right">
+                    </p>
+                    <div className="flex justify-end">
                       <Button
-                        variant="ghost"
+                        variant="outline"
                         size="sm"
                         aria-label={`Details for entry ${entry.id}`}
                         onClick={() => setSelected(entry)}
                       >
                         Details
                       </Button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        ) : (
+          <div className="bg-card text-card-foreground rounded-xl border shadow-xs">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-28">When</TableHead>
+                  <TableHead>Actor</TableHead>
+                  <TableHead className="w-24">Action</TableHead>
+                  <TableHead>Object</TableHead>
+                  <TableHead>Summary</TableHead>
+                  <TableHead className="w-24 text-right">Details</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {loading ? (
+                  [0, 1, 2].map((i) => (
+                    <TableRow key={i}>
+                      {Array.from({ length: 6 }).map((_, c) => (
+                        <TableCell key={c}>
+                          <Skeleton className="h-4 w-full" />
+                        </TableCell>
+                      ))}
+                    </TableRow>
+                  ))
+                ) : entries.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={6} className="text-muted-foreground py-10 text-center">
+                      {error
+                        ? "The audit log could not be loaded."
+                        : total === 0 && !actor && action === ANY && objectType === ANY
+                          ? "No audit entries yet. Changes you make will appear here."
+                          : "No audit entries match these filters."}
                     </TableCell>
                   </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </div>
+                ) : (
+                  entries.map((entry) => (
+                    <TableRow key={entry.id}>
+                      <TableCell
+                        className="text-muted-foreground whitespace-nowrap"
+                        title={new Date(entry.created_at).toLocaleString()}
+                      >
+                        {formatRelativeTime(entry.created_at, nowMs)}
+                      </TableCell>
+                      <TableCell className="font-medium">
+                        {entry.actor ?? <span className="text-muted-foreground">System</span>}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className={TONE_CLASS[actionTone(entry.action)]}>
+                          {entry.action}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="whitespace-nowrap">
+                        {describeObject(entry.object_type, entry.object_id)}
+                      </TableCell>
+                      <TableCell className="text-muted-foreground max-w-md text-xs">
+                        {summarise(entry.meta)}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          aria-label={`Details for entry ${entry.id}`}
+                          onClick={() => setSelected(entry)}
+                        >
+                          Details
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        )}
 
         <div className="flex items-center justify-between gap-3">
           <p className="text-muted-foreground text-sm">
