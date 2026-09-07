@@ -2,13 +2,7 @@
 
 import type { Certificate } from "@/lib/api";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 
 /** Sentinel Select value for "no certificate" (`null` on the wire). */
 export const NO_CERTIFICATE = "none";
@@ -51,28 +45,23 @@ export function CertificateSelect({
   noneLabel?: string;
   hint?: string;
 }) {
-  // base-ui renders the raw value in the trigger unless the root is given
-  // `items` to map value -> label. Without it a picked certificate shows as its
-  // bare id, which tells an operator nothing.
+  // value -> label, so the trigger shows a name and not a bare id — and so a
+  // typed fragment matches the name or the primary domain, which is how an
+  // operator with forty certificates actually remembers one.
   const items: Record<string, string> = { [NO_CERTIFICATE]: noneLabel };
   for (const cert of certificates) items[String(cert.id)] = certificateLabel(cert);
 
   return (
     <div className="space-y-1.5">
       <Label htmlFor={id}>SSL certificate</Label>
-      <Select value={value} onValueChange={(v) => onValueChange(v as string)} items={items}>
-        <SelectTrigger id={id} disabled={disabled}>
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value={NO_CERTIFICATE}>{noneLabel}</SelectItem>
-          {certificates.map((cert) => (
-            <SelectItem key={cert.id} value={String(cert.id)}>
-              {certificateLabel(cert)}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+      <SearchableSelect
+        id={id}
+        value={value}
+        items={items}
+        onValueChange={onValueChange}
+        disabled={disabled}
+        searchLabel="Search certificates"
+      />
       {hint ? <p className="text-xs text-muted-foreground">{hint}</p> : null}
     </div>
   );
