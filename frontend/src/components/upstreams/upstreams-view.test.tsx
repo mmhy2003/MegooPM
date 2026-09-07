@@ -11,6 +11,9 @@ import { UpstreamsView } from "@/components/upstreams/upstreams-view";
 const useAuth = vi.hoisted(() => vi.fn(() => ({ user: { role: "admin" } })));
 vi.mock("@/lib/auth/context", () => ({ useAuth }));
 
+const useIsMobile = vi.hoisted(() => vi.fn(() => false));
+vi.mock("@/hooks/use-mobile", () => ({ useIsMobile }));
+
 function makePool(over: Partial<Upstream> = {}): Upstream {
   return {
     id: 1,
@@ -143,5 +146,26 @@ describe("UpstreamsView search", () => {
     await user.type(screen.getByRole("searchbox"), "nonesuch");
 
     expect(screen.getByText(/no upstream pools match/i)).toBeInTheDocument();
+  });
+});
+
+describe("UpstreamsView on a phone", () => {
+  beforeEach(() => {
+    useIsMobile.mockReturnValue(true);
+    vi.spyOn(upstreams, "list").mockResolvedValue([makePool()]);
+  });
+  afterEach(() => {
+    cleanup();
+    vi.restoreAllMocks();
+    useIsMobile.mockReturnValue(false);
+  });
+
+  it("lays each pool out as a card, with its actions", async () => {
+    render(<UpstreamsView />);
+
+    expect(await screen.findByText("app-pool")).toBeInTheDocument();
+    expect(screen.queryByRole("table")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Enable app-pool")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Edit app-pool" })).toBeInTheDocument();
   });
 });

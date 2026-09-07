@@ -21,6 +21,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { RowCard, RowCards } from "@/components/ui/row-cards";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 function LoadingRows({ cols }: { cols: number }) {
   return (
@@ -42,6 +44,8 @@ export function AccessListsView() {
   const [lists, setLists] = useState<AccessList[]>([]);
   const canWrite = useCanWrite();
   const [loading, setLoading] = useState(true);
+  // Below the breakpoint the table becomes cards: see RowCards.
+  const isMobile = useIsMobile();
   const [loadError, setLoadError] = useState<string | null>(null);
 
   // `null` closes the dialog; `undefined` opens it in create mode.
@@ -51,10 +55,7 @@ export function AccessListsView() {
 
   // Name only: the users and IP rules are nested collections, and matching
   // them would make a search for "10." return every list with a private range.
-  const visible = useMemo(
-    () => filterBySearch(lists, query, (l) => [l.name]),
-    [lists, query],
-  );
+  const visible = useMemo(() => filterBySearch(lists, query, (l) => [l.name]), [lists, query]);
 
   const load = useCallback(async () => {
     try {
@@ -92,8 +93,7 @@ export function AccessListsView() {
         <div className="flex-1">
           <h2 className="text-xl font-semibold tracking-tight">Access Lists</h2>
           <p className="text-sm text-muted-foreground">
-            Basic-auth users and allow/deny IP rules you can attach to a proxy
-            host.
+            Basic-auth users and allow/deny IP rules you can attach to a proxy host.
           </p>
         </div>
         {canWrite ? (
@@ -101,9 +101,7 @@ export function AccessListsView() {
             <Plus /> New access list
           </Button>
         ) : (
-          <p className="text-muted-foreground text-sm">
-            Read-only — ask an admin to make changes.
-          </p>
+          <p className="text-muted-foreground text-sm">Read-only — ask an admin to make changes.</p>
         )}
       </div>
 
@@ -127,100 +125,182 @@ export function AccessListsView() {
         />
       </div>
 
-      <div className="bg-card text-card-foreground rounded-xl border shadow-xs">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Name</TableHead>
-              <TableHead>Satisfy</TableHead>
-              <TableHead>Pass auth</TableHead>
-              <TableHead>Users</TableHead>
-              <TableHead>IP rules</TableHead>
-              <TableHead className="w-24 text-right">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {loading ? (
-              <LoadingRows cols={6} />
-            ) : visible.length === 0 ? (
-              <TableRow>
-                <TableCell
-                  colSpan={6}
-                  className="py-10 text-center text-muted-foreground"
+      {isMobile ? (
+        <RowCards
+          loading={loading}
+          isEmpty={visible.length === 0}
+          empty={
+            query.trim() ? (
+              <>
+                No access lists match “{query.trim()}”.{" "}
+                <Button
+                  variant="link"
+                  size="sm"
+                  className="h-auto p-0 align-baseline"
+                  onClick={() => setQuery("")}
                 >
-                  {query.trim() ? (
-                    <>
-                      No access lists match “{query.trim()}”.{" "}
-                      <Button
-                        variant="link"
-                        size="sm"
-                        className="h-auto p-0 align-baseline"
-                        onClick={() => setQuery("")}
-                      >
-                        Clear search
-                      </Button>
-                    </>
-                  ) : (
-                    "No access lists yet. Create one, then attach it to a proxy host to gate access."
-                  )}
-                </TableCell>
-              </TableRow>
+                  Clear search
+                </Button>
+              </>
             ) : (
-              visible.map((list) => (
-                <TableRow key={list.id}>
-                  <TableCell className="font-medium">{list.name}</TableCell>
-                  <TableCell>
-                    <Badge variant="secondary">
-                      {satisfyLabel(list.satisfy_any ?? false)}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
+              "No access lists yet. Create one, then attach it to a proxy host to gate access."
+            )
+          }
+        >
+          {visible.map((list) => (
+            <RowCard
+              key={list.id}
+              title={list.name}
+              facts={[
+                {
+                  label: "Satisfy",
+                  value: (
+                    <Badge variant="secondary">{satisfyLabel(list.satisfy_any ?? false)}</Badge>
+                  ),
+                },
+                {
+                  label: "Pass auth",
+                  value: (
                     <Badge variant={list.pass_auth ? "outline" : "muted"}>
                       {list.pass_auth ? "On" : "Off"}
                     </Badge>
-                  </TableCell>
-                  <TableCell>
+                  ),
+                },
+                {
+                  label: "Users",
+                  value: (
                     <span className="inline-flex items-center gap-1.5 tabular-nums">
                       <KeyRound className="size-3.5 text-muted-foreground" />
                       {list.auth_users?.length ?? 0}
                     </span>
-                  </TableCell>
-                  <TableCell>
+                  ),
+                },
+                {
+                  label: "IP rules",
+                  value: (
                     <span className="inline-flex items-center gap-1.5 tabular-nums">
                       <Network className="size-3.5 text-muted-foreground" />
                       {list.client_rules?.length ?? 0}
                     </span>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex justify-end gap-1">
-                      {canWrite ? (
-                        <>
+                  ),
+                },
+              ]}
+              actions={
+                canWrite ? (
+                  <>
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      aria-label={`Edit ${list.name}`}
+                      onClick={() => setEditing(list)}
+                    >
+                      <Pencil />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      aria-label={`Delete ${list.name}`}
+                      onClick={() => setDeleteList(list)}
+                    >
+                      <Trash2 />
+                    </Button>
+                  </>
+                ) : null
+              }
+            />
+          ))}
+        </RowCards>
+      ) : (
+        <div className="bg-card text-card-foreground rounded-xl border shadow-xs">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Name</TableHead>
+                <TableHead>Satisfy</TableHead>
+                <TableHead>Pass auth</TableHead>
+                <TableHead>Users</TableHead>
+                <TableHead>IP rules</TableHead>
+                <TableHead className="w-24 text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {loading ? (
+                <LoadingRows cols={6} />
+              ) : visible.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="py-10 text-center text-muted-foreground">
+                    {query.trim() ? (
+                      <>
+                        No access lists match “{query.trim()}”.{" "}
                         <Button
-                          variant="ghost"
-                          size="icon-sm"
-                          aria-label={`Edit ${list.name}`}
-                          onClick={() => setEditing(list)}
+                          variant="link"
+                          size="sm"
+                          className="h-auto p-0 align-baseline"
+                          onClick={() => setQuery("")}
                         >
-                          <Pencil />
+                          Clear search
                         </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon-sm"
-                          aria-label={`Delete ${list.name}`}
-                          onClick={() => setDeleteList(list)}
-                        >
-                          <Trash2 />
-                        </Button>
-                        </>
-                      ) : null}
-                    </div>
+                      </>
+                    ) : (
+                      "No access lists yet. Create one, then attach it to a proxy host to gate access."
+                    )}
                   </TableCell>
                 </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </div>
+              ) : (
+                visible.map((list) => (
+                  <TableRow key={list.id}>
+                    <TableCell className="font-medium">{list.name}</TableCell>
+                    <TableCell>
+                      <Badge variant="secondary">{satisfyLabel(list.satisfy_any ?? false)}</Badge>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={list.pass_auth ? "outline" : "muted"}>
+                        {list.pass_auth ? "On" : "Off"}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <span className="inline-flex items-center gap-1.5 tabular-nums">
+                        <KeyRound className="size-3.5 text-muted-foreground" />
+                        {list.auth_users?.length ?? 0}
+                      </span>
+                    </TableCell>
+                    <TableCell>
+                      <span className="inline-flex items-center gap-1.5 tabular-nums">
+                        <Network className="size-3.5 text-muted-foreground" />
+                        {list.client_rules?.length ?? 0}
+                      </span>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex justify-end gap-1">
+                        {canWrite ? (
+                          <>
+                            <Button
+                              variant="ghost"
+                              size="icon-sm"
+                              aria-label={`Edit ${list.name}`}
+                              onClick={() => setEditing(list)}
+                            >
+                              <Pencil />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon-sm"
+                              aria-label={`Delete ${list.name}`}
+                              onClick={() => setDeleteList(list)}
+                            >
+                              <Trash2 />
+                            </Button>
+                          </>
+                        ) : null}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
+      )}
 
       {editing !== null ? (
         <AccessListDialog

@@ -5,12 +5,7 @@ import { toast } from "sonner";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Pencil, Plus, Server, Trash2 } from "lucide-react";
 
-import {
-  LB_METHOD_LABELS,
-  upstreams,
-  type Upstream,
-  type UpstreamContext,
-} from "@/lib/api";
+import { LB_METHOD_LABELS, upstreams, type Upstream, type UpstreamContext } from "@/lib/api";
 import { describeError } from "@/components/proxy-hosts/lib";
 import { ConfirmDeleteDialog } from "@/components/proxy-hosts/confirm-delete-dialog";
 import { UpstreamDialog } from "@/components/upstreams/upstream-dialog";
@@ -29,6 +24,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { RowCard, RowCards } from "@/components/ui/row-cards";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 /** Table-width context names.
  *
@@ -62,6 +59,8 @@ export function UpstreamsView() {
   const [pools, setPools] = useState<Upstream[]>([]);
   const canWrite = useCanWrite();
   const [loading, setLoading] = useState(true);
+  // Below the breakpoint the table becomes cards: see RowCards.
+  const isMobile = useIsMobile();
   const [loadError, setLoadError] = useState<string | null>(null);
 
   const [poolDialog, setPoolDialog] = useState<{ open: boolean; pool: Upstream | null }>({
@@ -75,11 +74,7 @@ export function UpstreamsView() {
   const visible = useMemo(
     // `backends` is optional in the schema, and a pool created without one
     // still has to be findable by name.
-    () =>
-      filterBySearch(pools, query, (p) => [
-        p.name,
-        ...(p.backends ?? []).map((b) => b.host),
-      ]),
+    () => filterBySearch(pools, query, (p) => [p.name, ...(p.backends ?? []).map((b) => b.host)]),
     [pools, query],
   );
 
@@ -168,111 +163,201 @@ export function UpstreamsView() {
             </p>
           )}
         </div>
-        <div className="bg-card text-card-foreground rounded-xl border shadow-xs">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>LB method</TableHead>
-                <TableHead>Context</TableHead>
-                <TableHead>Backends</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="w-24 text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {loading ? (
-                <LoadingRows cols={6} />
-              ) : visible.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={6} className="py-10 text-center text-muted-foreground">
-                    {query.trim() ? (
-                      <>
-                        No upstream pools match “{query.trim()}”.{" "}
-                        <Button
-                          variant="link"
-                          size="sm"
-                          className="h-auto p-0 align-baseline"
-                          onClick={() => setQuery("")}
-                        >
-                          Clear search
-                        </Button>
-                      </>
-                    ) : (
-                      "No upstream pools yet. Create one to define a load-balanced backend set."
-                    )}
-                  </TableCell>
-                </TableRow>
+        {isMobile ? (
+          <RowCards
+            loading={loading}
+            isEmpty={visible.length === 0}
+            empty={
+              query.trim() ? (
+                <>
+                  No upstream pools match “{query.trim()}”.{" "}
+                  <Button
+                    variant="link"
+                    size="sm"
+                    className="h-auto p-0 align-baseline"
+                    onClick={() => setQuery("")}
+                  >
+                    Clear search
+                  </Button>
+                </>
               ) : (
-                visible.map((pool) => {
-                  const backends = pool.backends ?? [];
-                  const up = backends.filter(
-                    (b) => (b.enabled ?? true) && !(b.down ?? false),
-                  ).length;
-                  return (
-                    <TableRow key={pool.id}>
-                      <TableCell className="font-medium">
-                        {pool.name}
-                        {pool.description ? (
-                          <span className="block text-xs font-normal text-muted-foreground">
-                            {pool.description}
-                          </span>
-                        ) : null}
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="secondary">{LB_METHOD_LABELS[pool.lb_method]}</Badge>
-                      </TableCell>
-                      <TableCell>
-                        {/* outline, not secondary: a different kind of fact
-                            from the method badge sitting beside it. */}
-                        <Badge variant="outline">
-                          {CONTEXT_SHORT_LABELS[pool.context]}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
+                "No upstream pools yet. Create one to define a load-balanced backend set."
+              )
+            }
+          >
+            {visible.map((pool) => {
+              const backends = pool.backends ?? [];
+              const up = backends.filter((b) => (b.enabled ?? true) && !(b.down ?? false)).length;
+              return (
+                <RowCard
+                  key={pool.id}
+                  title={
+                    <>
+                      {pool.name}
+                      {pool.description ? (
+                        <span className="block text-xs font-normal text-muted-foreground">
+                          {pool.description}
+                        </span>
+                      ) : null}
+                    </>
+                  }
+                  meta={
+                    <EnabledToggle
+                      checked={pool.enabled ?? true}
+                      name={pool.name}
+                      onToggle={(next) => setPoolEnabled(pool, next)}
+                      disabled={!canWrite}
+                    />
+                  }
+                  facts={[
+                    {
+                      label: "LB method",
+                      value: <Badge variant="secondary">{LB_METHOD_LABELS[pool.lb_method]}</Badge>,
+                    },
+                    {
+                      label: "Context",
+                      value: <Badge variant="outline">{CONTEXT_SHORT_LABELS[pool.context]}</Badge>,
+                    },
+                    {
+                      label: "Backends",
+                      value: (
                         <span className="tabular-nums">
                           {up}/{backends.length} up
                         </span>
-                      </TableCell>
-                      <TableCell>
-                        <EnabledToggle
-                          checked={pool.enabled ?? true}
-                          name={pool.name}
-                          onToggle={(next) => setPoolEnabled(pool, next)}
-                          disabled={!canWrite}
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex justify-end gap-1">
-                          {canWrite ? (
-                            <>
-                            <Button
-                              variant="ghost"
-                              size="icon-sm"
-                              aria-label={`Edit ${pool.name}`}
-                              onClick={() => setPoolDialog({ open: true, pool })}
-                            >
-                              <Pencil />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon-sm"
-                              aria-label={`Delete ${pool.name}`}
-                              onClick={() => setDeletePool(pool)}
-                            >
-                              <Trash2 />
-                            </Button>
-                            </>
+                      ),
+                    },
+                  ]}
+                  actions={
+                    canWrite ? (
+                      <>
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
+                          aria-label={`Edit ${pool.name}`}
+                          onClick={() => setPoolDialog({ open: true, pool })}
+                        >
+                          <Pencil />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
+                          aria-label={`Delete ${pool.name}`}
+                          onClick={() => setDeletePool(pool)}
+                        >
+                          <Trash2 />
+                        </Button>
+                      </>
+                    ) : null
+                  }
+                />
+              );
+            })}
+          </RowCards>
+        ) : (
+          <div className="bg-card text-card-foreground rounded-xl border shadow-xs">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Name</TableHead>
+                  <TableHead>LB method</TableHead>
+                  <TableHead>Context</TableHead>
+                  <TableHead>Backends</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="w-24 text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {loading ? (
+                  <LoadingRows cols={6} />
+                ) : visible.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={6} className="py-10 text-center text-muted-foreground">
+                      {query.trim() ? (
+                        <>
+                          No upstream pools match “{query.trim()}”.{" "}
+                          <Button
+                            variant="link"
+                            size="sm"
+                            className="h-auto p-0 align-baseline"
+                            onClick={() => setQuery("")}
+                          >
+                            Clear search
+                          </Button>
+                        </>
+                      ) : (
+                        "No upstream pools yet. Create one to define a load-balanced backend set."
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  visible.map((pool) => {
+                    const backends = pool.backends ?? [];
+                    const up = backends.filter(
+                      (b) => (b.enabled ?? true) && !(b.down ?? false),
+                    ).length;
+                    return (
+                      <TableRow key={pool.id}>
+                        <TableCell className="font-medium">
+                          {pool.name}
+                          {pool.description ? (
+                            <span className="block text-xs font-normal text-muted-foreground">
+                              {pool.description}
+                            </span>
                           ) : null}
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })
-              )}
-            </TableBody>
-          </Table>
-        </div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="secondary">{LB_METHOD_LABELS[pool.lb_method]}</Badge>
+                        </TableCell>
+                        <TableCell>
+                          {/* outline, not secondary: a different kind of fact
+                            from the method badge sitting beside it. */}
+                          <Badge variant="outline">{CONTEXT_SHORT_LABELS[pool.context]}</Badge>
+                        </TableCell>
+                        <TableCell>
+                          <span className="tabular-nums">
+                            {up}/{backends.length} up
+                          </span>
+                        </TableCell>
+                        <TableCell>
+                          <EnabledToggle
+                            checked={pool.enabled ?? true}
+                            name={pool.name}
+                            onToggle={(next) => setPoolEnabled(pool, next)}
+                            disabled={!canWrite}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex justify-end gap-1">
+                            {canWrite ? (
+                              <>
+                                <Button
+                                  variant="ghost"
+                                  size="icon-sm"
+                                  aria-label={`Edit ${pool.name}`}
+                                  onClick={() => setPoolDialog({ open: true, pool })}
+                                >
+                                  <Pencil />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon-sm"
+                                  aria-label={`Delete ${pool.name}`}
+                                  onClick={() => setDeletePool(pool)}
+                                >
+                                  <Trash2 />
+                                </Button>
+                              </>
+                            ) : null}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        )}
       </div>
 
       {poolDialog.open ? (

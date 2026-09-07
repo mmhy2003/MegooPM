@@ -12,6 +12,9 @@ import { makeHost } from "@/components/proxy-hosts/test-utils";
 const useAuth = vi.hoisted(() => vi.fn(() => ({ user: { role: "admin" } })));
 vi.mock("@/lib/auth/context", () => ({ useAuth }));
 
+const useIsMobile = vi.hoisted(() => vi.fn(() => false));
+vi.mock("@/hooks/use-mobile", () => ({ useIsMobile }));
+
 function mount() {
   vi.spyOn(proxyHosts, "list").mockResolvedValue([makeHost()]);
   // The hosts table still resolves pool names for its Upstream column, even
@@ -274,5 +277,24 @@ describe("ProxyHostsView write controls", () => {
     mount();
     expect(await screen.findByRole("button", { name: /New proxy host/i })).toBeInTheDocument();
     expect(screen.queryByText(/read-only/i)).not.toBeInTheDocument();
+  });
+});
+
+describe("ProxyHostsView on a phone", () => {
+  afterEach(() => {
+    cleanup();
+    vi.restoreAllMocks();
+    useIsMobile.mockReturnValue(false);
+  });
+
+  it("lays each host out as a card, with both switches and its actions", async () => {
+    useIsMobile.mockReturnValue(true);
+    mount();
+
+    expect(await screen.findByText("app.example.com")).toBeInTheDocument();
+    expect(screen.queryByRole("table")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Enable app.example.com")).toBeInTheDocument();
+    expect(screen.getByLabelText("Maintenance for app.example.com")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Edit app.example.com" })).toBeInTheDocument();
   });
 });

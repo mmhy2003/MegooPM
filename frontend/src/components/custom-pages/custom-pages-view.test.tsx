@@ -13,6 +13,9 @@ import { CustomPagesView } from "@/components/custom-pages/custom-pages-view";
 const useAuth = vi.hoisted(() => vi.fn(() => ({ user: { role: "admin" } })));
 vi.mock("@/lib/auth/context", () => ({ useAuth }));
 
+const useIsMobile = vi.hoisted(() => vi.fn(() => false));
+vi.mock("@/hooks/use-mobile", () => ({ useIsMobile }));
+
 function makeSummary(overrides: Partial<CustomPageSummary> = {}): CustomPageSummary {
   return {
     id: 1,
@@ -153,5 +156,31 @@ describe("CustomPagesView search", () => {
     await user.type(screen.getByRole("searchbox"), "nonesuch");
 
     expect(screen.getByText(/no custom pages match/i)).toBeInTheDocument();
+  });
+});
+
+describe("CustomPagesView on a phone", () => {
+  beforeEach(() => {
+    useIsMobile.mockReturnValue(true);
+    vi.spyOn(customPages, "list").mockResolvedValue([makeSummary()]);
+  });
+  afterEach(() => {
+    cleanup();
+    vi.restoreAllMocks();
+    useIsMobile.mockReturnValue(false);
+  });
+
+  it("lays each page out as a card that still opens the preview", async () => {
+    render(<CustomPagesView />);
+
+    // The name stays a button: the table's tap-to-preview must survive the
+    // change of shape, or the phone loses the page's main affordance.
+    expect(
+      await screen.findByRole("button", { name: "Preview Access denied" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Shown to banned clients")).toBeInTheDocument();
+    expect(screen.getByText("4.2 KB")).toBeInTheDocument();
+    expect(screen.queryByRole("table")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Edit Access denied" })).toBeInTheDocument();
   });
 });

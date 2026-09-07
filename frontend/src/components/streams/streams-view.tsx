@@ -31,6 +31,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { RowCard, RowCards } from "@/components/ui/row-cards";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 function ProtocolBadges({ tcp, udp }: { tcp: boolean; udp: boolean }) {
   return (
@@ -62,6 +64,8 @@ export function StreamsView() {
   const canWrite = useCanWrite();
   const [certs, setCerts] = useState<Certificate[]>([]);
   const [loading, setLoading] = useState(true);
+  // Below the breakpoint the table becomes cards: see RowCards.
+  const isMobile = useIsMobile();
   const [loadError, setLoadError] = useState<string | null>(null);
 
   const [dialog, setDialog] = useState<{ open: boolean; stream: Stream | null }>({
@@ -81,11 +85,7 @@ export function StreamsView() {
 
   const load = useCallback(async () => {
     try {
-      const [s, c, p] = await Promise.all([
-        streams.list(),
-        certificates.list(),
-        upstreams.list(),
-      ]);
+      const [s, c, p] = await Promise.all([streams.list(), certificates.list(), upstreams.list()]);
       setRows(s);
       setCerts(c);
       setPools(p);
@@ -169,101 +169,188 @@ export function StreamsView() {
             </p>
           )}
         </div>
-        <div className="bg-card text-card-foreground rounded-xl border shadow-xs">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Incoming port</TableHead>
-                <TableHead>Forward to</TableHead>
-                <TableHead>Protocols</TableHead>
-                <TableHead>TLS</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="w-24 text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {loading ? (
-                <LoadingRows cols={6} />
-              ) : visible.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={6} className="py-10 text-center text-muted-foreground">
-                    {query.trim() ? (
-                      <>
-                        No streams match “{query.trim()}”.{" "}
-                        <Button
-                          variant="link"
-                          size="sm"
-                          className="h-auto p-0 align-baseline"
-                          onClick={() => setQuery("")}
-                        >
-                          Clear search
-                        </Button>
-                      </>
-                    ) : (
-                      "No streams yet. Create one to forward a TCP/UDP port to a backend."
-                    )}
-                  </TableCell>
-                </TableRow>
+        {isMobile ? (
+          <RowCards
+            loading={loading}
+            isEmpty={visible.length === 0}
+            empty={
+              query.trim() ? (
+                <>
+                  No streams match “{query.trim()}”.{" "}
+                  <Button
+                    variant="link"
+                    size="sm"
+                    className="h-auto p-0 align-baseline"
+                    onClick={() => setQuery("")}
+                  >
+                    Clear search
+                  </Button>
+                </>
               ) : (
-                visible.map((stream) => (
-                  <TableRow key={stream.id}>
-                    <TableCell className="font-medium tabular-nums">
-                      {stream.incoming_port}
-                    </TableCell>
-                    <TableCell className="tabular-nums">
-                      {stream.forward_host}:{stream.forward_port}
-                    </TableCell>
-                    <TableCell>
+                "No streams yet. Create one to forward a TCP/UDP port to a backend."
+              )
+            }
+          >
+            {visible.map((stream) => (
+              <RowCard
+                key={stream.id}
+                title={<span className="tabular-nums">Port {stream.incoming_port}</span>}
+                meta={
+                  <EnabledToggle
+                    checked={stream.enabled}
+                    name={String(stream.incoming_port)}
+                    onToggle={(next) => setEnabled(stream, next)}
+                    disabled={!canWrite}
+                  />
+                }
+                facts={[
+                  {
+                    label: "Forward to",
+                    value: (
+                      <span className="tabular-nums">
+                        {stream.forward_host}:{stream.forward_port}
+                      </span>
+                    ),
+                  },
+                  {
+                    label: "Protocols",
+                    value: (
                       <ProtocolBadges tcp={stream.tcp_forwarding} udp={stream.udp_forwarding} />
-                    </TableCell>
-                    <TableCell>
-                      {stream.certificate_id != null ? (
+                    ),
+                  },
+                  {
+                    label: "TLS",
+                    value:
+                      stream.certificate_id != null ? (
                         <span className="inline-flex items-center gap-1.5">
                           <ShieldCheck className="size-3.5 text-muted-foreground" />
                           TLS
                         </span>
+                      ) : null,
+                  },
+                ]}
+                actions={
+                  canWrite ? (
+                    <>
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        aria-label={`Edit stream on port ${stream.incoming_port}`}
+                        onClick={() => setDialog({ open: true, stream })}
+                      >
+                        <Pencil />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        aria-label={`Delete stream on port ${stream.incoming_port}`}
+                        onClick={() => setToDelete(stream)}
+                      >
+                        <Trash2 />
+                      </Button>
+                    </>
+                  ) : null
+                }
+              />
+            ))}
+          </RowCards>
+        ) : (
+          <div className="bg-card text-card-foreground rounded-xl border shadow-xs">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Incoming port</TableHead>
+                  <TableHead>Forward to</TableHead>
+                  <TableHead>Protocols</TableHead>
+                  <TableHead>TLS</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="w-24 text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {loading ? (
+                  <LoadingRows cols={6} />
+                ) : visible.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={6} className="py-10 text-center text-muted-foreground">
+                      {query.trim() ? (
+                        <>
+                          No streams match “{query.trim()}”.{" "}
+                          <Button
+                            variant="link"
+                            size="sm"
+                            className="h-auto p-0 align-baseline"
+                            onClick={() => setQuery("")}
+                          >
+                            Clear search
+                          </Button>
+                        </>
                       ) : (
-                        <span className="text-muted-foreground">—</span>
+                        "No streams yet. Create one to forward a TCP/UDP port to a backend."
                       )}
                     </TableCell>
-                    <TableCell>
-                      <EnabledToggle
-                        checked={stream.enabled}
-                        name={String(stream.incoming_port)}
-                        onToggle={(next) => setEnabled(stream, next)}
-                        disabled={!canWrite}
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex justify-end gap-1">
-                        {canWrite ? (
-                          <>
-                          <Button
-                            variant="ghost"
-                            size="icon-sm"
-                            aria-label={`Edit stream on port ${stream.incoming_port}`}
-                            onClick={() => setDialog({ open: true, stream })}
-                          >
-                            <Pencil />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon-sm"
-                            aria-label={`Delete stream on port ${stream.incoming_port}`}
-                            onClick={() => setToDelete(stream)}
-                          >
-                            <Trash2 />
-                          </Button>
-                          </>
-                        ) : null}
-                      </div>
-                    </TableCell>
                   </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </div>
+                ) : (
+                  visible.map((stream) => (
+                    <TableRow key={stream.id}>
+                      <TableCell className="font-medium tabular-nums">
+                        {stream.incoming_port}
+                      </TableCell>
+                      <TableCell className="tabular-nums">
+                        {stream.forward_host}:{stream.forward_port}
+                      </TableCell>
+                      <TableCell>
+                        <ProtocolBadges tcp={stream.tcp_forwarding} udp={stream.udp_forwarding} />
+                      </TableCell>
+                      <TableCell>
+                        {stream.certificate_id != null ? (
+                          <span className="inline-flex items-center gap-1.5">
+                            <ShieldCheck className="size-3.5 text-muted-foreground" />
+                            TLS
+                          </span>
+                        ) : (
+                          <span className="text-muted-foreground">—</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <EnabledToggle
+                          checked={stream.enabled}
+                          name={String(stream.incoming_port)}
+                          onToggle={(next) => setEnabled(stream, next)}
+                          disabled={!canWrite}
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex justify-end gap-1">
+                          {canWrite ? (
+                            <>
+                              <Button
+                                variant="ghost"
+                                size="icon-sm"
+                                aria-label={`Edit stream on port ${stream.incoming_port}`}
+                                onClick={() => setDialog({ open: true, stream })}
+                              >
+                                <Pencil />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon-sm"
+                                aria-label={`Delete stream on port ${stream.incoming_port}`}
+                                onClick={() => setToDelete(stream)}
+                              >
+                                <Trash2 />
+                              </Button>
+                            </>
+                          ) : null}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        )}
       </div>
 
       {dialog.open ? (

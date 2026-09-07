@@ -5,6 +5,9 @@ import userEvent from "@testing-library/user-event";
 import { dnsCredentials, dnsProviders } from "@/lib/api";
 import { DnsCredentialsView } from "@/components/dns-providers/dns-credentials-view";
 
+const useIsMobile = vi.hoisted(() => vi.fn(() => false));
+vi.mock("@/hooks/use-mobile", () => ({ useIsMobile }));
+
 const catalog = [
   {
     id: "cloudflare",
@@ -107,5 +110,28 @@ describe("DnsCredentialsView", () => {
     vi.spyOn(dnsCredentials, "list").mockRejectedValueOnce(new Error("boom"));
     render(<DnsCredentialsView />);
     expect(await screen.findByRole("alert")).toHaveTextContent("boom");
+  });
+});
+
+describe("DnsCredentialsView on a phone", () => {
+  beforeEach(() => {
+    useIsMobile.mockReturnValue(true);
+    vi.spyOn(dnsProviders, "catalog").mockResolvedValue(catalog);
+    vi.spyOn(dnsCredentials, "list").mockResolvedValue([cred]);
+  });
+  afterEach(() => {
+    cleanup();
+    vi.restoreAllMocks();
+    useIsMobile.mockReturnValue(false);
+  });
+
+  it("lays each credential out as a card, with its actions", async () => {
+    render(<DnsCredentialsView />);
+
+    expect(await screen.findByText("cf-prod")).toBeInTheDocument();
+    expect(screen.getByText("Cloudflare")).toBeInTheDocument();
+    expect(screen.getByText("auth_token")).toBeInTheDocument();
+    expect(screen.queryByRole("table")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Verify cf-prod" })).toBeInTheDocument();
   });
 });

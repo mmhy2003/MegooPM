@@ -21,6 +21,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { RowCard, RowCards } from "@/components/ui/row-cards";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 function LoadingRows({ cols }: { cols: number }) {
   return (
@@ -56,6 +58,8 @@ export function CustomPagesView() {
   const [pages, setPages] = useState<CustomPageSummary[]>([]);
   const canWrite = useCanWrite();
   const [loading, setLoading] = useState(true);
+  // Below the breakpoint the table becomes cards: see RowCards.
+  const isMobile = useIsMobile();
   const [loadError, setLoadError] = useState<string | null>(null);
   const [deletePage, setDeletePage] = useState<CustomPageSummary | null>(null);
   const [previewPage, setPreviewPage] = useState<CustomPageSummary | null>(null);
@@ -99,8 +103,8 @@ export function CustomPagesView() {
         <div className="flex-1">
           <h2 className="text-xl font-semibold tracking-tight">Custom Pages</h2>
           <p className="text-sm text-muted-foreground">
-            HTML pages you author here and reference elsewhere. Images are
-            embedded in the document, so a page is a single self-contained file.
+            HTML pages you author here and reference elsewhere. Images are embedded in the document,
+            so a page is a single self-contained file.
           </p>
         </div>
         {canWrite ? (
@@ -108,9 +112,7 @@ export function CustomPagesView() {
             <Plus /> New page
           </Button>
         ) : (
-          <p className="text-muted-foreground text-sm">
-            Read-only — ask an admin to make changes.
-          </p>
+          <p className="text-muted-foreground text-sm">Read-only — ask an admin to make changes.</p>
         )}
       </div>
 
@@ -134,99 +136,173 @@ export function CustomPagesView() {
         />
       </div>
 
-      <div className="bg-card text-card-foreground rounded-xl border shadow-xs">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Name</TableHead>
-              <TableHead>Description</TableHead>
-              <TableHead className="w-24">Size</TableHead>
-              <TableHead className="w-32">Updated</TableHead>
-              <TableHead className="w-24 text-right">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {loading ? (
-              <LoadingRows cols={5} />
-            ) : visible.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={5} className="py-10 text-center text-muted-foreground">
-                  {query.trim() ? (
-                    <>
-                      No custom pages match “{query.trim()}”.{" "}
-                      <Button
-                        variant="link"
-                        size="sm"
-                        className="h-auto p-0 align-baseline"
-                        onClick={() => setQuery("")}
-                      >
-                        Clear search
-                      </Button>
-                    </>
-                  ) : (
-                    "No custom pages yet. Create one to design a page you can point a host at."
-                  )}
-                </TableCell>
-              </TableRow>
+      {isMobile ? (
+        <RowCards
+          loading={loading}
+          isEmpty={visible.length === 0}
+          empty={
+            query.trim() ? (
+              <>
+                No custom pages match “{query.trim()}”.{" "}
+                <Button
+                  variant="link"
+                  size="sm"
+                  className="h-auto p-0 align-baseline"
+                  onClick={() => setQuery("")}
+                >
+                  Clear search
+                </Button>
+              </>
             ) : (
-              visible.map((page) => (
-                <TableRow
-                  key={page.id}
-                  className="cursor-pointer"
+              "No custom pages yet. Create one to design a page you can point a host at."
+            )
+          }
+        >
+          {visible.map((page) => (
+            <RowCard
+              key={page.id}
+              title={
+                // The same button the table uses: tap-to-preview survives the
+                // change of shape, with the same accessible name.
+                <button
+                  type="button"
+                  aria-label={`Preview ${page.name}`}
+                  className="rounded-sm text-left hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
                   onClick={() => setPreviewPage(page)}
                 >
-                  <TableCell className="font-medium">
-                    {/* A button, not just a clickable row: the row's onClick is
-                        invisible to the keyboard and to screen readers. */}
-                    <button
-                      type="button"
-                      aria-label={`Preview ${page.name}`}
-                      className="rounded-sm text-left hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        setPreviewPage(page);
-                      }}
+                  {page.name}
+                </button>
+              }
+              meta={
+                <span className="text-muted-foreground text-xs">{formatDate(page.updated_at)}</span>
+              }
+              facts={[
+                { label: "Description", value: page.description || null },
+                {
+                  label: "Size",
+                  value: <span className="tabular-nums">{formatBytes(page.size_bytes)}</span>,
+                },
+              ]}
+              actions={
+                canWrite ? (
+                  <>
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      aria-label={`Edit ${page.name}`}
+                      onClick={() => router.push(`/custom-pages/${page.id}`)}
                     >
-                      {page.name}
-                    </button>
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {page.description || "—"}
-                  </TableCell>
-                  <TableCell className="tabular-nums">{formatBytes(page.size_bytes)}</TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {formatDate(page.updated_at)}
-                  </TableCell>
-                  <TableCell onClick={(event) => event.stopPropagation()}>
-                    <div className="flex justify-end gap-1">
-                      {canWrite ? (
-                        <>
+                      <Pencil />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      aria-label={`Delete ${page.name}`}
+                      onClick={() => setDeletePage(page)}
+                    >
+                      <Trash2 />
+                    </Button>
+                  </>
+                ) : null
+              }
+            />
+          ))}
+        </RowCards>
+      ) : (
+        <div className="bg-card text-card-foreground rounded-xl border shadow-xs">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Name</TableHead>
+                <TableHead>Description</TableHead>
+                <TableHead className="w-24">Size</TableHead>
+                <TableHead className="w-32">Updated</TableHead>
+                <TableHead className="w-24 text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {loading ? (
+                <LoadingRows cols={5} />
+              ) : visible.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={5} className="py-10 text-center text-muted-foreground">
+                    {query.trim() ? (
+                      <>
+                        No custom pages match “{query.trim()}”.{" "}
                         <Button
-                          variant="ghost"
-                          size="icon-sm"
-                          aria-label={`Edit ${page.name}`}
-                          onClick={() => router.push(`/custom-pages/${page.id}`)}
+                          variant="link"
+                          size="sm"
+                          className="h-auto p-0 align-baseline"
+                          onClick={() => setQuery("")}
                         >
-                          <Pencil />
+                          Clear search
                         </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon-sm"
-                          aria-label={`Delete ${page.name}`}
-                          onClick={() => setDeletePage(page)}
-                        >
-                          <Trash2 />
-                        </Button>
-                        </>
-                      ) : null}
-                    </div>
+                      </>
+                    ) : (
+                      "No custom pages yet. Create one to design a page you can point a host at."
+                    )}
                   </TableCell>
                 </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </div>
+              ) : (
+                visible.map((page) => (
+                  <TableRow
+                    key={page.id}
+                    className="cursor-pointer"
+                    onClick={() => setPreviewPage(page)}
+                  >
+                    <TableCell className="font-medium">
+                      {/* A button, not just a clickable row: the row's onClick is
+                        invisible to the keyboard and to screen readers. */}
+                      <button
+                        type="button"
+                        aria-label={`Preview ${page.name}`}
+                        className="rounded-sm text-left hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          setPreviewPage(page);
+                        }}
+                      >
+                        {page.name}
+                      </button>
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {page.description || "—"}
+                    </TableCell>
+                    <TableCell className="tabular-nums">{formatBytes(page.size_bytes)}</TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {formatDate(page.updated_at)}
+                    </TableCell>
+                    <TableCell onClick={(event) => event.stopPropagation()}>
+                      <div className="flex justify-end gap-1">
+                        {canWrite ? (
+                          <>
+                            <Button
+                              variant="ghost"
+                              size="icon-sm"
+                              aria-label={`Edit ${page.name}`}
+                              onClick={() => router.push(`/custom-pages/${page.id}`)}
+                            >
+                              <Pencil />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon-sm"
+                              aria-label={`Delete ${page.name}`}
+                              onClick={() => setDeletePage(page)}
+                            >
+                              <Trash2 />
+                            </Button>
+                          </>
+                        ) : null}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
+      )}
 
       {previewPage ? (
         <PagePreviewDialog

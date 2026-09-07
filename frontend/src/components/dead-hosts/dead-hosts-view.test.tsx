@@ -11,6 +11,9 @@ import { DeadHostsView } from "@/components/dead-hosts/dead-hosts-view";
 const useAuth = vi.hoisted(() => vi.fn(() => ({ user: { role: "admin" } })));
 vi.mock("@/lib/auth/context", () => ({ useAuth }));
 
+const useIsMobile = vi.hoisted(() => vi.fn(() => false));
+vi.mock("@/hooks/use-mobile", () => ({ useIsMobile }));
+
 function makeDeadHost(over: Partial<DeadHost> = {}): DeadHost {
   return {
     id: 1,
@@ -115,5 +118,22 @@ describe("DeadHostsView search", () => {
     await user.type(screen.getByRole("searchbox"), "nonesuch");
 
     expect(screen.getByText(/no 404 hosts match/i)).toBeInTheDocument();
+  });
+});
+
+describe("DeadHostsView on a phone", () => {
+  afterEach(() => {
+    cleanup();
+    vi.restoreAllMocks();
+    useIsMobile.mockReturnValue(false);
+  });
+
+  it("lays each host out as a card, with its actions", async () => {
+    useIsMobile.mockReturnValue(true);
+    await renderView();
+
+    expect(screen.getByText("parked.example.com")).toBeInTheDocument();
+    expect(screen.queryByRole("table")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Edit parked.example.com" })).toBeInTheDocument();
   });
 });

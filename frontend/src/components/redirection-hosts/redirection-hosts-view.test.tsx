@@ -10,6 +10,9 @@ import { RedirectionHostsView } from "@/components/redirection-hosts/redirection
 const useAuth = vi.hoisted(() => vi.fn(() => ({ user: { role: "admin" } })));
 vi.mock("@/lib/auth/context", () => ({ useAuth }));
 
+const useIsMobile = vi.hoisted(() => vi.fn(() => false));
+vi.mock("@/hooks/use-mobile", () => ({ useIsMobile }));
+
 function makeHost(over: Partial<RedirectionHost> = {}): RedirectionHost {
   return {
     id: 1,
@@ -117,5 +120,22 @@ describe("RedirectionHostsView target link", () => {
     // Narrow to the target: the source domain beside it is a link either way.
     expect(screen.queryByRole("link", { name: "*.example.com" })).not.toBeInTheDocument();
     expect(screen.getByText("*.example.com")).toBeInTheDocument();
+  });
+});
+
+describe("RedirectionHostsView on a phone", () => {
+  afterEach(() => {
+    useIsMobile.mockReturnValue(false);
+  });
+
+  it("lays each host out as a card, with its actions", async () => {
+    useIsMobile.mockReturnValue(true);
+    await renderView([makeHost()]);
+
+    expect(screen.getByText("old.example.com")).toBeInTheDocument();
+    expect(screen.getByText(/new\.example\.com/)).toBeInTheDocument();
+    expect(screen.queryByRole("table")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Enable old.example.com")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Edit old.example.com" })).toBeInTheDocument();
   });
 });

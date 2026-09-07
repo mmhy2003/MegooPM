@@ -3,12 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Pencil, Plus, ShieldCheck, Trash2 } from "lucide-react";
 
-import {
-  dnsCredentials,
-  dnsProviders,
-  type DnsCredential,
-  type DnsProviderInfo,
-} from "@/lib/api";
+import { dnsCredentials, dnsProviders, type DnsCredential, type DnsProviderInfo } from "@/lib/api";
 import { describeError } from "@/components/proxy-hosts/lib";
 import { ConfirmDeleteDialog } from "@/components/proxy-hosts/confirm-delete-dialog";
 import { DnsCredentialDialog } from "@/components/dns-providers/dns-credential-dialog";
@@ -24,6 +19,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { RowCard, RowCards } from "@/components/ui/row-cards";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 function LoadingRows({ cols }: { cols: number }) {
   return (
@@ -45,6 +42,8 @@ export function DnsCredentialsView() {
   const [rows, setRows] = useState<DnsCredential[]>([]);
   const [catalog, setCatalog] = useState<DnsProviderInfo[]>([]);
   const [loading, setLoading] = useState(true);
+  // Below the breakpoint the table becomes cards: see RowCards.
+  const isMobile = useIsMobile();
   const [loadError, setLoadError] = useState<string | null>(null);
 
   const [dialog, setDialog] = useState<{ open: boolean; credential: DnsCredential | null }>({
@@ -86,8 +85,8 @@ export function DnsCredentialsView() {
   return (
     <div className="space-y-3">
       <p className="text-sm text-muted-foreground">
-        Saved provider credentials for DNS-01 challenges (wildcards and hosts not reachable on
-        port 80). Secrets are encrypted at rest and never shown again.
+        Saved provider credentials for DNS-01 challenges (wildcards and hosts not reachable on port
+        80). Secrets are encrypted at rest and never shown again.
       </p>
 
       {loadError ? (
@@ -110,81 +109,147 @@ export function DnsCredentialsView() {
           <Plus /> New credentials
         </Button>
       </div>
-      <div className="bg-card text-card-foreground rounded-xl border shadow-xs">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Name</TableHead>
-              <TableHead>Provider</TableHead>
-              <TableHead>Credentials set</TableHead>
-              <TableHead>Used by</TableHead>
-              <TableHead className="w-32 text-right">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {loading ? (
-              <LoadingRows cols={5} />
-            ) : rows.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={5} className="py-10 text-center text-muted-foreground">
-                  No DNS credentials yet. Add one to request DNS-01 (wildcard) certificates.
-                </TableCell>
-              </TableRow>
-            ) : (
-              rows.map((c) => (
-                <TableRow key={c.id}>
-                  <TableCell className="font-medium">{c.name}</TableCell>
-                  <TableCell>
-                    <Badge variant="outline">{c.provider_label}</Badge>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex flex-wrap gap-1">
+      {isMobile ? (
+        <RowCards
+          loading={loading}
+          isEmpty={rows.length === 0}
+          empty="No DNS credentials yet. Add one to request DNS-01 (wildcard) certificates."
+        >
+          {rows.map((c) => (
+            <RowCard
+              key={c.id}
+              title={c.name}
+              meta={<Badge variant="outline">{c.provider_label}</Badge>}
+              facts={[
+                {
+                  label: "Credentials set",
+                  value: (
+                    <span className="flex flex-wrap gap-1">
                       {c.secret_fields.map((f) => (
                         <Badge key={f} variant="muted" className="font-mono text-xs">
                           {f}
                         </Badge>
                       ))}
-                    </div>
-                  </TableCell>
-                  <TableCell>
+                    </span>
+                  ),
+                },
+                {
+                  label: "Used by",
+                  value: (
                     <span title={c.in_use_by.map((x) => x.name).join(", ")}>
                       {c.in_use_by.length}
                     </span>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex justify-end gap-1">
-                      <Button
-                        variant="ghost"
-                        size="icon-sm"
-                        aria-label={`Edit ${c.name}`}
-                        onClick={() => setDialog({ open: true, credential: c })}
-                      >
-                        <Pencil />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon-sm"
-                        aria-label={`Verify ${c.name}`}
-                        onClick={() => setVerifyTarget(c)}
-                      >
-                        <ShieldCheck />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon-sm"
-                        aria-label={`Delete ${c.name}`}
-                        onClick={() => setDeleteTarget(c)}
-                      >
-                        <Trash2 />
-                      </Button>
-                    </div>
+                  ),
+                },
+              ]}
+              actions={
+                <>
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    aria-label={`Edit ${c.name}`}
+                    onClick={() => setDialog({ open: true, credential: c })}
+                  >
+                    <Pencil />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    aria-label={`Verify ${c.name}`}
+                    onClick={() => setVerifyTarget(c)}
+                  >
+                    <ShieldCheck />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    aria-label={`Delete ${c.name}`}
+                    onClick={() => setDeleteTarget(c)}
+                  >
+                    <Trash2 />
+                  </Button>
+                </>
+              }
+            />
+          ))}
+        </RowCards>
+      ) : (
+        <div className="bg-card text-card-foreground rounded-xl border shadow-xs">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Name</TableHead>
+                <TableHead>Provider</TableHead>
+                <TableHead>Credentials set</TableHead>
+                <TableHead>Used by</TableHead>
+                <TableHead className="w-32 text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {loading ? (
+                <LoadingRows cols={5} />
+              ) : rows.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={5} className="py-10 text-center text-muted-foreground">
+                    No DNS credentials yet. Add one to request DNS-01 (wildcard) certificates.
                   </TableCell>
                 </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </div>
+              ) : (
+                rows.map((c) => (
+                  <TableRow key={c.id}>
+                    <TableCell className="font-medium">{c.name}</TableCell>
+                    <TableCell>
+                      <Badge variant="outline">{c.provider_label}</Badge>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex flex-wrap gap-1">
+                        {c.secret_fields.map((f) => (
+                          <Badge key={f} variant="muted" className="font-mono text-xs">
+                            {f}
+                          </Badge>
+                        ))}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <span title={c.in_use_by.map((x) => x.name).join(", ")}>
+                        {c.in_use_by.length}
+                      </span>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex justify-end gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
+                          aria-label={`Edit ${c.name}`}
+                          onClick={() => setDialog({ open: true, credential: c })}
+                        >
+                          <Pencil />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
+                          aria-label={`Verify ${c.name}`}
+                          onClick={() => setVerifyTarget(c)}
+                        >
+                          <ShieldCheck />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
+                          aria-label={`Delete ${c.name}`}
+                          onClick={() => setDeleteTarget(c)}
+                        >
+                          <Trash2 />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
+      )}
 
       {/* `key` remounts each dialog per target so its form starts fresh. */}
       <DnsCredentialDialog

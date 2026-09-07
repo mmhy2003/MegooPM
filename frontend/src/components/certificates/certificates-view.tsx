@@ -21,10 +21,7 @@ import {
 } from "@/lib/api";
 import { describeError } from "@/components/proxy-hosts/lib";
 import { ConfirmDeleteDialog } from "@/components/proxy-hosts/confirm-delete-dialog";
-import {
-  CertificateDialog,
-  type PendingTask,
-} from "@/components/certificates/certificate-dialog";
+import { CertificateDialog, type PendingTask } from "@/components/certificates/certificate-dialog";
 import {
   challengeLabel,
   expiryInfo,
@@ -47,6 +44,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { RowCard, RowCards } from "@/components/ui/row-cards";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 const STATUS_META: Record<
   CertificateStatus,
@@ -77,9 +76,7 @@ function ExpiryCell({ cert }: { cert: Certificate }) {
     <span className={`inline-flex items-center gap-1.5 ${EXPIRY_CLASS[info.level]}`}>
       {flagged ? <TriangleAlert className="size-3.5" aria-hidden /> : null}
       <span className="tabular-nums">{formatDate(cert.expires_on)}</span>
-      {info.level !== "none" ? (
-        <span className="text-xs">({info.label})</span>
-      ) : null}
+      {info.level !== "none" ? <span className="text-xs">({info.label})</span> : null}
     </span>
   );
 }
@@ -104,6 +101,8 @@ export function CertificatesView() {
   const [certs, setCerts] = useState<Certificate[]>([]);
   const canWrite = useCanWrite();
   const [loading, setLoading] = useState(true);
+  // Below the breakpoint the table becomes cards: see RowCards.
+  const isMobile = useIsMobile();
   const [loadError, setLoadError] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [deleteCert, setDeleteCert] = useState<Certificate | null>(null);
@@ -216,9 +215,7 @@ export function CertificatesView() {
             <Plus /> New certificate
           </Button>
         ) : (
-          <p className="text-muted-foreground text-sm">
-            Read-only — ask an admin to make changes.
-          </p>
+          <p className="text-muted-foreground text-sm">Read-only — ask an admin to make changes.</p>
         )}
       </div>
 
@@ -237,121 +234,107 @@ export function CertificatesView() {
         </TabsList>
 
         <TabsPanel value="certificates" className="space-y-6 pt-2">
-      {warningCount > 0 ? (
-        <div className="flex items-center gap-2 rounded-xl border border-warning/30 bg-warning/5 p-3 text-sm text-warning">
-          <TriangleAlert className="size-4 shrink-0" aria-hidden />
-          <span>
-            {warningCount} certificate{warningCount === 1 ? "" : "s"} near expiry or expired —
-            renew soon to avoid an outage.
-          </span>
-        </div>
-      ) : null}
+          {warningCount > 0 ? (
+            <div className="flex items-center gap-2 rounded-xl border border-warning/30 bg-warning/5 p-3 text-sm text-warning">
+              <TriangleAlert className="size-4 shrink-0" aria-hidden />
+              <span>
+                {warningCount} certificate{warningCount === 1 ? "" : "s"} near expiry or expired —
+                renew soon to avoid an outage.
+              </span>
+            </div>
+          ) : null}
 
-      {pending.length > 0 ? (
-        <div className="flex flex-col gap-1 rounded-xl border bg-muted/40 p-3 text-sm">
-          {pending.map((t) => (
-            <span key={t.taskId} className="inline-flex items-center gap-2">
-              <Loader2 className="size-3.5 animate-spin" aria-hidden />
-              {t.label}…
-            </span>
-          ))}
-        </div>
-      ) : null}
+          {pending.length > 0 ? (
+            <div className="flex flex-col gap-1 rounded-xl border bg-muted/40 p-3 text-sm">
+              {pending.map((t) => (
+                <span key={t.taskId} className="inline-flex items-center gap-2">
+                  <Loader2 className="size-3.5 animate-spin" aria-hidden />
+                  {t.label}…
+                </span>
+              ))}
+            </div>
+          ) : null}
 
-      {loadError ? (
-        <div className="flex flex-col items-start gap-3 rounded-xl border border-destructive/30 bg-destructive/5 p-4">
-          <p className="text-sm text-destructive" role="alert">
-            Couldn&apos;t load certificates: {loadError}
-          </p>
-          <Button variant="outline" size="sm" onClick={refresh}>
-            Retry
-          </Button>
-        </div>
-      ) : null}
+          {loadError ? (
+            <div className="flex flex-col items-start gap-3 rounded-xl border border-destructive/30 bg-destructive/5 p-4">
+              <p className="text-sm text-destructive" role="alert">
+                Couldn&apos;t load certificates: {loadError}
+              </p>
+              <Button variant="outline" size="sm" onClick={refresh}>
+                Retry
+              </Button>
+            </div>
+          ) : null}
 
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <SearchInput
-          value={query}
-          onValueChange={setQuery}
-          label="Search certificates"
-          placeholder="Certificate name or domain"
-        />
-      </div>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <SearchInput
+              value={query}
+              onValueChange={setQuery}
+              label="Search certificates"
+              placeholder="Certificate name or domain"
+            />
+          </div>
 
-      <div className="bg-card text-card-foreground rounded-xl border shadow-xs">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Name</TableHead>
-              <TableHead>Domains</TableHead>
-              <TableHead>Provider</TableHead>
-              <TableHead>Challenge</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Expiry</TableHead>
-              <TableHead className="w-24 text-right">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {loading ? (
-              <LoadingRows cols={7} />
-            ) : visible.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={7} className="py-10 text-center text-muted-foreground">
-                  {query.trim() ? (
-                    <>
-                      No certificates match “{query.trim()}”.{" "}
-                      <Button
-                        variant="link"
-                        size="sm"
-                        className="h-auto p-0 align-baseline"
-                        onClick={() => setQuery("")}
-                      >
-                        Clear search
-                      </Button>
-                    </>
-                  ) : (
-                    "No certificates yet. Request one from Let’s Encrypt or upload your own."
-                  )}
-                </TableCell>
-              </TableRow>
-            ) : (
-              visible.map((cert) => {
+          {isMobile ? (
+            <RowCards
+              loading={loading}
+              isEmpty={visible.length === 0}
+              empty={
+                query.trim() ? (
+                  <>
+                    No certificates match “{query.trim()}”.{" "}
+                    <Button
+                      variant="link"
+                      size="sm"
+                      className="h-auto p-0 align-baseline"
+                      onClick={() => setQuery("")}
+                    >
+                      Clear search
+                    </Button>
+                  </>
+                ) : (
+                  "No certificates yet. Request one from Let’s Encrypt or upload your own."
+                )
+              }
+            >
+              {visible.map((cert) => {
                 const canRenew = cert.provider === "letsencrypt";
                 const renewing = renewingId === cert.id;
                 return (
-                  <TableRow key={cert.id}>
-                    <TableCell className="font-medium">{cert.name}</TableCell>
-                    <TableCell>
-                      <div className="flex flex-wrap gap-1">
-                        {cert.domain_names.length ? (
-                          cert.domain_names.map((d) => (
-                            <span key={d} className="text-sm">
-                              {d}
-                            </span>
-                          ))
-                        ) : (
-                          <span className="text-muted-foreground">—</span>
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline">
-                        {CERT_PROVIDER_LABELS[cert.provider] ?? cert.provider}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
-                      {challengeLabel(cert)}
-                    </TableCell>
-                    <TableCell>
-                      <StatusBadge status={cert.status} />
-                    </TableCell>
-                    <TableCell>
-                      <ExpiryCell cert={cert} />
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex justify-end gap-1">
-                        {canWrite ? (
-                          <>
+                  <RowCard
+                    key={cert.id}
+                    title={cert.name}
+                    meta={<StatusBadge status={cert.status} />}
+                    facts={[
+                      {
+                        label: "Domains",
+                        value: cert.domain_names.length ? (
+                          <span className="flex flex-wrap gap-x-2">
+                            {cert.domain_names.map((d) => (
+                              <span key={d}>{d}</span>
+                            ))}
+                          </span>
+                        ) : null,
+                      },
+                      {
+                        label: "Provider",
+                        value: (
+                          <Badge variant="outline">
+                            {CERT_PROVIDER_LABELS[cert.provider] ?? cert.provider}
+                          </Badge>
+                        ),
+                      },
+                      {
+                        label: "Challenge",
+                        value: (
+                          <span className="text-muted-foreground">{challengeLabel(cert)}</span>
+                        ),
+                      },
+                      { label: "Expiry", value: <ExpiryCell cert={cert} /> },
+                    ]}
+                    actions={
+                      canWrite ? (
+                        <>
                           {canRenew ? (
                             <Button
                               variant="ghost"
@@ -361,11 +344,7 @@ export function CertificatesView() {
                               disabled={renewing}
                               onClick={() => handleRenew(cert)}
                             >
-                              {renewing ? (
-                                <Loader2 className="animate-spin" />
-                              ) : (
-                                <RefreshCw />
-                              )}
+                              {renewing ? <Loader2 className="animate-spin" /> : <RefreshCw />}
                             </Button>
                           ) : null}
                           <Button
@@ -377,17 +356,125 @@ export function CertificatesView() {
                           >
                             <Trash2 />
                           </Button>
-                          </>
-                        ) : null}
-                      </div>
-                    </TableCell>
-                  </TableRow>
+                        </>
+                      ) : null
+                    }
+                  />
                 );
-              })
-            )}
-          </TableBody>
-        </Table>
-      </div>
+              })}
+            </RowCards>
+          ) : (
+            <div className="bg-card text-card-foreground rounded-xl border shadow-xs">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Name</TableHead>
+                    <TableHead>Domains</TableHead>
+                    <TableHead>Provider</TableHead>
+                    <TableHead>Challenge</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Expiry</TableHead>
+                    <TableHead className="w-24 text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {loading ? (
+                    <LoadingRows cols={7} />
+                  ) : visible.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={7} className="py-10 text-center text-muted-foreground">
+                        {query.trim() ? (
+                          <>
+                            No certificates match “{query.trim()}”.{" "}
+                            <Button
+                              variant="link"
+                              size="sm"
+                              className="h-auto p-0 align-baseline"
+                              onClick={() => setQuery("")}
+                            >
+                              Clear search
+                            </Button>
+                          </>
+                        ) : (
+                          "No certificates yet. Request one from Let’s Encrypt or upload your own."
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    visible.map((cert) => {
+                      const canRenew = cert.provider === "letsencrypt";
+                      const renewing = renewingId === cert.id;
+                      return (
+                        <TableRow key={cert.id}>
+                          <TableCell className="font-medium">{cert.name}</TableCell>
+                          <TableCell>
+                            <div className="flex flex-wrap gap-1">
+                              {cert.domain_names.length ? (
+                                cert.domain_names.map((d) => (
+                                  <span key={d} className="text-sm">
+                                    {d}
+                                  </span>
+                                ))
+                              ) : (
+                                <span className="text-muted-foreground">—</span>
+                              )}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="outline">
+                              {CERT_PROVIDER_LABELS[cert.provider] ?? cert.provider}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-sm text-muted-foreground">
+                            {challengeLabel(cert)}
+                          </TableCell>
+                          <TableCell>
+                            <StatusBadge status={cert.status} />
+                          </TableCell>
+                          <TableCell>
+                            <ExpiryCell cert={cert} />
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex justify-end gap-1">
+                              {canWrite ? (
+                                <>
+                                  {canRenew ? (
+                                    <Button
+                                      variant="ghost"
+                                      size="icon-sm"
+                                      aria-label={`Renew ${cert.name}`}
+                                      title="Renew"
+                                      disabled={renewing}
+                                      onClick={() => handleRenew(cert)}
+                                    >
+                                      {renewing ? (
+                                        <Loader2 className="animate-spin" />
+                                      ) : (
+                                        <RefreshCw />
+                                      )}
+                                    </Button>
+                                  ) : null}
+                                  <Button
+                                    variant="ghost"
+                                    size="icon-sm"
+                                    aria-label={`Delete ${cert.name}`}
+                                    title="Delete"
+                                    onClick={() => setDeleteCert(cert)}
+                                  >
+                                    <Trash2 />
+                                  </Button>
+                                </>
+                              ) : null}
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          )}
         </TabsPanel>
 
         {canWrite ? (

@@ -6,6 +6,9 @@ import { users } from "@/lib/api";
 import { UsersView } from "@/components/users/users-view";
 import { fetchCapabilities } from "@/lib/auth/api";
 
+const useIsMobile = vi.hoisted(() => vi.fn(() => false));
+vi.mock("@/hooks/use-mobile", () => ({ useIsMobile }));
+
 const admin = {
   id: 1,
   email: "admin@example.com",
@@ -265,5 +268,28 @@ describe("UsersView two-factor", () => {
     await user.click(screen.getByRole("button", { name: "confirm-delete" }));
 
     await waitFor(() => expect(disable).toHaveBeenCalledWith(4));
+  });
+});
+
+describe("UsersView on a phone", () => {
+  beforeEach(() => {
+    useIsMobile.mockReturnValue(true);
+    vi.mocked(fetchCapabilities).mockResolvedValue({ password_reset: false, passkeys: false });
+    vi.spyOn(users, "list").mockResolvedValue([admin, member]);
+  });
+  afterEach(() => {
+    cleanup();
+    vi.restoreAllMocks();
+    useIsMobile.mockReturnValue(false);
+  });
+
+  it("lays each user out as a card, with its actions", async () => {
+    render(<UsersView />);
+
+    expect(await screen.findByText("member@example.com")).toBeInTheDocument();
+    expect(screen.getByText("Mem Ber")).toBeInTheDocument();
+    expect(screen.getByText("Inactive")).toBeInTheDocument();
+    expect(screen.queryByRole("table")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Edit member@example.com" })).toBeInTheDocument();
   });
 });

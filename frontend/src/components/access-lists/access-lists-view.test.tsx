@@ -10,6 +10,9 @@ import { AccessListsView } from "@/components/access-lists/access-lists-view";
 const useAuth = vi.hoisted(() => vi.fn(() => ({ user: { role: "admin" } })));
 vi.mock("@/lib/auth/context", () => ({ useAuth }));
 
+const useIsMobile = vi.hoisted(() => vi.fn(() => false));
+vi.mock("@/hooks/use-mobile", () => ({ useIsMobile }));
+
 function makeList(over: Partial<AccessList> = {}): AccessList {
   return {
     id: 1,
@@ -55,5 +58,21 @@ describe("AccessListsView search", () => {
     await user.type(screen.getByRole("searchbox"), "nonesuch");
 
     expect(screen.getByText(/no access lists match/i)).toBeInTheDocument();
+  });
+});
+
+describe("AccessListsView on a phone", () => {
+  afterEach(() => {
+    useIsMobile.mockReturnValue(false);
+  });
+
+  it("lays each list out as a card, with its actions", async () => {
+    useIsMobile.mockReturnValue(true);
+    vi.spyOn(accessLists, "list").mockResolvedValue([makeList()]);
+    render(<AccessListsView />);
+
+    expect(await screen.findByText("office")).toBeInTheDocument();
+    expect(screen.queryByRole("table")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Edit office" })).toBeInTheDocument();
   });
 });

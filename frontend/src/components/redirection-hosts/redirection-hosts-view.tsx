@@ -5,12 +5,7 @@ import { toast } from "sonner";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ArrowRightLeft, Pencil, Plus, ShieldCheck, Trash2 } from "lucide-react";
 
-import {
-  certificates,
-  redirectionHosts,
-  type Certificate,
-  type RedirectionHost,
-} from "@/lib/api";
+import { certificates, redirectionHosts, type Certificate, type RedirectionHost } from "@/lib/api";
 import { describeError } from "@/components/proxy-hosts/lib";
 import { ConfirmDeleteDialog } from "@/components/proxy-hosts/confirm-delete-dialog";
 import { RedirectionHostDialog } from "@/components/redirection-hosts/redirection-host-dialog";
@@ -30,6 +25,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { RowCard, RowCards } from "@/components/ui/row-cards";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 function LoadingRows({ cols }: { cols: number }) {
   return (
@@ -63,6 +60,8 @@ export function RedirectionHostsView() {
   const canWrite = useCanWrite();
   const [certs, setCerts] = useState<Certificate[]>([]);
   const [loading, setLoading] = useState(true);
+  // Below the breakpoint the table becomes cards: see RowCards.
+  const isMobile = useIsMobile();
   const [loadError, setLoadError] = useState<string | null>(null);
 
   const [dialog, setDialog] = useState<{ open: boolean; host: RedirectionHost | null }>({
@@ -106,8 +105,7 @@ export function RedirectionHostsView() {
   }, [load]);
 
   const schemePrefix = useMemo(
-    () => (scheme: RedirectionHost["forward_scheme"]) =>
-      scheme === "auto" ? "" : `${scheme}://`,
+    () => (scheme: RedirectionHost["forward_scheme"]) => (scheme === "auto" ? "" : `${scheme}://`),
     [],
   );
 
@@ -168,124 +166,226 @@ export function RedirectionHostsView() {
             </p>
           )}
         </div>
-        <div className="bg-card text-card-foreground rounded-xl border shadow-xs">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Domains</TableHead>
-                <TableHead>Redirects to</TableHead>
-                <TableHead>Code</TableHead>
-                <TableHead>TLS</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="w-24 text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {loading ? (
-                <LoadingRows cols={6} />
-              ) : visible.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={6} className="py-10 text-center text-muted-foreground">
-                    {query.trim() ? (
+        {isMobile ? (
+          <RowCards
+            loading={loading}
+            isEmpty={visible.length === 0}
+            empty={
+              query.trim() ? (
+                <>
+                  No redirection hosts match “{query.trim()}”.{" "}
+                  <Button
+                    variant="link"
+                    size="sm"
+                    className="h-auto p-0 align-baseline"
+                    onClick={() => setQuery("")}
+                  >
+                    Clear search
+                  </Button>
+                </>
+              ) : (
+                "No redirection hosts yet. Create one to redirect domains elsewhere."
+              )
+            }
+          >
+            {visible.map((host) => (
+              <RowCard
+                key={host.id}
+                title={
+                  <DomainLinks domains={host.domain_names} secure={host.certificate_id != null} />
+                }
+                meta={
+                  <EnabledToggle
+                    checked={host.enabled}
+                    name={host.domain_names[0]}
+                    onToggle={(next) => setEnabled(host, next)}
+                    disabled={!canWrite}
+                  />
+                }
+                facts={[
+                  {
+                    label: "Redirects to",
+                    value: host.forward_domain_name.includes("*") ? (
                       <>
-                        No redirection hosts match “{query.trim()}”.{" "}
-                        <Button
-                          variant="link"
-                          size="sm"
-                          className="h-auto p-0 align-baseline"
-                          onClick={() => setQuery("")}
-                        >
-                          Clear search
-                        </Button>
+                        {schemePrefix(host.forward_scheme)}
+                        {host.forward_domain_name}
                       </>
                     ) : (
-                      "No redirection hosts yet. Create one to redirect domains elsewhere."
-                    )}
-                  </TableCell>
-                </TableRow>
-              ) : (
-                visible.map((host) => (
-                  <TableRow key={host.id}>
-                    <TableCell className="font-medium">
-                      <DomainLinks
-                          domains={host.domain_names}
-                          secure={host.certificate_id != null}
-                        />
-                    </TableCell>
-                    <TableCell>
-                      {host.forward_domain_name.includes("*") ? (
-                        <>
-                          {schemePrefix(host.forward_scheme)}
-                          {host.forward_domain_name}
-                        </>
-                      ) : (
-                        <a
-                          href={`${linkScheme(host.forward_scheme)}://${host.forward_domain_name}`}
-                          target="_blank"
-                          // Without noopener the opened page holds a reference to
-                          // this one and can navigate it; a redirect points
-                          // anywhere its operator likes.
-                          rel="noopener noreferrer"
-                          className="hover:underline"
-                        >
-                          {schemePrefix(host.forward_scheme)}
-                          {host.forward_domain_name}
-                        </a>
-                      )}
-                    </TableCell>
-                    <TableCell>
+                      <a
+                        href={`${linkScheme(host.forward_scheme)}://${host.forward_domain_name}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="hover:underline"
+                      >
+                        {schemePrefix(host.forward_scheme)}
+                        {host.forward_domain_name}
+                      </a>
+                    ),
+                  },
+                  {
+                    label: "Code",
+                    value: (
                       <Badge variant="outline" className="tabular-nums">
                         {host.forward_http_code}
                       </Badge>
-                    </TableCell>
-                    <TableCell>
-                      {host.certificate_id != null ? (
+                    ),
+                  },
+                  {
+                    label: "TLS",
+                    value:
+                      host.certificate_id != null ? (
                         <span className="inline-flex items-center gap-1.5">
                           <ShieldCheck className="size-3.5 text-muted-foreground" />
                           TLS
                         </span>
+                      ) : null,
+                  },
+                ]}
+                actions={
+                  canWrite ? (
+                    <>
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        aria-label={`Edit ${host.domain_names[0]}`}
+                        onClick={() => setDialog({ open: true, host })}
+                      >
+                        <Pencil />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        aria-label={`Delete ${host.domain_names[0]}`}
+                        onClick={() => setToDelete(host)}
+                      >
+                        <Trash2 />
+                      </Button>
+                    </>
+                  ) : null
+                }
+              />
+            ))}
+          </RowCards>
+        ) : (
+          <div className="bg-card text-card-foreground rounded-xl border shadow-xs">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Domains</TableHead>
+                  <TableHead>Redirects to</TableHead>
+                  <TableHead>Code</TableHead>
+                  <TableHead>TLS</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="w-24 text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {loading ? (
+                  <LoadingRows cols={6} />
+                ) : visible.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={6} className="py-10 text-center text-muted-foreground">
+                      {query.trim() ? (
+                        <>
+                          No redirection hosts match “{query.trim()}”.{" "}
+                          <Button
+                            variant="link"
+                            size="sm"
+                            className="h-auto p-0 align-baseline"
+                            onClick={() => setQuery("")}
+                          >
+                            Clear search
+                          </Button>
+                        </>
                       ) : (
-                        <span className="text-muted-foreground">—</span>
+                        "No redirection hosts yet. Create one to redirect domains elsewhere."
                       )}
                     </TableCell>
-                    <TableCell>
-                      <EnabledToggle
-                        checked={host.enabled}
-                        name={host.domain_names[0]}
-                        onToggle={(next) => setEnabled(host, next)}
-                        disabled={!canWrite}
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex justify-end gap-1">
-                        {canWrite ? (
-                          <>
-                          <Button
-                            variant="ghost"
-                            size="icon-sm"
-                            aria-label={`Edit ${host.domain_names[0]}`}
-                            onClick={() => setDialog({ open: true, host })}
-                          >
-                            <Pencil />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon-sm"
-                            aria-label={`Delete ${host.domain_names[0]}`}
-                            onClick={() => setToDelete(host)}
-                          >
-                            <Trash2 />
-                          </Button>
-                          </>
-                        ) : null}
-                      </div>
-                    </TableCell>
                   </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </div>
+                ) : (
+                  visible.map((host) => (
+                    <TableRow key={host.id}>
+                      <TableCell className="font-medium">
+                        <DomainLinks
+                          domains={host.domain_names}
+                          secure={host.certificate_id != null}
+                        />
+                      </TableCell>
+                      <TableCell>
+                        {host.forward_domain_name.includes("*") ? (
+                          <>
+                            {schemePrefix(host.forward_scheme)}
+                            {host.forward_domain_name}
+                          </>
+                        ) : (
+                          <a
+                            href={`${linkScheme(host.forward_scheme)}://${host.forward_domain_name}`}
+                            target="_blank"
+                            // Without noopener the opened page holds a reference to
+                            // this one and can navigate it; a redirect points
+                            // anywhere its operator likes.
+                            rel="noopener noreferrer"
+                            className="hover:underline"
+                          >
+                            {schemePrefix(host.forward_scheme)}
+                            {host.forward_domain_name}
+                          </a>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className="tabular-nums">
+                          {host.forward_http_code}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        {host.certificate_id != null ? (
+                          <span className="inline-flex items-center gap-1.5">
+                            <ShieldCheck className="size-3.5 text-muted-foreground" />
+                            TLS
+                          </span>
+                        ) : (
+                          <span className="text-muted-foreground">—</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <EnabledToggle
+                          checked={host.enabled}
+                          name={host.domain_names[0]}
+                          onToggle={(next) => setEnabled(host, next)}
+                          disabled={!canWrite}
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex justify-end gap-1">
+                          {canWrite ? (
+                            <>
+                              <Button
+                                variant="ghost"
+                                size="icon-sm"
+                                aria-label={`Edit ${host.domain_names[0]}`}
+                                onClick={() => setDialog({ open: true, host })}
+                              >
+                                <Pencil />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon-sm"
+                                aria-label={`Delete ${host.domain_names[0]}`}
+                                onClick={() => setToDelete(host)}
+                              >
+                                <Trash2 />
+                              </Button>
+                            </>
+                          ) : null}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        )}
       </div>
 
       {dialog.open ? (

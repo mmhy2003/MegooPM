@@ -24,6 +24,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { RowCard, RowCards } from "@/components/ui/row-cards";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 function LoadingRows({ cols }: { cols: number }) {
   return (
@@ -46,6 +48,8 @@ export function DeadHostsView() {
   const canWrite = useCanWrite();
   const [certs, setCerts] = useState<Certificate[]>([]);
   const [loading, setLoading] = useState(true);
+  // Below the breakpoint the table becomes cards: see RowCards.
+  const isMobile = useIsMobile();
   const [loadError, setLoadError] = useState<string | null>(null);
 
   const [dialog, setDialog] = useState<{ open: boolean; host: DeadHost | null }>({
@@ -146,96 +150,171 @@ export function DeadHostsView() {
             </p>
           )}
         </div>
-        <div className="bg-card text-card-foreground rounded-xl border shadow-xs">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Domains</TableHead>
-                <TableHead>TLS</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="w-24 text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {loading ? (
-                <LoadingRows cols={4} />
-              ) : visible.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={4} className="py-10 text-center text-muted-foreground">
-                    {query.trim() ? (
-                      <>
-                        No 404 hosts match “{query.trim()}”.{" "}
-                        <Button
-                          variant="link"
-                          size="sm"
-                          className="h-auto p-0 align-baseline"
-                          onClick={() => setQuery("")}
-                        >
-                          Clear search
-                        </Button>
-                      </>
-                    ) : (
-                      "No 404 hosts yet. Create one to park a domain."
-                    )}
-                  </TableCell>
-                </TableRow>
+        {isMobile ? (
+          <RowCards
+            loading={loading}
+            isEmpty={visible.length === 0}
+            empty={
+              query.trim() ? (
+                <>
+                  No 404 hosts match “{query.trim()}”.{" "}
+                  <Button
+                    variant="link"
+                    size="sm"
+                    className="h-auto p-0 align-baseline"
+                    onClick={() => setQuery("")}
+                  >
+                    Clear search
+                  </Button>
+                </>
               ) : (
-                visible.map((host) => (
-                  <TableRow key={host.id}>
-                    <TableCell className="font-medium">
-                      <DomainLinks
-                          domains={host.domain_names}
-                          secure={host.certificate_id != null}
-                        />
-                    </TableCell>
-                    <TableCell>
-                      {host.certificate_id != null ? (
+                "No 404 hosts yet. Create one to park a domain."
+              )
+            }
+          >
+            {visible.map((host) => (
+              <RowCard
+                key={host.id}
+                title={
+                  <DomainLinks domains={host.domain_names} secure={host.certificate_id != null} />
+                }
+                meta={
+                  <EnabledToggle
+                    checked={host.enabled}
+                    name={host.domain_names[0]}
+                    onToggle={(next) => setEnabled(host, next)}
+                    disabled={!canWrite}
+                  />
+                }
+                facts={[
+                  {
+                    label: "TLS",
+                    value:
+                      host.certificate_id != null ? (
                         <span className="inline-flex items-center gap-1.5">
                           <ShieldCheck className="size-3.5 text-muted-foreground" />
                           TLS
                         </span>
+                      ) : null,
+                  },
+                ]}
+                actions={
+                  canWrite ? (
+                    <>
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        aria-label={`Edit ${host.domain_names[0]}`}
+                        onClick={() => setDialog({ open: true, host })}
+                      >
+                        <Pencil />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        aria-label={`Delete ${host.domain_names[0]}`}
+                        onClick={() => setToDelete(host)}
+                      >
+                        <Trash2 />
+                      </Button>
+                    </>
+                  ) : null
+                }
+              />
+            ))}
+          </RowCards>
+        ) : (
+          <div className="bg-card text-card-foreground rounded-xl border shadow-xs">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Domains</TableHead>
+                  <TableHead>TLS</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="w-24 text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {loading ? (
+                  <LoadingRows cols={4} />
+                ) : visible.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={4} className="py-10 text-center text-muted-foreground">
+                      {query.trim() ? (
+                        <>
+                          No 404 hosts match “{query.trim()}”.{" "}
+                          <Button
+                            variant="link"
+                            size="sm"
+                            className="h-auto p-0 align-baseline"
+                            onClick={() => setQuery("")}
+                          >
+                            Clear search
+                          </Button>
+                        </>
                       ) : (
-                        <span className="text-muted-foreground">—</span>
+                        "No 404 hosts yet. Create one to park a domain."
                       )}
                     </TableCell>
-                    <TableCell>
-                      <EnabledToggle
-                        checked={host.enabled}
-                        name={host.domain_names[0]}
-                        onToggle={(next) => setEnabled(host, next)}
-                        disabled={!canWrite}
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex justify-end gap-1">
-                        {canWrite ? (
-                          <>
-                          <Button
-                            variant="ghost"
-                            size="icon-sm"
-                            aria-label={`Edit ${host.domain_names[0]}`}
-                            onClick={() => setDialog({ open: true, host })}
-                          >
-                            <Pencil />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon-sm"
-                            aria-label={`Delete ${host.domain_names[0]}`}
-                            onClick={() => setToDelete(host)}
-                          >
-                            <Trash2 />
-                          </Button>
-                          </>
-                        ) : null}
-                      </div>
-                    </TableCell>
                   </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </div>
+                ) : (
+                  visible.map((host) => (
+                    <TableRow key={host.id}>
+                      <TableCell className="font-medium">
+                        <DomainLinks
+                          domains={host.domain_names}
+                          secure={host.certificate_id != null}
+                        />
+                      </TableCell>
+                      <TableCell>
+                        {host.certificate_id != null ? (
+                          <span className="inline-flex items-center gap-1.5">
+                            <ShieldCheck className="size-3.5 text-muted-foreground" />
+                            TLS
+                          </span>
+                        ) : (
+                          <span className="text-muted-foreground">—</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <EnabledToggle
+                          checked={host.enabled}
+                          name={host.domain_names[0]}
+                          onToggle={(next) => setEnabled(host, next)}
+                          disabled={!canWrite}
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex justify-end gap-1">
+                          {canWrite ? (
+                            <>
+                              <Button
+                                variant="ghost"
+                                size="icon-sm"
+                                aria-label={`Edit ${host.domain_names[0]}`}
+                                onClick={() => setDialog({ open: true, host })}
+                              >
+                                <Pencil />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon-sm"
+                                aria-label={`Delete ${host.domain_names[0]}`}
+                                onClick={() => setToDelete(host)}
+                              >
+                                <Trash2 />
+                              </Button>
+                            </>
+                          ) : null}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        )}
       </div>
 
       {dialog.open ? (

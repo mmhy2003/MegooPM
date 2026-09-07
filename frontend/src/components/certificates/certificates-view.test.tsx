@@ -10,6 +10,9 @@ import { CertificatesView } from "@/components/certificates/certificates-view";
 const useAuth = vi.hoisted(() => vi.fn(() => ({ user: { role: "admin" } })));
 vi.mock("@/lib/auth/context", () => ({ useAuth }));
 
+const useIsMobile = vi.hoisted(() => vi.fn(() => false));
+vi.mock("@/hooks/use-mobile", () => ({ useIsMobile }));
+
 function makeCert(over: Partial<Certificate> = {}): Certificate {
   return {
     id: 1,
@@ -84,5 +87,21 @@ describe("CertificatesView DNS providers tab", () => {
   it("is there for an admin", async () => {
     await renderView([]);
     expect(screen.getByRole("tab", { name: /DNS providers/i })).toBeInTheDocument();
+  });
+});
+
+describe("CertificatesView on a phone", () => {
+  afterEach(() => {
+    useIsMobile.mockReturnValue(false);
+  });
+
+  it("lays each certificate out as a card, with its actions", async () => {
+    useIsMobile.mockReturnValue(true);
+    await renderView([makeCert()]);
+
+    expect(screen.getByText("wildcard")).toBeInTheDocument();
+    expect(screen.getByText("*.example.com")).toBeInTheDocument();
+    expect(screen.queryByRole("table")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Delete wildcard" })).toBeInTheDocument();
   });
 });

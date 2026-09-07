@@ -36,6 +36,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { RowCard, RowCards } from "@/components/ui/row-cards";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 function LoadingRows({ cols }: { cols: number }) {
   return (
@@ -62,6 +64,8 @@ export function ProxyHostsView() {
   // Only for the "custom page" location target; the list is small and static.
   const [pages, setPages] = useState<CustomPageSummary[]>([]);
   const [loading, setLoading] = useState(true);
+  // Below the breakpoint the table becomes cards: see RowCards.
+  const isMobile = useIsMobile();
   const [loadError, setLoadError] = useState<string | null>(null);
 
   const [hostDialog, setHostDialog] = useState<{ open: boolean; host: ProxyHost | null }>({
@@ -206,70 +210,63 @@ export function ProxyHostsView() {
             </p>
           )}
         </div>
-        <div className="bg-card text-card-foreground rounded-xl border shadow-xs">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Domains</TableHead>
-                <TableHead>Upstream</TableHead>
-                <TableHead>Access list</TableHead>
-                <TableHead>Scheme</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Maintenance</TableHead>
-                <TableHead className="w-24 text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {loading ? (
-                <LoadingRows cols={7} />
-              ) : visible.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={7} className="py-10 text-center text-muted-foreground">
-                    {query.trim() ? (
-                      <>
-                        No proxy hosts match “{query.trim()}”.{" "}
-                        <Button
-                          variant="link"
-                          size="sm"
-                          className="h-auto p-0 align-baseline"
-                          onClick={() => setQuery("")}
-                        >
-                          Clear search
-                        </Button>
-                      </>
-                    ) : (
-                      "No proxy hosts yet. Create a pool, then add a host that forwards to it."
-                    )}
-                  </TableCell>
-                </TableRow>
+        {isMobile ? (
+          <RowCards
+            loading={loading}
+            isEmpty={visible.length === 0}
+            empty={
+              query.trim() ? (
+                <>
+                  No proxy hosts match “{query.trim()}”.{" "}
+                  <Button
+                    variant="link"
+                    size="sm"
+                    className="h-auto p-0 align-baseline"
+                    onClick={() => setQuery("")}
+                  >
+                    Clear search
+                  </Button>
+                </>
               ) : (
-                visible.map((host) => {
-                  const pool =
-                    host.upstream_id != null ? poolsById.get(host.upstream_id) : undefined;
-                  const list =
-                    host.access_list_id != null ? listsById.get(host.access_list_id) : null;
-                  return (
-                    <TableRow key={host.id}>
-                      <TableCell className="font-medium">
-                        <DomainLinks
-                          domains={host.domain_names}
-                          secure={host.certificate_id != null}
-                        />
-                        {host.maintenance_enabled ? (
-                          // A host left under maintenance looks exactly like a
-                          // host that is down, and the only other signal for it
-                          // is inside the edit dialog.
-                          <Badge
-                            variant="outline"
-                            className="mt-1 border-amber-500/40 text-amber-600 dark:text-amber-400"
-                          >
-                            Maintenance
-                          </Badge>
-                        ) : null}
-                      </TableCell>
-                      <TableCell>
-                        {host.upstream_id == null ? (
-                          // A host-targeted row has no pool to name.
+                "No proxy hosts yet. Create a pool, then add a host that forwards to it."
+              )
+            }
+          >
+            {visible.map((host) => {
+              const pool = host.upstream_id != null ? poolsById.get(host.upstream_id) : undefined;
+              const list = host.access_list_id != null ? listsById.get(host.access_list_id) : null;
+              return (
+                <RowCard
+                  key={host.id}
+                  title={
+                    <>
+                      <DomainLinks
+                        domains={host.domain_names}
+                        secure={host.certificate_id != null}
+                      />
+                      {host.maintenance_enabled ? (
+                        <Badge
+                          variant="outline"
+                          className="mt-1 border-amber-500/40 text-amber-600 dark:text-amber-400"
+                        >
+                          Maintenance
+                        </Badge>
+                      ) : null}
+                    </>
+                  }
+                  meta={
+                    <EnabledToggle
+                      checked={host.enabled ?? true}
+                      name={host.domain_names[0]}
+                      onToggle={(next) => setEnabled(host, next)}
+                      disabled={!canWrite}
+                    />
+                  }
+                  facts={[
+                    {
+                      label: "Upstream",
+                      value:
+                        host.upstream_id == null ? (
                           <span className="font-mono text-xs">
                             {host.forward_host}:{host.forward_port}
                           </span>
@@ -280,30 +277,25 @@ export function ProxyHostsView() {
                           </span>
                         ) : (
                           <span className="text-muted-foreground">#{host.upstream_id}</span>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        {host.access_list_id != null ? (
+                        ),
+                    },
+                    {
+                      label: "Access list",
+                      value:
+                        host.access_list_id != null ? (
                           <span className="inline-flex items-center gap-1.5">
                             <ListChecks className="size-3.5 text-muted-foreground" />
                             {list ? list.name : `#${host.access_list_id}`}
                           </span>
-                        ) : (
-                          <span className="text-muted-foreground">—</span>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="outline">{host.forward_scheme}</Badge>
-                      </TableCell>
-                      <TableCell>
-                        <EnabledToggle
-                          checked={host.enabled ?? true}
-                          name={host.domain_names[0]}
-                          onToggle={(next) => setEnabled(host, next)}
-                          disabled={!canWrite}
-                        />
-                      </TableCell>
-                      <TableCell>
+                        ) : null,
+                    },
+                    {
+                      label: "Scheme",
+                      value: <Badge variant="outline">{host.forward_scheme}</Badge>,
+                    },
+                    {
+                      label: "Maintenance",
+                      value: (
                         <EnabledToggle
                           checked={host.maintenance_enabled ?? false}
                           name={host.domain_names[0]}
@@ -311,38 +303,174 @@ export function ProxyHostsView() {
                           onToggle={(next) => setMaintenance(host, next)}
                           disabled={!canWrite}
                         />
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex justify-end gap-1">
-                          {canWrite ? (
-                            <>
-                              <Button
-                                variant="ghost"
-                                size="icon-sm"
-                                aria-label={`Edit ${host.domain_names[0]}`}
-                                onClick={() => setHostDialog({ open: true, host })}
-                              >
-                                <Pencil />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon-sm"
-                                aria-label={`Delete ${host.domain_names[0]}`}
-                                onClick={() => setDeleteHost(host)}
-                              >
-                                <Trash2 />
-                              </Button>
-                            </>
+                      ),
+                    },
+                  ]}
+                  actions={
+                    canWrite ? (
+                      <>
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
+                          aria-label={`Edit ${host.domain_names[0]}`}
+                          onClick={() => setHostDialog({ open: true, host })}
+                        >
+                          <Pencil />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
+                          aria-label={`Delete ${host.domain_names[0]}`}
+                          onClick={() => setDeleteHost(host)}
+                        >
+                          <Trash2 />
+                        </Button>
+                      </>
+                    ) : null
+                  }
+                />
+              );
+            })}
+          </RowCards>
+        ) : (
+          <div className="bg-card text-card-foreground rounded-xl border shadow-xs">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Domains</TableHead>
+                  <TableHead>Upstream</TableHead>
+                  <TableHead>Access list</TableHead>
+                  <TableHead>Scheme</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Maintenance</TableHead>
+                  <TableHead className="w-24 text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {loading ? (
+                  <LoadingRows cols={7} />
+                ) : visible.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={7} className="py-10 text-center text-muted-foreground">
+                      {query.trim() ? (
+                        <>
+                          No proxy hosts match “{query.trim()}”.{" "}
+                          <Button
+                            variant="link"
+                            size="sm"
+                            className="h-auto p-0 align-baseline"
+                            onClick={() => setQuery("")}
+                          >
+                            Clear search
+                          </Button>
+                        </>
+                      ) : (
+                        "No proxy hosts yet. Create a pool, then add a host that forwards to it."
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  visible.map((host) => {
+                    const pool =
+                      host.upstream_id != null ? poolsById.get(host.upstream_id) : undefined;
+                    const list =
+                      host.access_list_id != null ? listsById.get(host.access_list_id) : null;
+                    return (
+                      <TableRow key={host.id}>
+                        <TableCell className="font-medium">
+                          <DomainLinks
+                            domains={host.domain_names}
+                            secure={host.certificate_id != null}
+                          />
+                          {host.maintenance_enabled ? (
+                            // A host left under maintenance looks exactly like a
+                            // host that is down, and the only other signal for it
+                            // is inside the edit dialog.
+                            <Badge
+                              variant="outline"
+                              className="mt-1 border-amber-500/40 text-amber-600 dark:text-amber-400"
+                            >
+                              Maintenance
+                            </Badge>
                           ) : null}
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })
-              )}
-            </TableBody>
-          </Table>
-        </div>
+                        </TableCell>
+                        <TableCell>
+                          {host.upstream_id == null ? (
+                            // A host-targeted row has no pool to name.
+                            <span className="font-mono text-xs">
+                              {host.forward_host}:{host.forward_port}
+                            </span>
+                          ) : pool ? (
+                            <span className="inline-flex items-center gap-1.5">
+                              <Server className="size-3.5 text-muted-foreground" />
+                              {pool.name}
+                            </span>
+                          ) : (
+                            <span className="text-muted-foreground">#{host.upstream_id}</span>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {host.access_list_id != null ? (
+                            <span className="inline-flex items-center gap-1.5">
+                              <ListChecks className="size-3.5 text-muted-foreground" />
+                              {list ? list.name : `#${host.access_list_id}`}
+                            </span>
+                          ) : (
+                            <span className="text-muted-foreground">—</span>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline">{host.forward_scheme}</Badge>
+                        </TableCell>
+                        <TableCell>
+                          <EnabledToggle
+                            checked={host.enabled ?? true}
+                            name={host.domain_names[0]}
+                            onToggle={(next) => setEnabled(host, next)}
+                            disabled={!canWrite}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <EnabledToggle
+                            checked={host.maintenance_enabled ?? false}
+                            name={host.domain_names[0]}
+                            label={`Maintenance for ${host.domain_names[0]}`}
+                            onToggle={(next) => setMaintenance(host, next)}
+                            disabled={!canWrite}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex justify-end gap-1">
+                            {canWrite ? (
+                              <>
+                                <Button
+                                  variant="ghost"
+                                  size="icon-sm"
+                                  aria-label={`Edit ${host.domain_names[0]}`}
+                                  onClick={() => setHostDialog({ open: true, host })}
+                                >
+                                  <Pencil />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon-sm"
+                                  aria-label={`Delete ${host.domain_names[0]}`}
+                                  onClick={() => setDeleteHost(host)}
+                                >
+                                  <Trash2 />
+                                </Button>
+                              </>
+                            ) : null}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        )}
       </div>
 
       {hostDialog.open ? (

@@ -10,6 +10,9 @@ import { StreamsView } from "@/components/streams/streams-view";
 const useAuth = vi.hoisted(() => vi.fn(() => ({ user: { role: "admin" } })));
 vi.mock("@/lib/auth/context", () => ({ useAuth }));
 
+const useIsMobile = vi.hoisted(() => vi.fn(() => false));
+vi.mock("@/hooks/use-mobile", () => ({ useIsMobile }));
+
 function makeStream(over: Partial<Stream> = {}): Stream {
   return {
     id: 1,
@@ -76,5 +79,21 @@ describe("StreamsView search", () => {
     await user.type(screen.getByRole("searchbox"), "nonesuch");
 
     expect(screen.getByText(/no streams match/i)).toBeInTheDocument();
+  });
+});
+
+describe("StreamsView on a phone", () => {
+  afterEach(() => {
+    useIsMobile.mockReturnValue(false);
+  });
+
+  it("lays each stream out as a card, with its actions", async () => {
+    useIsMobile.mockReturnValue(true);
+    await renderView([makeStream()]);
+
+    expect(screen.getByText("10.0.0.5:5432")).toBeInTheDocument();
+    expect(screen.queryByRole("table")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Enable 5432")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Edit stream on port 5432" })).toBeInTheDocument();
   });
 });

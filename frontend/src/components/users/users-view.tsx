@@ -33,6 +33,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { RowCard, RowCards } from "@/components/ui/row-cards";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 function StatusBadge({ user }: { user: User }) {
   // Invited is a third state derived from one column: invited_at IS NOT NULL.
@@ -79,6 +81,8 @@ export function UsersView() {
   const { user: currentUser } = useAuth();
   const [rows, setRows] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
+  // Below the breakpoint the table becomes cards: see RowCards.
+  const isMobile = useIsMobile();
   const [loadError, setLoadError] = useState<string | null>(null);
 
   const [userDialog, setUserDialog] = useState<{ open: boolean; user: User | null }>({
@@ -187,113 +191,208 @@ export function UsersView() {
             <Plus /> New user
           </Button>
         </div>
-        <div className="bg-card text-card-foreground rounded-xl border shadow-xs">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Email</TableHead>
-                <TableHead>Role</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>2FA</TableHead>
-                <TableHead>Created</TableHead>
-                <TableHead className="w-32 text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {loading ? (
-                <LoadingRows cols={6} />
-              ) : rows.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={7} className="py-10 text-center text-muted-foreground">
-                    No users yet.
-                  </TableCell>
-                </TableRow>
-              ) : (
-                rows.map((u) => {
-                  const self = isSelf(u, currentUser);
-                  return (
-                    <TableRow key={u.id}>
-                      <TableCell className="font-medium">
-                        <span className="inline-flex items-center gap-2">
-                          {displayName(u)}
-                          {self ? <Badge variant="outline">You</Badge> : null}
-                        </span>
-                      </TableCell>
-                      <TableCell className="font-mono text-xs">{u.email}</TableCell>
-                      <TableCell>
+        {isMobile ? (
+          <RowCards loading={loading} isEmpty={rows.length === 0} empty="No users yet.">
+            {rows.map((u) => {
+              const self = isSelf(u, currentUser);
+              return (
+                <RowCard
+                  key={u.id}
+                  title={
+                    <span className="inline-flex items-center gap-2">
+                      {displayName(u)}
+                      {self ? <Badge variant="outline">You</Badge> : null}
+                    </span>
+                  }
+                  meta={<StatusBadge user={u} />}
+                  facts={[
+                    { label: "Email", value: <span className="font-mono text-xs">{u.email}</span> },
+                    {
+                      label: "Role",
+                      value: (
                         <Badge variant={u.role === "admin" ? "default" : "muted"}>
                           {USER_ROLE_LABELS[u.role]}
                         </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <StatusBadge user={u} />
-                      </TableCell>
-                      <TableCell>
+                      ),
+                    },
+                    {
+                      label: "2FA",
+                      value: (
                         <Badge variant={u.totp_enabled ? "success" : "muted"}>
                           {u.totp_enabled ? "On" : "Off"}
                         </Badge>
-                      </TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {formatDate(u.created_at)}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex justify-end gap-1">
-                          {u.totp_enabled ? (
+                      ),
+                    },
+                    {
+                      label: "Created",
+                      value: (
+                        <span className="text-muted-foreground">{formatDate(u.created_at)}</span>
+                      ),
+                    },
+                  ]}
+                  actions={
+                    <>
+                      {u.totp_enabled ? (
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
+                          aria-label={`Disable 2FA for ${u.email}`}
+                          onClick={() => setTotpTarget(u)}
+                        >
+                          <ShieldOff />
+                        </Button>
+                      ) : null}
+                      {u.invited_at ? (
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
+                          aria-label={`Resend invitation to ${u.email}`}
+                          onClick={() => void resend(u)}
+                        >
+                          <Send />
+                        </Button>
+                      ) : null}
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        aria-label={`Edit ${u.email}`}
+                        onClick={() => setUserDialog({ open: true, user: u })}
+                      >
+                        <Pencil />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        aria-label={`Reset password for ${u.email}`}
+                        onClick={() => setResetTarget(u)}
+                      >
+                        <KeyRound />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        aria-label={`Delete ${u.email}`}
+                        disabled={self}
+                        title={self ? "You cannot delete your own account." : undefined}
+                        onClick={() => setDeleteTarget(u)}
+                      >
+                        <Trash2 />
+                      </Button>
+                    </>
+                  }
+                />
+              );
+            })}
+          </RowCards>
+        ) : (
+          <div className="bg-card text-card-foreground rounded-xl border shadow-xs">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Name</TableHead>
+                  <TableHead>Email</TableHead>
+                  <TableHead>Role</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>2FA</TableHead>
+                  <TableHead>Created</TableHead>
+                  <TableHead className="w-32 text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {loading ? (
+                  <LoadingRows cols={6} />
+                ) : rows.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={7} className="py-10 text-center text-muted-foreground">
+                      No users yet.
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  rows.map((u) => {
+                    const self = isSelf(u, currentUser);
+                    return (
+                      <TableRow key={u.id}>
+                        <TableCell className="font-medium">
+                          <span className="inline-flex items-center gap-2">
+                            {displayName(u)}
+                            {self ? <Badge variant="outline">You</Badge> : null}
+                          </span>
+                        </TableCell>
+                        <TableCell className="font-mono text-xs">{u.email}</TableCell>
+                        <TableCell>
+                          <Badge variant={u.role === "admin" ? "default" : "muted"}>
+                            {USER_ROLE_LABELS[u.role]}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <StatusBadge user={u} />
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={u.totp_enabled ? "success" : "muted"}>
+                            {u.totp_enabled ? "On" : "Off"}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {formatDate(u.created_at)}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex justify-end gap-1">
+                            {u.totp_enabled ? (
+                              <Button
+                                variant="ghost"
+                                size="icon-sm"
+                                aria-label={`Disable 2FA for ${u.email}`}
+                                onClick={() => setTotpTarget(u)}
+                              >
+                                <ShieldOff />
+                              </Button>
+                            ) : null}
+                            {u.invited_at ? (
+                              <Button
+                                variant="ghost"
+                                size="icon-sm"
+                                aria-label={`Resend invitation to ${u.email}`}
+                                onClick={() => void resend(u)}
+                              >
+                                <Send />
+                              </Button>
+                            ) : null}
                             <Button
                               variant="ghost"
                               size="icon-sm"
-                              aria-label={`Disable 2FA for ${u.email}`}
-                              onClick={() => setTotpTarget(u)}
+                              aria-label={`Edit ${u.email}`}
+                              onClick={() => setUserDialog({ open: true, user: u })}
                             >
-                              <ShieldOff />
+                              <Pencil />
                             </Button>
-                          ) : null}
-                          {u.invited_at ? (
                             <Button
                               variant="ghost"
                               size="icon-sm"
-                              aria-label={`Resend invitation to ${u.email}`}
-                              onClick={() => void resend(u)}
+                              aria-label={`Reset password for ${u.email}`}
+                              onClick={() => setResetTarget(u)}
                             >
-                              <Send />
+                              <KeyRound />
                             </Button>
-                          ) : null}
-                          <Button
-                            variant="ghost"
-                            size="icon-sm"
-                            aria-label={`Edit ${u.email}`}
-                            onClick={() => setUserDialog({ open: true, user: u })}
-                          >
-                            <Pencil />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon-sm"
-                            aria-label={`Reset password for ${u.email}`}
-                            onClick={() => setResetTarget(u)}
-                          >
-                            <KeyRound />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon-sm"
-                            aria-label={`Delete ${u.email}`}
-                            disabled={self}
-                            title={self ? "You cannot delete your own account." : undefined}
-                            onClick={() => setDeleteTarget(u)}
-                          >
-                            <Trash2 />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })
-              )}
-            </TableBody>
-          </Table>
-        </div>
+                            <Button
+                              variant="ghost"
+                              size="icon-sm"
+                              aria-label={`Delete ${u.email}`}
+                              disabled={self}
+                              title={self ? "You cannot delete your own account." : undefined}
+                              onClick={() => setDeleteTarget(u)}
+                            >
+                              <Trash2 />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        )}
       </div>
 
       {/* `key` remounts each dialog per target so its form starts fresh
