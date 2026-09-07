@@ -11,6 +11,7 @@ import { AuditDetailsDialog } from "@/components/audit-log/details-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { RowCard, RowCards } from "@/components/ui/row-cards";
 import { SearchInput } from "@/components/ui/search-input";
 import {
   Select,
@@ -229,62 +230,57 @@ export function AuditLogView() {
         ) : null}
 
         {isMobile ? (
-          <div className="bg-card text-card-foreground rounded-xl border shadow-xs">
-            {loading ? (
-              <div className="space-y-3 p-4">
-                <Skeleton className="h-4 w-2/3" />
-                <Skeleton className="h-4 w-1/2" />
-                <Skeleton className="h-4 w-3/5" />
-              </div>
-            ) : entries.length === 0 ? (
-              <p className="text-muted-foreground px-4 py-10 text-center text-sm">
-                {error
-                  ? "The audit log could not be loaded."
-                  : total === 0 && !actor && action === ANY && objectType === ANY
-                    ? "No audit entries yet. Changes you make will appear here."
-                    : "No audit entries match these filters."}
-              </p>
-            ) : (
-              <ul className="divide-y">
-                {entries.map((entry) => (
-                  <li key={entry.id} className="space-y-2 p-4 text-sm">
-                    <div className="flex items-start justify-between gap-3">
-                      {/* break-words, not break-all: an email wraps where it
-                          must, not one character per line. */}
-                      <span className="min-w-0 font-medium break-words">
-                        {entry.actor ?? <span className="text-muted-foreground">System</span>}
-                      </span>
-                      <span
-                        className="text-muted-foreground shrink-0 text-xs whitespace-nowrap"
-                        title={new Date(entry.created_at).toLocaleString()}
-                      >
-                        {formatRelativeTime(entry.created_at, nowMs)}
-                      </span>
-                    </div>
-                    <div className="flex flex-wrap items-center gap-2">
+          <RowCards
+            loading={loading}
+            isEmpty={entries.length === 0}
+            empty={
+              error
+                ? "The audit log could not be loaded."
+                : total === 0 && !actor && action === ANY && objectType === ANY
+                  ? "No audit entries yet. Changes you make will appear here."
+                  : "No audit entries match these filters."
+            }
+          >
+            {entries.map((entry) => (
+              <RowCard
+                key={entry.id}
+                title={entry.actor ?? <span className="text-muted-foreground">System</span>}
+                meta={
+                  <span
+                    className="text-muted-foreground text-xs whitespace-nowrap"
+                    title={new Date(entry.created_at).toLocaleString()}
+                  >
+                    {formatRelativeTime(entry.created_at, nowMs)}
+                  </span>
+                }
+                facts={[
+                  {
+                    label: "Action",
+                    value: (
                       <Badge variant="outline" className={TONE_CLASS[actionTone(entry.action)]}>
                         {entry.action}
                       </Badge>
-                      <span>{describeObject(entry.object_type, entry.object_id)}</span>
-                    </div>
-                    <p className="text-muted-foreground text-xs break-words">
-                      {summarise(entry.meta)}
-                    </p>
-                    <div className="flex justify-end">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        aria-label={`Details for entry ${entry.id}`}
-                        onClick={() => setSelected(entry)}
-                      >
-                        Details
-                      </Button>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
+                    ),
+                  },
+                  { label: "Object", value: describeObject(entry.object_type, entry.object_id) },
+                  {
+                    label: "Summary",
+                    value: <span className="text-xs">{summarise(entry.meta)}</span>,
+                  },
+                ]}
+                actions={
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    aria-label={`Details for entry ${entry.id}`}
+                    onClick={() => setSelected(entry)}
+                  >
+                    Details
+                  </Button>
+                }
+              />
+            ))}
+          </RowCards>
         ) : (
           <div className="bg-card text-card-foreground rounded-xl border shadow-xs">
             <Table>
