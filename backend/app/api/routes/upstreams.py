@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException, Response, status
 
-from app.api.deps import AdminUser, CurrentUser, SessionDep
+from app.api.deps import AdminUser, SessionDep
 from app.api.routes._config_writes import after_config_write
 from app.models.enums import AuditAction
 from app.schemas.upstream import (
@@ -29,7 +29,7 @@ router = APIRouter(tags=["upstreams"])
 
 
 @router.get("", response_model=list[UpstreamRead])
-async def list_upstreams(_user: CurrentUser, db: SessionDep) -> list[UpstreamRead]:
+async def list_upstreams(_user: AdminUser, db: SessionDep) -> list[UpstreamRead]:
     """List all upstream pools with their backends. Any signed-in user may read."""
     pools = await upstream_service.list_upstreams(db)
     return [UpstreamRead.model_validate(p) for p in pools]
@@ -75,7 +75,7 @@ async def create_upstream(
 
 
 @router.get("/{upstream_id}", response_model=UpstreamRead)
-async def get_upstream(upstream_id: int, _user: CurrentUser, db: SessionDep) -> UpstreamRead:
+async def get_upstream(upstream_id: int, _user: AdminUser, db: SessionDep) -> UpstreamRead:
     """Fetch a single upstream pool. Any signed-in user may read."""
     pool = await upstream_service.get_upstream(db, upstream_id)
     if pool is None:

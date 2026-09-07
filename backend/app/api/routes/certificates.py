@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException, status
 
-from app.api.deps import AdminUser, CurrentUser, SessionDep
+from app.api.deps import AdminUser, SessionDep
 from app.core.config import settings
 from app.models.enums import AuditAction
 from app.schemas.certificate import (
@@ -37,14 +37,14 @@ router = APIRouter(tags=["certificates"])
 
 
 @router.get("", response_model=list[CertificateRead])
-async def list_certificates(_user: CurrentUser, db: SessionDep) -> list[CertificateRead]:
+async def list_certificates(_user: AdminUser, db: SessionDep) -> list[CertificateRead]:
     """List all certificates. Any signed-in user may read."""
     certs = await cert_service.list_certificates(db)
     return [CertificateRead.model_validate(c) for c in certs]
 
 
 @router.get("/{cert_id}", response_model=CertificateRead)
-async def get_certificate(cert_id: int, _user: CurrentUser, db: SessionDep) -> CertificateRead:
+async def get_certificate(cert_id: int, _user: AdminUser, db: SessionDep) -> CertificateRead:
     """Return one certificate. Any signed-in user may read."""
     cert = await cert_service.get_certificate(db, cert_id)
     if cert is None:

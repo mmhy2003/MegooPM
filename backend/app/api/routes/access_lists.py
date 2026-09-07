@@ -13,7 +13,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException, Response, status
 
-from app.api.deps import AdminUser, CurrentUser, SessionDep
+from app.api.deps import AdminUser, SessionDep
 from app.api.routes._config_writes import after_config_write
 from app.models.enums import AuditAction
 from app.schemas.access_list import (
@@ -33,7 +33,7 @@ router = APIRouter(tags=["access-lists"])
 
 
 @router.get("", response_model=list[AccessListRead])
-async def list_access_lists(_user: CurrentUser, db: SessionDep) -> list[AccessListRead]:
+async def list_access_lists(_user: AdminUser, db: SessionDep) -> list[AccessListRead]:
     """List all access lists with their users and rules. Any signed-in user may read."""
     lists = await access_list_service.list_access_lists(db)
     return [AccessListRead.model_validate(a) for a in lists]
@@ -79,7 +79,7 @@ async def create_access_list(
 
 @router.get("/{access_list_id}", response_model=AccessListRead)
 async def get_access_list(
-    access_list_id: int, _user: CurrentUser, db: SessionDep
+    access_list_id: int, _user: AdminUser, db: SessionDep
 ) -> AccessListRead:
     """Fetch a single access list. Any signed-in user may read."""
     access_list = await access_list_service.get_access_list(db, access_list_id)

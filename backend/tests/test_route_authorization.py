@@ -52,10 +52,10 @@ def route_guard(route) -> str:
 #: The role each route demands. Seeded from the app as it stood on 2026-09-05
 #: and edited deliberately from there — see the task that changes each one.
 ROUTE_ROLES: dict[tuple[str, str], str] = {
-    ("GET", "/api/v1/access-lists"): "member",
+    ("GET", "/api/v1/access-lists"): "admin",
     ("POST", "/api/v1/access-lists"): "admin",
     ("DELETE", "/api/v1/access-lists/{access_list_id}"): "admin",
-    ("GET", "/api/v1/access-lists/{access_list_id}"): "member",
+    ("GET", "/api/v1/access-lists/{access_list_id}"): "admin",
     ("PATCH", "/api/v1/access-lists/{access_list_id}"): "admin",
     ("POST", "/api/v1/access-lists/{access_list_id}/auth-users"): "admin",
     ("DELETE", "/api/v1/access-lists/{access_list_id}/auth-users/{user_id}"): "admin",
@@ -74,42 +74,42 @@ ROUTE_ROLES: dict[tuple[str, str], str] = {
     ("POST", "/api/v1/auth/mfa/verify"): "public",
     ("POST", "/api/v1/auth/refresh"): "public",
     ("POST", "/api/v1/auth/reset-password"): "public",
-    ("GET", "/api/v1/certificates"): "member",
+    ("GET", "/api/v1/certificates"): "admin",
     ("POST", "/api/v1/certificates/custom"): "admin",
     ("POST", "/api/v1/certificates/letsencrypt"): "admin",
     ("DELETE", "/api/v1/certificates/{cert_id}"): "admin",
-    ("GET", "/api/v1/certificates/{cert_id}"): "member",
+    ("GET", "/api/v1/certificates/{cert_id}"): "admin",
     ("POST", "/api/v1/certificates/{cert_id}/renew"): "admin",
     ("GET", "/api/v1/cluster/status"): "admin",
-    ("GET", "/api/v1/crowdsec/alerts"): "member",
-    ("GET", "/api/v1/crowdsec/alerts/{alert_id}"): "member",
-    ("GET", "/api/v1/crowdsec/decisions"): "member",
+    ("GET", "/api/v1/crowdsec/alerts"): "admin",
+    ("GET", "/api/v1/crowdsec/alerts/{alert_id}"): "admin",
+    ("GET", "/api/v1/crowdsec/decisions"): "admin",
     ("POST", "/api/v1/crowdsec/capi/register"): "admin",
     ("POST", "/api/v1/crowdsec/decisions"): "admin",
     ("DELETE", "/api/v1/crowdsec/decisions/{decision_id}"): "admin",
-    ("GET", "/api/v1/crowdsec/health"): "member",
+    ("GET", "/api/v1/crowdsec/health"): "admin",
     ("POST", "/api/v1/crowdsec/hub/update"): "admin",
     ("GET", "/api/v1/crowdsec/maintenance"): "admin",
-    ("GET", "/api/v1/crowdsec/whitelists"): "member",
+    ("GET", "/api/v1/crowdsec/whitelists"): "admin",
     ("POST", "/api/v1/crowdsec/whitelists"): "admin",
     ("POST", "/api/v1/crowdsec/whitelists/apply"): "admin",
     ("POST", "/api/v1/crowdsec/whitelists/preview"): "admin",
-    ("GET", "/api/v1/crowdsec/whitelists/status"): "member",
+    ("GET", "/api/v1/crowdsec/whitelists/status"): "admin",
     ("DELETE", "/api/v1/crowdsec/whitelists/{whitelist_id}"): "admin",
     ("PATCH", "/api/v1/crowdsec/whitelists/{whitelist_id}"): "admin",
-    ("GET", "/api/v1/custom-pages"): "member",
+    ("GET", "/api/v1/custom-pages"): "admin",
     ("POST", "/api/v1/custom-pages"): "admin",
     ("POST", "/api/v1/custom-pages/assist"): "admin",
     ("DELETE", "/api/v1/custom-pages/{page_id}"): "admin",
-    ("GET", "/api/v1/custom-pages/{page_id}"): "member",
+    ("GET", "/api/v1/custom-pages/{page_id}"): "admin",
     ("PATCH", "/api/v1/custom-pages/{page_id}"): "admin",
     ("GET", "/api/v1/dashboard/summary"): "member",
     ("GET", "/api/v1/dashboard/threats"): "member",
     ("GET", "/api/v1/dashboard/visitors"): "member",
-    ("GET", "/api/v1/dead-hosts"): "member",
+    ("GET", "/api/v1/dead-hosts"): "admin",
     ("POST", "/api/v1/dead-hosts"): "admin",
     ("DELETE", "/api/v1/dead-hosts/{host_id}"): "admin",
-    ("GET", "/api/v1/dead-hosts/{host_id}"): "member",
+    ("GET", "/api/v1/dead-hosts/{host_id}"): "admin",
     ("PATCH", "/api/v1/dead-hosts/{host_id}"): "admin",
     ("GET", "/api/v1/dns-credentials"): "admin",
     ("POST", "/api/v1/dns-credentials"): "admin",
@@ -120,15 +120,15 @@ ROUTE_ROLES: dict[tuple[str, str], str] = {
     ("GET", "/api/v1/events"): "admin",
     ("GET", "/api/v1/nginx/preview"): "admin",
     ("POST", "/api/v1/nginx/reload"): "admin",
-    ("GET", "/api/v1/proxy-hosts"): "member",
+    ("GET", "/api/v1/proxy-hosts"): "admin",
     ("POST", "/api/v1/proxy-hosts"): "admin",
     ("DELETE", "/api/v1/proxy-hosts/{host_id}"): "admin",
-    ("GET", "/api/v1/proxy-hosts/{host_id}"): "member",
+    ("GET", "/api/v1/proxy-hosts/{host_id}"): "admin",
     ("PATCH", "/api/v1/proxy-hosts/{host_id}"): "admin",
-    ("GET", "/api/v1/redirection-hosts"): "member",
+    ("GET", "/api/v1/redirection-hosts"): "admin",
     ("POST", "/api/v1/redirection-hosts"): "admin",
     ("DELETE", "/api/v1/redirection-hosts/{host_id}"): "admin",
-    ("GET", "/api/v1/redirection-hosts/{host_id}"): "member",
+    ("GET", "/api/v1/redirection-hosts/{host_id}"): "admin",
     ("PATCH", "/api/v1/redirection-hosts/{host_id}"): "admin",
     ("GET", "/api/v1/settings"): "admin",
     ("PATCH", "/api/v1/settings/ban-page"): "admin",
@@ -142,17 +142,17 @@ ROUTE_ROLES: dict[tuple[str, str], str] = {
     ("POST", "/api/v1/settings/llm/test"): "admin",
     ("PATCH", "/api/v1/settings/smtp"): "admin",
     ("POST", "/api/v1/settings/smtp/test"): "admin",
-    ("GET", "/api/v1/streams"): "member",
+    ("GET", "/api/v1/streams"): "admin",
     ("POST", "/api/v1/streams"): "admin",
     ("DELETE", "/api/v1/streams/{stream_id}"): "admin",
-    ("GET", "/api/v1/streams/{stream_id}"): "member",
+    ("GET", "/api/v1/streams/{stream_id}"): "admin",
     ("PATCH", "/api/v1/streams/{stream_id}"): "admin",
     ("POST", "/api/v1/tasks/sample"): "admin",
-    ("GET", "/api/v1/tasks/{task_id}"): "member",
-    ("GET", "/api/v1/upstreams"): "member",
+    ("GET", "/api/v1/tasks/{task_id}"): "admin",
+    ("GET", "/api/v1/upstreams"): "admin",
     ("POST", "/api/v1/upstreams"): "admin",
     ("DELETE", "/api/v1/upstreams/{upstream_id}"): "admin",
-    ("GET", "/api/v1/upstreams/{upstream_id}"): "member",
+    ("GET", "/api/v1/upstreams/{upstream_id}"): "admin",
     ("PATCH", "/api/v1/upstreams/{upstream_id}"): "admin",
     ("POST", "/api/v1/upstreams/{upstream_id}/backends"): "admin",
     ("DELETE", "/api/v1/upstreams/{upstream_id}/backends/{backend_id}"): "admin",
@@ -226,3 +226,22 @@ def test_writes_are_admin_only(method: str) -> None:
         and not path.startswith("/api/v1/users/me")
     ]
     assert offenders == []
+
+
+def test_a_member_reaches_only_the_dashboard_and_themselves() -> None:
+    """The member role, stated as a rule rather than a list.
+
+    A member is a dashboard observer: the three dashboard reads, the whoami
+    read, and their own account under /users/me. Everything else — every
+    inventory read included — is an admin's. Stated as a rule so a new route
+    cannot quietly widen the role by being classified "member" in the table.
+    """
+    offenders = sorted(
+        (verb, path)
+        for (verb, path), role in ROUTE_ROLES.items()
+        if role == "member"
+        and not path.startswith("/api/v1/dashboard/")
+        and not path.startswith("/api/v1/users/me")
+        and (verb, path) != ("GET", "/api/v1/auth/me")
+    )
+    assert offenders == [], "member-level routes outside the dashboard and /users/me"

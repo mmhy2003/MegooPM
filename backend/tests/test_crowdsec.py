@@ -212,18 +212,19 @@ async def test_decisions_requires_authentication(db_client: AsyncClient) -> None
     assert resp.status_code == 401
 
 
-async def test_a_member_may_read_the_decisions(
+async def test_a_member_cannot_read_the_decisions(
     db_client: AsyncClient, member_token: str, override_crowdsec
 ) -> None:
-    """Asserted 403 until members were given read access to the Security page.
+    """A member is a dashboard observer; the Security page is an admin's.
 
-    Blocked addresses are what a support member most often needs to look at,
-    and lifting a ban stays admin — see the whitelist and decision writes."""
+    Flipped twice in this file's history: 403, then 200 when members were
+    given the Security page, and 403 again when the role was narrowed to the
+    dashboard. The rule now lives in tests/test_route_authorization.py."""
     override_crowdsec(lambda r: httpx.Response(200, json=[]))
     resp = await db_client.get(
         "/api/v1/crowdsec/decisions", headers={"Authorization": f"Bearer {member_token}"}
     )
-    assert resp.status_code == 200
+    assert resp.status_code == 403
 
 
 async def test_decisions_503_when_unconfigured(

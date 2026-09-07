@@ -156,15 +156,29 @@ def _lapi(response: httpx.Response):
     return handler
 
 
-async def test_a_member_may_inspect_an_alert(
+async def test_a_member_cannot_inspect_an_alert(
     db_client: AsyncClient, member_token: str, override_crowdsec
 ) -> None:
-    """Inspecting is a read, like the rest of the Security page."""
+    """The Security page is an admin's, its reads included."""
     override_crowdsec(_lapi(httpx.Response(200, json=LAPI_ALERT)))
 
     resp = await db_client.get(
         "/api/v1/crowdsec/alerts/176012",
         headers={"Authorization": f"Bearer {member_token}"},
+    )
+
+    assert resp.status_code == 403
+
+
+async def test_an_admin_inspects_an_alert(
+    db_client: AsyncClient, admin_token: str, override_crowdsec
+) -> None:
+    """The happy path: the route carries what `cscli alerts inspect -d` prints."""
+    override_crowdsec(_lapi(httpx.Response(200, json=LAPI_ALERT)))
+
+    resp = await db_client.get(
+        "/api/v1/crowdsec/alerts/176012",
+        headers={"Authorization": f"Bearer {admin_token}"},
     )
 
     assert resp.status_code == 200, resp.text

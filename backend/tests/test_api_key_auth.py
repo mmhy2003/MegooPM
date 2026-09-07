@@ -119,15 +119,19 @@ async def test_a_deactivated_owner_takes_every_key_with_them(
 async def test_a_member_key_grants_nothing_the_member_lacks(
     db_client: AsyncClient, member_user: User, session_factory
 ) -> None:
-    # Key authentication is authentication, never authorization.
+    # Key authentication is authentication, never authorization: the key
+    # reaches what the member reaches (their own account) and is refused
+    # where the member is (inventory, reads included).
     token = await _key(session_factory, member_user)
 
+    whoami = await db_client.get(ME, headers=_bearer(token))
     read = await db_client.get(PAGES, headers=_bearer(token))
     write = await db_client.post(
         PAGES, headers=_bearer(token), json={"name": "nope", "html": "<h1>no</h1>"}
     )
 
-    assert read.status_code == 200
+    assert whoami.status_code == 200
+    assert read.status_code == 403
     assert write.status_code == 403
 
 

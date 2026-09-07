@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, status
 
-from app.api.deps import AdminUser, CurrentUser
+from app.api.deps import AdminUser
 from app.schemas.tasks import SampleTaskRequest, TaskEnqueued, TaskStatus
 from app.services.tasks import enqueue_sample_add, get_task_status
 
@@ -28,6 +28,6 @@ async def enqueue_sample(payload: SampleTaskRequest, _admin: AdminUser) -> TaskE
 
 
 @router.get("/tasks/{task_id}", response_model=TaskStatus)
-async def task_status(task_id: str, _user: CurrentUser) -> TaskStatus:
+async def task_status(task_id: str, _user: AdminUser) -> TaskStatus:
     """Return the status (and result, once ready) of a background task."""
     return get_task_status(task_id)

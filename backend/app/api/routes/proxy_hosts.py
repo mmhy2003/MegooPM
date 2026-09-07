@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException, Response, status
 
-from app.api.deps import AdminUser, CurrentUser, SessionDep
+from app.api.deps import AdminUser, SessionDep
 from app.api.routes._config_writes import after_config_write
 from app.models.enums import AuditAction
 from app.schemas.proxy_host import ProxyHostCreate, ProxyHostRead, ProxyHostUpdate
@@ -22,7 +22,7 @@ router = APIRouter(tags=["proxy-hosts"])
 
 
 @router.get("", response_model=list[ProxyHostRead])
-async def list_proxy_hosts(_user: CurrentUser, db: SessionDep) -> list[ProxyHostRead]:
+async def list_proxy_hosts(_user: AdminUser, db: SessionDep) -> list[ProxyHostRead]:
     """List all proxy hosts. Any signed-in user may read."""
     hosts = await proxy_host_service.list_proxy_hosts(db)
     return [ProxyHostRead.model_validate(h) for h in hosts]
@@ -55,7 +55,7 @@ async def create_proxy_host(
 
 
 @router.get("/{host_id}", response_model=ProxyHostRead)
-async def get_proxy_host(host_id: int, _user: CurrentUser, db: SessionDep) -> ProxyHostRead:
+async def get_proxy_host(host_id: int, _user: AdminUser, db: SessionDep) -> ProxyHostRead:
     """Fetch a single proxy host. Any signed-in user may read."""
     host = await proxy_host_service.get_proxy_host(db, host_id)
     if host is None:

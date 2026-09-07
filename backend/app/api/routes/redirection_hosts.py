@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException, Response, status
 
-from app.api.deps import AdminUser, CurrentUser, SessionDep
+from app.api.deps import AdminUser, SessionDep
 from app.api.routes._config_writes import after_config_write
 from app.models.enums import AuditAction
 from app.schemas.redirection_host import (
@@ -26,7 +26,7 @@ router = APIRouter(tags=["redirection-hosts"])
 
 
 @router.get("", response_model=list[RedirectionHostRead])
-async def list_redirection_hosts(_user: CurrentUser, db: SessionDep) -> list[RedirectionHostRead]:
+async def list_redirection_hosts(_user: AdminUser, db: SessionDep) -> list[RedirectionHostRead]:
     """List all redirection hosts. Any signed-in user may read."""
     hosts = await redirection_host_service.list_redirection_hosts(db)
     return [RedirectionHostRead.model_validate(h) for h in hosts]
@@ -60,7 +60,7 @@ async def create_redirection_host(
 
 @router.get("/{host_id}", response_model=RedirectionHostRead)
 async def get_redirection_host(
-    host_id: int, _user: CurrentUser, db: SessionDep
+    host_id: int, _user: AdminUser, db: SessionDep
 ) -> RedirectionHostRead:
     """Fetch a single redirection host. Any signed-in user may read."""
     host = await redirection_host_service.get_redirection_host(db, host_id)

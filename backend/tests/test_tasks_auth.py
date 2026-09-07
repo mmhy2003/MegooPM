@@ -24,12 +24,18 @@ async def test_a_stranger_cannot_enqueue_work(db_client: AsyncClient) -> None:
     assert resp.status_code == 401
 
 
-async def test_a_member_may_read_a_task(db_client: AsyncClient, member_token: str) -> None:
-    # Pages poll this after a config write; the id is unguessable and the
-    # payload is a status, so reading one is not an admin act.
+async def test_a_member_cannot_read_a_task(db_client: AsyncClient, member_token: str) -> None:
+    # Pages poll this after a config write, and a member can no longer start
+    # one: the poll goes with the write it exists to follow.
     resp = await db_client.get("/api/v1/tasks/some-task-id", headers=_auth(member_token))
-    assert resp.status_code != 401
-    assert resp.status_code != 403
+    assert resp.status_code == 403
+
+
+async def test_an_admin_may_read_a_task(db_client: AsyncClient, admin_token: str) -> None:
+    # The poll that follows every config write; an unknown id is not found,
+    # never refused.
+    resp = await db_client.get("/api/v1/tasks/some-task-id", headers=_auth(admin_token))
+    assert resp.status_code not in (401, 403)
 
 
 async def test_a_member_cannot_enqueue_work(db_client: AsyncClient, member_token: str) -> None:

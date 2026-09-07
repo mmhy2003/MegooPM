@@ -1,6 +1,6 @@
-"""A member reviews the instance and changes nothing.
+"""A member sees the dashboard and their own account, and nothing else.
 
-The matrix test proves the guard on all 122 routes by inspection; these prove
+The matrix test proves the guard on every route by inspection; these prove
 the shape of the rule end to end over HTTP, so a dependency that resolves but
 does not actually refuse would still be caught.
 
@@ -18,12 +18,15 @@ def _auth(token: str) -> dict[str, str]:
     return {"Authorization": f"Bearer {token}"}
 
 
-async def test_a_member_may_list_custom_pages(db_client: AsyncClient, member_token: str) -> None:
+async def test_a_member_cannot_list_custom_pages(db_client: AsyncClient, member_token: str) -> None:
+    # Inventory is an admin's, reads included. A member who could list pages
+    # could list hosts and certificates too, and the sidebar would be hiding
+    # what the API hands out.
     resp = await db_client.get("/api/v1/custom-pages", headers=_auth(member_token))
-    assert resp.status_code == 200
+    assert resp.status_code == 403
 
 
-async def test_a_member_may_read_one_custom_page(
+async def test_a_member_cannot_read_one_custom_page(
     db_client: AsyncClient, admin_token: str, member_token: str
 ) -> None:
     created = await db_client.post(
@@ -36,8 +39,7 @@ async def test_a_member_may_read_one_custom_page(
 
     resp = await db_client.get(f"/api/v1/custom-pages/{page_id}", headers=_auth(member_token))
 
-    assert resp.status_code == 200
-    assert resp.json()["html"] == "<h1>hi</h1>"
+    assert resp.status_code == 403
 
 
 @pytest.mark.parametrize(
@@ -78,11 +80,11 @@ async def test_a_member_may_still_read_their_own_account(
     assert resp.json()["role"] == "member"
 
 
-# A member may now read /api/v1/dashboard/* and the six CrowdSec reads behind
-# the Security page. Those guards are pinned by tests/test_route_authorization.py
-# rather than asserted here: the dashboard summary aggregates across most of the
-# schema, including tables the SQLite fixture cannot hold (ARRAY and JSONB
-# columns), so the request raises out of the client instead of answering.
+# What a member keeps — /api/v1/dashboard/* — is pinned by
+# tests/test_route_authorization.py rather than asserted here: the dashboard
+# summary aggregates across most of the schema, including tables the SQLite
+# fixture cannot hold (ARRAY and JSONB columns), so the request raises out of
+# the client instead of answering.
 
 
 async def test_a_member_cannot_change_crowdsec(db_client: AsyncClient, member_token: str) -> None:
