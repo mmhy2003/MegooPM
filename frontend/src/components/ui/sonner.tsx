@@ -11,6 +11,10 @@ const Toaster = ({ ...props }: ToasterProps) => {
     <Sonner
       theme={theme as ToasterProps["theme"]}
       className="toaster group"
+      // Top-right, starting below the sticky h-14 topbar with a gap. sonner's
+      // own layer already sits above the header, so no z-index override.
+      position="top-right"
+      offset={{ top: "4.5rem", right: "1rem" }}
       icons={{
         success: (
           <CircleCheckIcon className="size-4" />
