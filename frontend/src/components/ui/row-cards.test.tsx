@@ -76,4 +76,23 @@ describe("RowCards", () => {
 
     expect(pressed).toBe(1);
   });
+
+  it("stacks label above value when asked, for facts that are inputs", () => {
+    // Side by side, a text field beside its label gets a third of a phone's
+    // width. An editing row wants each field full-width under its label.
+    render(
+      <RowCards loading={false} isEmpty={false} empty="—">
+        <RowCard
+          title="Location 1"
+          layout="stacked"
+          facts={[{ label: "Path", value: <input aria-label="Location path" /> }]}
+        />
+      </RowCards>,
+    );
+
+    const list = screen.getByRole("listitem").querySelector("dl");
+    expect(list).toHaveClass("grid-cols-1");
+    expect(list).not.toHaveClass("grid-cols-[auto_1fr]");
+    expect(screen.getByLabelText("Location path")).toBeInTheDocument();
+  });
 });

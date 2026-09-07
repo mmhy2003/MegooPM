@@ -64,6 +64,10 @@ export interface RowFact {
  * `onPress` makes the title a button rather than the whole card clickable, so
  * the action buttons inside are never nested in another control — nested
  * interactive elements are invalid HTML and confuse screen readers.
+ *
+ * `layout="stacked"` puts each label above its value instead of beside it.
+ * For rows whose facts are inputs: side by side, a text field next to its
+ * label gets a third of a phone's width; stacked, it gets all of it.
  */
 export function RowCard({
   title,
@@ -71,6 +75,7 @@ export function RowCard({
   facts,
   actions,
   onPress,
+  layout = "inline",
   className,
 }: {
   title: ReactNode;
@@ -78,6 +83,7 @@ export function RowCard({
   facts?: RowFact[];
   actions?: ReactNode;
   onPress?: () => void;
+  layout?: "inline" | "stacked";
   className?: string;
 }) {
   return (
@@ -100,10 +106,15 @@ export function RowCard({
       </div>
 
       {facts && facts.length > 0 ? (
-        <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
+        <dl
+          className={cn(
+            "grid gap-x-3",
+            layout === "stacked" ? "grid-cols-1 gap-y-2" : "grid-cols-[auto_1fr] gap-y-1",
+          )}
+        >
           {facts.map((fact) => (
-            <div key={fact.label} className="contents">
-              <dt className="text-muted-foreground whitespace-nowrap">{fact.label}</dt>
+            <div key={fact.label} className={layout === "stacked" ? "space-y-1" : "contents"}>
+              <dt className="text-muted-foreground text-xs whitespace-nowrap">{fact.label}</dt>
               <dd className="min-w-0 break-words">
                 {fact.value == null || fact.value === "" ? (
                   <span className="text-muted-foreground">—</span>

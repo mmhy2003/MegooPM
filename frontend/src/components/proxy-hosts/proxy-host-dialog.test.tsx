@@ -6,6 +6,9 @@ import { proxyHosts, type Upstream } from "@/lib/api";
 import { ProxyHostDialog } from "@/components/proxy-hosts/proxy-host-dialog";
 import { makeHost } from "@/components/proxy-hosts/test-utils";
 
+const useIsMobile = vi.hoisted(() => vi.fn(() => false));
+vi.mock("@/hooks/use-mobile", () => ({ useIsMobile }));
+
 const pools: Upstream[] = [
   {
     id: 1,
@@ -354,5 +357,43 @@ describe("ProxyHostDialog location targets", () => {
     // Nothing to fill in: it follows the instance setting.
     expect(screen.queryByRole("combobox", { name: "Location page" })).not.toBeInTheDocument();
     expect(screen.getByText(/follows settings/i)).toBeInTheDocument();
+  });
+});
+
+describe("ProxyHostDialog locations on a phone", () => {
+  beforeEach(() => {
+    useIsMobile.mockReturnValue(true);
+    vi.spyOn(proxyHosts, "update").mockResolvedValue(makeHost());
+  });
+  afterEach(() => {
+    cleanup();
+    vi.restoreAllMocks();
+    useIsMobile.mockReturnValue(false);
+  });
+
+  it("lays the root route and each location out as a card of fields", async () => {
+    // Five input columns in 360px leave a path field a few characters wide.
+    const user = userEvent.setup();
+    renderDialog();
+
+    expect(await screen.findByLabelText("Root path")).toBeInTheDocument();
+    expect(screen.queryByRole("table")).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Add location" }));
+
+    expect(screen.getByLabelText("Location path")).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: "Location target kind" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Remove location" })).toBeInTheDocument();
+  });
+
+  it("removes a location from its card", async () => {
+    const user = userEvent.setup();
+    renderDialog();
+    await user.click(await screen.findByRole("button", { name: "Add location" }));
+    expect(screen.getByLabelText("Location path")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Remove location" }));
+
+    expect(screen.queryByLabelText("Location path")).not.toBeInTheDocument();
   });
 });

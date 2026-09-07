@@ -43,6 +43,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { RowCard, RowCards } from "@/components/ui/row-cards";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 /** An editable backend row. Numeric fields are held as strings while editing. */
 /** Plain-language names for the nginx contexts a pool may serve. */
@@ -164,9 +166,7 @@ export function UpstreamDialog({
   // target pool, so no reset-on-open effect is needed.
   const [name, setName] = useState(upstream?.name ?? "");
   const [description, setDescription] = useState(upstream?.description ?? "");
-  const [lbMethod, setLbMethod] = useState<LoadBalanceMethod>(
-    upstream?.lb_method ?? "round_robin",
-  );
+  const [lbMethod, setLbMethod] = useState<LoadBalanceMethod>(upstream?.lb_method ?? "round_robin");
   const [context, setContext] = useState<UpstreamContext>(upstream?.context ?? "http");
   const [enabled, setEnabled] = useState(upstream?.enabled ?? true);
 
@@ -184,6 +184,9 @@ export function UpstreamDialog({
   );
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  // Seven input columns do not fit in 360px. Below the breakpoint each
+  // backend is a card of stacked fields — same inputs, same labels.
+  const isMobile = useIsMobile();
 
   const originalBackends = useMemo(() => {
     const map = new Map<number, Backend>();
@@ -357,30 +360,32 @@ export function UpstreamDialog({
             </Button>
           </div>
 
-          <div className="rounded-lg border">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="min-w-40">Host</TableHead>
-                  <TableHead className="w-24">Port</TableHead>
-                  <TableHead className="w-20">Weight</TableHead>
-                  <TableHead className="w-24">Max fails</TableHead>
-                  <TableHead className="w-28">Fail timeout</TableHead>
-                  <TableHead className="w-16 text-center">Down</TableHead>
-                  <TableHead className="w-10" />
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {rows.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={7} className="text-center text-muted-foreground">
-                      No backends yet — add one to route traffic.
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  rows.map((row) => (
-                    <TableRow key={row.key}>
-                      <TableCell>
+          {isMobile ? (
+            <RowCards
+              loading={false}
+              isEmpty={rows.length === 0}
+              empty="No backends yet — add one to route traffic."
+            >
+              {rows.map((row, index) => (
+                <RowCard
+                  key={row.key}
+                  title={row.host.trim() || `Backend ${index + 1}`}
+                  layout="stacked"
+                  meta={
+                    <label className="text-muted-foreground flex items-center gap-2 text-xs">
+                      Down
+                      <Switch
+                        aria-label="Administratively down"
+                        checked={row.down}
+                        onCheckedChange={(v) => updateRow(row.key, { down: v })}
+                        disabled={saving}
+                      />
+                    </label>
+                  }
+                  facts={[
+                    {
+                      label: "Host",
+                      value: (
                         <Input
                           aria-label="Backend host"
                           value={row.host}
@@ -388,8 +393,11 @@ export function UpstreamDialog({
                           placeholder="10.0.0.1"
                           disabled={saving}
                         />
-                      </TableCell>
-                      <TableCell>
+                      ),
+                    },
+                    {
+                      label: "Port",
+                      value: (
                         <Input
                           aria-label="Backend port"
                           type="number"
@@ -399,8 +407,11 @@ export function UpstreamDialog({
                           onChange={(e) => updateRow(row.key, { port: e.target.value })}
                           disabled={saving}
                         />
-                      </TableCell>
-                      <TableCell>
+                      ),
+                    },
+                    {
+                      label: "Weight",
+                      value: (
                         <Input
                           aria-label="Weight"
                           type="number"
@@ -409,8 +420,11 @@ export function UpstreamDialog({
                           onChange={(e) => updateRow(row.key, { weight: e.target.value })}
                           disabled={saving}
                         />
-                      </TableCell>
-                      <TableCell>
+                      ),
+                    },
+                    {
+                      label: "Max fails",
+                      value: (
                         <Input
                           aria-label="Max fails"
                           type="number"
@@ -419,8 +433,11 @@ export function UpstreamDialog({
                           onChange={(e) => updateRow(row.key, { max_fails: e.target.value })}
                           disabled={saving}
                         />
-                      </TableCell>
-                      <TableCell>
+                      ),
+                    },
+                    {
+                      label: "Fail timeout (seconds)",
+                      value: (
                         <Input
                           aria-label="Fail timeout (seconds)"
                           type="number"
@@ -431,33 +448,127 @@ export function UpstreamDialog({
                           }
                           disabled={saving}
                         />
-                      </TableCell>
-                      <TableCell className="text-center">
-                        <Switch
-                          aria-label="Administratively down"
-                          checked={row.down}
-                          onCheckedChange={(v) => updateRow(row.key, { down: v })}
-                          disabled={saving}
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon-sm"
-                          aria-label="Remove backend"
-                          onClick={() => removeRow(row.key)}
-                          disabled={saving}
-                        >
-                          <Trash2 />
-                        </Button>
+                      ),
+                    },
+                  ]}
+                  actions={
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      aria-label="Remove backend"
+                      onClick={() => removeRow(row.key)}
+                      disabled={saving}
+                    >
+                      <Trash2 /> Remove
+                    </Button>
+                  }
+                />
+              ))}
+            </RowCards>
+          ) : (
+            <div className="rounded-lg border">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="min-w-40">Host</TableHead>
+                    <TableHead className="w-24">Port</TableHead>
+                    <TableHead className="w-20">Weight</TableHead>
+                    <TableHead className="w-24">Max fails</TableHead>
+                    <TableHead className="w-28">Fail timeout</TableHead>
+                    <TableHead className="w-16 text-center">Down</TableHead>
+                    <TableHead className="w-10" />
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {rows.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={7} className="text-center text-muted-foreground">
+                        No backends yet — add one to route traffic.
                       </TableCell>
                     </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </div>
+                  ) : (
+                    rows.map((row) => (
+                      <TableRow key={row.key}>
+                        <TableCell>
+                          <Input
+                            aria-label="Backend host"
+                            value={row.host}
+                            onChange={(e) => updateRow(row.key, { host: e.target.value })}
+                            placeholder="10.0.0.1"
+                            disabled={saving}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Input
+                            aria-label="Backend port"
+                            type="number"
+                            min={1}
+                            max={65535}
+                            value={row.port}
+                            onChange={(e) => updateRow(row.key, { port: e.target.value })}
+                            disabled={saving}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Input
+                            aria-label="Weight"
+                            type="number"
+                            min={0}
+                            value={row.weight}
+                            onChange={(e) => updateRow(row.key, { weight: e.target.value })}
+                            disabled={saving}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Input
+                            aria-label="Max fails"
+                            type="number"
+                            min={0}
+                            value={row.max_fails}
+                            onChange={(e) => updateRow(row.key, { max_fails: e.target.value })}
+                            disabled={saving}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Input
+                            aria-label="Fail timeout (seconds)"
+                            type="number"
+                            min={0}
+                            value={row.fail_timeout_seconds}
+                            onChange={(e) =>
+                              updateRow(row.key, { fail_timeout_seconds: e.target.value })
+                            }
+                            disabled={saving}
+                          />
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <Switch
+                            aria-label="Administratively down"
+                            checked={row.down}
+                            onCheckedChange={(v) => updateRow(row.key, { down: v })}
+                            disabled={saving}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon-sm"
+                            aria-label="Remove backend"
+                            onClick={() => removeRow(row.key)}
+                            disabled={saving}
+                          >
+                            <Trash2 />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          )}
           <p className="text-xs text-muted-foreground">
             Health checks are passive: a backend is taken out of rotation after{" "}
             <span className="font-medium">Max fails</span> failed attempts within the{" "}

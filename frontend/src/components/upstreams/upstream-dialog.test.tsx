@@ -5,6 +5,9 @@ import userEvent from "@testing-library/user-event";
 import { upstreams, type Upstream } from "@/lib/api";
 import { UpstreamDialog } from "@/components/upstreams/upstream-dialog";
 
+const useIsMobile = vi.hoisted(() => vi.fn(() => false));
+vi.mock("@/hooks/use-mobile", () => ({ useIsMobile }));
+
 function makePool(over: Partial<Upstream> = {}): Upstream {
   return {
     id: 1,
@@ -77,5 +80,47 @@ describe("UpstreamDialog context", () => {
 
     await waitFor(() => expect(upstreams.update).toHaveBeenCalled());
     expect(vi.mocked(upstreams.update).mock.calls[0][1]).toMatchObject({ context: "stream" });
+  });
+});
+
+describe("UpstreamDialog backends on a phone", () => {
+  beforeEach(() => {
+    useIsMobile.mockReturnValue(true);
+    vi.spyOn(upstreams, "update").mockResolvedValue(makePool());
+    vi.spyOn(upstreams, "create").mockResolvedValue(makePool());
+  });
+  afterEach(() => {
+    cleanup();
+    vi.restoreAllMocks();
+    useIsMobile.mockReturnValue(false);
+  });
+
+  it("lays each backend out as a card of fields", async () => {
+    // Seven input columns in 360px leave a host field a few characters wide.
+    // The fixture pool carries one backend, so one card, then two.
+    const user = userEvent.setup();
+    renderDialog();
+    expect(screen.queryByRole("table")).not.toBeInTheDocument();
+    expect(screen.getAllByLabelText("Backend host")).toHaveLength(1);
+
+    await user.click(screen.getByRole("button", { name: "Add backend" }));
+
+    expect(screen.getAllByLabelText("Backend host")).toHaveLength(2);
+    expect(screen.getAllByLabelText("Fail timeout (seconds)")).toHaveLength(2);
+    expect(screen.getAllByLabelText("Administratively down")).toHaveLength(2);
+    expect(screen.getAllByRole("button", { name: "Remove backend" })).toHaveLength(2);
+  });
+
+  it("removes a backend from its card, down to the empty state", async () => {
+    // A pool with no backends is seeded with one blank row; removing it must
+    // leave a sentence, not an empty box.
+    const user = userEvent.setup();
+    renderDialog(makePool({ backends: [] }));
+    expect(screen.getAllByLabelText("Backend host")).toHaveLength(1);
+
+    await user.click(screen.getByRole("button", { name: "Remove backend" }));
+
+    expect(screen.queryByLabelText("Backend host")).not.toBeInTheDocument();
+    expect(screen.getByText(/no backends yet/i)).toBeInTheDocument();
   });
 });

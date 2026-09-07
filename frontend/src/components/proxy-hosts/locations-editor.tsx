@@ -29,6 +29,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { RowCard, RowCards } from "@/components/ui/row-cards";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 const SCHEME_LABELS: Record<HttpScheme, string> = { http: "http", https: "https" };
 
@@ -338,6 +340,11 @@ export function LocationsEditor({
     onRowsChange(rows.map((r) => (r.key === key ? { ...r, ...patch } : r)));
   }
 
+  // Five input columns do not fit in 360px: a path field ends up a few
+  // characters wide. Below the breakpoint each route is a card of stacked
+  // fields — same inputs, same labels, a shape that fits the width.
+  const isMobile = useIsMobile();
+
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between">
@@ -353,118 +360,252 @@ export function LocationsEditor({
         </Button>
       </div>
 
-      <div className="rounded-lg border">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-40">Path</TableHead>
-              <TableHead className="w-32">Kind</TableHead>
-              <TableHead>Target</TableHead>
-              <TableHead className="w-28">Scheme</TableHead>
-              <TableHead className="w-10" />
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            <TableRow>
-              <TableCell>
-                <Input aria-label="Root path" value="/" readOnly disabled className="font-mono" />
-              </TableCell>
-              <TableCell>
-                <KindSelect
-                  value={rootTargetMode}
-                  onChange={(v) => onRootChange({ rootTargetMode: v })}
-                  label="Root target kind"
-                  disabled={disabled}
-                  kinds={ROOT_KINDS}
-                />
-              </TableCell>
-              <TableCell>
-                <TargetCell
-                  mode={rootTargetMode}
-                  upstreamId={rootUpstreamId}
-                  forwardHost={rootForwardHost}
-                  forwardPort={rootForwardPort}
-                  onChange={({ upstreamId, forwardHost, forwardPort }) =>
-                    onRootChange({
-                      ...(upstreamId !== undefined && { rootUpstreamId: upstreamId }),
-                      ...(forwardHost !== undefined && { rootForwardHost: forwardHost }),
-                      ...(forwardPort !== undefined && { rootForwardPort: forwardPort }),
-                    })
-                  }
-                  pools={pools}
-                  disabled={disabled}
-                  labelPrefix="Root"
-                />
-              </TableCell>
-              <TableCell>
-                <SchemeSelect
-                  value={rootScheme}
-                  onChange={(v) => onRootChange({ rootScheme: v })}
-                  disabled={disabled}
-                />
-              </TableCell>
-              <TableCell />
-            </TableRow>
-            {rows.map((row) => (
-              <TableRow key={row.key}>
-                <TableCell>
-                  <Input
-                    aria-label="Location path"
-                    value={row.path}
-                    onChange={(e) => updateRow(row.key, { path: e.target.value })}
-                    placeholder="/api/"
-                    className="font-mono"
+      {isMobile ? (
+        <RowCards loading={false} isEmpty={false} empty={null}>
+          <RowCard
+            title="Root route"
+            layout="stacked"
+            facts={[
+              {
+                label: "Path",
+                value: (
+                  <Input aria-label="Root path" value="/" readOnly disabled className="font-mono" />
+                ),
+              },
+              {
+                label: "Kind",
+                value: (
+                  <KindSelect
+                    value={rootTargetMode}
+                    onChange={(v) => onRootChange({ rootTargetMode: v })}
+                    label="Root target kind"
+                    disabled={disabled}
+                    kinds={ROOT_KINDS}
+                  />
+                ),
+              },
+              {
+                label: "Target",
+                value: (
+                  <TargetCell
+                    mode={rootTargetMode}
+                    upstreamId={rootUpstreamId}
+                    forwardHost={rootForwardHost}
+                    forwardPort={rootForwardPort}
+                    onChange={({ upstreamId, forwardHost, forwardPort }) =>
+                      onRootChange({
+                        ...(upstreamId !== undefined && { rootUpstreamId: upstreamId }),
+                        ...(forwardHost !== undefined && { rootForwardHost: forwardHost }),
+                        ...(forwardPort !== undefined && { rootForwardPort: forwardPort }),
+                      })
+                    }
+                    pools={pools}
+                    disabled={disabled}
+                    labelPrefix="Root"
+                  />
+                ),
+              },
+              {
+                label: "Scheme",
+                value: (
+                  <SchemeSelect
+                    value={rootScheme}
+                    onChange={(v) => onRootChange({ rootScheme: v })}
                     disabled={disabled}
                   />
+                ),
+              },
+            ]}
+          />
+          {rows.map((row, index) => (
+            <RowCard
+              key={row.key}
+              title={`Location ${index + 1}`}
+              layout="stacked"
+              facts={[
+                {
+                  label: "Path",
+                  value: (
+                    <Input
+                      aria-label="Location path"
+                      value={row.path}
+                      onChange={(e) => updateRow(row.key, { path: e.target.value })}
+                      placeholder="/api/"
+                      className="font-mono"
+                      disabled={disabled}
+                    />
+                  ),
+                },
+                {
+                  label: "Kind",
+                  value: (
+                    <KindSelect
+                      value={row.targetMode}
+                      onChange={(v) => updateRow(row.key, { targetMode: v })}
+                      label="Location target kind"
+                      disabled={disabled}
+                      kinds={LOCATION_KINDS}
+                    />
+                  ),
+                },
+                {
+                  label: "Target",
+                  value: (
+                    <TargetCell
+                      mode={row.targetMode}
+                      upstreamId={row.upstreamId}
+                      forwardHost={row.forwardHost}
+                      forwardPort={row.forwardPort}
+                      customPageId={row.customPageId}
+                      errorCode={row.errorCode}
+                      onChange={(patch) => updateRow(row.key, patch)}
+                      pools={pools}
+                      pages={pages}
+                      disabled={disabled}
+                      labelPrefix="Location"
+                    />
+                  ),
+                },
+                {
+                  label: "Scheme",
+                  value: (
+                    <SchemeSelect
+                      value={row.scheme}
+                      onChange={(v) => updateRow(row.key, { scheme: v })}
+                      disabled={disabled}
+                    />
+                  ),
+                },
+              ]}
+              actions={
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  aria-label="Remove location"
+                  onClick={() => onRowsChange(rows.filter((r) => r.key !== row.key))}
+                  disabled={disabled}
+                >
+                  <Trash2 /> Remove
+                </Button>
+              }
+            />
+          ))}
+        </RowCards>
+      ) : (
+        <div className="rounded-lg border">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-40">Path</TableHead>
+                <TableHead className="w-32">Kind</TableHead>
+                <TableHead>Target</TableHead>
+                <TableHead className="w-28">Scheme</TableHead>
+                <TableHead className="w-10" />
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              <TableRow>
+                <TableCell>
+                  <Input aria-label="Root path" value="/" readOnly disabled className="font-mono" />
                 </TableCell>
                 <TableCell>
                   <KindSelect
-                    value={row.targetMode}
-                    onChange={(v) => updateRow(row.key, { targetMode: v })}
-                    label="Location target kind"
+                    value={rootTargetMode}
+                    onChange={(v) => onRootChange({ rootTargetMode: v })}
+                    label="Root target kind"
                     disabled={disabled}
-                    kinds={LOCATION_KINDS}
+                    kinds={ROOT_KINDS}
                   />
                 </TableCell>
                 <TableCell>
                   <TargetCell
-                    mode={row.targetMode}
-                    upstreamId={row.upstreamId}
-                    forwardHost={row.forwardHost}
-                    forwardPort={row.forwardPort}
-                    customPageId={row.customPageId}
-                    errorCode={row.errorCode}
-                    onChange={(patch) => updateRow(row.key, patch)}
+                    mode={rootTargetMode}
+                    upstreamId={rootUpstreamId}
+                    forwardHost={rootForwardHost}
+                    forwardPort={rootForwardPort}
+                    onChange={({ upstreamId, forwardHost, forwardPort }) =>
+                      onRootChange({
+                        ...(upstreamId !== undefined && { rootUpstreamId: upstreamId }),
+                        ...(forwardHost !== undefined && { rootForwardHost: forwardHost }),
+                        ...(forwardPort !== undefined && { rootForwardPort: forwardPort }),
+                      })
+                    }
                     pools={pools}
-                    pages={pages}
                     disabled={disabled}
-                    labelPrefix="Location"
+                    labelPrefix="Root"
                   />
                 </TableCell>
                 <TableCell>
                   <SchemeSelect
-                    value={row.scheme}
-                    onChange={(v) => updateRow(row.key, { scheme: v })}
+                    value={rootScheme}
+                    onChange={(v) => onRootChange({ rootScheme: v })}
                     disabled={disabled}
                   />
                 </TableCell>
-                <TableCell>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon-sm"
-                    aria-label="Remove location"
-                    onClick={() => onRowsChange(rows.filter((r) => r.key !== row.key))}
-                    disabled={disabled}
-                  >
-                    <Trash2 />
-                  </Button>
-                </TableCell>
+                <TableCell />
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </div>
+              {rows.map((row) => (
+                <TableRow key={row.key}>
+                  <TableCell>
+                    <Input
+                      aria-label="Location path"
+                      value={row.path}
+                      onChange={(e) => updateRow(row.key, { path: e.target.value })}
+                      placeholder="/api/"
+                      className="font-mono"
+                      disabled={disabled}
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <KindSelect
+                      value={row.targetMode}
+                      onChange={(v) => updateRow(row.key, { targetMode: v })}
+                      label="Location target kind"
+                      disabled={disabled}
+                      kinds={LOCATION_KINDS}
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <TargetCell
+                      mode={row.targetMode}
+                      upstreamId={row.upstreamId}
+                      forwardHost={row.forwardHost}
+                      forwardPort={row.forwardPort}
+                      customPageId={row.customPageId}
+                      errorCode={row.errorCode}
+                      onChange={(patch) => updateRow(row.key, patch)}
+                      pools={pools}
+                      pages={pages}
+                      disabled={disabled}
+                      labelPrefix="Location"
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <SchemeSelect
+                      value={row.scheme}
+                      onChange={(v) => updateRow(row.key, { scheme: v })}
+                      disabled={disabled}
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon-sm"
+                      aria-label="Remove location"
+                      onClick={() => onRowsChange(rows.filter((r) => r.key !== row.key))}
+                      disabled={disabled}
+                    >
+                      <Trash2 />
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      )}
       <p className="text-xs text-muted-foreground">
         <code>/</code> is the host&apos;s root route. Extra rows are prefix matches (
         <code>location ^~</code>) — the longest matching path wins.
