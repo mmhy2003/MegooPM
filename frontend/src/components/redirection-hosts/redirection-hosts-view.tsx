@@ -253,7 +253,7 @@ export function RedirectionHostsView() {
                         <Pencil />
                       </Button>
                       <Button
-                        variant="ghost"
+                        variant="ghost-destructive"
                         size="icon-sm"
                         aria-label={`Delete ${host.domain_names[0]}`}
                         onClick={() => setToDelete(host)}
@@ -368,7 +368,7 @@ export function RedirectionHostsView() {
                                 <Pencil />
                               </Button>
                               <Button
-                                variant="ghost"
+                                variant="ghost-destructive"
                                 size="icon-sm"
                                 aria-label={`Delete ${host.domain_names[0]}`}
                                 onClick={() => setToDelete(host)}

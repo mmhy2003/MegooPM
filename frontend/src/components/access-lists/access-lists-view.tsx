@@ -197,7 +197,7 @@ export function AccessListsView() {
                       <Pencil />
                     </Button>
                     <Button
-                      variant="ghost"
+                      variant="ghost-destructive"
                       size="icon-sm"
                       aria-label={`Delete ${list.name}`}
                       onClick={() => setDeleteList(list)}
@@ -283,7 +283,7 @@ export function AccessListsView() {
                               <Pencil />
                             </Button>
                             <Button
-                              variant="ghost"
+                              variant="ghost-destructive"
                               size="icon-sm"
                               aria-label={`Delete ${list.name}`}
                               onClick={() => setDeleteList(list)}

@@ -269,7 +269,7 @@ export function UsersView() {
                         <KeyRound />
                       </Button>
                       <Button
-                        variant="ghost"
+                        variant="ghost-destructive"
                         size="icon-sm"
                         aria-label={`Delete ${u.email}`}
                         disabled={self}
@@ -374,7 +374,7 @@ export function UsersView() {
                               <KeyRound />
                             </Button>
                             <Button
-                              variant="ghost"
+                              variant="ghost-destructive"
                               size="icon-sm"
                               aria-label={`Delete ${u.email}`}
                               disabled={self}

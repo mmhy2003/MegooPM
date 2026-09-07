@@ -223,7 +223,7 @@ export function ApiKeysCard() {
                     disabled={mode.kind !== "idle"}
                   />
                   <Button
-                    variant="ghost"
+                    variant="ghost-destructive"
                     size="icon-sm"
                     aria-label={`Delete ${key.name}`}
                     onClick={() => setMode({ kind: "delete", key })}

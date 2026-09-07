@@ -118,7 +118,7 @@ export function WhitelistsTable({
                   </Button>
                   <Button
                     size="icon"
-                    variant="ghost"
+                    variant="ghost-destructive"
                     aria-label={`Delete ${row.name}`}
                     onClick={() => onDelete(row)}
                   >
@@ -178,7 +178,7 @@ export function WhitelistsTable({
                     </Button>
                     <Button
                       size="icon"
-                      variant="ghost"
+                      variant="ghost-destructive"
                       aria-label={`Delete ${row.name}`}
                       onClick={() => onDelete(row)}
                     >

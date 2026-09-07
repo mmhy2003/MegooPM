@@ -161,7 +161,7 @@ export function DnsCredentialsView() {
                     <ShieldCheck />
                   </Button>
                   <Button
-                    variant="ghost"
+                    variant="ghost-destructive"
                     size="icon-sm"
                     aria-label={`Delete ${c.name}`}
                     onClick={() => setDeleteTarget(c)}
@@ -234,7 +234,7 @@ export function DnsCredentialsView() {
                           <ShieldCheck />
                         </Button>
                         <Button
-                          variant="ghost"
+                          variant="ghost-destructive"
                           size="icon-sm"
                           aria-label={`Delete ${c.name}`}
                           onClick={() => setDeleteTarget(c)}

@@ -273,7 +273,7 @@ function AuthUsersPanel({
               disabled={disabled}
             />
             <Button
-              variant="ghost"
+              variant="ghost-destructive"
               size="icon-sm"
               aria-label={`Remove user ${index + 1}`}
               title="Remove"
@@ -356,7 +356,7 @@ function ClientRulesPanel({
               disabled={disabled}
             />
             <Button
-              variant="ghost"
+              variant="ghost-destructive"
               size="icon-sm"
               aria-label={`Remove rule ${index + 1}`}
               title="Remove"

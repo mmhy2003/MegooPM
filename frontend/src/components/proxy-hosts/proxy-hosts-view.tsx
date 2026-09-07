@@ -318,7 +318,7 @@ export function ProxyHostsView() {
                           <Pencil />
                         </Button>
                         <Button
-                          variant="ghost"
+                          variant="ghost-destructive"
                           size="icon-sm"
                           aria-label={`Delete ${host.domain_names[0]}`}
                           onClick={() => setDeleteHost(host)}
@@ -452,7 +452,7 @@ export function ProxyHostsView() {
                                   <Pencil />
                                 </Button>
                                 <Button
-                                  variant="ghost"
+                                  variant="ghost-destructive"
                                   size="icon-sm"
                                   aria-label={`Delete ${host.domain_names[0]}`}
                                   onClick={() => setDeleteHost(host)}

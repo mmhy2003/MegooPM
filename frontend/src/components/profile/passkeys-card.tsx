@@ -181,7 +181,7 @@ export function PasskeysCard({ enabled }: { enabled: boolean }) {
                   </div>
                 </div>
                 <Button
-                  variant="ghost"
+                  variant="ghost-destructive"
                   size="icon-sm"
                   aria-label={`Remove ${p.name}`}
                   onClick={() => {

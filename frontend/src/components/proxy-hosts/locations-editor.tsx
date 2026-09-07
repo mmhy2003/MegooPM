@@ -480,7 +480,7 @@ export function LocationsEditor({
               actions={
                 <Button
                   type="button"
-                  variant="ghost"
+                  variant="ghost-destructive"
                   size="sm"
                   aria-label="Remove location"
                   onClick={() => onRowsChange(rows.filter((r) => r.key !== row.key))}
@@ -591,7 +591,7 @@ export function LocationsEditor({
                   <TableCell>
                     <Button
                       type="button"
-                      variant="ghost"
+                      variant="ghost-destructive"
                       size="icon-sm"
                       aria-label="Remove location"
                       onClick={() => onRowsChange(rows.filter((r) => r.key !== row.key))}

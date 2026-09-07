@@ -210,7 +210,7 @@ export function DeadHostsView() {
                         <Pencil />
                       </Button>
                       <Button
-                        variant="ghost"
+                        variant="ghost-destructive"
                         size="icon-sm"
                         aria-label={`Delete ${host.domain_names[0]}`}
                         onClick={() => setToDelete(host)}
@@ -297,7 +297,7 @@ export function DeadHostsView() {
                                 <Pencil />
                               </Button>
                               <Button
-                                variant="ghost"
+                                variant="ghost-destructive"
                                 size="icon-sm"
                                 aria-label={`Delete ${host.domain_names[0]}`}
                                 onClick={() => setToDelete(host)}

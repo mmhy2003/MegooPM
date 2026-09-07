@@ -348,7 +348,7 @@ export function CertificatesView() {
                             </Button>
                           ) : null}
                           <Button
-                            variant="ghost"
+                            variant="ghost-destructive"
                             size="icon-sm"
                             aria-label={`Delete ${cert.name}`}
                             title="Delete"
@@ -455,7 +455,7 @@ export function CertificatesView() {
                                     </Button>
                                   ) : null}
                                   <Button
-                                    variant="ghost"
+                                    variant="ghost-destructive"
                                     size="icon-sm"
                                     aria-label={`Delete ${cert.name}`}
                                     title="Delete"

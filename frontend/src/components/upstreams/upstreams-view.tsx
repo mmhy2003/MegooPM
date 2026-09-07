@@ -239,7 +239,7 @@ export function UpstreamsView() {
                           <Pencil />
                         </Button>
                         <Button
-                          variant="ghost"
+                          variant="ghost-destructive"
                           size="icon-sm"
                           aria-label={`Delete ${pool.name}`}
                           onClick={() => setDeletePool(pool)}
@@ -339,7 +339,7 @@ export function UpstreamsView() {
                                   <Pencil />
                                 </Button>
                                 <Button
-                                  variant="ghost"
+                                  variant="ghost-destructive"
                                   size="icon-sm"
                                   aria-label={`Delete ${pool.name}`}
                                   onClick={() => setDeletePool(pool)}

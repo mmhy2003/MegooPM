@@ -241,7 +241,7 @@ export function StreamsView() {
                         <Pencil />
                       </Button>
                       <Button
-                        variant="ghost"
+                        variant="ghost-destructive"
                         size="icon-sm"
                         aria-label={`Delete stream on port ${stream.incoming_port}`}
                         onClick={() => setToDelete(stream)}
@@ -333,7 +333,7 @@ export function StreamsView() {
                                 <Pencil />
                               </Button>
                               <Button
-                                variant="ghost"
+                                variant="ghost-destructive"
                                 size="icon-sm"
                                 aria-label={`Delete stream on port ${stream.incoming_port}`}
                                 onClick={() => setToDelete(stream)}

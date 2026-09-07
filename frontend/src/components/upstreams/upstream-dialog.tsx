@@ -454,7 +454,7 @@ export function UpstreamDialog({
                   actions={
                     <Button
                       type="button"
-                      variant="ghost"
+                      variant="ghost-destructive"
                       size="sm"
                       aria-label="Remove backend"
                       onClick={() => removeRow(row.key)}
@@ -553,7 +553,7 @@ export function UpstreamDialog({
                         <TableCell>
                           <Button
                             type="button"
-                            variant="ghost"
+                            variant="ghost-destructive"
                             size="icon-sm"
                             aria-label="Remove backend"
                             onClick={() => removeRow(row.key)}
