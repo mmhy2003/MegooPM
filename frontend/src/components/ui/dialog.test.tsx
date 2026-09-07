@@ -43,4 +43,30 @@ describe("DialogContent sizes", () => {
     // w-[calc(100%-2rem)]: the border must not touch both screen sides.
     expect(renderDialog({ size: "lg" })).toHaveClass("w-[calc(100%-2rem)]");
   });
+
+  it("can never scroll sideways, whatever it holds", () => {
+    // The dialog is a grid with overflow-y auto. A grid child defaults to
+    // min-width:auto, so anything whose minimum content is wider than a
+    // narrow screen (a Fold's 344px cover display) pushes the grid wider —
+    // and an auto overflow-y forces overflow-x to auto, so that push becomes
+    // a horizontal scrollbar on the whole popup. Letting children shrink and
+    // clipping x is what keeps it to a single vertical scroll.
+    const dialog = renderDialog();
+
+    expect(dialog).toHaveClass("overflow-x-hidden", "[&>*]:min-w-0");
+  });
+
+  it("wraps a long title rather than widening the dialog", () => {
+    render(
+      <Dialog open>
+        <DialogContent>
+          <DialogTitle>
+            averyveryverylongsubdomainnamethatwillnotfitonanarrowscreen.example.com
+          </DialogTitle>
+        </DialogContent>
+      </Dialog>,
+    );
+
+    expect(screen.getByText(/averyvery/)).toHaveClass("break-words");
+  });
 });

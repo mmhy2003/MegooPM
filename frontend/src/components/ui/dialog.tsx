@@ -71,7 +71,15 @@ function DialogContent({
           //     the viewport with no way to scroll to it;
           //   w-[calc(100%-2rem)] — `w-full` alone runs the dialog edge to
           //     edge on a phone, with the border touching both screen sides.
-          "fixed top-1/2 left-1/2 z-50 grid max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-4 overflow-y-auto rounded-xl border bg-popover p-5 text-sm text-popover-foreground shadow-lg transition duration-200 outline-none data-ending-style:scale-95 data-ending-style:opacity-0 data-starting-style:scale-95 data-starting-style:opacity-0",
+          //   [&>*]:min-w-0 + overflow-x-hidden — this is a grid, and a grid
+          //     child defaults to min-width:auto: anything whose minimum
+          //     content is wider than a narrow screen (a Fold's 344px cover
+          //     display) pushes the grid past the dialog, and an auto
+          //     overflow-y forces overflow-x to auto, so the push becomes a
+          //     sideways scrollbar on the whole popup. Children may shrink;
+          //     nothing may scroll the dialog horizontally. Blocks that are
+          //     genuinely wide (a <pre>, a key/value table) scroll themselves.
+          "fixed top-1/2 left-1/2 z-50 grid max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-4 overflow-x-hidden overflow-y-auto rounded-xl border bg-popover p-5 text-sm text-popover-foreground shadow-lg transition duration-200 outline-none [&>*]:min-w-0 data-ending-style:scale-95 data-ending-style:opacity-0 data-starting-style:scale-95 data-starting-style:opacity-0",
           DIALOG_SIZES[size],
           className,
         )}
@@ -116,7 +124,7 @@ function DialogTitle({ className, ...props }: DialogPrimitive.Title.Props) {
   return (
     <DialogPrimitive.Title
       data-slot="dialog-title"
-      className={cn("text-base font-semibold text-foreground", className)}
+      className={cn("text-base font-semibold break-words text-foreground", className)}
       {...props}
     />
   )
@@ -126,7 +134,7 @@ function DialogDescription({ className, ...props }: DialogPrimitive.Description.
   return (
     <DialogPrimitive.Description
       data-slot="dialog-description"
-      className={cn("text-sm text-muted-foreground", className)}
+      className={cn("text-sm break-words text-muted-foreground", className)}
       {...props}
     />
   )

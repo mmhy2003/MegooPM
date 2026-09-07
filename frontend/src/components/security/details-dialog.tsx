@@ -53,16 +53,24 @@ function absolute(iso: string | null | undefined): string | null {
 /** The key/value tables cscli prints for Context and for each event. */
 function PairTable({ pairs }: { pairs: { key?: string | null; value?: string | null }[] }) {
   return (
-    <table className="w-full text-sm">
-      <tbody>
-        {pairs.map((pair, i) => (
-          <tr key={`${pair.key}-${i}`} className="align-top">
-            <td className="text-muted-foreground w-48 py-0.5 pr-3 font-mono text-xs">{pair.key}</td>
-            <td className="py-0.5 break-all">{pair.value}</td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
+    // Its own scroll container: a table wider than a narrow screen must scroll
+    // here, never push the dialog into scrolling sideways. The key column is
+    // narrower below md — 12rem of key on a 344px screen leaves the value
+    // nothing.
+    <div className="overflow-x-auto">
+      <table className="w-full text-sm">
+        <tbody>
+          {pairs.map((pair, i) => (
+            <tr key={`${pair.key}-${i}`} className="align-top">
+              <td className="text-muted-foreground w-32 py-0.5 pr-3 font-mono text-xs break-all md:w-48">
+                {pair.key}
+              </td>
+              <td className="py-0.5 break-all">{pair.value}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }
 
