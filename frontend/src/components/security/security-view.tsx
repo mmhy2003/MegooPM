@@ -64,6 +64,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { RowCard, RowCards } from "@/components/ui/row-cards";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 /** sessionStorage key persisting the community toggle across reloads (MEG-44). */
 const COMMUNITY_KEY = "mego.crowdsec.includeCommunity";
@@ -162,6 +164,8 @@ function TableError({ message, onRetry }: { message: string; onRetry: () => void
 export function SecurityView() {
   const [health, setHealth] = useState<CrowdSecHealth | null>(null);
   const canWrite = useCanWrite();
+  // Below the breakpoint both tables become cards: see RowCards.
+  const isMobile = useIsMobile();
   const [nowMs, setNowMs] = useState<number>(() => Date.now());
   // Bumped by ban/unban to force both lists to refetch without a full reload.
   const [refreshTick, setRefreshTick] = useState(0);
@@ -488,111 +492,205 @@ export function SecurityView() {
                   placeholder="IP, range or scenario"
                 />
               </div>
-              <div className="bg-card text-card-foreground rounded-xl border shadow-xs">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Value</TableHead>
-                      <TableHead>Scope</TableHead>
-                      <TableHead>Type</TableHead>
-                      <TableHead>Scenario</TableHead>
-                      <TableHead>Origin</TableHead>
-                      <TableHead>Duration</TableHead>
-                      <TableHead className="w-16 text-right">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {decLoading ? (
-                      <LoadingRows cols={7} />
-                    ) : decisions.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={7} className="py-10 text-center text-muted-foreground">
-                          {decQuery.trim() ? (
-                            <>
-                              No decisions match “{decQuery.trim()}”.{" "}
-                              <Button
-                                variant="link"
-                                size="sm"
-                                className="h-auto p-0 align-baseline"
-                                onClick={() => changeDecQuery("")}
-                              >
-                                Clear search
-                              </Button>
-                            </>
-                          ) : (
-                            <>
-                              No active decisions
-                              {includeCommunity ? "" : " (community records are hidden)"}. The
-                              bouncer isn’t enforcing any matching bans right now.
-                            </>
-                          )}
-                        </TableCell>
-                      </TableRow>
+              {isMobile ? (
+                <RowCards
+                  loading={decLoading}
+                  isEmpty={decisions.length === 0}
+                  empty={
+                    decQuery.trim() ? (
+                      <>
+                        No decisions match “{decQuery.trim()}”.{" "}
+                        <Button
+                          variant="link"
+                          size="sm"
+                          className="h-auto p-0 align-baseline"
+                          onClick={() => changeDecQuery("")}
+                        >
+                          Clear search
+                        </Button>
+                      </>
                     ) : (
-                      decisions.map((d, i) => (
-                        <TableRow key={decisionRowKey(d, i)}>
-                          <TableCell className="font-mono text-xs font-medium">
-                            <span className="inline-flex items-center gap-1.5">
-                              <CountryFlag country={d.country} />
-                              {d.value}
-                            </span>
-                          </TableCell>
-                          <TableCell>
-                            <Badge variant="outline">{d.scope}</Badge>
-                          </TableCell>
-                          <TableCell>
-                            <Badge variant={typeBadgeVariant(d.type)}>{d.type}</Badge>
-                          </TableCell>
-                          <TableCell
-                            className="max-w-48 truncate text-muted-foreground"
-                            title={d.scenario ?? ""}
+                      <>
+                        No active decisions
+                        {includeCommunity ? "" : " (community records are hidden)"}. The bouncer
+                        isn’t enforcing any matching bans right now.
+                      </>
+                    )
+                  }
+                >
+                  {decisions.map((d, i) => (
+                    <RowCard
+                      key={decisionRowKey(d, i)}
+                      title={
+                        <span className="inline-flex items-center gap-1.5 font-mono text-xs">
+                          <CountryFlag country={d.country} />
+                          {d.value}
+                        </span>
+                      }
+                      meta={<Badge variant={typeBadgeVariant(d.type)}>{d.type}</Badge>}
+                      facts={[
+                        { label: "Scope", value: <Badge variant="outline">{d.scope}</Badge> },
+                        {
+                          label: "Scenario",
+                          value: d.scenario ? (
+                            <span className="text-muted-foreground">{d.scenario}</span>
+                          ) : null,
+                        },
+                        {
+                          label: "Origin",
+                          value: d.origin ? (
+                            <span className="text-muted-foreground">{d.origin}</span>
+                          ) : null,
+                        },
+                        {
+                          label: "Duration",
+                          value: <span className="tabular-nums">{d.duration}</span>,
+                        },
+                      ]}
+                      actions={
+                        <>
+                          <Button
+                            variant="ghost"
+                            size="icon-sm"
+                            aria-label={`Details for ${d.value}`}
+                            title="Details"
+                            onClick={() => setDetailDecision(d)}
                           >
-                            {d.scenario ?? "—"}
+                            <Eye />
+                          </Button>
+                          {canWrite ? (
+                            <Button
+                              variant="ghost"
+                              size="icon-sm"
+                              aria-label={`Lift decision on ${d.value}`}
+                              disabled={d.id == null}
+                              title={
+                                d.id == null
+                                  ? "This decision has no id and can't be lifted"
+                                  : "Lift decision"
+                              }
+                              onClick={() => setUnban(d)}
+                            >
+                              <Trash2 />
+                            </Button>
+                          ) : null}
+                        </>
+                      }
+                    />
+                  ))}
+                </RowCards>
+              ) : (
+                <div className="bg-card text-card-foreground rounded-xl border shadow-xs">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Value</TableHead>
+                        <TableHead>Scope</TableHead>
+                        <TableHead>Type</TableHead>
+                        <TableHead>Scenario</TableHead>
+                        <TableHead>Origin</TableHead>
+                        <TableHead>Duration</TableHead>
+                        <TableHead className="w-16 text-right">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {decLoading ? (
+                        <LoadingRows cols={7} />
+                      ) : decisions.length === 0 ? (
+                        <TableRow>
+                          <TableCell
+                            colSpan={7}
+                            className="py-10 text-center text-muted-foreground"
+                          >
+                            {decQuery.trim() ? (
+                              <>
+                                No decisions match “{decQuery.trim()}”.{" "}
+                                <Button
+                                  variant="link"
+                                  size="sm"
+                                  className="h-auto p-0 align-baseline"
+                                  onClick={() => changeDecQuery("")}
+                                >
+                                  Clear search
+                                </Button>
+                              </>
+                            ) : (
+                              <>
+                                No active decisions
+                                {includeCommunity ? "" : " (community records are hidden)"}. The
+                                bouncer isn’t enforcing any matching bans right now.
+                              </>
+                            )}
                           </TableCell>
-                          <TableCell className="text-muted-foreground">{d.origin ?? "—"}</TableCell>
-                          <TableCell className="tabular-nums">{d.duration}</TableCell>
-                          <TableCell>
-                            <div className="flex justify-end gap-1">
-                              {/* Inspecting changes nothing, so it is not
+                        </TableRow>
+                      ) : (
+                        decisions.map((d, i) => (
+                          <TableRow key={decisionRowKey(d, i)}>
+                            <TableCell className="font-mono text-xs font-medium">
+                              <span className="inline-flex items-center gap-1.5">
+                                <CountryFlag country={d.country} />
+                                {d.value}
+                              </span>
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant="outline">{d.scope}</Badge>
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant={typeBadgeVariant(d.type)}>{d.type}</Badge>
+                            </TableCell>
+                            <TableCell
+                              className="max-w-48 truncate text-muted-foreground"
+                              title={d.scenario ?? ""}
+                            >
+                              {d.scenario ?? "—"}
+                            </TableCell>
+                            <TableCell className="text-muted-foreground">
+                              {d.origin ?? "—"}
+                            </TableCell>
+                            <TableCell className="tabular-nums">{d.duration}</TableCell>
+                            <TableCell>
+                              <div className="flex justify-end gap-1">
+                                {/* Inspecting changes nothing, so it is not
                                   gated: a member reviewing a block needs it
                                   most. */}
-                              <Button
-                                variant="ghost"
-                                size="icon-sm"
-                                aria-label={`Details for ${d.value}`}
-                                title="Details"
-                                onClick={() => setDetailDecision(d)}
-                              >
-                                <Eye />
-                              </Button>
-                              {/* Hidden for a member rather than disabled: a
-                                  dead button invites a click and explains
-                                  nothing. Still disabled when the decision has
-                                  no id, where the title says why. */}
-                              {canWrite ? (
                                 <Button
                                   variant="ghost"
                                   size="icon-sm"
-                                  aria-label={`Lift decision on ${d.value}`}
-                                  disabled={d.id == null}
-                                  title={
-                                    d.id == null
-                                      ? "This decision has no id and can't be lifted"
-                                      : "Lift decision"
-                                  }
-                                  onClick={() => setUnban(d)}
+                                  aria-label={`Details for ${d.value}`}
+                                  title="Details"
+                                  onClick={() => setDetailDecision(d)}
                                 >
-                                  <Trash2 />
+                                  <Eye />
                                 </Button>
-                              ) : null}
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      ))
-                    )}
-                  </TableBody>
-                </Table>
-              </div>
+                                {/* Hidden for a member rather than disabled: a
+                                  dead button invites a click and explains
+                                  nothing. Still disabled when the decision has
+                                  no id, where the title says why. */}
+                                {canWrite ? (
+                                  <Button
+                                    variant="ghost"
+                                    size="icon-sm"
+                                    aria-label={`Lift decision on ${d.value}`}
+                                    disabled={d.id == null}
+                                    title={
+                                      d.id == null
+                                        ? "This decision has no id and can't be lifted"
+                                        : "Lift decision"
+                                    }
+                                    onClick={() => setUnban(d)}
+                                  >
+                                    <Trash2 />
+                                  </Button>
+                                ) : null}
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
               <PaginationControls
                 idPrefix="decisions"
                 page={decPage}
@@ -623,105 +721,195 @@ export function SecurityView() {
                   placeholder="Source IP or scenario"
                 />
               </div>
-              <div className="bg-card text-card-foreground rounded-xl border shadow-xs">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Source</TableHead>
-                      <TableHead>Scenario</TableHead>
-                      <TableHead>Message</TableHead>
-                      <TableHead className="w-20 text-right">Events</TableHead>
-                      <TableHead className="w-28">Started</TableHead>
-                      <TableHead className="w-16 text-right">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {alertLoading ? (
-                      <LoadingRows cols={6} />
-                    ) : alerts.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={6} className="py-10 text-center text-muted-foreground">
-                          {alertQuery.trim() ? (
-                            <>
-                              No alerts match “{alertQuery.trim()}”.{" "}
-                              <Button
-                                variant="link"
-                                size="sm"
-                                className="h-auto p-0 align-baseline"
-                                onClick={() => changeAlertQuery("")}
-                              >
-                                Clear search
-                              </Button>
-                            </>
-                          ) : (
-                            <>
-                              No recent alerts
-                              {includeCommunity ? "" : " (community records are hidden)"}.
-                            </>
-                          )}
-                        </TableCell>
-                      </TableRow>
+              {isMobile ? (
+                <RowCards
+                  loading={alertLoading}
+                  isEmpty={alerts.length === 0}
+                  empty={
+                    alertQuery.trim() ? (
+                      <>
+                        No alerts match “{alertQuery.trim()}”.{" "}
+                        <Button
+                          variant="link"
+                          size="sm"
+                          className="h-auto p-0 align-baseline"
+                          onClick={() => changeAlertQuery("")}
+                        >
+                          Clear search
+                        </Button>
+                      </>
                     ) : (
-                      alerts.map((a, i) => {
-                        const source = alertSourceKey(a);
-                        return (
-                          <TableRow key={a.id ?? `alert-${i}`}>
-                            <TableCell className="font-mono text-xs font-medium">
-                              <span className="inline-flex items-center gap-1.5">
-                                <CountryFlag country={a.source?.cn} />
-                                {source ?? "—"}
-                              </span>
-                            </TableCell>
-                            <TableCell className="max-w-48 truncate" title={a.scenario ?? ""}>
-                              {a.scenario ?? "—"}
-                            </TableCell>
-                            <TableCell
-                              className="max-w-64 truncate text-muted-foreground"
-                              title={a.message ?? ""}
+                      <>
+                        No recent alerts{includeCommunity ? "" : " (community records are hidden)"}.
+                      </>
+                    )
+                  }
+                >
+                  {alerts.map((a, i) => {
+                    const source = alertSourceKey(a);
+                    return (
+                      <RowCard
+                        key={a.id ?? `alert-${i}`}
+                        title={
+                          <span className="inline-flex items-center gap-1.5 font-mono text-xs">
+                            <CountryFlag country={a.source?.cn} />
+                            {source ?? "—"}
+                          </span>
+                        }
+                        meta={
+                          <span className="text-muted-foreground text-xs whitespace-nowrap">
+                            {formatRelativeTime(a.start_at ?? a.created_at, nowMs)}
+                          </span>
+                        }
+                        facts={[
+                          { label: "Scenario", value: a.scenario ?? null },
+                          {
+                            label: "Message",
+                            value: a.message ? (
+                              <span className="text-muted-foreground">{a.message}</span>
+                            ) : null,
+                          },
+                          {
+                            label: "Events",
+                            value:
+                              a.events_count != null ? (
+                                <span className="tabular-nums">{a.events_count}</span>
+                              ) : null,
+                          },
+                        ]}
+                        actions={
+                          <>
+                            <Button
+                              variant="ghost"
+                              size="icon-sm"
+                              aria-label={`Details for alert ${a.id ?? ""}`.trim()}
+                              title="Details"
+                              onClick={() => setDetailAlert(a)}
                             >
-                              {a.message ?? "—"}
-                            </TableCell>
-                            <TableCell className="text-right tabular-nums">
-                              {a.events_count ?? "—"}
-                            </TableCell>
-                            <TableCell className="text-muted-foreground">
-                              {formatRelativeTime(a.start_at ?? a.created_at, nowMs)}
-                            </TableCell>
-                            <TableCell>
-                              <div className="flex justify-end gap-1">
+                              <Eye />
+                            </Button>
+                            {canWrite ? (
+                              <Button
+                                variant="ghost"
+                                size="icon-sm"
+                                aria-label={source ? `Ban ${source}` : "Ban source"}
+                                disabled={!source}
+                                title={source ? "Ban this source" : "No source IP to ban"}
+                                onClick={() => source && openBan({ value: source, scope: "Ip" })}
+                              >
+                                <ShieldX />
+                              </Button>
+                            ) : null}
+                          </>
+                        }
+                      />
+                    );
+                  })}
+                </RowCards>
+              ) : (
+                <div className="bg-card text-card-foreground rounded-xl border shadow-xs">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Source</TableHead>
+                        <TableHead>Scenario</TableHead>
+                        <TableHead>Message</TableHead>
+                        <TableHead className="w-20 text-right">Events</TableHead>
+                        <TableHead className="w-28">Started</TableHead>
+                        <TableHead className="w-16 text-right">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {alertLoading ? (
+                        <LoadingRows cols={6} />
+                      ) : alerts.length === 0 ? (
+                        <TableRow>
+                          <TableCell
+                            colSpan={6}
+                            className="py-10 text-center text-muted-foreground"
+                          >
+                            {alertQuery.trim() ? (
+                              <>
+                                No alerts match “{alertQuery.trim()}”.{" "}
                                 <Button
-                                  variant="ghost"
-                                  size="icon-sm"
-                                  aria-label={`Details for alert ${a.id ?? ""}`.trim()}
-                                  title="Details"
-                                  onClick={() => setDetailAlert(a)}
+                                  variant="link"
+                                  size="sm"
+                                  className="h-auto p-0 align-baseline"
+                                  onClick={() => changeAlertQuery("")}
                                 >
-                                  <Eye />
+                                  Clear search
                                 </Button>
-                                {/* Banning writes a decision. */}
-                                {canWrite ? (
+                              </>
+                            ) : (
+                              <>
+                                No recent alerts
+                                {includeCommunity ? "" : " (community records are hidden)"}.
+                              </>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        alerts.map((a, i) => {
+                          const source = alertSourceKey(a);
+                          return (
+                            <TableRow key={a.id ?? `alert-${i}`}>
+                              <TableCell className="font-mono text-xs font-medium">
+                                <span className="inline-flex items-center gap-1.5">
+                                  <CountryFlag country={a.source?.cn} />
+                                  {source ?? "—"}
+                                </span>
+                              </TableCell>
+                              <TableCell className="max-w-48 truncate" title={a.scenario ?? ""}>
+                                {a.scenario ?? "—"}
+                              </TableCell>
+                              <TableCell
+                                className="max-w-64 truncate text-muted-foreground"
+                                title={a.message ?? ""}
+                              >
+                                {a.message ?? "—"}
+                              </TableCell>
+                              <TableCell className="text-right tabular-nums">
+                                {a.events_count ?? "—"}
+                              </TableCell>
+                              <TableCell className="text-muted-foreground">
+                                {formatRelativeTime(a.start_at ?? a.created_at, nowMs)}
+                              </TableCell>
+                              <TableCell>
+                                <div className="flex justify-end gap-1">
                                   <Button
                                     variant="ghost"
                                     size="icon-sm"
-                                    aria-label={source ? `Ban ${source}` : "Ban source"}
-                                    disabled={!source}
-                                    title={source ? "Ban this source" : "No source IP to ban"}
-                                    onClick={() =>
-                                      source && openBan({ value: source, scope: "Ip" })
-                                    }
+                                    aria-label={`Details for alert ${a.id ?? ""}`.trim()}
+                                    title="Details"
+                                    onClick={() => setDetailAlert(a)}
                                   >
-                                    <ShieldX />
+                                    <Eye />
                                   </Button>
-                                ) : null}
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        );
-                      })
-                    )}
-                  </TableBody>
-                </Table>
-              </div>
+                                  {/* Banning writes a decision. */}
+                                  {canWrite ? (
+                                    <Button
+                                      variant="ghost"
+                                      size="icon-sm"
+                                      aria-label={source ? `Ban ${source}` : "Ban source"}
+                                      disabled={!source}
+                                      title={source ? "Ban this source" : "No source IP to ban"}
+                                      onClick={() =>
+                                        source && openBan({ value: source, scope: "Ip" })
+                                      }
+                                    >
+                                      <ShieldX />
+                                    </Button>
+                                  ) : null}
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
               <PaginationControls
                 idPrefix="alerts"
                 page={alertPage}

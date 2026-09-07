@@ -13,6 +13,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { RowCard, RowCards } from "@/components/ui/row-cards";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { WHITELIST_KIND_LABELS, type Whitelist } from "@/lib/api";
 
 /** "1 IP, 2 CIDRs" — a one-entry whitelist is the common case, so plurals matter. */
@@ -46,6 +48,10 @@ export function WhitelistsTable({
   /** False for a member: the row's controls are hidden rather than refused. */
   canWrite?: boolean;
 }) {
+  // Below the breakpoint the table becomes cards: see RowCards. Called before
+  // the early return below, because a hook must run on every render.
+  const isMobile = useIsMobile();
+
   if (rows.length === 0) {
     const searching = query.trim();
     return (
@@ -66,6 +72,64 @@ export function WhitelistsTable({
           "No whitelists yet. Add one to stop CrowdSec acting on traffic from an address you trust."
         )}
       </p>
+    );
+  }
+
+  if (isMobile) {
+    return (
+      <RowCards loading={false} isEmpty={false} empty={null}>
+        {rows.map((row) => (
+          <RowCard
+            key={row.id}
+            title={row.name}
+            meta={
+              <EnabledToggle
+                checked={row.enabled}
+                name={row.name}
+                onToggle={(next) => onToggle(row, next)}
+                disabled={!canWrite}
+              />
+            }
+            facts={[
+              {
+                label: "Kind",
+                value: (
+                  <Badge variant={row.kind === "expression" ? "outline" : "secondary"}>
+                    {WHITELIST_KIND_LABELS[row.kind]}
+                  </Badge>
+                ),
+              },
+              {
+                label: "Reason",
+                value: <span className="text-muted-foreground">{row.reason}</span>,
+              },
+              { label: "Covers", value: coverage(row) },
+            ]}
+            actions={
+              canWrite ? (
+                <>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    aria-label={`Edit ${row.name}`}
+                    onClick={() => onEdit(row)}
+                  >
+                    <Pencil className="size-4" />
+                  </Button>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    aria-label={`Delete ${row.name}`}
+                    onClick={() => onDelete(row)}
+                  >
+                    <Trash2 className="size-4" />
+                  </Button>
+                </>
+              ) : null
+            }
+          />
+        ))}
+      </RowCards>
     );
   }
 

@@ -32,9 +32,7 @@ export function RowCards({
   className?: string;
 }) {
   return (
-    <div
-      className={cn("bg-card text-card-foreground rounded-xl border shadow-xs", className)}
-    >
+    <div className={cn("bg-card text-card-foreground rounded-xl border shadow-xs", className)}>
       {loading ? (
         <div className="space-y-3 p-4">
           <Skeleton className="h-4 w-2/3" />

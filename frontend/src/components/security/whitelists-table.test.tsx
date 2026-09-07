@@ -5,6 +5,9 @@ import userEvent from "@testing-library/user-event";
 import { WhitelistsTable } from "@/components/security/whitelists-table";
 import type { Whitelist } from "@/lib/api";
 
+const useIsMobile = vi.hoisted(() => vi.fn(() => false));
+vi.mock("@/hooks/use-mobile", () => ({ useIsMobile }));
+
 const ROW: Whitelist = {
   id: 1,
   name: "Internal Backends",
@@ -165,5 +168,30 @@ describe("WhitelistsTable empty states", () => {
     await user.click(screen.getByRole("button", { name: "Clear search" }));
 
     expect(onClearSearch).toHaveBeenCalled();
+  });
+});
+
+describe("WhitelistsTable on a phone", () => {
+  afterEach(() => {
+    useIsMobile.mockReturnValue(false);
+  });
+
+  it("lays each whitelist out as a card, with its switch and actions", () => {
+    useIsMobile.mockReturnValue(true);
+    render(
+      <WhitelistsTable
+        rows={[ROW, EXPR_ROW]}
+        onToggle={async () => {}}
+        onEdit={() => {}}
+        onDelete={() => {}}
+      />,
+    );
+
+    expect(screen.getByText("Internal Backends")).toBeInTheDocument();
+    expect(screen.getByText(/1 IP, 1 CIDR/)).toBeInTheDocument();
+    expect(screen.getByText("Health checks")).toBeInTheDocument();
+    expect(screen.queryByRole("table")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Enable Internal Backends")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Edit Internal Backends" })).toBeInTheDocument();
   });
 });

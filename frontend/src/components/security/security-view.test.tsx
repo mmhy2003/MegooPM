@@ -10,6 +10,9 @@ import { SecurityView } from "@/components/security/security-view";
 const useAuth = vi.hoisted(() => vi.fn(() => ({ user: { role: "admin" } })));
 vi.mock("@/lib/auth/context", () => ({ useAuth }));
 
+const useIsMobile = vi.hoisted(() => vi.fn(() => false));
+vi.mock("@/hooks/use-mobile", () => ({ useIsMobile }));
+
 // Stub the ban/unban dialogs: they own their own Select/portal machinery which
 // is irrelevant here — we only care that SecurityView wires their callbacks and
 // re-fetches (ban/unban reflected without a full reload).
@@ -497,5 +500,72 @@ describe("SecurityView row details", () => {
       (await screen.findAllByRole("button", { name: /^Details for / })).length,
     ).toBeGreaterThan(0);
     expect(screen.queryByRole("button", { name: /^Lift decision/ })).not.toBeInTheDocument();
+  });
+});
+
+describe("SecurityView on a phone", () => {
+  const alerts = {
+    total: 1,
+    page: 1,
+    page_size: 50,
+    items: [
+      {
+        id: 5,
+        scenario: "crowdsecurity/http-probing",
+        message: "Ip 198.51.100.7 performed http-probing",
+        events_count: 12,
+        start_at: "2026-09-06T00:00:00Z",
+        created_at: "2026-09-06T00:00:00Z",
+        source: { ip: "198.51.100.7", cn: "FR" },
+      },
+    ],
+  };
+
+  beforeEach(() => {
+    useIsMobile.mockReturnValue(true);
+    vi.spyOn(crowdsec, "health").mockResolvedValue(healthOk as never);
+    vi.spyOn(crowdsec, "listDecisions").mockResolvedValue(decisionList(2) as never);
+    vi.spyOn(crowdsec, "listAlerts").mockResolvedValue(alerts as never);
+    vi.spyOn(crowdsec, "listWhitelists").mockResolvedValue([] as never);
+    vi.spyOn(crowdsec, "whitelistStatus").mockResolvedValue({
+      ok: true,
+      error: null,
+      applied_at: null,
+      reload_configured: true,
+    } as never);
+  });
+  afterEach(() => {
+    cleanup();
+    vi.restoreAllMocks();
+    useIsMobile.mockReturnValue(false);
+  });
+
+  it("lays each decision out as a card, with inspect and lift", async () => {
+    const user = userEvent.setup();
+    render(<SecurityView />);
+    await user.click(await screen.findByRole("tab", { name: /Active decisions/ }));
+    const panel = await screen.findByRole("tabpanel");
+
+    expect(await within(panel).findByText("203.0.113.9")).toBeInTheDocument();
+    expect(within(panel).queryByRole("table")).not.toBeInTheDocument();
+    expect(
+      within(panel).getByRole("button", { name: "Details for 203.0.113.9" }),
+    ).toBeInTheDocument();
+    expect(
+      within(panel).getByRole("button", { name: "Lift decision on 203.0.113.9" }),
+    ).toBeInTheDocument();
+  });
+
+  it("lays each alert out as a card, with inspect and ban", async () => {
+    const user = userEvent.setup();
+    render(<SecurityView />);
+    await user.click(await screen.findByRole("tab", { name: /Recent alerts/ }));
+    const panel = await screen.findByRole("tabpanel");
+
+    expect(await within(panel).findByText("198.51.100.7")).toBeInTheDocument();
+    expect(within(panel).getByText("crowdsecurity/http-probing")).toBeInTheDocument();
+    expect(within(panel).queryByRole("table")).not.toBeInTheDocument();
+    expect(within(panel).getByRole("button", { name: "Details for alert 5" })).toBeInTheDocument();
+    expect(within(panel).getByRole("button", { name: "Ban 198.51.100.7" })).toBeInTheDocument();
   });
 });
