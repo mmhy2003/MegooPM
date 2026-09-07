@@ -560,7 +560,7 @@ export function SecurityView() {
                           </Button>
                           {canWrite ? (
                             <Button
-                              variant="ghost"
+                              variant="ghost-destructive"
                               size="icon-sm"
                               aria-label={`Lift decision on ${d.value}`}
                               disabled={d.id == null}
@@ -668,7 +668,7 @@ export function SecurityView() {
                                   no id, where the title says why. */}
                                 {canWrite ? (
                                   <Button
-                                    variant="ghost"
+                                    variant="ghost-destructive"
                                     size="icon-sm"
                                     aria-label={`Lift decision on ${d.value}`}
                                     disabled={d.id == null}
