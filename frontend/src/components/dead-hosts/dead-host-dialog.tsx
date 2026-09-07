@@ -155,7 +155,7 @@ export function DeadHostDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent size="lg">
         <DialogHeader>
           <DialogTitle>{isEdit ? "Edit 404 host" : "New 404 host"}</DialogTitle>
           <DialogDescription>

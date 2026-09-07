@@ -54,7 +54,7 @@ export function VerifyCredentialDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
+      <DialogContent size="sm">
         <DialogHeader>
           <DialogTitle>Verify DNS credentials</DialogTitle>
           <DialogDescription>

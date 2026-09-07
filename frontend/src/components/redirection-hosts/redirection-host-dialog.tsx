@@ -211,7 +211,7 @@ export function RedirectionHostDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent size="lg">
         <DialogHeader>
           <DialogTitle>
             {isEdit ? "Edit redirection host" : "New redirection host"}

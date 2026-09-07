@@ -49,7 +49,7 @@ export function UnbanDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
+      <DialogContent size="sm">
         <DialogHeader>
           <DialogTitle>Lift this decision?</DialogTitle>
           <DialogDescription>

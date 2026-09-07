@@ -32,12 +32,32 @@ function DialogOverlay({ className, ...props }: DialogPrimitive.Backdrop.Props) 
   )
 }
 
+/**
+ * How wide a dialog may grow. Every tier but `sm` widens at the xl breakpoint
+ * (1280px), where a monitor has room to spare: below it nothing changes, so
+ * laptops and phones look as they did.
+ *
+ *   sm  confirmations — Yes/No needs no room, and wide reads as important
+ *   md  small forms: a stream, a user, an invitation
+ *   lg  the editing forms with tabs, and the details dialogs
+ *   xl  dialogs built around a table: upstream backends, the page preview
+ */
+const DIALOG_SIZES = {
+  sm: "max-w-md",
+  md: "max-w-lg xl:max-w-2xl",
+  lg: "max-w-2xl xl:max-w-4xl",
+  xl: "max-w-3xl xl:max-w-5xl",
+} as const
+
+type DialogSize = keyof typeof DIALOG_SIZES
+
 function DialogContent({
   className,
   children,
   showCloseButton = true,
+  size = "md",
   ...props
-}: DialogPrimitive.Popup.Props & { showCloseButton?: boolean }) {
+}: DialogPrimitive.Popup.Props & { showCloseButton?: boolean; size?: DialogSize }) {
   return (
     <DialogPrimitive.Portal>
       <DialogOverlay />
@@ -51,7 +71,8 @@ function DialogContent({
           //     the viewport with no way to scroll to it;
           //   w-[calc(100%-2rem)] — `w-full` alone runs the dialog edge to
           //     edge on a phone, with the border touching both screen sides.
-          "fixed top-1/2 left-1/2 z-50 grid max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 gap-4 overflow-y-auto rounded-xl border bg-popover p-5 text-sm text-popover-foreground shadow-lg transition duration-200 outline-none data-ending-style:scale-95 data-ending-style:opacity-0 data-starting-style:scale-95 data-starting-style:opacity-0",
+          "fixed top-1/2 left-1/2 z-50 grid max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-4 overflow-y-auto rounded-xl border bg-popover p-5 text-sm text-popover-foreground shadow-lg transition duration-200 outline-none data-ending-style:scale-95 data-ending-style:opacity-0 data-starting-style:scale-95 data-starting-style:opacity-0",
+          DIALOG_SIZES[size],
           className,
         )}
         {...props}

@@ -96,7 +96,7 @@ export function BanDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
+      <DialogContent size="md">
         <DialogHeader>
           <DialogTitle>Manual decision</DialogTitle>
           <DialogDescription>

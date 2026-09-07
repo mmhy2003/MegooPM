@@ -55,7 +55,7 @@ export function PagePreviewDialog({
 
   return (
     <Dialog open onOpenChange={onOpenChange}>
-      <DialogContent className="flex max-w-4xl flex-col">
+      <DialogContent size="xl" className="flex flex-col">
         <DialogHeader>
           <DialogTitle>{page.name}</DialogTitle>
           <DialogDescription>

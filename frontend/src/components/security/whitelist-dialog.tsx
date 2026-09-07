@@ -221,7 +221,7 @@ export function WhitelistDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       {/* Wider than the default: the rendered-YAML preview needs the room.
           Height and scrolling come from DialogContent itself. */}
-      <DialogContent className="max-w-2xl">
+      <DialogContent size="lg">
         <DialogHeader>
           <DialogTitle>{whitelist ? "Edit whitelist" : "Add whitelist"}</DialogTitle>
         </DialogHeader>

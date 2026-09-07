@@ -56,7 +56,7 @@ export function ResetPasswordDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
+      <DialogContent size="sm">
         <DialogHeader>
           <DialogTitle>Reset password</DialogTitle>
           <DialogDescription>

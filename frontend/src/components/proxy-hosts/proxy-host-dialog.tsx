@@ -194,7 +194,7 @@ export function ProxyHostDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent size="lg">
         <DialogHeader>
           <DialogTitle>{isEdit ? "Edit proxy host" : "New proxy host"}</DialogTitle>
           <DialogDescription>

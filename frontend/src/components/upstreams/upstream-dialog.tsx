@@ -267,7 +267,7 @@ export function UpstreamDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl">
+      <DialogContent size="xl">
         <DialogHeader>
           <DialogTitle>{isEdit ? "Edit upstream pool" : "New upstream pool"}</DialogTitle>
           <DialogDescription>

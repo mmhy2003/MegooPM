@@ -94,7 +94,7 @@ export function UserDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
+      <DialogContent size="md">
         <DialogHeader>
           <DialogTitle>{isEdit ? "Edit user" : "New user"}</DialogTitle>
           <DialogDescription>

@@ -61,7 +61,7 @@ export function InviteDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
+      <DialogContent size="md">
         <DialogHeader>
           <DialogTitle>Invite user</DialogTitle>
           <DialogDescription>

@@ -44,7 +44,7 @@ export function AuditDetailsDialog({
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-2xl">
+      <DialogContent size="lg">
         <DialogHeader>
           <DialogTitle>Audit entry</DialogTitle>
           <DialogDescription>

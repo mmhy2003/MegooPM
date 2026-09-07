@@ -81,7 +81,7 @@ function DetailsShell({
   // same way it renders its unban confirmation.
   return (
     <Dialog open onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[85vh] max-w-2xl overflow-y-auto">
+      <DialogContent size="lg" className="max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
           <DialogDescription>{subtitle}</DialogDescription>
