@@ -35,13 +35,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsList, TabsPanel, TabsTab } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
@@ -227,26 +221,17 @@ export function ProxyHostDialog({
 
           <div className="space-y-1.5">
             <Label htmlFor="host-access-list">Access list</Label>
-            <Select
+            <SearchableSelect
+              id="host-access-list"
               value={form.accessListId}
-              onValueChange={(value) => patch({ accessListId: value as string })}
+              onValueChange={(value) => patch({ accessListId: value })}
               items={{
                 [NO_ACCESS_LIST]: "None (public)",
                 ...Object.fromEntries(lists.map((l) => [String(l.id), l.name])),
               }}
-            >
-              <SelectTrigger id="host-access-list" disabled={saving}>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={NO_ACCESS_LIST}>None (public)</SelectItem>
-                {lists.map((list) => (
-                  <SelectItem key={list.id} value={String(list.id)}>
-                    {list.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              disabled={saving}
+              searchLabel="Search access lists"
+            />
           </div>
 
           <label className="flex items-start gap-2 self-end pb-2">
@@ -297,30 +282,20 @@ export function ProxyHostDialog({
           <TabsPanel value="certificate" className="space-y-4 pt-2">
             <div className="space-y-1.5">
               <Label htmlFor="host-certificate">Certificate</Label>
-              <Select
+              <SearchableSelect
+                id="host-certificate"
                 value={form.certificateId}
-                onValueChange={(value) => patch({ certificateId: value as string })}
+                onValueChange={(value) => patch({ certificateId: value })}
                 items={{
                   [NO_CERTIFICATE]: "None (HTTP only)",
                   ...Object.fromEntries(certs.map((c) => [String(c.id), certLabel(c)])),
                 }}
-              >
-                <SelectTrigger id="host-certificate" disabled={saving}>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={NO_CERTIFICATE}>None (HTTP only)</SelectItem>
-                  {certs.map((cert) => (
-                    <SelectItem
-                      key={cert.id}
-                      value={String(cert.id)}
-                      disabled={cert.status !== "active"}
-                    >
-                      {certLabel(cert)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                // Listed but not selectable: a pending or failed certificate
+                // exists, and hiding it would say it does not.
+                disabledValues={certs.filter((c) => c.status !== "active").map((c) => String(c.id))}
+                disabled={saving}
+                searchLabel="Search certificates"
+              />
               <p className="text-xs text-muted-foreground">
                 Without a certificate the host serves plain HTTP on :80 and the options below have
                 no effect.

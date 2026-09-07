@@ -23,13 +23,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Tabs, TabsList, TabsPanel, TabsTab } from "@/components/ui/tabs";
 
 type DialogTab = "details" | "ssl";
@@ -208,20 +202,20 @@ export function StreamDialog({
               </div>
 
               {form.targetMode === "host" ? (
-              <div className="space-y-1.5">
-                <Label htmlFor="stream-forward-port">Forward port</Label>
-                <Input
-                  id="stream-forward-port"
-                  type="number"
-                  inputMode="numeric"
-                  min={1}
-                  max={65535}
-                  value={form.forwardPort}
-                  onChange={(e) => setForm((p) => ({ ...p, forwardPort: e.target.value }))}
-                  placeholder="e.g. 5432"
-                  disabled={saving}
-                />
-              </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="stream-forward-port">Forward port</Label>
+                  <Input
+                    id="stream-forward-port"
+                    type="number"
+                    inputMode="numeric"
+                    min={1}
+                    max={65535}
+                    value={form.forwardPort}
+                    onChange={(e) => setForm((p) => ({ ...p, forwardPort: e.target.value }))}
+                    placeholder="e.g. 5432"
+                    disabled={saving}
+                  />
+                </div>
               ) : null}
 
               <div className="space-y-1.5 sm:col-span-2">
@@ -259,22 +253,15 @@ export function StreamDialog({
               ) : (
                 <div className="space-y-1.5 sm:col-span-2">
                   <Label htmlFor="stream-upstream">Upstream pool</Label>
-                  <Select
+                  <SearchableSelect
+                    id="stream-upstream"
                     value={form.upstreamId}
-                    onValueChange={(v) => setForm((p) => ({ ...p, upstreamId: v as string }))}
+                    onValueChange={(v) => setForm((p) => ({ ...p, upstreamId: v }))}
                     items={Object.fromEntries(streamPools.map((p) => [String(p.id), poolLabel(p)]))}
-                  >
-                    <SelectTrigger id="stream-upstream" disabled={saving}>
-                      <SelectValue placeholder="Choose a pool" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {streamPools.map((pool) => (
-                        <SelectItem key={pool.id} value={String(pool.id)}>
-                          {poolLabel(pool)}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                    placeholder="Choose a pool"
+                    disabled={saving}
+                    searchLabel="Search pools"
+                  />
                   <p className="text-xs text-muted-foreground">
                     Only pools whose context allows streams are listed.
                   </p>

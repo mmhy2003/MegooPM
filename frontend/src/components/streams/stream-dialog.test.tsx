@@ -208,4 +208,15 @@ describe("StreamDialog target mode", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent(/pool/i);
     expect(streams.update).not.toHaveBeenCalled();
   });
+
+  it("lets a pool be found by typing", async () => {
+    // A long pool list with no search is the complaint this answers.
+    const user = userEvent.setup();
+    renderDialog();
+    await user.click(screen.getByRole("radio", { name: "Pool" }));
+
+    await user.click(await screen.findByRole("combobox", { name: "Upstream pool" }));
+
+    expect(await screen.findByLabelText("Search pools")).toBeInTheDocument();
+  });
 });

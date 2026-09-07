@@ -32,13 +32,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Radio, RadioGroup } from "@/components/ui/radio-group";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Skeleton } from "@/components/ui/skeleton";
 
 /**
@@ -213,24 +207,17 @@ export function SettingsView() {
               ) : (
                 <div className="space-y-1.5">
                   <Label htmlFor="ds-page">Page to serve</Label>
-                  <Select
+                  <SearchableSelect
+                    id="ds-page"
                     value={form.pageId === null ? "" : String(form.pageId)}
                     onValueChange={(value) =>
                       setForm((current) => ({ ...current, pageId: Number(value) }))
                     }
                     items={Object.fromEntries(pages.map((page) => [String(page.id), page.name]))}
-                  >
-                    <SelectTrigger id="ds-page" disabled={saving}>
-                      <SelectValue placeholder="Choose a page" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {pages.map((page) => (
-                        <SelectItem key={page.id} value={String(page.id)}>
-                          {page.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                    placeholder="Choose a page"
+                    disabled={saving}
+                    searchLabel="Search pages"
+                  />
                 </div>
               )
             ) : null}

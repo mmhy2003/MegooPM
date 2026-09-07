@@ -201,6 +201,45 @@ describe("ProxyHostDialog", () => {
   });
 });
 
+describe("ProxyHostDialog searchable pickers", () => {
+  beforeEach(() => {
+    vi.spyOn(proxyHosts, "update").mockResolvedValue(makeHost());
+  });
+  afterEach(() => {
+    cleanup();
+    vi.restoreAllMocks();
+  });
+
+  it("lets a pool be found by typing", async () => {
+    // The complaint this change answers: a long pool list with no search.
+    const user = userEvent.setup();
+    renderDialog();
+
+    await user.click(await screen.findByRole("combobox", { name: "Upstream pool" }));
+
+    expect(await screen.findByLabelText("Search pools")).toBeInTheDocument();
+  });
+
+  it("lets an access list be found by typing", async () => {
+    const user = userEvent.setup();
+    renderDialog();
+
+    await user.click(await screen.findByRole("combobox", { name: "Access list" }));
+
+    expect(await screen.findByLabelText("Search access lists")).toBeInTheDocument();
+  });
+
+  it("lets a certificate be found by typing", async () => {
+    const user = userEvent.setup();
+    renderDialog();
+    await user.click(screen.getByRole("tab", { name: "Certificate" }));
+
+    await user.click(await screen.findByRole("combobox", { name: "Certificate" }));
+
+    expect(await screen.findByLabelText("Search certificates")).toBeInTheDocument();
+  });
+});
+
 describe("ProxyHostDialog forward target", () => {
   beforeEach(() => {
     vi.spyOn(proxyHosts, "update").mockResolvedValue(makeHost());

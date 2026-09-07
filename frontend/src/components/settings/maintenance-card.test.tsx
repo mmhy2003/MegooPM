@@ -146,4 +146,16 @@ describe("MaintenanceCard", () => {
 
     expect(screen.getByLabelText(/retry after/i)).toHaveValue(45);
   });
+
+  it("lets the page be found by typing, not only by scrolling", async () => {
+    // The picker is the searchable variant: with fifty custom pages, scrolling
+    // a dropdown is how a wrong page gets chosen.
+    const user = userEvent.setup();
+    renderCard();
+
+    await user.click(screen.getByRole("radio", { name: new RegExp("^Custom page") }));
+    await user.click(await screen.findByRole("combobox", { name: "Page to serve" }));
+
+    expect(await screen.findByLabelText("Search pages")).toBeInTheDocument();
+  });
 });

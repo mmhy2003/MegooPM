@@ -20,6 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import {
   Table,
   TableBody,
@@ -233,18 +234,15 @@ function PageSelect({
 }) {
   const items = Object.fromEntries(pages.map((p) => [String(p.id), p.name]));
   return (
-    <Select value={value} onValueChange={(v) => onChange(v as string)} items={items}>
-      <SelectTrigger aria-label={label} disabled={disabled || pages.length === 0}>
-        <SelectValue placeholder={pages.length === 0 ? "No pages yet" : "Choose a page"} />
-      </SelectTrigger>
-      <SelectContent>
-        {pages.map((page) => (
-          <SelectItem key={page.id} value={String(page.id)}>
-            {page.name}
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
+    <SearchableSelect
+      aria-label={label}
+      value={value}
+      onValueChange={onChange}
+      items={items}
+      placeholder={pages.length === 0 ? "No pages yet" : "Choose a page"}
+      disabled={disabled || pages.length === 0}
+      searchLabel={`Search pages for ${label.toLowerCase()}`}
+    />
   );
 }
 
@@ -260,21 +258,19 @@ function PoolSelect({
   disabled: boolean;
 }) {
   const noPools = pools.length === 0;
-  // Without `items` the trigger renders the raw value — the pool's id.
+  // value -> label, so the trigger shows the pool's name and a typed fragment
+  // matches it — the picker this whole change was asked for.
   const items = Object.fromEntries(pools.map((p) => [String(p.id), poolLabel(p)]));
   return (
-    <Select value={value} onValueChange={(v) => onChange(v as string)} items={items}>
-      <SelectTrigger aria-label="Upstream pool" disabled={disabled || noPools}>
-        <SelectValue placeholder={noPools ? "No pools — create one first" : "Select a pool"} />
-      </SelectTrigger>
-      <SelectContent>
-        {pools.map((pool) => (
-          <SelectItem key={pool.id} value={String(pool.id)}>
-            {poolLabel(pool)}
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
+    <SearchableSelect
+      aria-label="Upstream pool"
+      value={value}
+      onValueChange={onChange}
+      items={items}
+      placeholder={noPools ? "No pools — create one first" : "Select a pool"}
+      disabled={disabled || noPools}
+      searchLabel="Search pools"
+    />
   );
 }
 

@@ -45,6 +45,18 @@ describe("ErrorPagesCard", () => {
     expect(within(row).getByRole("combobox", { name: /page for 404/i })).toBeInTheDocument();
   });
 
+  it("lets the page be found by typing, one search per row", async () => {
+    const user = userEvent.setup();
+    render(<ErrorPagesCard pages={PAGES} />);
+    const row = (await screen.findByText("404")).closest("tr")!;
+    await user.click(within(row).getByRole("combobox", { name: /answer for 404/i }));
+    await user.click(await screen.findByRole("option", { name: "Custom page" }));
+
+    await user.click(within(row).getByRole("combobox", { name: /page for 404/i }));
+
+    expect(await screen.findByLabelText("Search pages for 404")).toBeInTheDocument();
+  });
+
   it("keeps Save disabled until something changes", async () => {
     const user = userEvent.setup();
     render(<ErrorPagesCard pages={PAGES} />);

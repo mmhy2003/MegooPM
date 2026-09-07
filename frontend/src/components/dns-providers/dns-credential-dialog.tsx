@@ -17,13 +17,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 
 export function DnsCredentialDialog({
   open,
@@ -107,22 +101,14 @@ export function DnsCredentialDialog({
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="dns-provider">Provider</Label>
-            <Select
+            <SearchableSelect
+              id="dns-provider"
               value={providerId}
-              onValueChange={(v) => changeProvider(v as string)}
+              onValueChange={(v) => changeProvider(v)}
               items={Object.fromEntries(catalog.map((p) => [p.id, p.label]))}
-            >
-              <SelectTrigger id="dns-provider" disabled={saving || isEdit}>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {catalog.map((p) => (
-                  <SelectItem key={p.id} value={p.id}>
-                    {p.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              disabled={saving || isEdit}
+              searchLabel="Search providers"
+            />
             {provider?.description ? (
               <p className="text-xs text-muted-foreground">{provider.description}</p>
             ) : null}

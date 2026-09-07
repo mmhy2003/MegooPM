@@ -13,13 +13,7 @@ import { describeError } from "@/components/settings/lib";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Radio, RadioGroup } from "@/components/ui/radio-group";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 
 const MODES: CrowdSecBanMode[] = ["megoopm", "custom_page", "none"];
 
@@ -117,22 +111,15 @@ export function BanPageCard({
       {mode === "custom_page" ? (
         <div className="space-y-1.5">
           <Label htmlFor="ban-page">Page to serve</Label>
-          <Select
+          <SearchableSelect
+            id="ban-page"
             value={pageId === null ? "" : String(pageId)}
             onValueChange={(value) => setPageId(Number(value))}
             items={Object.fromEntries(pages.map((page) => [String(page.id), page.name]))}
-          >
-            <SelectTrigger id="ban-page" disabled={saving}>
-              <SelectValue placeholder="Choose a page" />
-            </SelectTrigger>
-            <SelectContent>
-              {pages.map((page) => (
-                <SelectItem key={page.id} value={String(page.id)}>
-                  {page.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+            placeholder="Choose a page"
+            disabled={saving}
+            searchLabel="Search pages"
+          />
           <p className="text-muted-foreground text-xs">
             Editing the page itself takes effect on the next configuration change.
           </p>

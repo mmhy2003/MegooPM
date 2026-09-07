@@ -111,6 +111,18 @@ describe("SettingsView", () => {
     expect(await screen.findByLabelText("Page to serve")).toBeInTheDocument();
   });
 
+  it("lets the default-site page be found by typing", async () => {
+    const user = userEvent.setup();
+    render(<SettingsView />);
+    await screen.findByRole("radio", { name: /404 page/i });
+    const group = screen.getByRole("radiogroup", { name: "Default site" });
+    await user.click(within(group).getByRole("radio", { name: /Custom page/i }));
+
+    await user.click(await screen.findByRole("combobox", { name: "Page to serve" }));
+
+    expect(await screen.findByLabelText("Search pages")).toBeInTheDocument();
+  });
+
   it("saves a simple mode", async () => {
     const user = userEvent.setup();
     render(<SettingsView />);

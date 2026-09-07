@@ -25,6 +25,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import {
   Select,
   SelectContent,
@@ -224,27 +225,17 @@ export function CertificateDialog({
             {challenge === "dns-01" ? (
               <div className="space-y-1.5">
                 <Label htmlFor="le-dns-credential">DNS credentials</Label>
-                <Select
+                <SearchableSelect
+                  id="le-dns-credential"
                   value={dnsCredentialId}
-                  onValueChange={(v) => setDnsCredentialId((v as string) ?? "")}
+                  onValueChange={(v) => setDnsCredentialId(v)}
                   items={Object.fromEntries(
                     dnsOptions.map((c) => [String(c.id), credentialLabel(c)]),
                   )}
-                >
-                  <SelectTrigger
-                    id="le-dns-credential"
-                    disabled={saving || dnsOptions.length === 0}
-                  >
-                    <SelectValue placeholder="Choose saved credentials" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {dnsOptions.map((c) => (
-                      <SelectItem key={c.id} value={String(c.id)}>
-                        {credentialLabel(c)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  placeholder="Choose saved credentials"
+                  disabled={saving || dnsOptions.length === 0}
+                  searchLabel="Search DNS credentials"
+                />
                 <p className="text-xs text-muted-foreground">
                   {dnsOptionsError
                     ? `Couldn’t load DNS credentials: ${dnsOptionsError}`

@@ -129,4 +129,32 @@ describe("SearchableSelect", () => {
     await user.click(trigger);
     expect(screen.queryByRole("option")).not.toBeInTheDocument();
   });
+
+  it("takes an aria-label for pickers that have no visible label", () => {
+    // One per table row, where a <Label> per row would be noise.
+    render(
+      <SearchableSelect
+        aria-label="Page for 404"
+        value=""
+        items={POOLS}
+        onValueChange={() => {}}
+      />,
+    );
+
+    expect(screen.getByRole("combobox", { name: "Page for 404" })).toBeInTheDocument();
+  });
+
+  it("shows a disabled option but will not select it", async () => {
+    // A certificate that is not active must stay visible — hiding it reads as
+    // "it does not exist" — while refusing to be chosen.
+    const user = userEvent.setup();
+    const onValueChange = renderPicker({ disabledValues: ["3"] });
+
+    await user.click(screen.getByRole("combobox", { name: "Upstream pool" }));
+    const option = await screen.findByRole("option", { name: "db-pool" });
+    expect(option).toHaveAttribute("aria-disabled", "true");
+    await user.click(option);
+
+    expect(onValueChange).not.toHaveBeenCalled();
+  });
 });

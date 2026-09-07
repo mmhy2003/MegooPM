@@ -37,6 +37,8 @@ export function SearchableSelect({
   placeholder = "Choose…",
   searchLabel = "Search options",
   disabled,
+  disabledValues,
+  "aria-label": ariaLabel,
   className,
 }: {
   id?: string;
@@ -48,6 +50,10 @@ export function SearchableSelect({
   /** The filter input's accessible name; one per page is enough. */
   searchLabel?: string;
   disabled?: boolean;
+  /** Shown but not selectable — a certificate that is not active, say. */
+  disabledValues?: readonly string[];
+  /** For pickers with no visible label, e.g. one per table row. */
+  "aria-label"?: string;
   className?: string;
 }) {
   const options = useMemo<Option[]>(
@@ -69,6 +75,7 @@ export function SearchableSelect({
       <Combobox.Trigger
         id={id}
         role="combobox"
+        aria-label={ariaLabel}
         disabled={disabled}
         className={cn(
           "flex h-8 w-full items-center justify-between gap-2 rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm whitespace-nowrap transition-colors outline-none select-none hover:bg-muted/40 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-input/30 dark:hover:bg-input/50",
@@ -103,7 +110,8 @@ export function SearchableSelect({
                 <Combobox.Item
                   key={option.value}
                   value={option}
-                  className="relative flex w-full cursor-default items-center gap-2 rounded-md py-1 pr-8 pl-2 text-sm outline-hidden select-none data-highlighted:bg-accent data-highlighted:text-accent-foreground"
+                  disabled={disabledValues?.includes(option.value)}
+                  className="relative flex w-full cursor-default items-center gap-2 rounded-md py-1 pr-8 pl-2 text-sm outline-hidden select-none data-highlighted:bg-accent data-highlighted:text-accent-foreground data-disabled:pointer-events-none data-disabled:opacity-50"
                 >
                   <span className="truncate">{option.label}</span>
                   <Combobox.ItemIndicator className="absolute right-2 flex size-4 items-center justify-center">

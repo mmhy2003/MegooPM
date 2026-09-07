@@ -27,6 +27,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
@@ -202,7 +203,8 @@ export function ErrorPagesCard({ pages }: { pages: CustomPageSummary[] }) {
                   </TableCell>
                   <TableCell>
                     {row.mode === "custom_page" ? (
-                      <Select
+                      <SearchableSelect
+                        aria-label={`Page for ${row.code}`}
                         value={row.custom_page_id === null ? "" : String(row.custom_page_id)}
                         onValueChange={(value) =>
                           patch(row.code, { custom_page_id: Number(value) })
@@ -210,23 +212,10 @@ export function ErrorPagesCard({ pages }: { pages: CustomPageSummary[] }) {
                         items={Object.fromEntries(
                           pages.map((page) => [String(page.id), page.name]),
                         )}
-                      >
-                        <SelectTrigger
-                          aria-label={`Page for ${row.code}`}
-                          disabled={saving || pages.length === 0}
-                        >
-                          <SelectValue
-                            placeholder={pages.length === 0 ? "No pages yet" : "Choose a page"}
-                          />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {pages.map((page) => (
-                            <SelectItem key={page.id} value={String(page.id)}>
-                              {page.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                        placeholder={pages.length === 0 ? "No pages yet" : "Choose a page"}
+                        disabled={saving || pages.length === 0}
+                        searchLabel={`Search pages for ${row.code}`}
+                      />
                     ) : null}
                   </TableCell>
                 </TableRow>
