@@ -105,3 +105,11 @@ describe("CertificatesView on a phone", () => {
     expect(screen.getByRole("button", { name: "Delete wildcard" })).toBeInTheDocument();
   });
 });
+
+describe("CertificatesView id column", () => {
+  it("shows each certificate's database id", async () => {
+    await renderView([makeCert({ id: 42 })]);
+
+    expect(screen.getByText("42")).toBeInTheDocument();
+  });
+});

@@ -205,6 +205,10 @@ export function StreamsView() {
                 }
                 facts={[
                   {
+                    label: "ID",
+                    value: <span className="tabular-nums">{stream.id}</span>,
+                  },
+                  {
                     label: "Forward to",
                     value: (
                       <span className="tabular-nums">
@@ -259,6 +263,7 @@ export function StreamsView() {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-16">ID</TableHead>
                   <TableHead>Incoming port</TableHead>
                   <TableHead>Forward to</TableHead>
                   <TableHead>Protocols</TableHead>
@@ -269,10 +274,10 @@ export function StreamsView() {
               </TableHeader>
               <TableBody>
                 {loading ? (
-                  <LoadingRows cols={6} />
+                  <LoadingRows cols={7} />
                 ) : visible.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="py-10 text-center text-muted-foreground">
+                    <TableCell colSpan={7} className="py-10 text-center text-muted-foreground">
                       {query.trim() ? (
                         <>
                           No streams match “{query.trim()}”.{" "}
@@ -293,6 +298,9 @@ export function StreamsView() {
                 ) : (
                   visible.map((stream) => (
                     <TableRow key={stream.id}>
+                      <TableCell className="text-muted-foreground tabular-nums">
+                        {stream.id}
+                      </TableCell>
                       <TableCell className="font-medium tabular-nums">
                         {stream.incoming_port}
                       </TableCell>

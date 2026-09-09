@@ -224,6 +224,15 @@ describe("ProxyHostsView maintenance", () => {
     expect(toast.error).toHaveBeenCalled();
   });
 
+  it("carries the id onto the phone card too", async () => {
+    // The card has no columns, so the id joins the facts rather than becoming
+    // the title: the domain is still what you scan for.
+    mountWith(makeHost({ id: 42 }));
+
+    expect(await screen.findByText("ID")).toBeInTheDocument();
+    expect(screen.getByText("42")).toBeInTheDocument();
+  });
+
   it("badges a host that is under maintenance", async () => {
     // The switch says which host; the badge is what makes a host left in
     // maintenance stand out while scanning a long list.
@@ -296,5 +305,25 @@ describe("ProxyHostsView on a phone", () => {
     expect(screen.getByLabelText("Enable app.example.com")).toBeInTheDocument();
     expect(screen.getByLabelText("Maintenance for app.example.com")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Edit app.example.com" })).toBeInTheDocument();
+  });
+});
+
+describe("ProxyHostsView id column", () => {
+  afterEach(() => {
+    cleanup();
+    vi.restoreAllMocks();
+  });
+
+  it("shows each host's database id", async () => {
+    // The id is what matches a row to a log line, an audit entry or an API
+    // response; without it an operator is guessing from the domain.
+    vi.spyOn(proxyHosts, "list").mockResolvedValue([makeHost({ id: 42 })]);
+    vi.spyOn(upstreams, "list").mockResolvedValue([]);
+    vi.spyOn(accessLists, "list").mockResolvedValue([]);
+    vi.spyOn(certificates, "list").mockResolvedValue([]);
+    vi.spyOn(customPages, "list").mockResolvedValue([]);
+    render(<ProxyHostsView />);
+
+    expect(await screen.findByText("42")).toBeInTheDocument();
   });
 });

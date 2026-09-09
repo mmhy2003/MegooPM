@@ -139,3 +139,11 @@ describe("RedirectionHostsView on a phone", () => {
     expect(screen.getByRole("button", { name: "Edit old.example.com" })).toBeInTheDocument();
   });
 });
+
+describe("RedirectionHostsView id column", () => {
+  it("shows each host's database id", async () => {
+    await renderView([makeHost({ id: 42 })]);
+
+    expect(screen.getByText("42")).toBeInTheDocument();
+  });
+});

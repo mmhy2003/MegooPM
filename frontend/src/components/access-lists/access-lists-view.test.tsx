@@ -76,3 +76,12 @@ describe("AccessListsView on a phone", () => {
     expect(screen.getByRole("button", { name: "Edit office" })).toBeInTheDocument();
   });
 });
+
+describe("AccessListsView id column", () => {
+  it("shows each list's database id", async () => {
+    vi.spyOn(accessLists, "list").mockResolvedValue([makeList({ id: 42 })]);
+    render(<AccessListsView />);
+
+    expect(await screen.findByText("42")).toBeInTheDocument();
+  });
+});

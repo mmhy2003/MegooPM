@@ -184,3 +184,19 @@ describe("CustomPagesView on a phone", () => {
     expect(screen.getByRole("button", { name: "Edit Access denied" })).toBeInTheDocument();
   });
 });
+
+describe("CustomPagesView id column", () => {
+  beforeEach(() => {
+    vi.spyOn(customPages, "list").mockResolvedValue([makeSummary({ id: 42 })]);
+  });
+  afterEach(() => {
+    cleanup();
+    vi.restoreAllMocks();
+  });
+
+  it("shows each page's database id", async () => {
+    render(<CustomPagesView />);
+
+    expect(await screen.findByText("42")).toBeInTheDocument();
+  });
+});

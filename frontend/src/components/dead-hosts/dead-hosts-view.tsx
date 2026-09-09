@@ -188,6 +188,10 @@ export function DeadHostsView() {
                 }
                 facts={[
                   {
+                    label: "ID",
+                    value: <span className="tabular-nums">{host.id}</span>,
+                  },
+                  {
                     label: "TLS",
                     value:
                       host.certificate_id != null ? (
@@ -228,6 +232,7 @@ export function DeadHostsView() {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-16">ID</TableHead>
                   <TableHead>Domains</TableHead>
                   <TableHead>TLS</TableHead>
                   <TableHead>Status</TableHead>
@@ -236,10 +241,10 @@ export function DeadHostsView() {
               </TableHeader>
               <TableBody>
                 {loading ? (
-                  <LoadingRows cols={4} />
+                  <LoadingRows cols={5} />
                 ) : visible.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={4} className="py-10 text-center text-muted-foreground">
+                    <TableCell colSpan={5} className="py-10 text-center text-muted-foreground">
                       {query.trim() ? (
                         <>
                           No 404 hosts match “{query.trim()}”.{" "}
@@ -260,6 +265,9 @@ export function DeadHostsView() {
                 ) : (
                   visible.map((host) => (
                     <TableRow key={host.id}>
+                      <TableCell className="text-muted-foreground tabular-nums">
+                        {host.id}
+                      </TableCell>
                       <TableCell className="font-medium">
                         <DomainLinks
                           domains={host.domain_names}

@@ -177,6 +177,10 @@ export function CustomPagesView() {
                 <span className="text-muted-foreground text-xs">{formatDate(page.updated_at)}</span>
               }
               facts={[
+                {
+                  label: "ID",
+                  value: <span className="tabular-nums">{page.id}</span>,
+                },
                 { label: "Description", value: page.description || null },
                 {
                   label: "Size",
@@ -213,6 +217,7 @@ export function CustomPagesView() {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-16">ID</TableHead>
                 <TableHead>Name</TableHead>
                 <TableHead>Description</TableHead>
                 <TableHead className="w-24">Size</TableHead>
@@ -222,10 +227,10 @@ export function CustomPagesView() {
             </TableHeader>
             <TableBody>
               {loading ? (
-                <LoadingRows cols={5} />
+                <LoadingRows cols={6} />
               ) : visible.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="py-10 text-center text-muted-foreground">
+                  <TableCell colSpan={6} className="py-10 text-center text-muted-foreground">
                     {query.trim() ? (
                       <>
                         No custom pages match “{query.trim()}”.{" "}
@@ -250,6 +255,7 @@ export function CustomPagesView() {
                     className="cursor-pointer"
                     onClick={() => setPreviewPage(page)}
                   >
+                    <TableCell className="text-muted-foreground tabular-nums">{page.id}</TableCell>
                     <TableCell className="font-medium">
                       {/* A button, not just a clickable row: the row's onClick is
                         invisible to the keyboard and to screen readers. */}

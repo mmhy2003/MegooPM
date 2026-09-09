@@ -204,6 +204,10 @@ export function RedirectionHostsView() {
                 }
                 facts={[
                   {
+                    label: "ID",
+                    value: <span className="tabular-nums">{host.id}</span>,
+                  },
+                  {
                     label: "Redirects to",
                     value: host.forward_domain_name.includes("*") ? (
                       <>
@@ -271,6 +275,7 @@ export function RedirectionHostsView() {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-16">ID</TableHead>
                   <TableHead>Domains</TableHead>
                   <TableHead>Redirects to</TableHead>
                   <TableHead>Code</TableHead>
@@ -281,10 +286,10 @@ export function RedirectionHostsView() {
               </TableHeader>
               <TableBody>
                 {loading ? (
-                  <LoadingRows cols={6} />
+                  <LoadingRows cols={7} />
                 ) : visible.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="py-10 text-center text-muted-foreground">
+                    <TableCell colSpan={7} className="py-10 text-center text-muted-foreground">
                       {query.trim() ? (
                         <>
                           No redirection hosts match “{query.trim()}”.{" "}
@@ -305,6 +310,9 @@ export function RedirectionHostsView() {
                 ) : (
                   visible.map((host) => (
                     <TableRow key={host.id}>
+                      <TableCell className="text-muted-foreground tabular-nums">
+                        {host.id}
+                      </TableCell>
                       <TableCell className="font-medium">
                         <DomainLinks
                           domains={host.domain_names}

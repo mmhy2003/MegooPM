@@ -137,3 +137,17 @@ describe("DeadHostsView on a phone", () => {
     expect(screen.getByRole("button", { name: "Edit parked.example.com" })).toBeInTheDocument();
   });
 });
+
+
+describe("DeadHostsView id column", () => {
+  afterEach(() => {
+    cleanup();
+    vi.restoreAllMocks();
+  });
+
+  it("shows each host's database id", async () => {
+    await renderView([makeDeadHost({ id: 42 })]);
+
+    expect(screen.getByText("42")).toBeInTheDocument();
+  });
+});

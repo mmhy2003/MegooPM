@@ -211,6 +211,10 @@ export function UpstreamsView() {
                   }
                   facts={[
                     {
+                      label: "ID",
+                      value: <span className="tabular-nums">{pool.id}</span>,
+                    },
+                    {
                       label: "LB method",
                       value: <Badge variant="secondary">{LB_METHOD_LABELS[pool.lb_method]}</Badge>,
                     },
@@ -258,6 +262,7 @@ export function UpstreamsView() {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-16">ID</TableHead>
                   <TableHead>Name</TableHead>
                   <TableHead>LB method</TableHead>
                   <TableHead>Context</TableHead>
@@ -268,10 +273,10 @@ export function UpstreamsView() {
               </TableHeader>
               <TableBody>
                 {loading ? (
-                  <LoadingRows cols={6} />
+                  <LoadingRows cols={7} />
                 ) : visible.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="py-10 text-center text-muted-foreground">
+                    <TableCell colSpan={7} className="py-10 text-center text-muted-foreground">
                       {query.trim() ? (
                         <>
                           No upstream pools match “{query.trim()}”.{" "}
@@ -297,6 +302,9 @@ export function UpstreamsView() {
                     ).length;
                     return (
                       <TableRow key={pool.id}>
+                        <TableCell className="text-muted-foreground tabular-nums">
+                          {pool.id}
+                        </TableCell>
                         <TableCell className="font-medium">
                           {pool.name}
                           {pool.description ? (

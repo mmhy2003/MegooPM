@@ -97,3 +97,14 @@ describe("StreamsView on a phone", () => {
     expect(screen.getByRole("button", { name: "Edit stream on port 5432" })).toBeInTheDocument();
   });
 });
+
+describe("StreamsView id column", () => {
+  it("shows each stream's database id, distinct from its port", async () => {
+    // A stream's identity in the table is its port; the id is a different
+    // number and the two must not be confused.
+    await renderView([makeStream({ id: 42, incoming_port: 5432 })]);
+
+    expect(screen.getByText("42")).toBeInTheDocument();
+    expect(screen.getByText("5432")).toBeInTheDocument();
+  });
+});

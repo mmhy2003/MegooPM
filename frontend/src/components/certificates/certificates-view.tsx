@@ -307,6 +307,10 @@ export function CertificatesView() {
                     meta={<StatusBadge status={cert.status} />}
                     facts={[
                       {
+                        label: "ID",
+                        value: <span className="tabular-nums">{cert.id}</span>,
+                      },
+                      {
                         label: "Domains",
                         value: cert.domain_names.length ? (
                           <span className="flex flex-wrap gap-x-2">
@@ -368,6 +372,7 @@ export function CertificatesView() {
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead className="w-16">ID</TableHead>
                     <TableHead>Name</TableHead>
                     <TableHead>Domains</TableHead>
                     <TableHead>Provider</TableHead>
@@ -379,10 +384,10 @@ export function CertificatesView() {
                 </TableHeader>
                 <TableBody>
                   {loading ? (
-                    <LoadingRows cols={7} />
+                    <LoadingRows cols={8} />
                   ) : visible.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={7} className="py-10 text-center text-muted-foreground">
+                      <TableCell colSpan={8} className="py-10 text-center text-muted-foreground">
                         {query.trim() ? (
                           <>
                             No certificates match “{query.trim()}”.{" "}
@@ -406,6 +411,9 @@ export function CertificatesView() {
                       const renewing = renewingId === cert.id;
                       return (
                         <TableRow key={cert.id}>
+                          <TableCell className="text-muted-foreground tabular-nums">
+                            {cert.id}
+                          </TableCell>
                           <TableCell className="font-medium">{cert.name}</TableCell>
                           <TableCell>
                             <div className="flex flex-wrap gap-1">

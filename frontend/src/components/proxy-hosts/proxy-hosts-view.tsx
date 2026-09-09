@@ -264,6 +264,10 @@ export function ProxyHostsView() {
                   }
                   facts={[
                     {
+                      label: "ID",
+                      value: <span className="tabular-nums">{host.id}</span>,
+                    },
+                    {
                       label: "Upstream",
                       value:
                         host.upstream_id == null ? (
@@ -337,6 +341,7 @@ export function ProxyHostsView() {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-16">ID</TableHead>
                   <TableHead>Domains</TableHead>
                   <TableHead>Upstream</TableHead>
                   <TableHead>Access list</TableHead>
@@ -348,10 +353,10 @@ export function ProxyHostsView() {
               </TableHeader>
               <TableBody>
                 {loading ? (
-                  <LoadingRows cols={7} />
+                  <LoadingRows cols={8} />
                 ) : visible.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="py-10 text-center text-muted-foreground">
+                    <TableCell colSpan={8} className="py-10 text-center text-muted-foreground">
                       {query.trim() ? (
                         <>
                           No proxy hosts match “{query.trim()}”.{" "}
@@ -377,6 +382,9 @@ export function ProxyHostsView() {
                       host.access_list_id != null ? listsById.get(host.access_list_id) : null;
                     return (
                       <TableRow key={host.id}>
+                        <TableCell className="text-muted-foreground tabular-nums">
+                          {host.id}
+                        </TableCell>
                         <TableCell className="font-medium">
                           <DomainLinks
                             domains={host.domain_names}

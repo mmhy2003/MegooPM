@@ -169,3 +169,18 @@ describe("UpstreamsView on a phone", () => {
     expect(screen.getByRole("button", { name: "Edit app-pool" })).toBeInTheDocument();
   });
 });
+
+
+describe("UpstreamsView id column", () => {
+  afterEach(() => {
+    cleanup();
+    vi.restoreAllMocks();
+  });
+
+  it("shows each pool's database id", async () => {
+    vi.spyOn(upstreams, "list").mockResolvedValue([makePool({ id: 42 })]);
+    render(<UpstreamsView />);
+
+    expect(await screen.findByText("42")).toBeInTheDocument();
+  });
+});
