@@ -204,6 +204,38 @@ describe("ProxyHostDialog", () => {
   });
 });
 
+describe("ProxyHostDialog advanced config help", () => {
+  beforeEach(() => {
+    vi.spyOn(proxyHosts, "update").mockResolvedValue(makeHost());
+  });
+  afterEach(() => {
+    cleanup();
+    vi.restoreAllMocks();
+  });
+
+  it("says where the directives land, without waiting for the field to be empty", async () => {
+    // A placeholder disappears the moment you type, which is exactly when the
+    // question "where does this go?" is being asked.
+    const user = userEvent.setup();
+    renderDialog();
+    await user.click(screen.getByRole("tab", { name: "Advanced" }));
+
+    const help = await screen.findByText(/server \{ \}/i);
+    expect(help).toBeInTheDocument();
+    await user.type(screen.getByLabelText("Advanced nginx config"), "add_header X-Test 1;");
+    expect(help).toBeInTheDocument();
+  });
+
+  it("says a bad directive is refused rather than applied", async () => {
+    // True of the apply path: it runs nginx -t and rolls back on failure.
+    const user = userEvent.setup();
+    renderDialog();
+    await user.click(screen.getByRole("tab", { name: "Advanced" }));
+
+    expect(await screen.findByText(/rejected|refused|rolled back/i)).toBeInTheDocument();
+  });
+});
+
 describe("ProxyHostDialog searchable pickers", () => {
   beforeEach(() => {
     vi.spyOn(proxyHosts, "update").mockResolvedValue(makeHost());

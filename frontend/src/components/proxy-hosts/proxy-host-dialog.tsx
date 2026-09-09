@@ -346,6 +346,18 @@ export function ProxyHostDialog({
                 className="font-mono text-xs"
                 disabled={saving}
               />
+              {/* Help text, not only a placeholder: a placeholder disappears
+                  the moment you type, which is when "where does this go?" is
+                  actually being asked. */}
+              <p className="text-muted-foreground text-xs">
+                Raw nginx directives, placed inside this host&apos;s{" "}
+                <code className="font-mono">server {"{ }"}</code> block — after the proxy locations
+                and the security rules, just before the closing brace. On a host with a certificate
+                the same directives go into both the <code className="font-mono">:80</code> and{" "}
+                <code className="font-mono">:443</code> blocks. The whole configuration is checked
+                with <code className="font-mono">nginx -t</code> before it is applied: a directive
+                nginx rejects is rolled back and nginx keeps running the previous configuration.
+              </p>
             </div>
           </TabsPanel>
         </Tabs>
