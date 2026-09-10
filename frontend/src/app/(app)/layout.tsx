@@ -1,6 +1,7 @@
 import { AppSidebar } from "@/components/app-sidebar";
 import { AppTopbar } from "@/components/app-topbar";
 import { AuthGuard } from "@/components/auth-guard";
+import { NginxStatusBanner } from "@/components/nginx-status/nginx-status-banner";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 
 /** Authenticated application shell: persistent sidebar + top bar. */
@@ -11,6 +12,9 @@ export default function AppLayout({ children }: LayoutProps<"/">) {
         <AppSidebar />
         <SidebarInset>
           <AppTopbar />
+          {/* Above every page: a refused apply silently discards whatever the
+              operator saves next, wherever in the app they save it. */}
+          <NginxStatusBanner />
           <main className="flex-1 p-4 md:p-6">{children}</main>
         </SidebarInset>
       </SidebarProvider>

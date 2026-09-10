@@ -136,6 +136,8 @@ export type {
 export { deadHosts } from "@/lib/api/resources/dead-hosts";
 export type { DeadHost, DeadHostCreate, DeadHostUpdate } from "@/lib/api/resources/dead-hosts";
 
+export { nginx } from "@/lib/api/resources/nginx";
+export type { NginxApplyStatus } from "@/lib/api/resources/nginx";
 export { tasks, pollTask } from "@/lib/api/resources/tasks";
 export type { TaskStatus, PollTaskOptions } from "@/lib/api/resources/tasks";
 

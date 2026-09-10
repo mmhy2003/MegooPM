@@ -1171,6 +1171,31 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/nginx/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Nginx Apply Status
+         * @description How the most recent apply went, with nginx's own words if it failed.
+         *
+         *     The UI's failure banner reads this. A failed ``nginx -t`` is rolled back,
+         *     and the host that caused it stays in the database — so until it is fixed,
+         *     every later change rolls back too. That is worth a standing banner, and
+         *     this is the one place it is kept.
+         */
+        get: operations["nginx_apply_status_api_v1_nginx_status_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/proxy-hosts": {
         parameters: {
             query?: never;
@@ -3844,6 +3869,24 @@ export interface components {
         NeutralResponse: {
             /** Detail */
             detail: string;
+        };
+        /**
+         * NginxApplyStatus
+         * @description How the most recent apply went.
+         *
+         *     ``ok`` is None until an apply has been recorded — a fresh install, or one
+         *     upgraded before its first apply. The UI shows nothing for that rather than
+         *     claiming a failure it has no evidence of.
+         */
+        NginxApplyStatus: {
+            /** At */
+            at?: string | null;
+            /** Message */
+            message?: string | null;
+            /** Ok */
+            ok?: boolean | null;
+            /** Output */
+            output?: string | null;
         };
         /**
          * NginxConfigFile
@@ -7370,6 +7413,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TaskEnqueued"];
+                };
+            };
+        };
+    };
+    nginx_apply_status_api_v1_nginx_status_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NginxApplyStatus"];
                 };
             };
         };
