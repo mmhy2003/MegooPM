@@ -78,6 +78,18 @@ def test_redirect_tls_emits_https_server_and_redirect() -> None:
     assert "return 301 https://$host$request_uri;" in conf
     assert "return 302 $scheme://new.example.com$request_uri;" in conf
     assert "Strict-Transport-Security" in conf
+    assert "http2" not in conf
+
+
+def test_redirect_tls_enables_http2_with_the_per_server_directive() -> None:
+    # nginx 1.25.1 deprecated the `listen ... http2` flag and warns about it on
+    # every `nginx -t`; the per-server directive replaces it.
+    out = render_config(
+        DesiredState(redirection_hosts=(_redirect(certificate=_CERT, http2_support=True),))
+    )
+    conf = out["megoopm-redirect-1.conf"]
+    assert "listen 443 ssl;" in conf
+    assert "http2 on;" in conf
 
 
 # --- Dead (404) hosts ------------------------------------------------------
@@ -101,7 +113,8 @@ def test_dead_host_returns_404_on_plain_80() -> None:
 def test_dead_host_tls_returns_404_over_https() -> None:
     out = render_config(DesiredState(dead_hosts=(_dead(certificate=_CERT, http2_support=True),)))
     conf = out["megoopm-dead-2.conf"]
-    assert "listen 443 ssl http2;" in conf
+    assert "listen 443 ssl;" in conf
+    assert "http2 on;" in conf
     assert "ssl_certificate /etc/nginx/certs/7/fullchain.pem;" in conf
     assert "return 404;" in conf
 

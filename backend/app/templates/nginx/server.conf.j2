@@ -188,7 +188,10 @@ server {
     # Branded error pages for the statuses nginx itself produces. A status
     # the backend returns is untouched: there is no proxy_intercept_errors.
     include {{ default_dir }}/{{ errors_conf }};
-    listen 443 ssl{% if host.http2_support %} http2{% endif %};
+    listen 443 ssl;
+{%- if host.http2_support %}
+    http2 on;
+{%- endif %}
     server_name {{ server_names }};
 
     # Renewal rewrites the files below in place, so without this line the

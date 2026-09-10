@@ -104,7 +104,10 @@ def test_tls_host_emits_https_server_and_redirect() -> None:
     )
     out = render_config(DesiredState(proxy_hosts=(host,), http_upstreams=(_pool(),)))
     server = out["megoopm-proxy-1.conf"]
-    assert "listen 443 ssl http2;" in server
+    assert "listen 443 ssl;" in server
+    # The per-server directive, not the `listen` flag nginx 1.25.1 deprecated
+    # (and warns about on every `nginx -t`).
+    assert "http2 on;" in server
     assert "ssl_certificate /etc/nginx/certs/7/fullchain.pem;" in server
     assert "ssl_certificate_key /etc/nginx/certs/7/privkey.pem;" in server
     # ssl_forced makes the :80 server redirect to https.
