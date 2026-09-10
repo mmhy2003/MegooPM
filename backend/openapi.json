@@ -3611,6 +3611,58 @@
         "title": "NeutralResponse",
         "type": "object"
       },
+      "NginxApplyStatus": {
+        "description": "How the most recent apply went.\n\n``ok`` is None until an apply has been recorded — a fresh install, or one\nupgraded before its first apply. The UI shows nothing for that rather than\nclaiming a failure it has no evidence of.",
+        "properties": {
+          "at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "At"
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message"
+          },
+          "ok": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ok"
+          },
+          "output": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Output"
+          }
+        },
+        "title": "NginxApplyStatus",
+        "type": "object"
+      },
       "NginxConfigFile": {
         "description": "One rendered managed ``.conf`` file.",
         "properties": {
@@ -9607,6 +9659,33 @@
           }
         ],
         "summary": "Reload Nginx",
+        "tags": [
+          "nginx"
+        ]
+      }
+    },
+    "/api/v1/nginx/status": {
+      "get": {
+        "description": "How the most recent apply went, with nginx's own words if it failed.\n\nThe UI's failure banner reads this. A failed ``nginx -t`` is rolled back,\nand the host that caused it stays in the database — so until it is fixed,\nevery later change rolls back too. That is worth a standing banner, and\nthis is the one place it is kept.",
+        "operationId": "nginx_apply_status_api_v1_nginx_status_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NginxApplyStatus"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Nginx Apply Status",
         "tags": [
           "nginx"
         ]

@@ -23,6 +23,7 @@ from app.main import app
 from app.models.api_key import ApiKey
 from app.models.audit_log import AuditLog
 from app.models.auth_token import AuthToken
+from app.models.cluster_state import ClusterState
 from app.models.crowdsec import CrowdSecCredential
 from app.models.crowdsec_job_run import CrowdSecJobRun
 from app.models.custom_page import CustomPage
@@ -109,6 +110,7 @@ async def session_factory() -> AsyncIterator[async_sessionmaker]:
                 ErrorPage.__table__,
                 Passkey.__table__,
                 ApiKey.__table__,
+                ClusterState.__table__,
                 CrowdSecJobRun.__table__,
             ],
         )

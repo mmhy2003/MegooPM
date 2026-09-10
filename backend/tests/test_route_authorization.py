@@ -120,6 +120,7 @@ ROUTE_ROLES: dict[tuple[str, str], str] = {
     ("GET", "/api/v1/events"): "admin",
     ("GET", "/api/v1/nginx/preview"): "admin",
     ("POST", "/api/v1/nginx/reload"): "admin",
+    ("GET", "/api/v1/nginx/status"): "admin",
     ("GET", "/api/v1/proxy-hosts"): "admin",
     ("POST", "/api/v1/proxy-hosts"): "admin",
     ("DELETE", "/api/v1/proxy-hosts/{host_id}"): "admin",

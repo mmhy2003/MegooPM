@@ -13,7 +13,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from sqlalchemy import BigInteger, DateTime, Integer, String, func
+from sqlalchemy import BigInteger, Boolean, DateTime, Integer, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
@@ -41,6 +41,17 @@ class ClusterState(Base):
         onupdate=func.now(),
         nullable=False,
     )
+
+    # The outcome of the most recent apply, whatever it was. A failed
+    # `nginx -t` rolls back every file, and the host that caused it stays in
+    # the database — so every later apply fails too, until someone fixes it.
+    # That is a standing condition, not an event, and this is where the UI
+    # reads it from. NULL until the first apply after migration 0037.
+    last_apply_ok: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    last_apply_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_apply_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    #: nginx's own words when it failed; empty on success.
+    last_apply_output: Mapped[str | None] = mapped_column(Text, nullable=True)
 
 
 class ClusterNode(Base):

@@ -22,10 +22,14 @@ All the transactional safety (locking, validation, rollback) lives in
 
 from __future__ import annotations
 
+import asyncio
+import logging
 from contextlib import nullcontext
+from datetime import UTC, datetime
 
 from app.core.celery_app import celery_app, node_queue
 from app.core.config import settings
+from app.schemas.events import Event
 from app.services.cluster import (
     apply_lock,
     bump_config_version,
@@ -36,11 +40,72 @@ from app.services.cluster import (
     sync_engine,
     write_local_version,
 )
+from app.services.events import publish
 from app.services.nginx import (
     apply_config,
     build_controller,
     load_desired_state_sync,
 )
+from app.services.nginx.apply_status import ApplyOutcome, outcome_of, record_apply_outcome
+from app.services.nginx.engine import ApplyResult
+
+log = logging.getLogger(__name__)
+
+
+def _record_outcome(outcome: ApplyOutcome) -> None:
+    """Keep the outcome where the admin UI can read it. Never raises.
+
+    Advisory, like the node registry: it describes what nginx did and changes
+    none of it, so a write failure must not turn a finished apply into a failed
+    task. It is logged, because a stale "healthy" is the one lie this row can
+    tell.
+    """
+    engine = sync_engine()
+    try:
+        with engine.begin() as conn:
+            record_apply_outcome(conn, outcome)
+    except Exception as exc:  # noqa: BLE001 - advisory data only
+        log.warning("could not record the nginx apply outcome: %s", exc)
+    finally:
+        engine.dispose()
+
+
+def _announce(event_type: str) -> None:
+    """Tell connected browsers an apply finished, so the banner updates at once.
+
+    Never raises: an announcement is not worth failing the apply it describes.
+    In a worker this task is synchronous and the loader's own event loop has
+    finished before this runs, so ``asyncio.run`` nests nothing. A running loop
+    here means the task was called inline from async code — Celery's eager
+    mode — where starting another is refused; the banner still catches up on
+    its next fetch, so the announcement is simply skipped.
+    """
+    try:
+        asyncio.get_running_loop()
+    except RuntimeError:
+        pass  # no loop running: the normal worker case
+    else:
+        log.debug("skipping %s announcement: called inside a running event loop", event_type)
+        return
+    try:
+        asyncio.run(publish(Event(type=event_type, at=datetime.now(UTC))))
+    except Exception as exc:  # noqa: BLE001 - announcing must not break the apply
+        log.warning("could not announce %s: %s", event_type, exc)
+
+
+def _finish(result: ApplyResult) -> None:
+    """Record, log and announce how an apply went.
+
+    The log line is its own, deliberately: the task's return value also carries
+    the output, but Celery logs a result truncated to ~1024 characters, and the
+    managed-file list comes first — so on any real instance the reason was cut
+    off exactly where it began.
+    """
+    outcome = outcome_of(result)
+    if not outcome.ok:
+        log.warning("nginx apply rolled back: %s\n%s", outcome.message, outcome.output)
+    _record_outcome(outcome)
+    _announce("config.applied" if outcome.ok else "config.failed")
 
 
 def _apply_single_host() -> dict:
@@ -54,6 +119,7 @@ def _apply_single_host() -> dict:
         stream_dir=settings.nginx_stream_dir,
         default_dir=settings.nginx_default_dir,
     )
+    _finish(result)
     return result.as_dict()
 
 
@@ -88,6 +154,7 @@ def _apply_ha() -> dict:
     # This node already reloaded (or was already current) inside apply_config.
     write_local_version(settings.nginx_reload_marker_path, version)
     _record_state(version)
+    _finish(result)
     payload = result.as_dict()
     payload["config_version"] = version
     if result.changed:
