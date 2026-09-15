@@ -118,6 +118,20 @@ describe("SecurityCard", () => {
     expect(screen.getByText("12")).toBeInTheDocument();
     expect(screen.getByText(/http-probing/)).toBeInTheDocument();
   });
+
+  it("shortens a large ban count and keeps the exact figure on hover", () => {
+    render(
+      <SecurityCard
+        security={{
+          active_decisions: 24270,
+          alerts_24h: 50,
+          top_scenarios: [],
+        }}
+      />,
+    );
+    expect(screen.getByText("24.3K")).toBeInTheDocument();
+    expect(screen.getByTitle("24,270")).toBeInTheDocument();
+  });
 });
 
 describe("ConfigHealthCard", () => {

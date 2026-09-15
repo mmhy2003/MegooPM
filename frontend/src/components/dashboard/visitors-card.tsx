@@ -1,6 +1,7 @@
 "use client";
 
 import { CountryFlag } from "@/components/ui/country-flag";
+import { Count } from "@/components/ui/count";
 import { Users } from "lucide-react";
 
 import type { VisitorSummary } from "@/lib/api";
@@ -39,11 +40,15 @@ export function VisitorsCard({ visitors }: { visitors: VisitorSummary }) {
         <div className="space-y-4">
           <div className="flex gap-6">
             <div className="space-y-0.5">
-              <p className="text-2xl font-semibold tabular-nums">{visitors.total_visitors}</p>
+              <p className="text-2xl font-semibold tabular-nums">
+                <Count value={visitors.total_visitors} />
+              </p>
               <p className="text-muted-foreground text-xs">distinct visitors</p>
             </div>
             <div className="space-y-0.5">
-              <p className="text-2xl font-semibold tabular-nums">{visitors.total_requests}</p>
+              <p className="text-2xl font-semibold tabular-nums">
+                <Count value={visitors.total_requests} />
+              </p>
               <p className="text-muted-foreground text-xs">requests</p>
             </div>
           </div>
@@ -58,9 +63,11 @@ export function VisitorsCard({ visitors }: { visitors: VisitorSummary }) {
                   {visitors.countries.slice(0, 8).map((row) => (
                     <li key={row.country} className="flex items-baseline gap-3 text-sm">
                       <CountryFlag country={row.country} />
-                      <span className="tabular-nums">{row.requests}</span>
+                      <span className="tabular-nums">
+                        <Count value={row.requests} />
+                      </span>
                       <span className="text-muted-foreground text-xs">
-                        {row.visitors} visitor{row.visitors === 1 ? "" : "s"}
+                        <Count value={row.visitors} /> visitor{row.visitors === 1 ? "" : "s"}
                       </span>
                     </li>
                   ))}
@@ -80,7 +87,9 @@ export function VisitorsCard({ visitors }: { visitors: VisitorSummary }) {
                           list is real, unlocated traffic. */}
                         {row.country ? <CountryFlag country={row.country} /> : "unknown"}
                       </span>
-                      <span className="tabular-nums">{row.requests}</span>
+                      <span className="tabular-nums">
+                        <Count value={row.requests} />
+                      </span>
                     </li>
                   ))}
                 </ul>

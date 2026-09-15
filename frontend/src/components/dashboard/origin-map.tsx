@@ -7,6 +7,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import "jsvectormap/dist/jsvectormap.min.css";
 
 import { CountryFlag } from "@/components/ui/country-flag";
+import { Count } from "@/components/ui/count";
 import { Globe } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -215,7 +216,9 @@ export function OriginMap({
               {active.map((row) => (
                 <li key={row.country} className="flex items-baseline justify-between gap-3 text-sm">
                   <CountryFlag country={row.country} />
-                  <span className="text-muted-foreground tabular-nums">{row.count}</span>
+                  <span className="text-muted-foreground tabular-nums">
+                    <Count value={row.count} />
+                  </span>
                 </li>
               ))}
             </ol>

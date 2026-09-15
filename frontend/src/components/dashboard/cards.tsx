@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
+import { Count } from "@/components/ui/count";
 
 import type {
   CertificateHealth,
@@ -50,7 +51,7 @@ function Card({
   );
 }
 
-function Figure({ value, label }: { value: string | number; label: string }) {
+function Figure({ value, label }: { value: React.ReactNode; label: string }) {
   return (
     <div className="space-y-0.5">
       <p className="text-2xl font-semibold tabular-nums">{value}</p>
@@ -133,8 +134,14 @@ export function SecurityCard({
       ) : (
         <div className="space-y-2">
           <div className="flex gap-6">
-            <Figure value={security.active_decisions} label="active bans" />
-            <Figure value={security.alerts_24h} label="recent alerts" />
+            <Figure
+              value={<Count value={security.active_decisions} />}
+              label="active bans"
+            />
+            <Figure
+              value={<Count value={security.alerts_24h} />}
+              label="recent alerts"
+            />
           </div>
           {security.top_scenarios.length > 0 ? (
             <div className="space-y-1.5">

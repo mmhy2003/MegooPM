@@ -35,6 +35,44 @@ describe("VisitorsCard", () => {
     expect(screen.getByText("400")).toBeInTheDocument();
   });
 
+  it("shortens large numbers throughout the card", () => {
+    render(
+      <VisitorsCard
+        visitors={summary({
+          total_visitors: 12433,
+          total_requests: 1266434,
+          countries: [{ country: "SA", visitors: 5165, requests: 1085832 }],
+          top_ips: [
+            {
+              ip: "5.156.20.101",
+              country: "SA",
+              requests: 169352,
+              last_seen_at: "2026-09-02T00:00:00Z",
+            },
+          ],
+        })}
+      />,
+    );
+    expect(screen.getByText("12.4K")).toBeInTheDocument();
+    expect(screen.getByTitle("1,266,434")).toBeInTheDocument();
+    expect(screen.getByText("1.1M")).toBeInTheDocument();
+    expect(screen.getByText("5.2K")).toBeInTheDocument();
+    expect(screen.getByText("169.4K")).toBeInTheDocument();
+  });
+
+  it("pluralises on the real count, not the shortened one", () => {
+    render(
+      <VisitorsCard
+        visitors={summary({
+          total_visitors: 1,
+          total_requests: 3,
+          countries: [{ country: "SA", visitors: 1, requests: 3 }],
+        })}
+      />,
+    );
+    expect(screen.getByText(/visitor$/)).toBeInTheDocument();
+  });
+
   it("lists countries by request volume", () => {
     render(
       <VisitorsCard

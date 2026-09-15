@@ -108,6 +108,18 @@ describe("OriginMap", () => {
     expect(screen.getByText("4")).toBeInTheDocument();
   });
 
+  it("shortens a large count in the list", () => {
+    render(
+      <OriginMap
+        threats={[]}
+        traffic={[{ country: "SA", visitors: 5165, requests: 1085832 }]}
+      />,
+    );
+
+    expect(screen.getByText("1.1M")).toBeInTheDocument();
+    expect(screen.getByTitle("1,085,832")).toBeInTheDocument();
+  });
+
   it("keeps the order the API supplied", () => {
     // The backend already ranks by volume; reshuffling here would make the two
     // disagree for no reason.
