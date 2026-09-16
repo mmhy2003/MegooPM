@@ -5,6 +5,7 @@ import { Activity, ShieldBan, TriangleAlert } from "lucide-react";
 
 import type { Alert, Decision } from "@/lib/api";
 import { buildTimeline, topOffenders, type TimeBucket } from "@/components/security/lib";
+import { Count } from "@/components/ui/count";
 import { CountryFlag } from "@/components/ui/country-flag";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -19,7 +20,7 @@ function StatTile({
 }: {
   icon: typeof Activity;
   label: string;
-  value: string | number;
+  value: React.ReactNode;
   tone?: "default" | "success" | "warning" | "destructive";
 }) {
   const toneClass =
@@ -88,7 +89,7 @@ function AlertsTimeline({ alerts, nowMs }: { alerts: Alert[]; nowMs: number }) {
                 {/* Always present, so every bar scales against the same height;
                     empty buckets simply show nothing in it. */}
                 <span className="h-3 text-[11px] leading-none tabular-nums text-muted-foreground">
-                  {b.count > 0 ? b.count : ""}
+                  {b.count > 0 ? <Count value={b.count} /> : ""}
                 </span>
                 <div className="flex w-full flex-1 items-end">
                   <div
@@ -146,7 +147,7 @@ function TopOffenders({ alerts }: { alerts: Alert[] }) {
                   />
                 </div>
                 <span className="w-10 shrink-0 text-right text-xs tabular-nums text-muted-foreground">
-                  {o.count}
+                  <Count value={o.count} />
                 </span>
               </li>
             ))}
@@ -183,14 +184,18 @@ export function SecurityMetrics({
   return (
     <div className="space-y-4">
       <div className="grid gap-3 sm:grid-cols-3">
-        <StatTile icon={ShieldBan} label="Active decisions" value={decisionCount} />
+        <StatTile
+          icon={ShieldBan}
+          label="Active decisions"
+          value={<Count value={decisionCount} />}
+        />
         <StatTile
           icon={Activity}
           label="Bans on this page"
-          value={bans}
+          value={<Count value={bans} />}
           tone={bans > 0 ? "destructive" : "default"}
         />
-        <StatTile icon={TriangleAlert} label="Recent alerts" value={alertCount} />
+        <StatTile icon={TriangleAlert} label="Recent alerts" value={<Count value={alertCount} />} />
       </div>
       <div className="grid gap-3 lg:grid-cols-2">
         <AlertsTimeline alerts={alerts} nowMs={nowMs} />

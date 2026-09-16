@@ -60,3 +60,40 @@ describe("AlertsTimeline bars", () => {
     }
   });
 });
+
+describe("large counts", () => {
+  it("shortens the stat tiles, keeping the exact figure on hover", () => {
+    render(
+      <SecurityMetrics
+        decisions={[]}
+        alerts={[]}
+        decisionsTotal={24270}
+        alertsTotal={1266434}
+        nowMs={NOW}
+      />,
+    );
+
+    expect(screen.getByText("24.3K")).toBeInTheDocument();
+    expect(screen.getByTitle("24,270")).toBeInTheDocument();
+    expect(screen.getByText("1.3M")).toBeInTheDocument();
+  });
+
+  it("shortens an offender's event count, which shares a narrow column", () => {
+    const noisy = { ...alertAt(NOW - 10 * 60_000), events_count: 169352 };
+    render(<SecurityMetrics decisions={[]} alerts={[noisy] as never} nowMs={NOW} />);
+
+    expect(screen.getByText("169.4K")).toBeInTheDocument();
+    expect(screen.getByTitle("169,352")).toBeInTheDocument();
+  });
+
+  it("shortens the count above a busy bar", () => {
+    // A bucket's label is 11px wide-ish; five digits there overlap its
+    // neighbours.
+    const alerts = Array.from({ length: 1200 }, () => alertAt(NOW - 10 * 60_000));
+    render(<SecurityMetrics decisions={[]} alerts={alerts as never} nowMs={NOW} />);
+
+    const chart = screen.getByRole("img", { name: /alerts over the last 24 hours/i });
+    const columns = Array.from(chart.children) as HTMLElement[];
+    expect(within(columns[11]).getByText("1.2K")).toBeInTheDocument();
+  });
+});
