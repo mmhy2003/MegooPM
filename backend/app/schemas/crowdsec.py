@@ -147,6 +147,9 @@ class DecisionList(Page):
     """A page of active decisions."""
 
     items: list[Decision] = Field(default_factory=list)
+    # Bans among *all* records matching the filter, not just this page: a
+    # per-page count saturates at ``page_size`` and reads as a ceiling.
+    bans: int = Field(default=0, description="Decisions of type `ban` matching the filter")
 
 
 class AlertList(Page):

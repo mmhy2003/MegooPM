@@ -97,3 +97,41 @@ describe("large counts", () => {
     expect(within(columns[11]).getByText("1.2K")).toBeInTheDocument();
   });
 });
+
+describe("the bans tile", () => {
+  it("counts every ban matching the filter, not the ones on this page", () => {
+    // With community decisions included the page is all bans, so a per-page
+    // count reads 50 — the page size — however many bans there really are.
+    const page = Array.from({ length: 50 }, (_, i) => ({
+      type: "ban",
+      scope: "Ip",
+      value: `1.1.1.${i}`,
+      duration: "1h",
+    }));
+    render(
+      <SecurityMetrics
+        decisions={page as never}
+        alerts={[]}
+        decisionsTotal={24270}
+        bansTotal={23918}
+        nowMs={NOW}
+      />,
+    );
+
+    expect(screen.getByText("23.9K")).toBeInTheDocument();
+    expect(screen.getByTitle("23,918")).toBeInTheDocument();
+    expect(screen.getByText(/active bans/i)).toBeInTheDocument();
+  });
+
+  it("falls back to the page while the server total is missing", () => {
+    const page = [
+      { type: "ban", scope: "Ip", value: "1.1.1.1", duration: "1h" },
+      { type: "captcha", scope: "Ip", value: "2.2.2.2", duration: "1h" },
+      { type: "captcha", scope: "Ip", value: "3.3.3.3", duration: "1h" },
+    ];
+    render(<SecurityMetrics decisions={page as never} alerts={[]} nowMs={NOW} />);
+
+    const tile = screen.getByText(/active bans/i).closest("div") as HTMLElement;
+    expect(within(tile).getByText("1")).toBeInTheDocument();
+  });
+});

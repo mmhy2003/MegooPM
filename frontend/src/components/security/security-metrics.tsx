@@ -163,6 +163,7 @@ export function SecurityMetrics({
   alerts,
   decisionsTotal,
   alertsTotal,
+  bansTotal,
   nowMs,
 }: {
   /** The current page of decisions (drives the visualizations). */
@@ -173,13 +174,17 @@ export function SecurityMetrics({
   decisionsTotal?: number;
   /** Total alerts matching the active filter, across all pages. */
   alertsTotal?: number;
+  /** Bans matching the active filter, across all pages. */
+  bansTotal?: number;
   nowMs: number;
 }) {
   // Count tiles reflect the server-side totals for the active filter; the
   // charts below stay on the current page (we never fetch every record).
   const decisionCount = decisionsTotal ?? decisions.length;
   const alertCount = alertsTotal ?? alerts.length;
-  const bans = decisions.filter((d) => d.type === "ban").length;
+  // Server-side, like the other two: counted on the page it saturates at the
+  // page size, so a busy instance reads "50 bans" whatever the real number is.
+  const bans = bansTotal ?? decisions.filter((d) => d.type === "ban").length;
 
   return (
     <div className="space-y-4">
@@ -191,7 +196,7 @@ export function SecurityMetrics({
         />
         <StatTile
           icon={Activity}
-          label="Bans on this page"
+          label="Active bans"
           value={<Count value={bans} />}
           tone={bans > 0 ? "destructive" : "default"}
         />

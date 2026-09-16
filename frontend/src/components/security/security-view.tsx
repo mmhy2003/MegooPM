@@ -338,6 +338,7 @@ export function SecurityView() {
   const decisions = decList?.items ?? [];
   const alerts = alertList?.items ?? [];
   const decTotal = decList?.total ?? 0;
+  const banTotal = decList?.bans ?? 0;
   const alertTotal = alertList?.total ?? 0;
 
   const loadWhitelists = useCallback(async () => {
@@ -474,6 +475,7 @@ export function SecurityView() {
             alerts={alerts}
             decisionsTotal={decTotal}
             alertsTotal={alertTotal}
+            bansTotal={banTotal}
             nowMs={nowMs}
           />
         </TabsPanel>

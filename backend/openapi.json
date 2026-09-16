@@ -2490,6 +2490,12 @@
       "DecisionList": {
         "description": "A page of active decisions.",
         "properties": {
+          "bans": {
+            "default": 0,
+            "description": "Decisions of type `ban` matching the filter",
+            "title": "Bans",
+            "type": "integer"
+          },
           "items": {
             "items": {
               "$ref": "#/components/schemas/Decision"

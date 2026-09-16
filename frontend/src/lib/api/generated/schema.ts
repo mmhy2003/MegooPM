@@ -3330,6 +3330,12 @@ export interface components {
          * @description A page of active decisions.
          */
         DecisionList: {
+            /**
+             * Bans
+             * @description Decisions of type `ban` matching the filter
+             * @default 0
+             */
+            bans: number;
             /** Items */
             items?: components["schemas"]["Decision"][];
             /**

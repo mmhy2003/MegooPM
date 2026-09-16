@@ -171,8 +171,9 @@ async def list_decisions(
     needle = normalise_query(q)
     if needle:
         items = [d for d in items if matches_decision(d, needle)]
+    bans = sum(1 for d in items if d.type == "ban")
     page_items, total = paginate(items, page=page, page_size=page_size)
-    return DecisionList(items=page_items, total=total, page=page, page_size=page_size)
+    return DecisionList(items=page_items, total=total, page=page, page_size=page_size, bans=bans)
 
 
 @router.get("/alerts", response_model=AlertList)

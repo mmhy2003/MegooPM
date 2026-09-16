@@ -318,6 +318,41 @@ async def test_decisions_paginated_and_hide_community_by_default(
     assert {d["value"] for d in fbody["items"]} == {"1.1.1.1", "2.2.2.2", "3.3.3.3"}
 
 
+async def test_decisions_count_bans_across_the_whole_filter(
+    db_client: AsyncClient, admin_token: str, override_crowdsec
+) -> None:
+    # The bans count answers "how many of these are bans?" for the filter, not
+    # for the page: counted per page it saturates at page_size and reads as a
+    # ceiling rather than a measurement.
+    decisions = [
+        {"origin": "megoopm", "type": "ban", "scope": "Ip", "value": "1.1.1.1", "duration": "1h"},
+        {"origin": "crowdsec", "type": "ban", "scope": "Ip", "value": "2.2.2.2", "duration": "1h"},
+        {
+            "origin": "crowdsec",
+            "type": "captcha",
+            "scope": "Ip",
+            "value": "4.4.4.4",
+            "duration": "1h",
+        },
+        {"origin": "lists", "type": "ban", "scope": "Ip", "value": "3.3.3.3", "duration": "1h"},
+    ]
+    override_crowdsec(lambda r: httpx.Response(200, json=decisions))
+    hdr = {"Authorization": f"Bearer {admin_token}"}
+
+    resp = await db_client.get("/api/v1/crowdsec/decisions?page_size=1", headers=hdr)
+    assert resp.json()["bans"] == 2  # both local bans, though one item is returned
+
+    # The community filter moves it, like every other count on the page.
+    full = await db_client.get(
+        "/api/v1/crowdsec/decisions?page_size=1&include_community=true", headers=hdr
+    )
+    assert full.json()["bans"] == 3
+
+    # And so does the search filter.
+    searched = await db_client.get("/api/v1/crowdsec/decisions?q=1.1.1.1", headers=hdr)
+    assert searched.json()["bans"] == 1
+
+
 async def test_alerts_hide_community_by_default(
     db_client: AsyncClient, admin_token: str, override_crowdsec
 ) -> None:
