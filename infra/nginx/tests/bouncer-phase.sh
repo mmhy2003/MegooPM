@@ -16,7 +16,7 @@ NET=megoopm-bouncer-probe
 KEY=probe-bouncer-key-0123456789abcdef0123
 WORK="$(mktemp -d)"
 # Docker Desktop cannot mount a Git Bash /tmp path; cygpath gives it the Windows one.
-WORK_MOUNT="$(cygpath -w "$WORK" 2>/dev/null || echo "$WORK")"
+WORK_MOUNT="$(cygpath -m "$WORK" 2>/dev/null || echo "$WORK")"
 FAILED=0
 
 cleanup() {
@@ -55,7 +55,7 @@ EOF
 start_nginx() { # extra docker-run args...
   # File by file, not the directory: the entrypoint writes into /etc/nginx/lua.
   local lua=() f
-  for f in "$REPO"/infra/nginx/lua/*.lua; do
+  for f in "${LUA_SRC:-$REPO/infra/nginx/lua}"/*.lua; do
     lua+=(-v "$f:/etc/nginx/lua/$(basename "$f"):ro")
   done
   docker rm -f bp-nginx >/dev/null 2>&1 || true
@@ -107,6 +107,26 @@ wait_for_stream
 REF="$(status 8001 /)"
 expect "captcha, server-level return"   "$REF" "$(status 8002 /)"
 expect "captcha, location-level return" "$REF" "$(status 8003 /)"
+
+# 6. With the bouncer uninitialised, requests pass and the error is logged
+#    once per worker, not once per request: the default sites call the check
+#    for every scanner hit. The init script is swapped for a no-op, which is
+#    exactly the state a failed init leaves behind.
+mkdir -p "$WORK/lua"
+cp "$REPO"/infra/nginx/lua/*.lua "$WORK/lua/"
+echo "-- disabled by bouncer-phase.sh" > "$WORK/lua/megoopm_crowdsec_init.lua"
+LUA_SRC="$WORK_MOUNT/lua" start_nginx
+# More requests than workers, or a per-request logger could pass unnoticed on
+# a many-core machine (worker_processes auto).
+WORKERS="$(docker exec bp-nginx sh -c 'ps -o args | grep -c "[n]ginx: worker"')"
+for _ in $(seq $((WORKERS * 3 + 3))); do status 8002 / >/dev/null; done
+expect "uninitialised, request passes" 302 "$(status 8002 /)"
+LINES="$(docker logs bp-nginx 2>&1 | grep -c 'bouncer not initialised' || true)"
+if [ "$LINES" -le "$WORKERS" ]; then
+  echo "ok    uninitialised, logged $LINES time(s) for $WORKERS worker(s)"
+else
+  echo "FAIL  uninitialised, logged $LINES times for $WORKERS worker(s)"; FAILED=1
+fi
 
 [ "$FAILED" = 0 ] && echo "PASS" || { echo "FAILED"; docker logs bp-nginx 2>&1 | tail -30; }
 exit "$FAILED"
