@@ -20,6 +20,7 @@ function makeRedirect(over: Partial<RedirectionHost> = {}): RedirectionHost {
     hsts_enabled: false,
     hsts_subdomains: false,
     block_exploits: false,
+    crowdsec_enabled: true,
     advanced_config: "",
     created_at: "2026-08-30T00:00:00Z",
     updated_at: "2026-08-30T00:00:00Z",
@@ -149,6 +150,26 @@ describe("RedirectionHostDialog", () => {
       hsts_enabled: true,
       hsts_subdomains: false,
       block_exploits: true,
+    });
+  });
+
+  it("offers CrowdSec protection, on for a new host", () => {
+    // On by default: a banned IP should be refused here too, and a host that
+    // silently ignores bans is exactly the gap this switch closes.
+    renderDialog(null);
+    expect(screen.getByLabelText("CrowdSec protection")).toHaveAttribute("aria-checked", "true");
+  });
+
+  it("sends the CrowdSec switch when saving", async () => {
+    const user = userEvent.setup();
+    renderDialog(makeRedirect({ crowdsec_enabled: true }));
+
+    await user.click(screen.getByLabelText("CrowdSec protection"));
+    await user.click(screen.getByRole("button", { name: "Save changes" }));
+
+    await waitFor(() => expect(redirectionHosts.update).toHaveBeenCalledTimes(1));
+    expect(vi.mocked(redirectionHosts.update).mock.calls[0][1]).toMatchObject({
+      crowdsec_enabled: false,
     });
   });
 });

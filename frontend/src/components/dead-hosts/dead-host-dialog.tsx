@@ -34,7 +34,16 @@ const TLS_TOGGLES = [
   ["hsts_subdomains", "HSTS subdomains", "Include subdomains in HSTS"],
 ] as const;
 
-type ToggleKey = (typeof TLS_TOGGLES)[number][0];
+/** Security options that apply with or without TLS — these stay on Details. */
+const DETAILS_TOGGLES = [
+  [
+    "crowdsec_enabled",
+    "CrowdSec protection",
+    "Refuse IPs CrowdSec has banned (and inspect requests with the AppSec WAF). While CrowdSec is unreachable this host refuses traffic.",
+  ],
+] as const;
+
+type ToggleKey = (typeof TLS_TOGGLES)[number][0] | (typeof DETAILS_TOGGLES)[number][0];
 
 type DialogTab = "details" | "ssl";
 
@@ -51,6 +60,8 @@ function emptyToggles(): Record<ToggleKey, boolean> {
     http2_support: false,
     hsts_enabled: false,
     hsts_subdomains: false,
+    // On by default, as the API defaults it: see the migration that added it.
+    crowdsec_enabled: true,
   };
 }
 
@@ -72,6 +83,7 @@ function stateFromHost(host: DeadHost | null | undefined): FormState {
       http2_support: host.http2_support,
       hsts_enabled: host.hsts_enabled,
       hsts_subdomains: host.hsts_subdomains,
+      crowdsec_enabled: host.crowdsec_enabled,
     },
   };
 }
@@ -193,6 +205,16 @@ export function DeadHostDialog({
               onCheckedChange={(v) => setForm((p) => ({ ...p, enabled: v }))}
               disabled={saving}
             />
+            {DETAILS_TOGGLES.map(([key, label, hint]) => (
+              <ToggleRow
+                key={key}
+                label={label}
+                hint={hint}
+                checked={form.toggles[key]}
+                onCheckedChange={(v) => setToggle(key, v)}
+                disabled={saving}
+              />
+            ))}
           </TabsPanel>
 
           <TabsPanel value="ssl" className="space-y-4 pt-2">

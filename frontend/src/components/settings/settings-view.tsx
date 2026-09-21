@@ -136,7 +136,8 @@ export function SettingsView() {
         <div>
           <h3 className="text-sm font-semibold">Default site</h3>
           <p className="text-sm text-muted-foreground">
-            What to serve for a request that matches no configured host.
+            What to serve for a request that matches no configured host. IPs CrowdSec has banned are
+            refused here, whatever you choose.
           </p>
         </div>
 

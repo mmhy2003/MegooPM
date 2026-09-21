@@ -61,6 +61,11 @@ const TLS_TOGGLES: readonly ToggleDef[] = [
 /** Security options that apply with or without TLS — these stay on Details. */
 const DETAILS_TOGGLES: readonly ToggleDef[] = [
   ["block_exploits", "Block exploits", "Block common exploit probes"],
+  [
+    "crowdsec_enabled",
+    "CrowdSec protection",
+    "Refuse IPs CrowdSec has banned (and inspect requests with the AppSec WAF). While CrowdSec is unreachable this host refuses traffic.",
+  ],
 ];
 
 type ToggleKey =
@@ -68,7 +73,8 @@ type ToggleKey =
   | "http2_support"
   | "hsts_enabled"
   | "hsts_subdomains"
-  | "block_exploits";
+  | "block_exploits"
+  | "crowdsec_enabled";
 
 type DialogTab = "details" | "ssl";
 
@@ -90,6 +96,8 @@ function emptyToggles(): Record<ToggleKey, boolean> {
     hsts_enabled: false,
     hsts_subdomains: false,
     block_exploits: false,
+    // On by default, as the API defaults it: see the migration that added it.
+    crowdsec_enabled: true,
   };
 }
 
@@ -120,6 +128,7 @@ function stateFromHost(host: RedirectionHost | null | undefined): FormState {
       hsts_enabled: host.hsts_enabled,
       hsts_subdomains: host.hsts_subdomains,
       block_exploits: host.block_exploits,
+      crowdsec_enabled: host.crowdsec_enabled,
     },
   };
 }

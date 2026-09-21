@@ -24,6 +24,7 @@ function makeDeadHost(over: Partial<DeadHost> = {}): DeadHost {
     http2_support: false,
     hsts_enabled: false,
     hsts_subdomains: false,
+    crowdsec_enabled: true,
     advanced_config: "",
     created_at: "2026-08-30T00:00:00Z",
     updated_at: "2026-08-30T00:00:00Z",
