@@ -46,28 +46,57 @@ asyncio.run(main())"
 | Piece | Where | Role |
 | --- | --- | --- |
 | CrowdSec engine | `crowdsec` service (compose) | LAPI on `:8080`, AppSec on `:7422`, detects & decides |
-| nginx bouncer + AppSec | `infra/nginx/` (OpenResty image) | Enforces decisions / forwards to AppSec in nginx's access phase |
-| Per-host toggles | `proxy_hosts.crowdsec_enabled` (bouncer, per host) / `crowdsec_appsec_enabled` (reserved — AppSec is global, see below) | Which hosts are protected |
-| Rendered directives | `backend/app/templates/nginx/server.conf.j2` | Emits the bouncer handler into a host's server block |
+| nginx bouncer + AppSec | `infra/nginx/` (OpenResty image) | Enforces decisions / forwards to AppSec in nginx's access or server-rewrite phase |
+| Per-host toggles | `proxy_hosts.crowdsec_enabled`, `redirection_hosts.crowdsec_enabled`, `dead_hosts.crowdsec_enabled` (bouncer, per host; the latter two default on) / `crowdsec_appsec_enabled` (reserved — AppSec is global, see below) | Which hosts are protected |
+| Rendered directives | `backend/app/templates/nginx/{server,redirect,dead,default_tls}.conf.j2`, `infra/nginx/nginx.conf` | Emits the bouncer handler into each enforcing server block |
 | Backend LAPI client | `app/services/crowdsec/` + `app/api/routes/crowdsec.py` | Read decisions/alerts, push manual decisions |
 
 ## Request enforcement flow
 
-1. The backend renders `access_by_lua_file /etc/nginx/lua/megoopm_crowdsec.lua;`
-   (and `set $megoopm_crowdsec_appsec on|off;`) into the server block of every
-   host with `crowdsec_enabled=true`.
+1. The backend renders the bouncer handler into every server block that
+   enforces bans (table below). `megoopm_crowdsec_check.lua` holds the check;
+   `megoopm_crowdsec.lua` (generated hosts) and the base default server's inline
+   block call it.
 2. `megoopm_crowdsec_init.lua` initialises the CrowdSec bouncer module once at
    nginx startup from `crowdsec-bouncer.conf` (rendered from the environment).
-3. On each request to a protected host, `megoopm_crowdsec.lua` calls the stock
-   bouncer's `Allow()`, which:
+   If it never initialises, requests are allowed and that is logged once per
+   nginx worker.
+3. On each request, the check calls the stock bouncer's `Allow()`, which:
    - applies any active IP decision (ban/captcha/throttle) → the request is
      terminated at the edge; and
    - if the AppSec engine is configured, forwards the request to the AppSec
      component, which blocks malicious payloads before they reach the upstream.
 
-Bouncer enforcement is **per host**: hosts with `crowdsec_enabled` off never
-reference the Lua handler, so they are untouched. The switch is
-**CrowdSec protection** on the proxy-host dialog's *Advanced* tab.
+### Where bans are enforced
+
+| Server block | Enforces | Hook |
+| --- | --- | --- |
+| Proxy host, :443 and plain :80 | when **CrowdSec protection** is on | `access_by_lua_file` |
+| Proxy host, :80 with **Force SSL** | when switched on | `server_rewrite_by_lua_file` |
+| Redirection host, every server | when switched on (default on) | `server_rewrite_by_lua_file` |
+| 404 host, every server | when switched on (default on) | `server_rewrite_by_lua_file` |
+| Default-TLS site (one per certificate) | always | `server_rewrite_by_lua_file` |
+| Default :80 server (`infra/nginx/nginx.conf`) | always, except `/healthz` | `server_rewrite_by_lua_block` |
+
+**Why two hooks.** A server that answers with `return` — a redirect, a 404, the
+default site, a Force-SSL bounce to HTTPS — does so in nginx's rewrite phase,
+which runs *before* the access phase. An `access_by_lua` bouncer on such a
+server never runs: a banned client simply gets the redirect. Those servers use
+`server_rewrite_by_lua`, which runs first. Proxy hosts answer through
+`proxy_pass` in the content phase, so their access-phase hook runs as before.
+`infra/nginx/tests/bouncer-phase.sh` checks both hooks end to end against a
+real CrowdSec: clean requests, a POST body, an AppSec probe, a ban, a captcha,
+the default server and its healthcheck.
+
+**AppSec fails closed there too.** The bouncer runs
+`APPSEC_FAILURE_ACTION=deny`, so while CrowdSec's AppSec listener is unreachable
+— an outage, or the seconds of a CrowdSec restart after a whitelist apply or
+hub update — every enforcing server refuses traffic: protected proxy hosts,
+redirection and 404 hosts with the switch on, and the default sites. The
+default server's `/healthz` is exempt so an outage cannot get nginx restarted.
+
+The switch is **CrowdSec protection**: on the proxy-host dialog's *Advanced*
+tab, and on *Details* in the redirection- and 404-host dialogs.
 
 ### Where decisions come from
 
