@@ -2110,6 +2110,12 @@
             "description": "Certificate for TLS termination; null serves plain :80",
             "title": "Certificate Id"
           },
+          "crowdsec_enabled": {
+            "default": true,
+            "description": "Refuse IPs CrowdSec has banned (and inspect with AppSec)",
+            "title": "Crowdsec Enabled",
+            "type": "boolean"
+          },
           "domain_names": {
             "description": "Domains this host answers for (server_name)",
             "items": {
@@ -2181,6 +2187,12 @@
             "format": "date-time",
             "title": "Created At",
             "type": "string"
+          },
+          "crowdsec_enabled": {
+            "default": true,
+            "description": "Refuse IPs CrowdSec has banned (and inspect with AppSec)",
+            "title": "Crowdsec Enabled",
+            "type": "boolean"
           },
           "domain_names": {
             "description": "Domains this host answers for (server_name)",
@@ -2264,6 +2276,17 @@
               }
             ],
             "title": "Certificate Id"
+          },
+          "crowdsec_enabled": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Crowdsec Enabled"
           },
           "domain_names": {
             "anyOf": [
@@ -4806,6 +4829,12 @@
             "description": "Certificate for TLS termination; null serves plain :80",
             "title": "Certificate Id"
           },
+          "crowdsec_enabled": {
+            "default": true,
+            "description": "Refuse IPs CrowdSec has banned (and inspect with AppSec)",
+            "title": "Crowdsec Enabled",
+            "type": "boolean"
+          },
           "domain_names": {
             "description": "Domains this host answers for (server_name)",
             "items": {
@@ -4910,6 +4939,12 @@
             "format": "date-time",
             "title": "Created At",
             "type": "string"
+          },
+          "crowdsec_enabled": {
+            "default": true,
+            "description": "Refuse IPs CrowdSec has banned (and inspect with AppSec)",
+            "title": "Crowdsec Enabled",
+            "type": "boolean"
           },
           "domain_names": {
             "description": "Domains this host answers for (server_name)",
@@ -5031,6 +5066,17 @@
               }
             ],
             "title": "Certificate Id"
+          },
+          "crowdsec_enabled": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Crowdsec Enabled"
           },
           "domain_names": {
             "anyOf": [

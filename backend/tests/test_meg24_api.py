@@ -248,3 +248,36 @@ async def test_endpoints_require_authentication(client: AsyncClient) -> None:
     assert (await client.get("/api/v1/streams")).status_code == 401
     assert (await client.get("/api/v1/redirection-hosts")).status_code == 401
     assert (await client.get("/api/v1/dead-hosts")).status_code == 401
+
+
+async def test_new_redirection_and_404_hosts_enforce_crowdsec_by_default(
+    client: AsyncClient, auth
+) -> None:
+    # On by default: a redirect or parked domain serves no app a ban could
+    # break, and a host that silently ignores bans is the gap this closes.
+    redirect = await client.post(
+        "/api/v1/redirection-hosts",
+        headers=auth,
+        json={"domain_names": ["r.example.com"], "forward_domain_name": "t.example.com"},
+    )
+    dead = await client.post(
+        "/api/v1/dead-hosts", headers=auth, json={"domain_names": ["d.example.com"]}
+    )
+    assert redirect.json()["crowdsec_enabled"] is True
+    assert dead.json()["crowdsec_enabled"] is True
+
+
+async def test_crowdsec_can_be_switched_off_per_host(client: AsyncClient, auth) -> None:
+    created = await client.post(
+        "/api/v1/dead-hosts", headers=auth, json={"domain_names": ["d2.example.com"]}
+    )
+    host_id = created.json()["id"]
+
+    patched = await client.patch(
+        f"/api/v1/dead-hosts/{host_id}", headers=auth, json={"crowdsec_enabled": False}
+    )
+
+    assert patched.status_code == 200
+    assert patched.json()["crowdsec_enabled"] is False
+    fetched = await client.get(f"/api/v1/dead-hosts/{host_id}", headers=auth)
+    assert fetched.json()["crowdsec_enabled"] is False

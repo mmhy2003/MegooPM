@@ -400,6 +400,7 @@ async def _load_redirection_hosts(
             hsts_enabled=r.hsts_enabled,
             hsts_subdomains=r.hsts_subdomains,
             block_exploits=r.block_exploits,
+            crowdsec_enabled=r.crowdsec_enabled,
             advanced_config=r.advanced_config,
         )
         for r in rows
@@ -425,6 +426,7 @@ async def _load_dead_hosts(session: AsyncSession, certs_dir: str) -> tuple[DeadH
             http2_support=d.http2_support,
             hsts_enabled=d.hsts_enabled,
             hsts_subdomains=d.hsts_subdomains,
+            crowdsec_enabled=d.crowdsec_enabled,
             advanced_config=d.advanced_config,
         )
         for d in rows

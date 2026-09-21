@@ -53,6 +53,10 @@ class RedirectionHost(IdMixin, TimestampMixin, Base):
     hsts_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="false")
     hsts_subdomains: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="false")
     block_exploits: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="false")
+    # Refuse IPs CrowdSec has banned (and run AppSec). On by default: these
+    # hosts answer with `return`, so the bouncer runs in the server-rewrite
+    # phase — see server_rewrite_by_lua in the templates.
+    crowdsec_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="true")
     advanced_config: Mapped[str] = mapped_column(
         Text, nullable=False, default="", server_default=""
     )

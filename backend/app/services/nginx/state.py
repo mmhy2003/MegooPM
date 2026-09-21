@@ -175,6 +175,7 @@ class RedirectionHostSpec:
     hsts_enabled: bool = False
     hsts_subdomains: bool = False
     block_exploits: bool = False
+    crowdsec_enabled: bool = True
     advanced_config: str = ""
 
 
@@ -189,6 +190,7 @@ class DeadHostSpec:
     http2_support: bool = False
     hsts_enabled: bool = False
     hsts_subdomains: bool = False
+    crowdsec_enabled: bool = True
     advanced_config: str = ""
 
 

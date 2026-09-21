@@ -3145,6 +3145,12 @@ export interface components {
              */
             certificate_id?: number | null;
             /**
+             * Crowdsec Enabled
+             * @description Refuse IPs CrowdSec has banned (and inspect with AppSec)
+             * @default true
+             */
+            crowdsec_enabled: boolean;
+            /**
              * Domain Names
              * @description Domains this host answers for (server_name)
              */
@@ -3202,6 +3208,12 @@ export interface components {
              */
             created_at: string;
             /**
+             * Crowdsec Enabled
+             * @description Refuse IPs CrowdSec has banned (and inspect with AppSec)
+             * @default true
+             */
+            crowdsec_enabled: boolean;
+            /**
              * Domain Names
              * @description Domains this host answers for (server_name)
              */
@@ -3253,6 +3265,8 @@ export interface components {
             advanced_config?: string | null;
             /** Certificate Id */
             certificate_id?: number | null;
+            /** Crowdsec Enabled */
+            crowdsec_enabled?: boolean | null;
             /** Domain Names */
             domain_names?: string[] | null;
             /** Enabled */
@@ -4475,6 +4489,12 @@ export interface components {
              */
             certificate_id?: number | null;
             /**
+             * Crowdsec Enabled
+             * @description Refuse IPs CrowdSec has banned (and inspect with AppSec)
+             * @default true
+             */
+            crowdsec_enabled: boolean;
+            /**
              * Domain Names
              * @description Domains this host answers for (server_name)
              */
@@ -4560,6 +4580,12 @@ export interface components {
              */
             created_at: string;
             /**
+             * Crowdsec Enabled
+             * @description Refuse IPs CrowdSec has banned (and inspect with AppSec)
+             * @default true
+             */
+            crowdsec_enabled: boolean;
+            /**
              * Domain Names
              * @description Domains this host answers for (server_name)
              */
@@ -4635,6 +4661,8 @@ export interface components {
             block_exploits?: boolean | null;
             /** Certificate Id */
             certificate_id?: number | null;
+            /** Crowdsec Enabled */
+            crowdsec_enabled?: boolean | null;
             /** Domain Names */
             domain_names?: string[] | null;
             /** Enabled */

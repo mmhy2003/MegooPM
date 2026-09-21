@@ -51,6 +51,9 @@ class RedirectionHostBase(BaseModel):
     hsts_enabled: bool = Field(default=False, description="Emit a Strict-Transport-Security header")
     hsts_subdomains: bool = Field(default=False, description="Include subdomains in HSTS")
     block_exploits: bool = Field(default=False, description="Block common exploit probes")
+    crowdsec_enabled: bool = Field(
+        default=True, description="Refuse IPs CrowdSec has banned (and inspect with AppSec)"
+    )
     advanced_config: str = Field(
         default="", description="Raw nginx directives injected into the server block"
     )
@@ -89,6 +92,7 @@ class RedirectionHostUpdate(BaseModel):
     hsts_enabled: bool | None = None
     hsts_subdomains: bool | None = None
     block_exploits: bool | None = None
+    crowdsec_enabled: bool | None = None
     advanced_config: str | None = None
     enabled: bool | None = None
 
