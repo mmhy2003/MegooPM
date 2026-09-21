@@ -108,6 +108,14 @@ REF="$(status 8001 /)"
 expect "captcha, server-level return"   "$REF" "$(status 8002 /)"
 expect "captcha, location-level return" "$REF" "$(status 8003 /)"
 
+# 7. The default server (base nginx.conf, port 80) refuses a banned client
+#    but keeps answering the healthcheck.
+docker exec bp-crowdsec cscli decisions delete --ip "$CLIENT_IP" >/dev/null
+docker exec bp-crowdsec cscli decisions add --ip "$CLIENT_IP" --duration 1h >/dev/null
+wait_for_stream
+expect "ban, default server"          403 "$(status 80 /)"
+expect "ban, default server /healthz" 200 "$(status 80 /healthz)"
+
 # 6. With the bouncer uninitialised, requests pass and the error is logged
 #    once per worker, not once per request: the default sites call the check
 #    for every scanner hit. The init script is swapped for a no-op, which is
