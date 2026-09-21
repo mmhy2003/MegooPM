@@ -202,3 +202,39 @@ def test_generated_config_passes_real_nginx_t(tmp_path: Path) -> None:
     )
     ctrl = ShellNginxController(test_command=f"nginx -t -c {main_conf}")
     assert ctrl.test().ok
+
+
+# --- CrowdSec enforcement ---------------------------------------------------
+
+HOOK = "server_rewrite_by_lua_file /etc/nginx/lua/megoopm_crowdsec.lua;"
+
+
+def test_redirect_enforces_bans_in_every_server_before_its_return() -> None:
+    # `return` runs in the rewrite phase, before access: an access-phase hook
+    # here would never run (infra/nginx/tests/bouncer-phase.sh measures it).
+    conf = render_config(
+        DesiredState(redirection_hosts=(_redirect(certificate=_CERT, ssl_forced=True),))
+    )["megoopm-redirect-1.conf"]
+    assert conf.count(HOOK) == conf.count("server {") == 2
+    assert "access_by_lua_file" not in conf
+
+
+def test_redirect_without_crowdsec_renders_no_hook() -> None:
+    conf = render_config(DesiredState(redirection_hosts=(_redirect(crowdsec_enabled=False),)))[
+        "megoopm-redirect-1.conf"
+    ]
+    assert "megoopm_crowdsec" not in conf
+
+
+def test_dead_host_enforces_bans_in_every_server() -> None:
+    conf = render_config(DesiredState(dead_hosts=(_dead(certificate=_CERT),)))[
+        "megoopm-dead-2.conf"
+    ]
+    assert conf.count(HOOK) == conf.count("server {") == 2
+
+
+def test_dead_host_without_crowdsec_renders_no_hook() -> None:
+    conf = render_config(DesiredState(dead_hosts=(_dead(crowdsec_enabled=False),)))[
+        "megoopm-dead-2.conf"
+    ]
+    assert "megoopm_crowdsec" not in conf

@@ -13,6 +13,11 @@ server {
     listen 443 ssl;
     server_name {{ server_names }};
 
+    # CrowdSec bouncer, always on: unclaimed names on a certificate draw
+    # scanners, and there is no host to opt out. Server-rewrite phase, like
+    # every server that answers with `return`.
+    server_rewrite_by_lua_file /etc/nginx/lua/megoopm_crowdsec.lua;
+
     # Without this a request matching no location falls through to OpenResty's
     # compiled-in root and is served its welcome page.
     root /var/empty/megoopm;

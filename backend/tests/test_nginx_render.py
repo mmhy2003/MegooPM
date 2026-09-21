@@ -180,9 +180,25 @@ def test_crowdsec_applies_to_tls_and_redirect_servers() -> None:
     server = render_config(DesiredState(proxy_hosts=(host,), http_upstreams=(_pool(),)))[
         "megoopm-proxy-1.conf"
     ]
-    # Both the :80 redirect server and the :443 server enforce the bouncer, so
-    # a banned IP is blocked even before the HTTPS redirect.
+    # The :443 server keeps the access-phase hook. The :80 server only redirects
+    # to HTTPS, with a `return` that runs before access — so it uses the
+    # server-rewrite hook, or a banned client would be redirected, not refused.
+    assert server.count("access_by_lua_file /etc/nginx/lua/megoopm_crowdsec.lua;") == 1
+    assert server.count("server_rewrite_by_lua_file /etc/nginx/lua/megoopm_crowdsec.lua;") == 1
+
+
+def test_a_proxy_host_without_force_ssl_keeps_the_access_hook_on_80() -> None:
+    cert = CertificateSpec(
+        id=7,
+        fullchain_path="/etc/nginx/certs/7/fullchain.pem",
+        privkey_path="/etc/nginx/certs/7/privkey.pem",
+    )
+    host = _host(certificate=cert, ssl_forced=False, crowdsec_enabled=True)
+    server = render_config(DesiredState(proxy_hosts=(host,), http_upstreams=(_pool(),)))[
+        "megoopm-proxy-1.conf"
+    ]
     assert server.count("access_by_lua_file /etc/nginx/lua/megoopm_crowdsec.lua;") == 2
+    assert "server_rewrite_by_lua_file" not in server
 
 
 def test_advanced_config_is_injected() -> None:
@@ -632,3 +648,9 @@ def test_an_error_page_location_writes_no_document_of_its_own() -> None:
     host = _host(locations=(LocationSpec(path="/admin/", target="error_page", error_code=403),))
     files = render_default_site(DesiredState(proxy_hosts=(host,), http_upstreams=(_pool(),)))
     assert not any(key.startswith("megoopm-location-") for key in files)
+
+
+def test_the_default_tls_site_always_enforces_bans() -> None:
+    # Unclaimed names on a certificate draw scanners; there is nothing to opt out of.
+    conf = render_config(DesiredState(default_tls=(_default_tls(),)))["megoopm-default-tls-3.conf"]
+    assert "server_rewrite_by_lua_file /etc/nginx/lua/megoopm_crowdsec.lua;" in conf

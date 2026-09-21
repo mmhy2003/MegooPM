@@ -14,6 +14,13 @@
    Shared fragments live in macros so the redirect target is defined once. #}
 {%- set target_scheme = "$scheme" if host.forward_scheme == "auto" else host.forward_scheme -%}
 {%- set target_path = "$request_uri" if host.preserve_path else "" -%}
+{%- macro crowdsec() -%}
+{%- if host.crowdsec_enabled %}
+    # CrowdSec bouncer, in the server-rewrite phase: this server answers with
+    # `return`, which runs before the access phase proxy hosts use.
+    server_rewrite_by_lua_file /etc/nginx/lua/megoopm_crowdsec.lua;
+{%- endif %}
+{%- endmacro -%}
 {%- macro redirect_location() %}
 
     location / {
@@ -50,6 +57,7 @@ server {
     include {{ default_dir }}/{{ errors_conf }};
     listen 80;
     server_name {{ server_names }};
+{{- crowdsec() }}
 {{- acme_challenge() }}
 {%- if host.ssl_forced %}
 
@@ -71,6 +79,7 @@ server {
     http2 on;
 {%- endif %}
     server_name {{ server_names }};
+{{- crowdsec() }}
 
     ssl_certificate {{ host.certificate.fullchain_path }};
     ssl_certificate_key {{ host.certificate.privkey_path }};
@@ -89,6 +98,7 @@ server {
     include {{ default_dir }}/{{ errors_conf }};
     listen 80;
     server_name {{ server_names }};
+{{- crowdsec() }}
 {{- acme_challenge() }}
 {{- security() }}
 {{- redirect_location() }}

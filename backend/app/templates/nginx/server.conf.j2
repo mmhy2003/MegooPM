@@ -83,15 +83,16 @@
     add_header Strict-Transport-Security "max-age=63072000{% if host.hsts_subdomains %}; includeSubDomains{% endif %}" always;
 {%- endif %}
 {%- endmacro -%}
-{%- macro crowdsec() -%}
+{%- macro crowdsec(phase="access") -%}
 {%- if host.crowdsec_enabled %}
-    # CrowdSec bouncer (MEG-22). Runs in the access phase: banned IPs are refused
-    # before the request reaches the upstream. AppSec/WAF, when the engine is
-    # configured, is currently GLOBAL (applies to every crowdsec-enabled host),
-    # so $megoopm_crowdsec_appsec is a reserved marker the handler does not yet
-    # gate on — see docs/crowdsec.md (MEG-32 / D3).
+    # CrowdSec bouncer (MEG-22): banned IPs are refused before the request
+    # reaches the upstream. A server that only redirects to HTTPS answers with
+    # `return`, which runs before the access phase, so it uses server_rewrite.
+    # AppSec/WAF, when the engine is configured, is currently GLOBAL (applies to
+    # every crowdsec-enabled host), so $megoopm_crowdsec_appsec is a reserved
+    # marker the handler does not yet gate on — see docs/crowdsec.md (MEG-32 / D3).
     set $megoopm_crowdsec_appsec {% if host.crowdsec_appsec_enabled %}on{% else %}off{% endif %};
-    access_by_lua_file /etc/nginx/lua/megoopm_crowdsec.lua;
+    {{ phase }}_by_lua_file /etc/nginx/lua/megoopm_crowdsec.lua;
 {%- endif %}
 {%- endmacro -%}
 {%- macro access_control() -%}
@@ -169,7 +170,7 @@ server {
     include {{ default_dir }}/{{ errors_conf }};
     listen 80;
     server_name {{ server_names }};
-{{- crowdsec() }}
+{{- crowdsec("server_rewrite" if host.ssl_forced else "access") }}
 {{- acme_challenge() }}
 {%- if host.ssl_forced %}
 
