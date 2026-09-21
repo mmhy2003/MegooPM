@@ -1,0 +1,27 @@
+# CrowdSec remediation profiles, mounted over the image's stock file.
+#
+# Identical to CrowdSec's defaults except for one guard per profile:
+# `GetActiveDecisionsCount(Alert.GetValue()) == 0` — no second decision for a
+# value that already has an active one.
+#
+# Why: a banned client that keeps knocking is answered 403 by the bouncer, and
+# those 403s reach CrowdSec through the same nginx log as everything else.
+# Scenarios such as http-generic-403-bf count exactly that, so without the
+# guard every refusal re-trips the scenario and stacks another 4h ban on an IP
+# that is already blocked. The alert is still recorded, so the Recent alerts
+# tab still shows an attacker persisting; only the duplicate ban is dropped.
+name: default_ip_remediation
+filters:
+ - Alert.Remediation == true && Alert.GetScope() == "Ip" && GetActiveDecisionsCount(Alert.GetValue()) == 0
+decisions:
+ - type: ban
+   duration: 4h
+on_success: break
+---
+name: default_range_remediation
+filters:
+ - Alert.Remediation == true && Alert.GetScope() == "Range" && GetActiveDecisionsCount(Alert.GetValue()) == 0
+decisions:
+ - type: ban
+   duration: 4h
+on_success: break

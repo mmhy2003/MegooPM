@@ -250,6 +250,9 @@ services:
       - crowdsec_data:/var/lib/crowdsec/data
       - ./infra/crowdsec/acquis/appsec.yaml:/etc/crowdsec/acquis.d/appsec.yaml:ro
       - ./infra/crowdsec/acquis/nginx-syslog.yaml:/etc/crowdsec/acquis.d/nginx-syslog.yaml:ro
+      # One active ban per IP: see the file's header. A single FILE over the
+      # config volume, like the acquis files above.
+      - ./infra/crowdsec/profiles.yaml:/etc/crowdsec/profiles.yaml:ro
       # The app-owned config override: LAPI machine auto-registration, plus the
       # community-blocklist block when Security → Updates switches it on.
       # Seeded by data-init; bind-mounted as a FILE like the whitelist below.

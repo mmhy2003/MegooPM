@@ -261,6 +261,9 @@ services:
       # Bind the acquis FILES, not the directory (MEG-36 Defect A).
       - ./infra/crowdsec/acquis/appsec.yaml:/etc/crowdsec/acquis.d/appsec.yaml:ro
       - ./infra/crowdsec/acquis/nginx-syslog.yaml:/etc/crowdsec/acquis.d/nginx-syslog.yaml:ro
+      # One active ban per IP: see the file's header. A single FILE over the
+      # config volume, like the acquis files above.
+      - ./infra/crowdsec/profiles.yaml:/etc/crowdsec/profiles.yaml:ro
       # The app-owned config override: LAPI machine auto-registration, plus the
       # community-blocklist block when Security → Updates switches it on. A
       # single FILE out of the shared volume, seeded by data-init.
