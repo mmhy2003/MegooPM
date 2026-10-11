@@ -1252,6 +1252,85 @@
         "title": "BackupFrequency",
         "type": "string"
       },
+      "BackupList": {
+        "description": "The directory's contents, newest first, plus room left on the disk.",
+        "properties": {
+          "free_bytes": {
+            "title": "Free Bytes",
+            "type": "integer"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/BackupRead"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "free_bytes"
+        ],
+        "title": "BackupList",
+        "type": "object"
+      },
+      "BackupRead": {
+        "description": "One file in the backup directory, as the page shows it.",
+        "properties": {
+          "alembic_revision": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Alembic Revision"
+          },
+          "app_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "App Version"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "key_matches": {
+            "title": "Key Matches",
+            "type": "boolean"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "size_bytes": {
+            "title": "Size Bytes",
+            "type": "integer"
+          },
+          "trigger": {
+            "description": "manual | auto | upload",
+            "title": "Trigger",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "size_bytes",
+          "created_at",
+          "trigger",
+          "key_matches"
+        ],
+        "title": "BackupRead",
+        "type": "object"
+      },
       "BackupSettingsUpdate": {
         "description": "The automatic-backup schedule and how many copies to keep.",
         "properties": {
@@ -1283,6 +1362,20 @@
           }
         },
         "title": "BackupSettingsUpdate",
+        "type": "object"
+      },
+      "Body_upload_backup_api_v1_backups_upload_post": {
+        "properties": {
+          "file": {
+            "contentMediaType": "application/octet-stream",
+            "title": "File",
+            "type": "string"
+          }
+        },
+        "required": [
+          "file"
+        ],
+        "title": "Body_upload_backup_api_v1_backups_upload_post",
         "type": "object"
       },
       "CapiCredentialHealth": {
@@ -5336,6 +5429,53 @@
         "title": "ResetPasswordRequest",
         "type": "object"
       },
+      "RestoreStatus": {
+        "description": "What a restore is doing — the one thing the API answers during one.",
+        "properties": {
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "running": {
+            "title": "Running",
+            "type": "boolean"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "step": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Step"
+          }
+        },
+        "required": [
+          "running"
+        ],
+        "title": "RestoreStatus",
+        "type": "object"
+      },
       "SampleTaskRequest": {
         "description": "Payload for enqueuing the sample ``add`` task.",
         "properties": {
@@ -7858,6 +7998,267 @@
         "summary": "Reset Password",
         "tags": [
           "auth"
+        ]
+      }
+    },
+    "/api/v1/backups": {
+      "get": {
+        "description": "Every backup in the directory, newest first. Admin-only.",
+        "operationId": "list_backups_api_v1_backups_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BackupList"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "List Backups",
+        "tags": [
+          "backups"
+        ]
+      },
+      "post": {
+        "description": "Take a backup now. Admin-only; runs on the worker.",
+        "operationId": "take_backup_api_v1_backups_post",
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskEnqueued"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Take Backup",
+        "tags": [
+          "backups"
+        ]
+      }
+    },
+    "/api/v1/backups/restore-status": {
+      "get": {
+        "description": "What a restore is doing. The one route that answers during a restore.",
+        "operationId": "read_restore_status_api_v1_backups_restore_status_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RestoreStatus"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Read Restore Status",
+        "tags": [
+          "backups"
+        ]
+      }
+    },
+    "/api/v1/backups/upload": {
+      "post": {
+        "description": "Accept a backup made elsewhere. Admin-only.\n\nStreamed to a ``.part`` file and checked before it is given a real name: an\noversized or malformed upload must leave nothing behind, and must never be\nlisted as something an admin could restore.",
+        "operationId": "upload_backup_api_v1_backups_upload_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_upload_backup_api_v1_backups_upload_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BackupRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Upload Backup",
+        "tags": [
+          "backups"
+        ]
+      }
+    },
+    "/api/v1/backups/{name}": {
+      "delete": {
+        "description": "Delete one backup. Admin-only.",
+        "operationId": "delete_backup_api_v1_backups__name__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Delete Backup",
+        "tags": [
+          "backups"
+        ]
+      }
+    },
+    "/api/v1/backups/{name}/download": {
+      "get": {
+        "description": "Stream one backup to the browser. Admin-only, and audited: this is the\none route that takes TLS private keys off the server.",
+        "operationId": "download_backup_api_v1_backups__name__download_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Download Backup",
+        "tags": [
+          "backups"
+        ]
+      }
+    },
+    "/api/v1/backups/{name}/restore": {
+      "post": {
+        "description": "Replace this instance from a backup. Admin-only; runs on the worker.\n\nThe audit row is written *before* the task is enqueued: the restore will\nreplace the audit log itself, so this record of who asked only survives in\nthe backup being restored — and in the worker log.",
+        "operationId": "restore_from_backup_api_v1_backups__name__restore_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskEnqueued"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Restore From Backup",
+        "tags": [
+          "backups"
         ]
       }
     },

@@ -13,6 +13,7 @@ from app.api.routes import (
     access_lists,
     audit_log,
     auth,
+    backups,
     certificates,
     cluster,
     crowdsec,
@@ -37,6 +38,7 @@ api_router.include_router(tasks.router)
 api_router.include_router(auth.router, prefix="/auth")
 api_router.include_router(users.router, prefix="/users")
 api_router.include_router(audit_log.router, prefix="/audit-log")
+api_router.include_router(backups.router, prefix="/backups")
 api_router.include_router(nginx.router, prefix="/nginx")
 api_router.include_router(cluster.router, prefix="/cluster")
 api_router.include_router(dashboard.router, prefix="/dashboard")

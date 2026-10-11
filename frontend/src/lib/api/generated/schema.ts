@@ -392,6 +392,139 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/backups": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Backups
+         * @description Every backup in the directory, newest first. Admin-only.
+         */
+        get: operations["list_backups_api_v1_backups_get"];
+        put?: never;
+        /**
+         * Take Backup
+         * @description Take a backup now. Admin-only; runs on the worker.
+         */
+        post: operations["take_backup_api_v1_backups_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/backups/restore-status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read Restore Status
+         * @description What a restore is doing. The one route that answers during a restore.
+         */
+        get: operations["read_restore_status_api_v1_backups_restore_status_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/backups/upload": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Upload Backup
+         * @description Accept a backup made elsewhere. Admin-only.
+         *
+         *     Streamed to a ``.part`` file and checked before it is given a real name: an
+         *     oversized or malformed upload must leave nothing behind, and must never be
+         *     listed as something an admin could restore.
+         */
+        post: operations["upload_backup_api_v1_backups_upload_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/backups/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete Backup
+         * @description Delete one backup. Admin-only.
+         */
+        delete: operations["delete_backup_api_v1_backups__name__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/backups/{name}/download": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Download Backup
+         * @description Stream one backup to the browser. Admin-only, and audited: this is the
+         *     one route that takes TLS private keys off the server.
+         */
+        get: operations["download_backup_api_v1_backups__name__download_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/backups/{name}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Restore From Backup
+         * @description Replace this instance from a backup. Admin-only; runs on the worker.
+         *
+         *     The audit row is written *before* the task is enqueued: the restore will
+         *     replace the audit log itself, so this record of who asked only survives in
+         *     the backup being restored — and in the worker log.
+         */
+        post: operations["restore_from_backup_api_v1_backups__name__restore_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/certificates": {
         parameters: {
             query?: never;
@@ -2765,6 +2898,42 @@ export interface components {
          */
         BackupFrequency: "off" | "daily" | "weekly";
         /**
+         * BackupList
+         * @description The directory's contents, newest first, plus room left on the disk.
+         */
+        BackupList: {
+            /** Free Bytes */
+            free_bytes: number;
+            /** Items */
+            items?: components["schemas"]["BackupRead"][];
+        };
+        /**
+         * BackupRead
+         * @description One file in the backup directory, as the page shows it.
+         */
+        BackupRead: {
+            /** Alembic Revision */
+            alembic_revision?: string | null;
+            /** App Version */
+            app_version?: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Key Matches */
+            key_matches: boolean;
+            /** Name */
+            name: string;
+            /** Size Bytes */
+            size_bytes: number;
+            /**
+             * Trigger
+             * @description manual | auto | upload
+             */
+            trigger: string;
+        };
+        /**
          * BackupSettingsUpdate
          * @description The automatic-backup schedule and how many copies to keep.
          */
@@ -2787,6 +2956,11 @@ export interface components {
              * @default 6
              */
             weekday: number;
+        };
+        /** Body_upload_backup_api_v1_backups_upload_post */
+        Body_upload_backup_api_v1_backups_upload_post: {
+            /** File */
+            file: string;
         };
         /**
          * CapiCredentialHealth
@@ -4765,6 +4939,20 @@ export interface components {
             token: string;
         };
         /**
+         * RestoreStatus
+         * @description What a restore is doing — the one thing the API answers during one.
+         */
+        RestoreStatus: {
+            /** Error */
+            error?: string | null;
+            /** Running */
+            running: boolean;
+            /** Started At */
+            started_at?: string | null;
+            /** Step */
+            step?: string | null;
+        };
+        /**
          * SampleTaskRequest
          * @description Payload for enqueuing the sample ``add`` task.
          */
@@ -6223,6 +6411,190 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_backups_api_v1_backups_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BackupList"];
+                };
+            };
+        };
+    };
+    take_backup_api_v1_backups_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskEnqueued"];
+                };
+            };
+        };
+    };
+    read_restore_status_api_v1_backups_restore_status_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RestoreStatus"];
+                };
+            };
+        };
+    };
+    upload_backup_api_v1_backups_upload_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_upload_backup_api_v1_backups_upload_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BackupRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_backup_api_v1_backups__name__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    download_backup_api_v1_backups__name__download_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    restore_from_backup_api_v1_backups__name__restore_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskEnqueued"];
+                };
             };
             /** @description Validation Error */
             422: {
