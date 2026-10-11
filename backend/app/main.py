@@ -11,13 +11,16 @@ import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+import redis
+from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 from app.api.router import api_router
 from app.api.routes import health
 from app.core.config import settings
 from app.db.session import SessionLocal, engine
+from app.services.backup import gate
 
 logger = logging.getLogger(__name__)
 
@@ -73,6 +76,10 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     await engine.dispose()
 
 
+#: The only API paths that answer while a restore is replacing the database.
+_RESTORE_SAFE_PATHS = {f"{settings.api_v1_prefix}/backups/restore-status"}
+
+
 def create_app() -> FastAPI:
     """Application factory."""
     app = FastAPI(
@@ -88,6 +95,32 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+    @app.middleware("http")
+    async def refuse_writes_during_a_restore(request: Request, call_next):
+        """While a restore runs, the database is being replaced — serve nothing else.
+
+        The exceptions are the health check (so the container is not killed) and the
+        restore status (so the admin's browser can watch it finish).
+        """
+        path = request.url.path
+        if not path.startswith(settings.api_v1_prefix) or path in _RESTORE_SAFE_PATHS:
+            return await call_next(request)
+        client = redis.Redis.from_url(settings.redis_url)
+        try:
+            if gate.is_restoring(client):
+                return JSONResponse(
+                    {"detail": "A restore is in progress."},
+                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                    headers={"Retry-After": "10"},
+                )
+        except redis.RedisError:
+            # Redis being unreachable is not evidence of a restore; let the request
+            # through rather than taking the API down with it.
+            pass
+        finally:
+            client.close()
+        return await call_next(request)
 
     # Unversioned liveness endpoint (load balancers / orchestrators).
     app.include_router(health.router)

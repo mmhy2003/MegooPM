@@ -36,6 +36,7 @@ TASK_MODULES = [
     "app.tasks.metrics",
     "app.tasks.analytics",
     "app.tasks.mail",
+    "app.tasks.backup",
 ]
 
 
@@ -108,6 +109,13 @@ def create_celery() -> Celery:
             # A tick that could not run promptly is worthless: the next one is
             # one interval away and carries fresher numbers.
             "options": {"expires": settings.metrics_scrape_interval_seconds},
+        },
+        "backup-tick": {
+            "task": "app.tasks.backup.backup_tick",
+            # Minute 10, so it never collides with the hub tick at :05. The
+            # tick decides whether this hour is the configured slot.
+            "schedule": crontab(minute=10),
+            "options": {"expires": 3000},
         },
         "renew-due-certificates-daily": {
             "task": "app.tasks.certs.renew_due_certificates",
