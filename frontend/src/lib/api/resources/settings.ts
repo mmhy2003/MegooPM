@@ -27,6 +27,7 @@ export type SmtpSecurity = Schemas["SmtpSecurity"];
 export type MailTestRequest = Schemas["MailTestRequest"];
 export type MailTestResult = Schemas["MailTestResult"];
 export type CrowdSecHubUpdate = Schemas["CrowdSecHubUpdate"];
+export type BackupSettingsUpdate = Schemas["BackupSettingsUpdate"];
 export type CrowdSecCapiUpdate = Schemas["CrowdSecCapiUpdate"];
 export type HubUpdateFrequency = Schemas["HubUpdateFrequency"];
 export type ErrorPageRead = Schemas["ErrorPageRead"];
@@ -58,6 +59,9 @@ export const instanceSettings = {
    * succeeded, the mail server did not.
    */
   testSmtp: (body: MailTestRequest) => api.post<MailTestResult>(`${BASE}/smtp/test`, body),
+  /** The automatic-backup schedule; takes effect at the next hourly tick. */
+  updateBackups: (body: BackupSettingsUpdate) =>
+    api.patch<InstanceSettings>(`${BASE}/backups`, body),
   /** The hub refresh schedule; takes effect at the next hourly tick. */
   updateCrowdSecHub: (body: CrowdSecHubUpdate) =>
     api.patch<InstanceSettings>(`${BASE}/crowdsec-hub`, body),

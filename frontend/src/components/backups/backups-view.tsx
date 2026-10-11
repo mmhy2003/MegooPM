@@ -13,6 +13,7 @@ import {
 } from "@/lib/api";
 import { describeError } from "@/components/proxy-hosts/lib";
 import { formatBytes, triggerLabel } from "@/components/backups/lib";
+import { ScheduleCard } from "@/components/backups/schedule-card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { RowCard, RowCards } from "@/components/ui/row-cards";
@@ -250,6 +251,8 @@ export function BackupsView() {
           </div>
         </div>
       </section>
+
+      <ScheduleCard settings={settings} onSaved={(next) => setSettings(next)} />
 
       {loading ? (
         <Skeleton className="h-40 rounded-xl" />
