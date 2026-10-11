@@ -29,8 +29,16 @@ def test_the_backup_directory_is_mounted(compose_file: str, service: str) -> Non
     assert MOUNT in _services(compose_file)[service]["volumes"]
 
 
-def test_the_example_env_documents_the_host_path() -> None:
-    path = REPO_ROOT / ".env.example"
+@pytest.mark.parametrize("template", [".env.example", ".env.ha.example"])
+def test_every_env_template_documents_the_host_path(template: str) -> None:
+    """Both topologies need it, and HA needs it most.
+
+    Under HA the backup tasks run on the control-plane node and BACKUP_PATH is
+    that node's own path, not the shared mount. An operator who never sees the
+    variable has no way to know where the backups are — or that they are not
+    on the shared storage everything else uses.
+    """
+    path = REPO_ROOT / template
     if not path.exists():  # pragma: no cover - the backend container mounts only backend/
         pytest.skip(f"{path} not present")
     assert "BACKUP_PATH=" in path.read_text(encoding="utf-8")
