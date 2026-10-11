@@ -2905,7 +2905,7 @@ export interface components {
             /** Free Bytes */
             free_bytes: number;
             /** Items */
-            items?: components["schemas"]["BackupRead"][];
+            items: components["schemas"]["BackupRead"][];
         };
         /**
          * BackupRead

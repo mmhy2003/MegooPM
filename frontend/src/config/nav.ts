@@ -1,4 +1,5 @@
 import {
+  Archive,
   LayoutDashboard,
   Globe,
   ShieldCheck,
@@ -112,6 +113,13 @@ export const primaryNav: NavItem[] = [
     href: "/audit-log",
     icon: ScrollText,
     description: "Every change made through MegooPM, and who made it.",
+    adminOnly: true,
+  },
+  {
+    title: "Backups",
+    href: "/backups",
+    icon: Archive,
+    description: "Encrypted copies of this instance, and restoring from one.",
     adminOnly: true,
   },
   {

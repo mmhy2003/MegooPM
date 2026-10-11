@@ -34,6 +34,13 @@ const SETTINGS = {
   crowdsec_hub_update_weekday: 6,
   crowdsec_hub_update_hour_utc: 3,
   crowdsec_capi_enabled: false,
+  backup_frequency: "off" as const,
+  backup_hour_utc: 3,
+  backup_weekday: 6,
+  backup_keep: 7,
+  last_backup_ok: null,
+  last_backup_at: null,
+  last_backup_message: null,
   updated_at: "2026-09-04T00:00:00Z",
 };
 const EMPTY = {
@@ -145,6 +152,13 @@ describe("UpdatesTab blocklist", () => {
     vi.mocked(instanceSettings.get).mockResolvedValue({
       ...SETTINGS,
       crowdsec_capi_enabled: true,
+      backup_frequency: "off" as const,
+      backup_hour_utc: 3,
+      backup_weekday: 6,
+      backup_keep: 7,
+      last_backup_ok: null,
+      last_backup_at: null,
+      last_backup_message: null,
     });
     vi.mocked(crowdsec.maintenance).mockResolvedValue({
       ...EMPTY,

@@ -47,6 +47,13 @@ const SETTINGS: InstanceSettings = {
   crowdsec_hub_update_weekday: 6,
   crowdsec_hub_update_hour_utc: 3,
   crowdsec_capi_enabled: false,
+  backup_frequency: "off" as const,
+  backup_hour_utc: 3,
+  backup_weekday: 6,
+  backup_keep: 7,
+  last_backup_ok: null,
+  last_backup_at: null,
+  last_backup_message: null,
   app_url: null,
   updated_at: "2026-09-01T00:00:00Z",
 };
@@ -177,6 +184,13 @@ const LLM_SETTINGS: InstanceSettings = {
   crowdsec_hub_update_weekday: 6,
   crowdsec_hub_update_hour_utc: 3,
   crowdsec_capi_enabled: false,
+  backup_frequency: "off" as const,
+  backup_hour_utc: 3,
+  backup_weekday: 6,
+  backup_keep: 7,
+  last_backup_ok: null,
+  last_backup_at: null,
+  last_backup_message: null,
   app_url: null,
 };
 
@@ -214,6 +228,13 @@ describe("llmStateFromSettings", () => {
       crowdsec_hub_update_weekday: 6,
       crowdsec_hub_update_hour_utc: 3,
       crowdsec_capi_enabled: false,
+      backup_frequency: "off" as const,
+      backup_hour_utc: 3,
+      backup_weekday: 6,
+      backup_keep: 7,
+      last_backup_ok: null,
+      last_backup_at: null,
+      last_backup_message: null,
       app_url: null,
     });
     expect(seeded.model).toBe("");
@@ -296,6 +317,13 @@ describe("smtpStateFromSettings", () => {
     crowdsec_hub_update_weekday: 6,
     crowdsec_hub_update_hour_utc: 3,
     crowdsec_capi_enabled: false,
+    backup_frequency: "off" as const,
+    backup_hour_utc: 3,
+    backup_weekday: 6,
+    backup_keep: 7,
+    last_backup_ok: null,
+    last_backup_at: null,
+    last_backup_message: null,
     app_url: "https://pm.example.com",
   } as unknown as InstanceSettings;
 

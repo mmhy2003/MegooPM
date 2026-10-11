@@ -1268,6 +1268,7 @@
           }
         },
         "required": [
+          "items",
           "free_bytes"
         ],
         "title": "BackupList",

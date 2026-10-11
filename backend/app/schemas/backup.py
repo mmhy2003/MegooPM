@@ -38,7 +38,10 @@ class BackupRead(BaseModel):
 class BackupList(BaseModel):
     """The directory's contents, newest first, plus room left on the disk."""
 
-    items: list[BackupRead] = Field(default_factory=list)
+    # Required, not defaulted: an optional list in the schema becomes
+    # `items?: …` in the generated client, and every caller then has to
+    # handle an absence the API never produces.
+    items: list[BackupRead]
     free_bytes: int
 
 

@@ -87,6 +87,8 @@ export type {
   TrafficSummary,
 } from "@/lib/api/resources/dashboard";
 export { auditLog } from "@/lib/api/resources/audit-log";
+export { backups } from "@/lib/api/resources/backups";
+export type { Backup, BackupList, RestoreStatus } from "@/lib/api/resources/backups";
 export type {
   AuditAction,
   AuditLogEntry,
