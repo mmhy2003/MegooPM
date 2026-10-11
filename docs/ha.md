@@ -67,6 +67,14 @@ overridable:
 | `NGINX_CERTS_DIR`          | `/data/certs`                     | `‹id›/fullchain.pem`, `privkey.pem`     |
 | ACME account key           | `/data/certs/_acme/`              | shared ACME account key(s)              |
 | `ACME_HTTP_CHALLENGE_DIR`  | `/data/certs/_acme-challenge`     | HTTP-01 challenge tokens                |
+| `BACKUP_PATH` (host, compose only) | e.g. `/mnt/megoopm/backups` | encrypted backups; **required** under HA and identical on every node |
+
+`BACKUP_PATH` is required rather than defaulted here for the same reason
+`SHARED_DATA_PATH` is: the Backups page lists whatever directory the node
+answering the request has mounted, and the backup itself is written by the
+worker on one node. Point every node at one shared directory, or a backup
+exists on disk and the UI shows nothing. Details in
+[`backups.md`](backups.md).
 
 Because certs and the ACME account key live on the shared mount, **any** node can
 issue, renew, and serve TLS. htpasswd sidecars are written into `conf.d` with the

@@ -55,6 +55,33 @@ A backup's name says when it was taken and how:
 `megoopm-20261011-030000-auto.mgb` — UTC, and one of `manual`, `auto` or
 `upload`.
 
+### Under HA: one directory, shared by every node
+
+`BACKUP_PATH` must be **the same shared directory on every node**, which is why
+`docker-compose.ha.yml` requires it instead of defaulting.
+
+The page lists whatever directory the node answering your request has mounted.
+Backups are taken by the worker on one node, and your load balancer decides
+which node serves the page — so with a per-node path the file exists on disk
+and the UI shows nothing. Pointing every node at one directory also means a
+restore works from whichever node you happen to be on.
+
+```bash
+# .env, identical on every node
+BACKUP_PATH=/mnt/megoopm/backups     # under SHARED_DATA_PATH
+```
+
+If a backup you took is missing from the page, this is almost always why.
+Check what the node answering you can see:
+
+```sh
+docker compose -f docker-compose.ha.yml exec backend sh -c 'ls -l /backups'
+```
+
+Backups on the shared mount share that storage's fate, so copy them off-box on
+a schedule — or point `BACKUP_PATH` at different storage that is still mounted
+identically on every node.
+
 ## Automatic backups
 
 Set the frequency (never / daily / weekly), the time in **UTC**, and how many

@@ -57,3 +57,46 @@ def test_data_init_makes_the_backup_directory_writable(compose_file: str) -> Non
     command = " ".join(init["command"]) if isinstance(init["command"], list) else init["command"]
     assert "/backups" in command, "data-init must create and chown /backups"
     assert MOUNT in init["volumes"]
+
+
+def test_ha_requires_the_backup_path_rather_than_defaulting_per_node() -> None:
+    """A default here is a trap: every node gets its own directory.
+
+    The worker writes on one node and the backend that answers the page reads
+    another's, so a backup exists on disk and the UI shows nothing. HA already
+    treats SHARED_DATA_PATH this way — a missing value stops the node instead
+    of quietly inventing a local one.
+    """
+    services = _services("docker-compose.ha.yml")
+    mounts = [
+        mount
+        for service in ("data-init", "backend", "worker")
+        for mount in services[service]["volumes"]
+        if isinstance(mount, str) and mount.endswith(":/backups")
+    ]
+
+    assert len(mounts) == 3, mounts
+    for mount in mounts:
+        assert "BACKUP_PATH:?" in mount, f"{mount} would silently default per node"
+
+
+def test_the_ha_template_points_at_the_shared_mount() -> None:
+    path = REPO_ROOT / ".env.ha.example"
+    if not path.exists():  # pragma: no cover - the backend container mounts only backend/
+        pytest.skip(f"{path} not present")
+    text = path.read_text(encoding="utf-8")
+    shared = next(
+        line.split("=", 1)[1].strip()
+        for line in text.splitlines()
+        if line.startswith("SHARED_DATA_PATH=")
+    )
+    backups = next(
+        line.split("=", 1)[1].strip()
+        for line in text.splitlines()
+        if line.startswith("BACKUP_PATH=")
+    )
+
+    assert backups.startswith(shared), (
+        f"BACKUP_PATH={backups} is not on the shared mount {shared}: "
+        "each node would list its own directory"
+    )
