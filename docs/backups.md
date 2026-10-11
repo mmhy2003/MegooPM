@@ -86,8 +86,10 @@ While it runs:
   already has until the apply at the end;
 - the container healthcheck keeps answering, so nothing restarts mid-restore.
 
-Everyone is signed out when it finishes: the sessions table came from the
-backup. Sign in again.
+Sessions come from the backup too, so any sign-in made after it was taken
+stops working — sign in again. For a few seconds while the database is being
+replaced some requests are refused outright rather than answered; the page
+polling the status retries on its own.
 
 If the restore fails, the page says why and **the old database is still
 there** — `pg_restore` runs in a single transaction that rolls back.

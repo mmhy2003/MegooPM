@@ -40,7 +40,9 @@ describe("RestoreDialog", () => {
     renderDialog();
 
     expect(screen.getByText(/replaces this instance/i)).toBeInTheDocument();
-    expect(screen.getByText(/everyone is signed out/i)).toBeInTheDocument();
+    // Sessions come from the backup too, so the honest claim is about
+    // sign-ins newer than it — not that everyone is signed out.
+    expect(screen.getByText(/sign-ins since this backup stop working/i)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /^restore$/i })).toBeDisabled();
   });
 

@@ -79,6 +79,25 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
 #: The only API paths that answer while a restore is replacing the database.
 _RESTORE_SAFE_PATHS = {f"{settings.api_v1_prefix}/backups/restore-status"}
 
+#: The restore this process has already reacted to, so the pool is dropped
+#: once per restore rather than on every request afterwards.
+_seen_restore: str | None = None
+
+
+async def _drop_pool_after_a_restore(client: redis.Redis) -> None:
+    """Replace pooled connections whose prepared statements the restore voided.
+
+    asyncpg caches a prepared statement per query; a restore drops and recreates
+    every table, so those plans are invalid and the next queries fail with
+    InvalidCachedStatementError — including the status route the restore screen
+    polls. Disposing the engine retires the connections holding them.
+    """
+    global _seen_restore
+    marker = gate.restored_at(client)
+    if marker and marker != _seen_restore:
+        _seen_restore = marker
+        await engine.dispose()
+
 
 def create_app() -> FastAPI:
     """Application factory."""
@@ -100,23 +119,26 @@ def create_app() -> FastAPI:
     async def refuse_writes_during_a_restore(request: Request, call_next):
         """While a restore runs, the database is being replaced — serve nothing else.
 
-        The exceptions are the health check (so the container is not killed) and the
-        restore status (so the admin's browser can watch it finish).
+        The exceptions are the health check (so the container is not killed) and
+        the restore status (so the admin's browser can watch it finish). The
+        status route still goes through the pool reset below: it is the first
+        thing called after a restore, and it is the one that was failing.
         """
         path = request.url.path
-        if not path.startswith(settings.api_v1_prefix) or path in _RESTORE_SAFE_PATHS:
+        if not path.startswith(settings.api_v1_prefix):
             return await call_next(request)
         client = redis.Redis.from_url(settings.redis_url)
         try:
-            if gate.is_restoring(client):
+            await _drop_pool_after_a_restore(client)
+            if path not in _RESTORE_SAFE_PATHS and gate.is_restoring(client):
                 return JSONResponse(
                     {"detail": "A restore is in progress."},
                     status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                     headers={"Retry-After": "10"},
                 )
         except redis.RedisError:
-            # Redis being unreachable is not evidence of a restore; let the request
-            # through rather than taking the API down with it.
+            # Redis being unreachable is not evidence of a restore; let the
+            # request through rather than taking the API down with it.
             pass
         finally:
             client.close()

@@ -16,8 +16,8 @@ const POLL_MS = 2000;
  * During a restore the API answers 503 to everything but this status route, so
  * there is nothing else the app can usefully show — and a half-rendered page
  * full of failed requests would read as the restore having broken something.
- * When it ends, the session is gone with the old database, so the only way
- * forward is signing in again.
+ * When it ends, any sign-in made after the backup was taken is gone with the
+ * old database, so the way forward is signing in again.
  */
 export function RestoreBlocker() {
   const [status, setStatus] = useState<RestoreStatus | null>(null);
@@ -67,7 +67,8 @@ export function RestoreBlocker() {
 
         {finished && !status?.error ? (
           <p className="text-sm">
-            The database was replaced, so your session is gone. Sign in again to continue.
+            The database was replaced. If your sign-in is newer than the backup, it is gone — sign
+            in again to continue.
           </p>
         ) : null}
 

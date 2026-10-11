@@ -19,6 +19,11 @@ RESTORE_KEY = "megoopm:restore"
 RESTORE_TTL_S = 3600
 _LAST_ERROR_KEY = "megoopm:restore:last-error"
 _LAST_ERROR_TTL_S = 900
+#: When a restore last finished. The API watches this to drop its connection
+#: pool: asyncpg caches a prepared statement per query, and a restore replaces
+#: the schema those plans were built against.
+_RESTORED_AT_KEY = "megoopm:restore:completed-at"
+_RESTORED_AT_TTL_S = 86400
 
 
 def begin_restore(client: redis.Redis, step: str) -> None:
@@ -57,3 +62,14 @@ def restore_status(client: redis.Redis) -> dict[str, Any]:
         "started_at": payload.get("started_at"),
         "error": error.decode() if isinstance(error, bytes) else error,
     }
+
+
+def mark_restored(client: redis.Redis) -> None:
+    """Record that a restore just replaced the database."""
+    client.set(_RESTORED_AT_KEY, datetime.now(UTC).isoformat(), ex=_RESTORED_AT_TTL_S)
+
+
+def restored_at(client: redis.Redis) -> str | None:
+    """When the last restore finished, as the API saw it, or None."""
+    raw = client.get(_RESTORED_AT_KEY)
+    return raw.decode() if isinstance(raw, bytes) else raw

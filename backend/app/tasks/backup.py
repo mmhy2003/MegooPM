@@ -199,6 +199,7 @@ def _restore(name: str) -> dict:
         _announce("restore.failed")
         return {"ran": True, "ok": False, "error": str(exc)}
 
+    gate.mark_restored(client)
     gate.end_restore(client)
     client.close()
     # Rebuild the generated nginx configuration from the restored database.

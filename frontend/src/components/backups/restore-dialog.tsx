@@ -69,7 +69,10 @@ export function RestoreDialog({
         <ul className="text-muted-foreground list-disc space-y-1 pl-5 text-sm">
           <li>The database is replaced — anything added since this backup is gone.</li>
           <li>Certificates and their private keys are replaced.</li>
-          <li>Everyone is signed out, including you.</li>
+          <li>
+            Sign-ins since this backup stop working — the sessions table comes from the backup too,
+            so you may have to sign in again.
+          </li>
           <li>The admin interface is unavailable for the duration.</li>
           <li>nginx keeps serving traffic throughout, then reloads the restored config.</li>
         </ul>

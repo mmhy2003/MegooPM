@@ -8,6 +8,8 @@ watch the restore finish.
 
 from __future__ import annotations
 
+from types import SimpleNamespace
+
 import fakeredis
 import pytest
 from app.main import create_app
@@ -50,3 +52,31 @@ async def test_the_health_check_still_answers(http) -> None:
     response = await http.get("/health")
 
     assert response.status_code == 200
+
+
+async def test_the_connection_pool_is_dropped_after_a_restore(monkeypatch) -> None:
+    """A restore replaces the schema under the API's own pooled connections.
+
+    asyncpg caches a prepared statement per query; after pg_restore drops and
+    recreates every table those plans are invalid, and the next requests fail
+    with InvalidCachedStatementError — including the status route the blocking
+    screen is polling. Measured against a real stack before this existed.
+    """
+    client = fakeredis.FakeStrictRedis()
+    monkeypatch.setattr("app.main.redis.Redis.from_url", lambda _url: client)
+    disposed: list[bool] = []
+
+    async def _dispose() -> None:
+        disposed.append(True)
+
+    monkeypatch.setattr("app.main.engine", SimpleNamespace(dispose=_dispose))
+    gate.mark_restored(client)
+
+    async with AsyncClient(
+        transport=ASGITransport(app=create_app()), base_url="http://testserver"
+    ) as http:
+        await http.get("/api/v1/backups/restore-status")
+        await http.get("/api/v1/backups/restore-status")
+
+    # Once for the restore that happened, not on every request afterwards.
+    assert disposed == [True]
