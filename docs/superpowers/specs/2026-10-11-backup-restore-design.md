@@ -41,7 +41,10 @@ volume, only some of it is irreplaceable:
 
 ## Format
 
-One file per backup, named `megoopm-YYYYMMDD-HHMMSS.mgb` (UTC).
+One file per backup, named `megoopm-YYYYMMDD-HHMMSS-<trigger>.mgb` (UTC), where
+`<trigger>` is `manual`, `auto` or `upload`. The trigger is in the *name*
+because `meta.json` sits inside the encrypted part: retention has to know which
+files it may sweep, and the list has to show something useful, without the key.
 
 ```text
 "MEGOOPMBK" 0x01   magic + format version   (clear)
@@ -53,7 +56,8 @@ terminator         4 zero bytes             (end of stream marker)
 
 Plaintext inside is a `tar` holding:
 
-- `meta.json` — `created_at`, `app_version`
+- `meta.json` — written first in the tar, so it can be read without decrypting
+  the rest — `created_at`, `app_version`
   (`importlib.metadata.version("megoopm-backend")`), `alembic_revision` (the
   `alembic_version` table's value at the time of the dump), `trigger`
   (`manual` | `scheduled`), `db_bytes`, `cert_bytes`;
@@ -88,12 +92,17 @@ socket and still works against a managed database.
 - Backend setting: `backup_dir: str = "/backups"` — the container path.
 - Backend setting: `backup_max_bytes: int = 4 GiB` — cap for uploads.
 
-**The directory is the list.** The page enumerates `*.mgb` in `backup_dir` and
-reads each file's clear header for its metadata; there is no table of backups
-to drift out of sync with the disk. A file copied in by hand appears; a file
-deleted on the host disappears. File names are validated against
-`^megoopm-\d{8}-\d{6}(-[a-z0-9]{1,16})?\.mgb$` on every path that takes a name,
-so no request can escape the directory.
+**The directory is the list.** The page enumerates `*.mgb` in `backup_dir`;
+there is no table of backups to drift out of sync with the disk. A file copied
+in by hand appears; a file deleted on the host disappears. File names are
+validated against `^megoopm-\d{8}-\d{6}-(manual|auto|upload)\.mgb$` on every
+path that takes a name, so no request can escape the directory.
+
+Each row's name, size, time and trigger come from the file name and `stat`.
+The richer fields (app version, migration revision, byte counts) come from
+`meta.json`, the archive's first member, so the API decrypts only the first
+chunk to read them. When the key fingerprint does not match, the row shows
+what the name and `stat` give, and says the key does not match.
 
 ## Schedule, retention, last run
 
@@ -113,7 +122,7 @@ A beat entry runs `app.tasks.backup.scheduled_backup_tick` at minute 10 of every
 hour; the tick reads the settings and decides whether this hour is the slot —
 the pattern `crowdsec_hub_update` already uses, so a missed hour is skipped
 rather than queued. Automatic backups apply retention afterwards: the newest
-`backup_keep` **scheduled** files are kept, older scheduled ones deleted.
+`backup_keep` `-auto` files are kept, older `-auto` ones deleted.
 Manual backups and uploads are never swept — the copy an admin took before a
 risky change must not expire because a nightly ran.
 
@@ -132,7 +141,7 @@ All admin-only (`AdminUser`), all declared in `tests/test_route_authorization.py
 | `GET /api/v1/backups` | list: name, size, created_at, trigger, app_version, `key_matches` |
 | `POST /api/v1/backups` | enqueue a manual backup → `TaskEnqueued` |
 | `GET /api/v1/backups/{name}/download` | stream the file (`StreamingResponse`, chunked) |
-| `POST /api/v1/backups/upload` | multipart; streams to a temp file in `backup_dir`, validates the header, caps at `backup_max_bytes`, renames into place |
+| `POST /api/v1/backups/upload` | multipart; streams to a temp file in `backup_dir`, validates the header, caps at `backup_max_bytes`, renames into place under a `-upload` name |
 | `DELETE /api/v1/backups/{name}` | delete the file |
 | `POST /api/v1/backups/{name}/restore` | enqueue a restore → `TaskEnqueued` |
 | `GET /api/v1/backups/restore-status` | `{running, started_at, step, error}` — the one route that answers during a restore |
