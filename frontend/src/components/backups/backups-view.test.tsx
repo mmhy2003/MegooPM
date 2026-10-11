@@ -97,3 +97,23 @@ describe("BackupsView", () => {
     );
   });
 });
+
+describe("BackupsView during a restore", () => {
+  it("shows the blocking screen even though the other calls are refused", async () => {
+    // The gate answers 503 to everything but the status route, so a loader
+    // that fetches all three together learns nothing — and the screen that is
+    // supposed to explain the restore never appears.
+    vi.mocked(backups.list).mockRejectedValue(new Error("503"));
+    vi.mocked(instanceSettings.get).mockRejectedValue(new Error("503"));
+    vi.mocked(backups.restoreStatus).mockResolvedValue({
+      running: true,
+      step: "restoring the database",
+      started_at: "2026-10-11T03:00:00Z",
+      error: null,
+    });
+
+    render(<BackupsView />);
+
+    expect(await screen.findByText(/restoring the database/i)).toBeInTheDocument();
+  });
+});

@@ -33,6 +33,8 @@ HEADER_BYTES = len(MAGIC) + 1 + SALT_BYTES + FINGERPRINT_BYTES + NONCE_PREFIX_BY
 CHUNK_BYTES = 1024 * 1024
 _INFO = b"megoopm-backup-v1"
 _TERMINATOR = b"\x00\x00\x00\x00"
+#: GCM tag plus slack: a sealed chunk is never larger than this over CHUNK_BYTES.
+_MAX_TAG_OVERHEAD = 64
 
 
 class BackupFormatError(RuntimeError):
@@ -117,6 +119,10 @@ def _chunks(src: BinaryIO, header: Header, aead: AESGCM):
         (length,) = struct.unpack(">I", length_bytes)
         if length == 0:
             return
+        if length > CHUNK_BYTES + _MAX_TAG_OVERHEAD:
+            # The length prefix is attacker-controlled in an uploaded file;
+            # without this, four edited bytes make the reader allocate 4 GiB.
+            raise BackupFormatError("backup chunk is larger than this format allows")
         sealed = src.read(length)
         if len(sealed) < length:
             raise BackupFormatError("backup file ends mid-chunk")

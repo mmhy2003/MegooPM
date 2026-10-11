@@ -11,7 +11,7 @@ import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
-import redis
+import redis.asyncio as redis
 from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -19,6 +19,7 @@ from fastapi.responses import JSONResponse
 from app.api.router import api_router
 from app.api.routes import health
 from app.core.config import settings
+from app.core.redis import redis_client
 from app.db.session import SessionLocal, engine
 from app.services.backup import gate
 
@@ -84,6 +85,25 @@ _RESTORE_SAFE_PATHS = {f"{settings.api_v1_prefix}/backups/restore-status"}
 _seen_restore: str | None = None
 
 
+def _oversized_upload(request: Request, path: str) -> JSONResponse | None:
+    """Refuse a too-large backup upload before its body is read.
+
+    It has to happen here rather than in the route: FastAPI resolves an
+    ``UploadFile`` by parsing the whole multipart body first, into an unbounded
+    spooled file on the container's filesystem. By the time the endpoint runs,
+    a 200 GB upload has already filled the disk — and taken the stack with it.
+    """
+    if request.method != "POST" or path != f"{settings.api_v1_prefix}/backups/upload":
+        return None
+    declared = request.headers.get("content-length")
+    if declared and declared.isdigit() and int(declared) > settings.backup_max_bytes:
+        return JSONResponse(
+            {"detail": f"a backup may be at most {settings.backup_max_bytes} bytes"},
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+        )
+    return None
+
+
 async def _drop_pool_after_a_restore(client: redis.Redis) -> None:
     """Replace pooled connections whose prepared statements the restore voided.
 
@@ -93,7 +113,7 @@ async def _drop_pool_after_a_restore(client: redis.Redis) -> None:
     polls. Disposing the engine retires the connections holding them.
     """
     global _seen_restore
-    marker = gate.restored_at(client)
+    marker = await gate.restored_at_async(client)
     if marker and marker != _seen_restore:
         _seen_restore = marker
         await engine.dispose()
@@ -127,10 +147,13 @@ def create_app() -> FastAPI:
         path = request.url.path
         if not path.startswith(settings.api_v1_prefix):
             return await call_next(request)
-        client = redis.Redis.from_url(settings.redis_url)
+        too_large = _oversized_upload(request, path)
+        if too_large is not None:
+            return too_large
+        client = redis_client()
         try:
             await _drop_pool_after_a_restore(client)
-            if path not in _RESTORE_SAFE_PATHS and gate.is_restoring(client):
+            if path not in _RESTORE_SAFE_PATHS and await gate.is_restoring_async(client):
                 return JSONResponse(
                     {"detail": "A restore is in progress."},
                     status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -141,7 +164,7 @@ def create_app() -> FastAPI:
             # request through rather than taking the API down with it.
             pass
         finally:
-            client.close()
+            await client.aclose()
         return await call_next(request)
 
     # Unversioned liveness endpoint (load balancers / orchestrators).

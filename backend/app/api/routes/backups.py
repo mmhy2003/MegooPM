@@ -11,16 +11,18 @@ Route order matters: the literal paths are declared before ``/{name}`` so
 
 from __future__ import annotations
 
+import logging
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Annotated
 
-import redis
-from fastapi import APIRouter, File, HTTPException, UploadFile, status
+import redis.asyncio as redis
+from fastapi import APIRouter, File, HTTPException, Request, UploadFile, status
 from fastapi.responses import StreamingResponse
 
-from app.api.deps import AdminUser, SessionDep
+from app.api.deps import AdminFromToken, AdminUser, SessionDep
 from app.core.config import settings
+from app.core.redis import redis_client
 from app.models.enums import AuditAction
 from app.schemas.backup import BackupList, BackupRead, RestoreStatus
 from app.schemas.tasks import TaskEnqueued
@@ -28,6 +30,8 @@ from app.services.audit import record_audit
 from app.services.backup import gate, store
 from app.services.backup.crypto import BackupFormatError, read_header
 from app.tasks.backup import create_backup_task, restore_backup_task
+
+log = logging.getLogger(__name__)
 
 router = APIRouter(tags=["backups"])
 
@@ -37,6 +41,33 @@ _IO_CHUNK = 1024 * 1024
 
 def _dir() -> Path:
     return Path(settings.backup_dir)
+
+
+def _reject_oversized(request: Request) -> None:
+    """Refuse a too-large upload before a byte of its body is read.
+
+    FastAPI resolves ``UploadFile`` by parsing the whole multipart body first,
+    into an unbounded spooled file on the container's filesystem. Checking the
+    size inside the endpoint is therefore too late: the disk is already full.
+    """
+    declared = request.headers.get("content-length")
+    if declared and declared.isdigit() and int(declared) > settings.backup_max_bytes:
+        raise HTTPException(
+            status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail=f"a backup may be at most {settings.backup_max_bytes} bytes",
+        )
+
+
+def _discard(part: Path) -> None:
+    """Remove a rejected upload. Never raises: it runs inside except blocks.
+
+    A directory the API cannot write to would otherwise turn a clean 413 into
+    a 500 from the cleanup itself.
+    """
+    try:
+        part.unlink(missing_ok=True)
+    except OSError as exc:  # pragma: no cover - depends on the filesystem
+        log.warning("could not remove the rejected upload %s: %s", part, exc)
 
 
 def _resolve(name: str) -> Path:
@@ -57,18 +88,18 @@ async def list_backups(_admin: AdminUser) -> BackupList:
 
 
 @router.get("/restore-status", response_model=RestoreStatus)
-async def read_restore_status(_admin: AdminUser) -> RestoreStatus:
+async def read_restore_status(_admin: AdminFromToken) -> RestoreStatus:
     """What a restore is doing. The one route that answers during a restore."""
-    client = redis.Redis.from_url(settings.redis_url)
+    client = redis_client()
     try:
-        return RestoreStatus(**gate.restore_status(client))
+        return RestoreStatus(**await gate.restore_status_async(client))
     except redis.RedisError:
         # Redis being unreachable is not evidence of a restore, and the page
         # that polls this must not error because the flag store blinked. The
         # middleware fails open the same way.
         return RestoreStatus(running=False)
     finally:
-        client.close()
+        await client.aclose()
 
 
 @router.post("", response_model=TaskEnqueued, status_code=status.HTTP_202_ACCEPTED)
@@ -88,7 +119,7 @@ async def take_backup(admin: AdminUser, db: SessionDep) -> TaskEnqueued:
 
 @router.post("/upload", response_model=BackupRead, status_code=status.HTTP_201_CREATED)
 async def upload_backup(
-    admin: AdminUser, db: SessionDep, file: Annotated[UploadFile, File()]
+    request: Request, admin: AdminUser, db: SessionDep, file: Annotated[UploadFile, File()]
 ) -> BackupRead:
     """Accept a backup made elsewhere. Admin-only.
 
@@ -96,6 +127,7 @@ async def upload_backup(
     oversized or malformed upload must leave nothing behind, and must never be
     listed as something an admin could restore.
     """
+    _reject_oversized(request)
     _dir().mkdir(parents=True, exist_ok=True, mode=0o700)
     name = store.new_name(datetime.now(UTC), "upload")
     part = _dir() / f"{name}{store.PART_SUFFIX}"
@@ -113,13 +145,13 @@ async def upload_backup(
         with part.open("rb") as handle:
             read_header(handle)
     except HTTPException:
-        part.unlink(missing_ok=True)
+        _discard(part)
         raise
     except BackupFormatError as exc:
-        part.unlink(missing_ok=True)
+        _discard(part)
         raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
     except BaseException:
-        part.unlink(missing_ok=True)
+        _discard(part)
         raise
 
     final = _dir() / name

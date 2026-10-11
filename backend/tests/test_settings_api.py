@@ -890,3 +890,25 @@ async def test_the_schedule_rejects_an_hour_that_does_not_exist(client: AsyncCli
     )
 
     assert rejected.status_code == 422
+
+
+async def test_a_partial_schedule_patch_is_rejected_not_silently_defaulted(
+    client: AsyncClient, auth
+) -> None:
+    # Every field is required, as on the CrowdSec hub schedule: a payload with
+    # only `frequency` would otherwise reset the hour, the weekday and the
+    # retention count to defaults without saying so.
+    await client.patch(
+        "/api/v1/settings/backups",
+        headers=auth,
+        json={"frequency": "daily", "hour_utc": 2, "weekday": 0, "keep": 30},
+    )
+
+    partial = await client.patch(
+        "/api/v1/settings/backups", headers=auth, json={"frequency": "weekly"}
+    )
+
+    assert partial.status_code == 422
+    kept = (await client.get("/api/v1/settings", headers=auth)).json()
+    assert kept["backup_keep"] == 30
+    assert kept["backup_hour_utc"] == 2

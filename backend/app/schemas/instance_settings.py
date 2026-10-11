@@ -285,12 +285,17 @@ class CrowdSecHubUpdate(BaseModel):
 
 
 class BackupSettingsUpdate(BaseModel):
-    """The automatic-backup schedule and how many copies to keep."""
+    """The automatic-backup schedule and how many copies to keep.
 
-    frequency: BackupFrequency = BackupFrequency.off
-    hour_utc: int = Field(default=3, ge=0, le=23)
-    weekday: int = Field(default=6, ge=0, le=6, description="Monday = 0; weekly only")
-    keep: int = Field(default=7, ge=1, le=365)
+    Every field is required, like CrowdSecHubUpdate: this is a PATCH of the
+    whole schedule, and a payload carrying only `frequency` would otherwise
+    reset the hour, the weekday and the retention count to defaults silently.
+    """
+
+    frequency: BackupFrequency
+    hour_utc: int = Field(ge=0, le=23)
+    weekday: int = Field(ge=0, le=6, description="Monday = 0; weekly only")
+    keep: int = Field(ge=1, le=365)
 
 
 class CrowdSecCapiUpdate(BaseModel):

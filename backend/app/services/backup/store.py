@@ -62,8 +62,17 @@ def safe_path(backup_dir: Path, name: str) -> Path:
     return path
 
 
-def _created_at(name: str) -> datetime:
-    return datetime.strptime(name[8:23], "%Y%m%d-%H%M%S").replace(tzinfo=UTC)
+def _created_at(name: str, fallback: datetime) -> datetime:
+    """The time in the name, or the file's mtime when the name lies.
+
+    NAME_RE accepts any eight digits, so a hand-copied file can carry a date
+    that is not one. Raising here would take down the listing — and with it
+    the only way to delete that file.
+    """
+    try:
+        return datetime.strptime(name[8:23], "%Y%m%d-%H%M%S").replace(tzinfo=UTC)
+    except ValueError:
+        return fallback
 
 
 def describe(path: Path, *, secret_key: str) -> BackupFile:
@@ -72,6 +81,7 @@ def describe(path: Path, *, secret_key: str) -> BackupFile:
     key_matches = False
     app_version: str | None = None
     revision: str | None = None
+    stat = path.stat()
     try:
         with path.open("rb") as handle:
             header = read_header(handle)
@@ -88,8 +98,8 @@ def describe(path: Path, *, secret_key: str) -> BackupFile:
         pass
     return BackupFile(
         name=name,
-        size_bytes=path.stat().st_size,
-        created_at=_created_at(name),
+        size_bytes=stat.st_size,
+        created_at=_created_at(name, datetime.fromtimestamp(stat.st_mtime, UTC)),
         trigger=trigger,
         key_matches=key_matches,
         app_version=app_version,
@@ -100,11 +110,16 @@ def describe(path: Path, *, secret_key: str) -> BackupFile:
 def list_backups(backup_dir: Path, *, secret_key: str) -> list[BackupFile]:
     if not backup_dir.is_dir():
         return []
-    rows = [
-        describe(path, secret_key=secret_key)
-        for path in backup_dir.iterdir()
-        if path.is_file() and NAME_RE.match(path.name)
-    ]
+    rows = []
+    for path in backup_dir.iterdir():
+        if not NAME_RE.match(path.name):
+            continue
+        try:
+            rows.append(describe(path, secret_key=secret_key))
+        except OSError:
+            # Deleted between the scan and the stat — by retention, or by an
+            # operator on the host. A race must not take the page down.
+            continue
     return sorted(rows, key=lambda row: row.name, reverse=True)
 
 
@@ -124,3 +139,25 @@ def apply_retention(backup_dir: Path, *, keep: int) -> list[str]:
 
 def free_bytes(backup_dir: Path) -> int:
     return shutil.disk_usage(backup_dir).free
+
+
+def sweep_interrupted(backup_dir: Path, *, older_than_hours: int = 24) -> list[str]:
+    """Delete `.part` files left by a backup that never finished.
+
+    They are invisible to the list (deliberately — a half-written backup must
+    never be restorable) and no route can delete them, so without this they
+    accumulate until a backup fails for want of space with nothing on screen
+    to explain it. The age guard keeps it from deleting a backup in flight.
+    """
+    if not backup_dir.is_dir():
+        return []
+    cutoff = datetime.now(UTC).timestamp() - older_than_hours * 3600
+    swept: list[str] = []
+    for path in backup_dir.glob(f"*{PART_SUFFIX}"):
+        try:
+            if path.stat().st_mtime < cutoff:
+                path.unlink(missing_ok=True)
+                swept.append(path.name)
+        except OSError:
+            continue
+    return sorted(swept)

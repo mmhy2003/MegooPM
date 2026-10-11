@@ -2936,24 +2936,20 @@ export interface components {
         /**
          * BackupSettingsUpdate
          * @description The automatic-backup schedule and how many copies to keep.
+         *
+         *     Every field is required, like CrowdSecHubUpdate: this is a PATCH of the
+         *     whole schedule, and a payload carrying only `frequency` would otherwise
+         *     reset the hour, the weekday and the retention count to defaults silently.
          */
         BackupSettingsUpdate: {
-            /** @default off */
             frequency: components["schemas"]["BackupFrequency"];
-            /**
-             * Hour Utc
-             * @default 3
-             */
+            /** Hour Utc */
             hour_utc: number;
-            /**
-             * Keep
-             * @default 7
-             */
+            /** Keep */
             keep: number;
             /**
              * Weekday
              * @description Monday = 0; weekly only
-             * @default 6
              */
             weekday: number;
         };

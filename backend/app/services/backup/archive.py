@@ -91,7 +91,9 @@ def extract_archive(src: BinaryIO, dest: Path) -> BackupMeta:
         with tarfile.open(fileobj=src, mode="r|*") as tar:
             for member in tar:
                 target = (dest / member.name).resolve()
-                if not str(target).startswith(str(dest.resolve())):
+                # is_relative_to, not startswith: "/tmp/x-abc" starts with
+                # "/tmp/x-ab" and would pass a string comparison.
+                if not target.is_relative_to(dest.resolve()):
                     raise BackupArchiveError(
                         f"archive member escapes the destination: {member.name}"
                     )

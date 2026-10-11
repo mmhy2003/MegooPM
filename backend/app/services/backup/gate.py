@@ -73,3 +73,32 @@ def restored_at(client: redis.Redis) -> str | None:
     """When the last restore finished, as the API saw it, or None."""
     raw = client.get(_RESTORED_AT_KEY)
     return raw.decode() if isinstance(raw, bytes) else raw
+
+
+# --- async twins -------------------------------------------------------------
+# The worker is synchronous and the API is not. Two small readers rather than
+# one, because a blocking socket read inside an async request handler stalls
+# the event loop for every other request in flight.
+
+
+async def is_restoring_async(client: Any) -> bool:
+    return await client.exists(RESTORE_KEY) == 1
+
+
+async def restored_at_async(client: Any) -> str | None:
+    raw = await client.get(_RESTORED_AT_KEY)
+    return raw.decode() if isinstance(raw, bytes) else raw
+
+
+async def restore_status_async(client: Any) -> dict[str, Any]:
+    raw = await client.get(RESTORE_KEY)
+    error = await client.get(_LAST_ERROR_KEY)
+    if isinstance(raw, bytes):
+        raw = raw.decode()
+    payload = json.loads(raw) if raw else {}
+    return {
+        "running": raw is not None,
+        "step": payload.get("step"),
+        "started_at": payload.get("started_at"),
+        "error": error.decode() if isinstance(error, bytes) else error,
+    }

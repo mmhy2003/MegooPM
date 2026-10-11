@@ -15,6 +15,7 @@ import os
 import shutil
 import subprocess
 import tempfile
+import threading
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
@@ -65,21 +66,71 @@ def real_pg_tools(database_url: str) -> PgTools:
     url = database_url.replace("+asyncpg", "").replace("+psycopg", "")
 
     def dump(dst: Path) -> None:
-        _run(["pg_dump", "--format=custom", "--no-owner", "--file", str(dst), url])
-
-    def restore(src: Path) -> None:
+        # Only `public`: every MegooPM object lives there, and the restore
+        # resets exactly that schema. A dump carrying a schema the restore
+        # does not drop would fail on "schema already exists" — after the
+        # verification step, where a failure is most expensive.
         _run(
             [
-                "pg_restore",
-                "--clean",
-                "--if-exists",
+                "pg_dump",
+                "--format=custom",
                 "--no-owner",
-                "--single-transaction",
-                "--dbname",
+                "--schema=public",
+                "--file",
+                str(dst),
                 url,
-                str(src),
             ]
         )
+
+    def restore(src: Path) -> None:
+        """Reset the schema and apply the dump, atomically.
+
+        Not ``pg_restore --clean``: that drops only what the archive contains,
+        so restoring a backup older than the running code would leave newer
+        migrations' tables in place while ``alembic_version`` went back — and
+        the catch-up migration would then fail against objects that already
+        exist, with the database already replaced. Dropping the schema first
+        makes the restored instance exactly the backup.
+
+        Everything runs inside one psql transaction with ON_ERROR_STOP, so a
+        failure anywhere leaves the existing database untouched.
+        """
+        with tempfile.TemporaryDirectory(prefix="megoopm-restore-sql-") as work:
+            dump_sql = Path(work) / "dump.sql"
+            _run(["pg_restore", "--no-owner", "--file", str(dump_sql), str(src)])
+
+            script = Path(work) / "restore.sql"
+            with script.open("w", encoding="utf-8") as out:
+                # Drop only: `pg_dump --schema=public` emits the CREATE SCHEMA
+                # itself, and a second one here would collide with it.
+                out.write("DROP SCHEMA IF EXISTS public CASCADE;\n")
+                with dump_sql.open("r", encoding="utf-8") as dumped:
+                    shutil.copyfileobj(dumped, out)
+
+            # Other sessions hold locks the DROP would wait on, and they are
+            # about to be talking to a schema that no longer exists.
+            _run(
+                [
+                    "psql",
+                    url,
+                    "-v",
+                    "ON_ERROR_STOP=1",
+                    "-c",
+                    "SELECT pg_terminate_backend(pid) FROM pg_stat_activity "
+                    "WHERE datname = current_database() AND pid <> pg_backend_pid()",
+                ]
+            )
+            _run(
+                [
+                    "psql",
+                    url,
+                    "-v",
+                    "ON_ERROR_STOP=1",
+                    "--single-transaction",
+                    "-f",
+                    str(script),
+                ]
+            )
 
     def revision() -> str:
         result = subprocess.run(
@@ -136,24 +187,41 @@ def create_backup(
             db_bytes=dump_path.stat().st_size,
             cert_bytes=cert_bytes,
         )
-        plain_path = Path(work) / "archive.tar"
-        with plain_path.open("wb") as plain:
-            build_archive(
-                plain,
-                meta=meta,
-                db_dump=dump_path,
-                certs_dir=certs_dir,
-                crowdsec_files=crowdsec_files,
-            )
+        # Piped, not staged: writing the tar out first cost a second full copy
+        # in the container's root filesystem — which the space check above does
+        # not measure — and left every secret in it unencrypted for the
+        # duration. The writer runs in a thread; the encryptor reads the pipe.
+        read_fd, write_fd = os.pipe()
+        failure: list[BaseException] = []
 
+        def write_archive() -> None:
+            try:
+                with os.fdopen(write_fd, "wb") as plain:
+                    build_archive(
+                        plain,
+                        meta=meta,
+                        db_dump=dump_path,
+                        certs_dir=certs_dir,
+                        crowdsec_files=crowdsec_files,
+                    )
+            except BaseException as exc:  # noqa: BLE001 - re-raised on the caller's thread
+                failure.append(exc)
+
+        writer = threading.Thread(target=write_archive, name="megoopm-backup-tar")
+        writer.start()
         try:
-            with plain_path.open("rb") as plain, part.open("wb") as sealed:
+            with os.fdopen(read_fd, "rb") as plain, part.open("wb") as sealed:
                 encrypt_stream(plain, sealed, secret_key=secret_key)
                 sealed.flush()
                 os.fsync(sealed.fileno())
         except BaseException:
             part.unlink(missing_ok=True)
+            writer.join()
             raise
+        writer.join()
+        if failure:
+            part.unlink(missing_ok=True)
+            raise failure[0]
 
     part.replace(final)
     final.chmod(0o600)

@@ -85,22 +85,25 @@ export function BackupsView() {
   const fileInput = useRef<HTMLInputElement>(null);
 
   const load = useCallback(async () => {
-    try {
-      const [list, stored, status] = await Promise.all([
-        backups.list(),
-        instanceSettings.get(),
-        backups.restoreStatus(),
-      ]);
-      setItems(list.items);
-      setFreeBytes(list.free_bytes);
-      setSettings(stored);
-      setRestore(status);
+    // Settled, not all: during a restore the API answers 503 to everything but
+    // the status route, and that one answer is the whole point — a loader that
+    // fails as a unit would leave the page saying the backups could not be
+    // listed, with no sign of the restore that is the reason.
+    const [list, stored, status] = await Promise.allSettled([
+      backups.list(),
+      instanceSettings.get(),
+      backups.restoreStatus(),
+    ]);
+    if (list.status === "fulfilled") {
+      setItems(list.value.items);
+      setFreeBytes(list.value.free_bytes);
       setError(null);
-    } catch (err) {
-      setError(describeError(err).message);
-    } finally {
-      setLoading(false);
+    } else {
+      setError(describeError(list.reason).message);
     }
+    if (stored.status === "fulfilled") setSettings(stored.value);
+    if (status.status === "fulfilled") setRestore(status.value);
+    setLoading(false);
   }, []);
 
   useEffect(() => {
@@ -192,6 +195,10 @@ export function BackupsView() {
       </Button>
     </div>
   );
+
+  // Nothing else on the page can be trusted while the database is being
+  // replaced, and every other request is refused anyway.
+  if (restore?.running) return <RestoreBlocker />;
 
   return (
     <div className="space-y-4">
@@ -348,10 +355,6 @@ export function BackupsView() {
           }}
         />
       ) : null}
-
-      {/* While a restore runs the API answers 503 to everything else, so the
-          page cannot usefully show anything but this. */}
-      {restore?.running ? <RestoreBlocker /> : null}
     </div>
   );
 }

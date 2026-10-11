@@ -198,6 +198,12 @@ def _configure_ha(celery_app: Celery) -> None:
             # node holding the socket like the rest.
             "app.tasks.crowdsec.check_capi_credentials",
             "app.tasks.crowdsec.register_capi",
+            # Backups live in BACKUP_PATH, which is a per-node path rather than
+            # the shared mount. Taken on another node the file is never listed;
+            # restored from another node it cannot be found at all.
+            "app.tasks.backup.create_backup_task",
+            "app.tasks.backup.restore_backup_task",
+            "app.tasks.backup.backup_tick",
         ):
             celery_app.conf.task_routes[name] = {"queue": control_queue}
     celery_app.conf.beat_schedule["reconcile-nginx-across-nodes"] = {

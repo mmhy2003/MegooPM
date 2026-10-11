@@ -71,9 +71,12 @@ services:
     command:
       - sh
       - -c
-      - "mkdir -p /data/nginx/conf.d/stream /data/nginx/default /data/certs/_acme-challenge /data/crowdsec/whitelists && { [ -f /data/crowdsec/whitelists/megoopm.yaml ] || echo '# Managed by MegooPM - no whitelists defined.' > /data/crowdsec/whitelists/megoopm.yaml; } && { [ -f /data/crowdsec/config.yaml.local ] || cp /seed/config.yaml.local /data/crowdsec/config.yaml.local; } && chown -R 1000:1000 /data || { echo 'data-init: cannot prepare /data (SHARED_DATA_PATH) for uid 1000' >&2; exit 1; }"
+      - "mkdir -p /data/nginx/conf.d/stream /data/nginx/default /data/certs/_acme-challenge /data/crowdsec/whitelists && { [ -f /data/crowdsec/whitelists/megoopm.yaml ] || echo '# Managed by MegooPM - no whitelists defined.' > /data/crowdsec/whitelists/megoopm.yaml; } && { [ -f /data/crowdsec/config.yaml.local ] || cp /seed/config.yaml.local /data/crowdsec/config.yaml.local; } && mkdir -p /backups && chmod 700 /backups && chown -R 1000:1000 /data /backups || { echo 'data-init: cannot prepare /data (SHARED_DATA_PATH) and /backups for uid 1000' >&2; exit 1; }"
     volumes:
       - ${SHARED_DATA_PATH:?SHARED_DATA_PATH is required (host path of the shared mount)}:/data
+      # The backup directory is a bind mount: dockerd creates it as root,
+      # and the backend and worker run as uid 1000.
+      - ${BACKUP_PATH:-./backups}:/backups
       - ./infra/crowdsec/config.yaml.local:/seed/config.yaml.local:ro
 
   backend:

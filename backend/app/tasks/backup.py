@@ -24,7 +24,12 @@ from app.core.config import settings
 from app.models.enums import BackupFrequency
 from app.models.instance_settings import InstanceSettings
 from app.services.backup import gate, store
-from app.services.backup.runner import create_backup, real_pg_tools, restore_backup
+from app.services.backup.runner import (
+    PgTools,
+    create_backup,
+    real_pg_tools,
+    restore_backup,
+)
 from app.services.backup.schedule import is_backup_due
 from app.services.cluster import sync_engine
 from app.services.events import Event, publish
@@ -141,6 +146,11 @@ def _known_revisions() -> set[str]:
 
 def _create(trigger: str) -> dict:
     started = _now()
+    # Before the space check, not after: a worker killed mid-backup leaves a
+    # .part nothing else can remove, and enough of them stop backups entirely.
+    swept_parts = store.sweep_interrupted(Path(settings.backup_dir))
+    if swept_parts:
+        log.info("swept interrupted backups: %s", ", ".join(swept_parts))
     try:
         path = create_backup(
             backup_dir=Path(settings.backup_dir),
@@ -175,16 +185,26 @@ def _create(trigger: str) -> dict:
 
 def _restore(name: str) -> dict:
     client = _lock_client()
-    path = store.safe_path(Path(settings.backup_dir), name)
     gate.begin_restore(client, "verifying")
     _announce("restore.started")
+    replaced = False
     try:
+        # Inside the gate: resolving the name used to happen before it, so an
+        # unknown name escaped the task and the page waited forever.
+        path = store.safe_path(Path(settings.backup_dir), name)
+
+        def _restored(src: Path) -> None:
+            nonlocal replaced
+            replaced = True
+            real_pg.restore(src)
+
+        real_pg = real_pg_tools(settings.sync_database_url)
         meta = restore_backup(
             path=path,
             secret_key=settings.secret_key,
             certs_dir=_certs_dir(),
             crowdsec_files=_crowdsec_files(),
-            pg=real_pg_tools(settings.sync_database_url),
+            pg=PgTools(dump=real_pg.dump, restore=_restored, revision=real_pg.revision),
             known_revisions=_known_revisions(),
             on_step=lambda step: gate.set_step(client, step),
         )
@@ -194,10 +214,15 @@ def _restore(name: str) -> dict:
         subprocess.run(["alembic", "upgrade", "head"], cwd="/app", check=True)
     except Exception as exc:  # noqa: BLE001 - the blocking screen shows this
         log.warning("restore failed: %s", exc)
+        if replaced:
+            # The database was already swapped, so the API's pooled connections
+            # hold prepared statements for a schema that no longer exists.
+            # Without this it answers 500 to everything until it restarts.
+            gate.mark_restored(client)
         gate.end_restore(client, error=str(exc))
         client.close()
         _announce("restore.failed")
-        return {"ran": True, "ok": False, "error": str(exc)}
+        return {"ran": True, "ok": False, "error": str(exc), "database_replaced": replaced}
 
     gate.mark_restored(client)
     gate.end_restore(client)
@@ -213,7 +238,12 @@ def _restore(name: str) -> dict:
 @celery_app.task(name="app.tasks.backup.create_backup_task")
 def create_backup_task(trigger: str = "manual") -> dict:
     """Take one backup, record the outcome, sweep old automatic ones."""
-    return _run_locked(BACKUP_LOCK_KEY, lambda: _create(trigger))
+    outcome = _run_locked(BACKUP_LOCK_KEY, lambda: _create(trigger))
+    if not outcome.get("ran"):
+        # The route already answered 202. Without this the refusal is invisible
+        # and a skipped backup looks exactly like one that ran.
+        _record_outcome(False, f"skipped: {outcome.get('reason', 'already running')}", _now())
+    return outcome
 
 
 @celery_app.task(name="app.tasks.backup.restore_backup_task")

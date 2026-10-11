@@ -29,6 +29,12 @@ URL = settings.database_url.replace("+asyncpg", "").replace("+psycopg", "")
 
 @pytest.fixture
 def engine():
+    """A probe table, and an engine that survives the restore killing it.
+
+    A restore terminates every other session — that is the point of it — so
+    these tests reconnect afterwards rather than holding one connection
+    across the swap.
+    """
     engine = sa.create_engine(URL.replace("postgresql://", "postgresql+psycopg://"))
     try:
         with engine.begin() as conn:
@@ -36,8 +42,12 @@ def engine():
             conn.execute(sa.text("CREATE TABLE backup_probe (note text)"))
             conn.execute(sa.text("INSERT INTO backup_probe VALUES ('before')"))
         yield engine
-        with engine.begin() as conn:
+        engine.dispose()
+        with sa.create_engine(
+            URL.replace("postgresql://", "postgresql+psycopg://")
+        ).begin() as conn:
             conn.execute(sa.text("DROP TABLE IF EXISTS backup_probe"))
+            conn.execute(sa.text("DROP TABLE IF EXISTS backup_probe_newer"))
     finally:
         engine.dispose()
 
@@ -66,5 +76,45 @@ def test_a_backup_restores_the_rows_it_captured(engine, tmp_path: Path) -> None:
         extract_archive(plain, work)
     pg.restore(work / "db.dump")
 
+    engine.dispose()  # the restore terminated this engine's connection
     with engine.begin() as conn:
         assert conn.execute(sa.text("SELECT note FROM backup_probe")).scalar_one() == "before"
+
+
+def test_a_restore_removes_what_the_backup_never_had(engine, tmp_path: Path) -> None:
+    """A table created after the backup must be gone once it is restored.
+
+    This is the shape of restoring a backup older than the running code: with
+    `pg_restore --clean` alone the newer table would survive while
+    alembic_version went back, and the catch-up migration would then fail
+    against objects that already exist — after the database was replaced.
+    """
+    pg = real_pg_tools(URL)
+    path = create_backup(
+        backup_dir=tmp_path / "backups",
+        secret_key=KEY,
+        trigger="manual",
+        now=datetime(2026, 10, 11, 4, 0, tzinfo=UTC),
+        certs_dir=None,
+        crowdsec_files={},
+        pg=pg,
+        app_version="0.1.0",
+    )
+
+    with engine.begin() as conn:
+        conn.execute(sa.text("CREATE TABLE backup_probe_newer (note text)"))
+
+    work = tmp_path / "work2"
+    work.mkdir()
+    with path.open("rb") as sealed, (work / "archive.tar").open("wb") as plain:
+        decrypt_stream(sealed, plain, secret_key=KEY)
+    with (work / "archive.tar").open("rb") as plain:
+        extract_archive(plain, work)
+    pg.restore(work / "db.dump")
+
+    engine.dispose()  # the restore terminated this engine's connection
+    with engine.begin() as conn:
+        exists = conn.execute(
+            sa.text("SELECT to_regclass('public.backup_probe_newer') IS NOT NULL")
+        ).scalar_one()
+    assert exists is False

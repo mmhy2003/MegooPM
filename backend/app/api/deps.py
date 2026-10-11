@@ -21,7 +21,7 @@ from app.core.auth_context import AuthKey, current_api_key
 from app.core.config import settings
 from app.core.security import decode_token
 from app.db.session import get_session
-from app.models.user import User
+from app.models.user import User, UserRole
 from app.services import api_keys
 from app.services import user as user_service
 
@@ -116,6 +116,35 @@ async def require_admin(current_user: CurrentUser) -> User:
 
 
 AdminUser = Annotated[User, Depends(require_admin)]
+
+
+async def require_admin_from_token(
+    token: Annotated[str | None, Depends(oauth2_scheme)],
+) -> None:
+    """Admin check that reads the signed token and nothing else.
+
+    For the one route that must answer while a restore is replacing the
+    database: authenticating through `users` would wait on the lock
+    pg_restore holds, so the status the blocking screen polls would hang for
+    exactly as long as it matters. The trade is that a session revoked in the
+    seconds before a restore still passes here — it can read one boolean and
+    a step label, and nothing else.
+    """
+    if not token or token.startswith(api_keys.TOKEN_PREFIX):
+        raise _CREDENTIALS_EXCEPTION
+    try:
+        payload = decode_token(token, expected_type="access")
+    except jwt.PyJWTError:
+        raise _CREDENTIALS_EXCEPTION from None
+    if payload.get("role") != UserRole.admin.value:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin privileges required",
+        )
+
+
+#: Marks a route admin-only without a database read. See the docstring above.
+AdminFromToken = Annotated[None, Depends(require_admin_from_token)]
 
 
 _SESSION_ONLY = HTTPException(

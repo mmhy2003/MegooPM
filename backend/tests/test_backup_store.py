@@ -22,6 +22,7 @@ from app.services.backup.store import (
     list_backups,
     new_name,
     safe_path,
+    sweep_interrupted,
 )
 
 KEY = "a-secret-key"
@@ -122,3 +123,55 @@ def test_retention_never_touches_a_manual_backup_or_an_upload(tmp_path: Path) ->
 
 def test_free_space_is_reported_for_the_backup_directory(tmp_path: Path) -> None:
     assert free_bytes(tmp_path) > 0
+
+
+def test_a_name_with_an_impossible_date_is_refused_rather_than_crashing(tmp_path: Path) -> None:
+    # The regex allows any 8 digits. Parsed as a date, "00000000" raises — and
+    # an unhandled raise in the listing takes the whole page down, with the
+    # offending file un-deletable because every route refuses it too.
+    _write_backup(tmp_path, "megoopm-20261011-030000-manual.mgb")
+    (tmp_path / "megoopm-00000000-000000-manual.mgb").write_bytes(b"not really a backup")
+
+    rows = list_backups(tmp_path, secret_key=KEY)
+
+    assert [r.name for r in rows] == [
+        "megoopm-20261011-030000-manual.mgb",
+        "megoopm-00000000-000000-manual.mgb",
+    ]
+
+
+def test_a_file_that_vanishes_mid_listing_does_not_break_the_page(
+    tmp_path: Path, monkeypatch
+) -> None:
+    # Retention or an operator can delete a file between the scan and the stat.
+    _write_backup(tmp_path, "megoopm-20261011-030000-auto.mgb")
+    real_stat = Path.stat
+
+    def vanishing(self, *args, **kwargs):
+        if self.name.endswith(".mgb"):
+            raise FileNotFoundError(self)
+        return real_stat(self, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "stat", vanishing)
+
+    assert list_backups(tmp_path, secret_key=KEY) == []
+
+
+def test_interrupted_backups_are_swept_so_the_disk_is_not_eaten(tmp_path: Path) -> None:
+    # A worker killed mid-backup leaves a multi-GB .part the page cannot show
+    # and no route can delete; a few of those and backups start failing for
+    # want of space with nothing on screen to explain it.
+    import os
+    import time
+
+    stale = tmp_path / f"megoopm-20261001-030000-auto.mgb{PART_SUFFIX}"
+    stale.write_bytes(b"half a backup")
+    os.utime(stale, (time.time() - 48 * 3600, time.time() - 48 * 3600))
+    fresh = tmp_path / f"megoopm-20261011-030000-auto.mgb{PART_SUFFIX}"
+    fresh.write_bytes(b"a backup being written right now")
+
+    swept = sweep_interrupted(tmp_path)
+
+    assert swept == [stale.name]
+    assert not stale.exists()
+    assert fresh.exists(), "a backup in flight must not be swept out from under itself"

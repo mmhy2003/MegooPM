@@ -1333,28 +1333,24 @@
         "type": "object"
       },
       "BackupSettingsUpdate": {
-        "description": "The automatic-backup schedule and how many copies to keep.",
+        "description": "The automatic-backup schedule and how many copies to keep.\n\nEvery field is required, like CrowdSecHubUpdate: this is a PATCH of the\nwhole schedule, and a payload carrying only `frequency` would otherwise\nreset the hour, the weekday and the retention count to defaults silently.",
         "properties": {
           "frequency": {
-            "$ref": "#/components/schemas/BackupFrequency",
-            "default": "off"
+            "$ref": "#/components/schemas/BackupFrequency"
           },
           "hour_utc": {
-            "default": 3,
             "maximum": 23.0,
             "minimum": 0.0,
             "title": "Hour Utc",
             "type": "integer"
           },
           "keep": {
-            "default": 7,
             "maximum": 365.0,
             "minimum": 1.0,
             "title": "Keep",
             "type": "integer"
           },
           "weekday": {
-            "default": 6,
             "description": "Monday = 0; weekly only",
             "maximum": 6.0,
             "minimum": 0.0,
@@ -1362,6 +1358,12 @@
             "type": "integer"
           }
         },
+        "required": [
+          "frequency",
+          "hour_utc",
+          "weekday",
+          "keep"
+        ],
         "title": "BackupSettingsUpdate",
         "type": "object"
       },

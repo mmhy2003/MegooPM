@@ -296,3 +296,55 @@ async def test_restoring_enqueues_the_task_and_audits_it(client, auth, backup_di
     assert response.status_code == 202
     audit = await client.get("/api/v1/audit-log?object_type=backup", headers=auth)
     assert audit.json()["items"][0]["action"] == "restore"
+
+
+async def test_an_upload_is_refused_before_its_body_is_read(
+    client, auth, backup_dir, monkeypatch
+) -> None:
+    """The cap has to bite on Content-Length, not after the body is spooled.
+
+    FastAPI parses the whole multipart body before the endpoint runs, into an
+    unbounded spooled file on the container's own filesystem. A 200 GB upload
+    therefore filled the host's docker directory and only then got its 413 —
+    taking the stack down on the way.
+    """
+    monkeypatch.setattr("app.api.routes.backups.settings.backup_max_bytes", 1024)
+
+    response = await client.post(
+        "/api/v1/backups/upload",
+        headers={
+            **auth,
+            "Content-Length": str(50 * 1024 * 1024),
+            "Content-Type": "multipart/form-data; boundary=x",
+        },
+        content=b"",
+    )
+
+    assert response.status_code == 413
+    assert list(backup_dir.iterdir()) == []
+
+
+async def test_the_restore_status_does_not_need_the_database(client, auth, monkeypatch) -> None:
+    """The one route kept open during a restore must not read the database.
+
+    Authenticating through `users` means waiting on the lock pg_restore holds —
+    so the route the blocking screen polls would hang for the whole swap, which
+    is exactly when it is needed. The token is signed; decoding it is enough
+    here, and the window is seconds.
+    """
+    import app.api.routes.backups as routes
+
+    def explode(*args, **kwargs):
+        raise AssertionError("restore-status must not touch the database")
+
+    monkeypatch.setattr(routes, "SessionDep", None, raising=False)
+    monkeypatch.setattr("app.services.user.get_by_id", explode)
+
+    response = await client.get("/api/v1/backups/restore-status", headers=auth)
+
+    assert response.status_code == 200
+    assert response.json()["running"] is False
+
+
+async def test_the_restore_status_still_refuses_a_stranger(client) -> None:
+    assert (await client.get("/api/v1/backups/restore-status")).status_code == 401

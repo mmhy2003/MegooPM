@@ -42,7 +42,10 @@ def route_guard(route) -> str:
             visit(sub)
 
     visit(route.dependant)
-    if "require_admin" in seen:
+    # require_admin_from_token is the database-free admin check used by the one
+    # route that must answer while a restore holds the database's locks. It
+    # enforces the same role, so it counts as admin here.
+    if "require_admin" in seen or "require_admin_from_token" in seen:
         return "admin"
     if "get_current_user" in seen:
         return "member"

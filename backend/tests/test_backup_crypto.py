@@ -12,6 +12,7 @@ import io
 import pytest
 from app.services.backup.crypto import (
     CHUNK_BYTES,
+    HEADER_BYTES,
     BackupFormatError,
     BackupKeyError,
     decrypt_first_chunk,
@@ -98,3 +99,12 @@ def test_each_file_uses_a_fresh_salt_and_nonce() -> None:
     first, second = read_header(io.BytesIO(_sealed(b"x"))), read_header(io.BytesIO(_sealed(b"x")))
     assert first.salt != second.salt
     assert first.nonce_prefix != second.nonce_prefix
+
+
+def test_an_absurd_chunk_length_is_refused_rather_than_allocated() -> None:
+    # The length prefix is attacker-controlled in an uploaded file: without a
+    # bound, a four-byte edit makes the worker try to read 4 GiB for one chunk.
+    sealed = bytearray(_sealed(b"payload"))
+    sealed[HEADER_BYTES : HEADER_BYTES + 4] = (0xFFFFFFF0).to_bytes(4, "big")
+    with pytest.raises(BackupFormatError):
+        _opened(bytes(sealed))

@@ -11,6 +11,7 @@ from __future__ import annotations
 from types import SimpleNamespace
 
 import fakeredis
+import fakeredis.aioredis
 import pytest
 from app.main import create_app
 from app.services.backup import gate
@@ -18,11 +19,20 @@ from httpx import ASGITransport, AsyncClient
 
 
 @pytest.fixture
-def restoring(monkeypatch):
-    client = fakeredis.FakeStrictRedis()
-    gate.begin_restore(client, "restoring the database")
-    monkeypatch.setattr("app.main.redis.Redis.from_url", lambda _url: client)
-    return client
+def shared_redis(monkeypatch):
+    """One fake store, written by the worker's sync client and read by the
+    API's async one — the split the real deployment has."""
+    server = fakeredis.FakeServer()
+    monkeypatch.setattr(
+        "app.main.redis_client", lambda: fakeredis.aioredis.FakeRedis(server=server)
+    )
+    return fakeredis.FakeStrictRedis(server=server)
+
+
+@pytest.fixture
+def restoring(shared_redis):
+    gate.begin_restore(shared_redis, "restoring the database")
+    return shared_redis
 
 
 @pytest.fixture
@@ -54,7 +64,7 @@ async def test_the_health_check_still_answers(http) -> None:
     assert response.status_code == 200
 
 
-async def test_the_connection_pool_is_dropped_after_a_restore(monkeypatch) -> None:
+async def test_the_connection_pool_is_dropped_after_a_restore(monkeypatch, shared_redis) -> None:
     """A restore replaces the schema under the API's own pooled connections.
 
     asyncpg caches a prepared statement per query; after pg_restore drops and
@@ -62,15 +72,13 @@ async def test_the_connection_pool_is_dropped_after_a_restore(monkeypatch) -> No
     with InvalidCachedStatementError — including the status route the blocking
     screen is polling. Measured against a real stack before this existed.
     """
-    client = fakeredis.FakeStrictRedis()
-    monkeypatch.setattr("app.main.redis.Redis.from_url", lambda _url: client)
     disposed: list[bool] = []
 
     async def _dispose() -> None:
         disposed.append(True)
 
     monkeypatch.setattr("app.main.engine", SimpleNamespace(dispose=_dispose))
-    gate.mark_restored(client)
+    gate.mark_restored(shared_redis)
 
     async with AsyncClient(
         transport=ASGITransport(app=create_app()), base_url="http://testserver"
@@ -80,3 +88,15 @@ async def test_the_connection_pool_is_dropped_after_a_restore(monkeypatch) -> No
 
     # Once for the restore that happened, not on every request afterwards.
     assert disposed == [True]
+
+
+async def test_the_gate_uses_the_async_redis_client(monkeypatch) -> None:
+    """Every API request passes through this; a blocking socket read here is a
+    latency tax on the whole product, paid by a feature nobody is using."""
+    import app.main as main
+
+    client = main.redis_client()
+    try:
+        assert "redis.asyncio" in type(client).__module__
+    finally:
+        await client.aclose()
