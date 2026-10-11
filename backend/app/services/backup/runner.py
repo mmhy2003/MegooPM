@@ -12,6 +12,7 @@ a half-written backup that someone later restores is the worst outcome here.
 from __future__ import annotations
 
 import os
+import shutil
 import subprocess
 import tempfile
 from collections.abc import Callable
@@ -19,8 +20,20 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 
-from app.services.backup.archive import BackupMeta, build_archive
-from app.services.backup.crypto import encrypt_stream
+from app.services.backup.archive import (
+    BackupArchiveError,
+    BackupMeta,
+    build_archive,
+    extract_archive,
+)
+from app.services.backup.crypto import (
+    BackupFormatError,
+    BackupKeyError,
+    decrypt_stream,
+    encrypt_stream,
+    key_fingerprint,
+    read_header,
+)
 from app.services.backup.store import PART_SUFFIX, free_bytes, new_name
 
 #: Head-room over the estimated size before a backup is attempted.
@@ -145,3 +158,87 @@ def create_backup(
     part.replace(final)
     final.chmod(0o600)
     return final
+
+
+class RestoreRejected(RuntimeError):
+    """The backup was refused before anything was replaced."""
+
+
+def restore_backup(
+    *,
+    path: Path,
+    secret_key: str,
+    certs_dir: Path | None,
+    crowdsec_files: dict[str, Path],
+    pg: PgTools,
+    known_revisions: set[str],
+    on_step: Callable[[str], None] = lambda step: None,
+) -> BackupMeta:
+    """Verify a backup completely, then replace the database and the files.
+
+    Nothing is destroyed until the archive has been decrypted, unpacked and
+    found to contain what a restore needs. ``on_step`` receives short progress
+    labels; during a restore the API is 503 and they are all the UI can show.
+    """
+    with tempfile.TemporaryDirectory(prefix="megoopm-restore-") as work:
+        work_dir = Path(work)
+
+        on_step("verifying")
+        with path.open("rb") as sealed:
+            header = read_header(sealed)
+        if header.fingerprint != key_fingerprint(secret_key):
+            raise RestoreRejected(
+                "this backup was made with a different SECRET_KEY and cannot be read"
+            )
+
+        on_step("unpacking")
+        archive_path = work_dir / "archive.tar"
+        try:
+            with path.open("rb") as sealed, archive_path.open("wb") as plain:
+                decrypt_stream(sealed, plain, secret_key=secret_key)
+            with archive_path.open("rb") as plain:
+                meta = extract_archive(plain, work_dir)
+        except (BackupFormatError, BackupKeyError, BackupArchiveError) as exc:
+            raise RestoreRejected(str(exc)) from exc
+
+        if meta.alembic_revision and meta.alembic_revision not in known_revisions:
+            raise RestoreRejected(
+                f"this backup is from a newer MegooPM (database revision "
+                f"{meta.alembic_revision}); upgrade before restoring it"
+            )
+
+        on_step("restoring the database")
+        pg.restore(work_dir / "db.dump")
+
+        on_step("restoring files")
+        unpacked_certs = work_dir / "certs"
+        if certs_dir is not None and unpacked_certs.is_dir():
+            _replace_tree(unpacked_certs, certs_dir)
+        unpacked_crowdsec = work_dir / "crowdsec"
+        for name, target in crowdsec_files.items():
+            source = unpacked_crowdsec / name
+            if source.is_file():
+                _replace_file(source, target)
+
+        return meta
+
+
+def _replace_tree(source: Path, target: Path) -> None:
+    """Swap ``target`` for ``source`` without ever leaving it half-written."""
+    target.parent.mkdir(parents=True, exist_ok=True)
+    staged = target.with_name(target.name + ".restoring")
+    shutil.rmtree(staged, ignore_errors=True)
+    shutil.copytree(source, staged)
+    previous = target.with_name(target.name + ".previous")
+    shutil.rmtree(previous, ignore_errors=True)
+    if target.exists():
+        target.rename(previous)
+    staged.rename(target)
+    shutil.rmtree(previous, ignore_errors=True)
+
+
+def _replace_file(source: Path, target: Path) -> None:
+    target.parent.mkdir(parents=True, exist_ok=True)
+    staged = target.with_name(target.name + ".restoring")
+    shutil.copy2(source, staged)
+    staged.replace(target)
