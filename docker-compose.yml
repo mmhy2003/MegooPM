@@ -102,6 +102,8 @@ services:
       - "${BACKEND_PORT:-8000}:8000"
     volumes:
       - app_data:/data
+      # Backups: the backend lists and streams them, the worker writes them.
+      - ${BACKUP_PATH:-./backups}:/backups
     depends_on:
       db:
         condition: service_healthy
@@ -130,6 +132,8 @@ services:
       RUN_MIGRATIONS: "0"
     volumes:
       - app_data:/data
+      # Backups: the backend lists and streams them, the worker writes them.
+      - ${BACKUP_PATH:-./backups}:/backups
       # Reload path: the worker restarts the CrowdSec container so it
       # re-reads the whitelist parser file. Mounted here and deliberately NOT
       # on `backend` — the socket is root-equivalent on the host and backend is

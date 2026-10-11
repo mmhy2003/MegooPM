@@ -75,6 +75,11 @@ the frontend after changing them. For a cluster, follow the step-by-step
 nodes, profiles, load balancer, verification); the design rationale is in
 [`docs/ha.md`](docs/ha.md).
 
+Encrypted backups of the database and the TLS material are taken from the
+**Backups** page, manually or on a schedule, and kept in `BACKUP_PATH` on the
+host; restoring one — including onto a fresh server — is covered in
+[`docs/backups.md`](docs/backups.md).
+
 Working on just one side? Each package still runs standalone below.
 
 ## Frontend

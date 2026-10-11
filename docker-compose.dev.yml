@@ -109,6 +109,8 @@ services:
       - ./backend:/app
       - nginx_confd:/data/nginx/conf.d
       - nginx_certs:/data/certs
+      # Backups: the backend lists and streams them, the worker writes them.
+      - ${BACKUP_PATH:-./backups}:/backups
     depends_on:
       db:
         condition: service_healthy
@@ -144,6 +146,8 @@ services:
     volumes:
       - ./backend:/app
       - app_data:/data
+      # Backups: the backend lists and streams them, the worker writes them.
+      - ${BACKUP_PATH:-./backups}:/backups
       - nginx_confd:/data/nginx/conf.d
       - nginx_certs:/data/certs
       # Reload path: the worker restarts the CrowdSec container and runs cscli
