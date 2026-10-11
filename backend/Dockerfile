@@ -8,10 +8,22 @@ ENV PYTHONUNBUFFERED=1 \
 
 WORKDIR /app
 
-# System deps: build tools for asyncpg wheels are usually unnecessary on slim,
-# but curl is handy for container healthchecks.
+# System deps: curl for container healthchecks, and the Postgres 16 client for
+# backups (pg_dump/pg_restore/psql). The client comes from pgdg and is pinned
+# to 16, the server's major version: a dump taken by a matching client restores
+# into that server without question. The repository codename is read from the
+# base image rather than hardcoded, because python:3.12-slim has already moved
+# from bookworm to trixie once.
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends curl \
+    && apt-get install -y --no-install-recommends curl ca-certificates gnupg \
+    && install -d /usr/share/postgresql-common/pgdg \
+    && curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc \
+        -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc \
+    && . /etc/os-release \
+    && echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt ${VERSION_CODENAME}-pgdg main" \
+        > /etc/apt/sources.list.d/pgdg.list \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends postgresql-client-16 \
     && rm -rf /var/lib/apt/lists/*
 
 # No Docker CLI here: the worker validates/reloads the managed nginx through
