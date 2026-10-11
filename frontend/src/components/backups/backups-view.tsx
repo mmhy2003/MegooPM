@@ -13,6 +13,8 @@ import {
 } from "@/lib/api";
 import { describeError } from "@/components/proxy-hosts/lib";
 import { formatBytes, triggerLabel } from "@/components/backups/lib";
+import { RestoreBlocker } from "@/components/backups/restore-blocker";
+import { RestoreDialog } from "@/components/backups/restore-dialog";
 import { ScheduleCard } from "@/components/backups/schedule-card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -159,17 +161,6 @@ export function BackupsView() {
     try {
       await backups.remove(target.name);
       toast.success("Backup deleted");
-      await load();
-    } catch (err) {
-      toast.error(describeError(err).message);
-    }
-  }
-
-  async function startRestore(backup: Backup) {
-    setPendingRestore(null);
-    try {
-      await backups.restore(backup.name);
-      toast.success("Restore started");
       await load();
     } catch (err) {
       toast.error(describeError(err).message);
@@ -346,45 +337,21 @@ export function BackupsView() {
       </Dialog>
 
       {pendingRestore ? (
-        <RestoreDialogLoader
+        <RestoreDialog
           backup={pendingRestore}
-          onClose={() => setPendingRestore(null)}
-          onConfirm={() => void startRestore(pendingRestore)}
+          hostname={typeof window === "undefined" ? "" : window.location.hostname}
+          open
+          onOpenChange={(open) => !open && setPendingRestore(null)}
+          onStarted={() => {
+            setPendingRestore(null);
+            void load();
+          }}
         />
       ) : null}
-    </div>
-  );
-}
 
-/** Placeholder seam: Task 11 replaces this with the typed-confirmation dialog. */
-function RestoreDialogLoader({
-  backup,
-  onClose,
-  onConfirm,
-}: {
-  backup: Backup;
-  onClose: () => void;
-  onConfirm: () => void;
-}) {
-  return (
-    <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent size="md">
-        <DialogHeader>
-          <DialogTitle>Restore {backup.name}?</DialogTitle>
-          <DialogDescription>
-            This replaces this instance: the database and the TLS material come from the backup, and
-            everyone is signed out.
-          </DialogDescription>
-        </DialogHeader>
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button variant="destructive" onClick={onConfirm}>
-            Restore
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+      {/* While a restore runs the API answers 503 to everything else, so the
+          page cannot usefully show anything but this. */}
+      {restore?.running ? <RestoreBlocker /> : null}
+    </div>
   );
 }

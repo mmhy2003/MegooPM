@@ -19,6 +19,7 @@ describe("primaryNav", () => {
       "Security",
       "Users",
       "Audit Log",
+      "Backups",
       "Settings",
     ]);
   });
