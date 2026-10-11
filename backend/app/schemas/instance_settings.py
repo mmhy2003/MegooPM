@@ -28,6 +28,7 @@ from pydantic import (
 )
 
 from app.models.enums import (
+    BackupFrequency,
     CrowdSecBanMode,
     DefaultSiteMode,
     HubUpdateFrequency,
@@ -137,6 +138,13 @@ class InstanceSettingsRead(BaseModel):
     crowdsec_hub_update_weekday: int
     crowdsec_hub_update_hour_utc: int
     crowdsec_capi_enabled: bool
+    backup_frequency: BackupFrequency
+    backup_hour_utc: int
+    backup_weekday: int
+    backup_keep: int
+    last_backup_ok: bool | None
+    last_backup_at: datetime | None
+    last_backup_message: str | None
     updated_at: datetime
 
     @classmethod
@@ -174,6 +182,13 @@ class InstanceSettingsRead(BaseModel):
             crowdsec_hub_update_weekday=row.crowdsec_hub_update_weekday,
             crowdsec_hub_update_hour_utc=row.crowdsec_hub_update_hour_utc,
             crowdsec_capi_enabled=row.crowdsec_capi_enabled,
+            backup_frequency=row.backup_frequency,
+            backup_hour_utc=row.backup_hour_utc,
+            backup_weekday=row.backup_weekday,
+            backup_keep=row.backup_keep,
+            last_backup_ok=row.last_backup_ok,
+            last_backup_at=row.last_backup_at,
+            last_backup_message=row.last_backup_message,
             updated_at=row.updated_at,
         )
 
@@ -243,9 +258,7 @@ class MaintenanceUpdate(BaseModel):
     """
 
     mode: MaintenancePageMode
-    page_id: int | None = Field(
-        default=None, description="Required when the mode is 'custom_page'"
-    )
+    page_id: int | None = Field(default=None, description="Required when the mode is 'custom_page'")
     retry_after_minutes: int = Field(
         default=60,
         ge=1,
@@ -269,6 +282,15 @@ class CrowdSecHubUpdate(BaseModel):
     frequency: HubUpdateFrequency
     weekday: int = Field(ge=0, le=6, description="Monday = 0; used when weekly")
     hour_utc: int = Field(ge=0, le=23)
+
+
+class BackupSettingsUpdate(BaseModel):
+    """The automatic-backup schedule and how many copies to keep."""
+
+    frequency: BackupFrequency = BackupFrequency.off
+    hour_utc: int = Field(default=3, ge=0, le=23)
+    weekday: int = Field(default=6, ge=0, le=6, description="Monday = 0; weekly only")
+    keep: int = Field(default=7, ge=1, le=365)
 
 
 class CrowdSecCapiUpdate(BaseModel):

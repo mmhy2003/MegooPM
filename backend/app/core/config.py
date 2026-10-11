@@ -196,6 +196,12 @@ class Settings(BaseSettings):
     # container bind-mounts this single file into its parsers directory; see
     # docs/crowdsec.md. Written in place, never replaced, because the mount is
     # pinned to the inode the container saw at start.
+    # Where backups are written, inside the container. The host directory is
+    # BACKUP_PATH in .env, bind-mounted here by compose.
+    backup_dir: str = "/backups"
+    #: Largest backup an admin may upload. A restore reads the whole file.
+    backup_max_bytes: int = 4 * 1024**3
+
     crowdsec_whitelist_path: str = "/data/crowdsec/whitelists/megoopm.yaml"
     # The app-owned CrowdSec config override (merged over config.yaml at load).
     # Seeded by data-init from infra/crowdsec/config.yaml.local and bind-mounted

@@ -866,3 +866,27 @@ async def test_testing_with_nothing_configured_reports_it(client: AsyncClient, a
     body = resp.json()
     assert body["ok"] is False
     assert "configured" in body["detail"].lower()
+
+
+async def test_admin_sets_the_backup_schedule(client: AsyncClient, auth) -> None:
+    patched = await client.patch(
+        "/api/v1/settings/backups",
+        headers=auth,
+        json={"frequency": "weekly", "hour_utc": 2, "weekday": 0, "keep": 14},
+    )
+
+    assert patched.status_code == 200, patched.text
+    body = patched.json()
+    assert body["backup_frequency"] == "weekly"
+    assert body["backup_hour_utc"] == 2
+    assert body["backup_keep"] == 14
+
+
+async def test_the_schedule_rejects_an_hour_that_does_not_exist(client: AsyncClient, auth) -> None:
+    rejected = await client.patch(
+        "/api/v1/settings/backups",
+        headers=auth,
+        json={"frequency": "daily", "hour_utc": 24, "weekday": 0, "keep": 7},
+    )
+
+    assert rejected.status_code == 422

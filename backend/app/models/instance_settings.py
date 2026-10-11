@@ -28,6 +28,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
 from app.models.enums import (
+    BackupFrequency,
     CrowdSecBanMode,
     DefaultSiteMode,
     HubUpdateFrequency,
@@ -214,6 +215,31 @@ class InstanceSettings(TimestampMixin, Base):
     crowdsec_capi_checked_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
+
+    # --- Backups (Backups page) ---------------------------------------------
+    # Off on an upgrade: a schedule must be chosen, not inherited.
+    backup_frequency: Mapped[BackupFrequency] = mapped_column(
+        Enum(
+            BackupFrequency,
+            name="backup_frequency",
+            values_callable=lambda e: [m.value for m in e],
+        ),
+        nullable=False,
+        default=BackupFrequency.off,
+        server_default="off",
+    )
+    backup_hour_utc: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=3, server_default="3"
+    )
+    #: Monday = 0. Only consulted when the frequency is weekly.
+    backup_weekday: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=6, server_default="6"
+    )
+    #: How many *automatic* backups to keep. Manual ones are never swept.
+    backup_keep: Mapped[int] = mapped_column(Integer, nullable=False, default=7, server_default="7")
+    last_backup_ok: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    last_backup_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_backup_message: Mapped[str | None] = mapped_column(Text, nullable=True)
 
 
 __all__ = ["InstanceSettings"]

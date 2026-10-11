@@ -185,6 +185,18 @@ def mail_config_from_row(row: InstanceSettings) -> MailConfig:
     )
 
 
+async def update_backup_settings(db: AsyncSession, changes: dict[str, Any]) -> InstanceSettings:
+    """Apply the backup schedule. Takes effect at the next hourly tick."""
+    row = await get_instance_settings(db)
+    row.backup_frequency = changes["frequency"]
+    row.backup_hour_utc = changes["hour_utc"]
+    row.backup_weekday = changes["weekday"]
+    row.backup_keep = changes["keep"]
+    await db.commit()
+    await db.refresh(row)
+    return row
+
+
 async def update_crowdsec_hub(db: AsyncSession, changes: dict[str, Any]) -> InstanceSettings:
     """Apply the hub refresh schedule."""
     row = await get_instance_settings(db)

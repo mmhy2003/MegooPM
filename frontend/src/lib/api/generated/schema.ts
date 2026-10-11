@@ -1320,6 +1320,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/settings/backups": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Update Backup Settings
+         * @description The automatic-backup schedule. Admin-only. Takes effect at the next tick.
+         */
+        patch: operations["update_backup_settings_api_v1_settings_backups_patch"];
+        trace?: never;
+    };
     "/api/v1/settings/ban-page": {
         parameters: {
             query?: never;
@@ -2546,7 +2566,7 @@ export interface components {
          * @description The mutation an audit-log row records.
          * @enum {string}
          */
-        AuditAction: "create" | "update" | "delete" | "enable" | "disable";
+        AuditAction: "create" | "update" | "delete" | "enable" | "disable" | "restore";
         /**
          * AuditLogPage
          * @description A newest-first page of audit entries.
@@ -2737,6 +2757,36 @@ export interface components {
             port?: number | null;
             /** Weight */
             weight?: number | null;
+        };
+        /**
+         * BackupFrequency
+         * @description How often an automatic backup runs.
+         * @enum {string}
+         */
+        BackupFrequency: "off" | "daily" | "weekly";
+        /**
+         * BackupSettingsUpdate
+         * @description The automatic-backup schedule and how many copies to keep.
+         */
+        BackupSettingsUpdate: {
+            /** @default off */
+            frequency: components["schemas"]["BackupFrequency"];
+            /**
+             * Hour Utc
+             * @default 3
+             */
+            hour_utc: number;
+            /**
+             * Keep
+             * @default 7
+             */
+            keep: number;
+            /**
+             * Weekday
+             * @description Monday = 0; weekly only
+             * @default 6
+             */
+            weekday: number;
         };
         /**
          * CapiCredentialHealth
@@ -3568,6 +3618,13 @@ export interface components {
         InstanceSettingsRead: {
             /** App Url */
             app_url: string | null;
+            backup_frequency: components["schemas"]["BackupFrequency"];
+            /** Backup Hour Utc */
+            backup_hour_utc: number;
+            /** Backup Keep */
+            backup_keep: number;
+            /** Backup Weekday */
+            backup_weekday: number;
             crowdsec_ban_mode: components["schemas"]["CrowdSecBanMode"];
             /** Crowdsec Ban Page Id */
             crowdsec_ban_page_id: number | null;
@@ -3585,6 +3642,12 @@ export interface components {
             default_site_page_id: number | null;
             /** Default Site Redirect Url */
             default_site_redirect_url: string | null;
+            /** Last Backup At */
+            last_backup_at: string | null;
+            /** Last Backup Message */
+            last_backup_message: string | null;
+            /** Last Backup Ok */
+            last_backup_ok: boolean | null;
             /** Llm Api Base */
             llm_api_base: string | null;
             /** Llm Api Key Set */
@@ -7783,6 +7846,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["InstanceSettingsRead"];
+                };
+            };
+        };
+    };
+    update_backup_settings_api_v1_settings_backups_patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BackupSettingsUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InstanceSettingsRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

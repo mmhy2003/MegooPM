@@ -31,6 +31,7 @@ from app.api.routes.crowdsec import RELOADS_NOT_CONFIGURED, enqueue_control_task
 from app.models.enums import AuditAction, ErrorPageMode
 from app.schemas.error_page import ErrorPageRead, ErrorPageUpdate
 from app.schemas.instance_settings import (
+    BackupSettingsUpdate,
     CrowdSecBanUpdate,
     CrowdSecCapiUpdate,
     CrowdSecHubUpdate,
@@ -300,6 +301,24 @@ async def send_test_email(
 
 
 # --- CrowdSec maintenance (Security → Updates) ----------------------------------------
+
+
+@router.patch("/backups", response_model=InstanceSettingsRead)
+async def update_backup_settings(
+    body: BackupSettingsUpdate, admin: AdminUser, db: SessionDep
+) -> InstanceSettingsRead:
+    """The automatic-backup schedule. Admin-only. Takes effect at the next tick."""
+    row = await settings_service.update_backup_settings(db, body.model_dump())
+    await record_audit(
+        db,
+        actor=admin.email,
+        action=AuditAction.update,
+        object_type="instance_settings",
+        object_id=row.id,
+        meta={"backups": body.model_dump(mode="json")},
+    )
+    await db.commit()
+    return InstanceSettingsRead.from_row(row)
 
 
 @router.patch("/crowdsec-hub", response_model=InstanceSettingsRead)

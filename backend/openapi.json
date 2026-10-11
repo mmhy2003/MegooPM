@@ -874,7 +874,8 @@
           "update",
           "delete",
           "enable",
-          "disable"
+          "disable",
+          "restore"
         ],
         "title": "AuditAction",
         "type": "string"
@@ -1239,6 +1240,49 @@
           }
         },
         "title": "BackendUpdate",
+        "type": "object"
+      },
+      "BackupFrequency": {
+        "description": "How often an automatic backup runs.",
+        "enum": [
+          "off",
+          "daily",
+          "weekly"
+        ],
+        "title": "BackupFrequency",
+        "type": "string"
+      },
+      "BackupSettingsUpdate": {
+        "description": "The automatic-backup schedule and how many copies to keep.",
+        "properties": {
+          "frequency": {
+            "$ref": "#/components/schemas/BackupFrequency",
+            "default": "off"
+          },
+          "hour_utc": {
+            "default": 3,
+            "maximum": 23.0,
+            "minimum": 0.0,
+            "title": "Hour Utc",
+            "type": "integer"
+          },
+          "keep": {
+            "default": 7,
+            "maximum": 365.0,
+            "minimum": 1.0,
+            "title": "Keep",
+            "type": "integer"
+          },
+          "weekday": {
+            "default": 6,
+            "description": "Monday = 0; weekly only",
+            "maximum": 6.0,
+            "minimum": 0.0,
+            "title": "Weekday",
+            "type": "integer"
+          }
+        },
+        "title": "BackupSettingsUpdate",
         "type": "object"
       },
       "CapiCredentialHealth": {
@@ -2929,6 +2973,21 @@
             ],
             "title": "App Url"
           },
+          "backup_frequency": {
+            "$ref": "#/components/schemas/BackupFrequency"
+          },
+          "backup_hour_utc": {
+            "title": "Backup Hour Utc",
+            "type": "integer"
+          },
+          "backup_keep": {
+            "title": "Backup Keep",
+            "type": "integer"
+          },
+          "backup_weekday": {
+            "title": "Backup Weekday",
+            "type": "integer"
+          },
           "crowdsec_ban_mode": {
             "$ref": "#/components/schemas/CrowdSecBanMode"
           },
@@ -2986,6 +3045,40 @@
               }
             ],
             "title": "Default Site Redirect Url"
+          },
+          "last_backup_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Backup At"
+          },
+          "last_backup_message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Backup Message"
+          },
+          "last_backup_ok": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Backup Ok"
           },
           "llm_api_base": {
             "anyOf": [
@@ -3127,6 +3220,13 @@
           "crowdsec_hub_update_weekday",
           "crowdsec_hub_update_hour_utc",
           "crowdsec_capi_enabled",
+          "backup_frequency",
+          "backup_hour_utc",
+          "backup_weekday",
+          "backup_keep",
+          "last_backup_ok",
+          "last_backup_at",
+          "last_backup_message",
           "updated_at"
         ],
         "title": "InstanceSettingsRead",
@@ -10203,6 +10303,53 @@
           }
         ],
         "summary": "Read Settings",
+        "tags": [
+          "settings"
+        ]
+      }
+    },
+    "/api/v1/settings/backups": {
+      "patch": {
+        "description": "The automatic-backup schedule. Admin-only. Takes effect at the next tick.",
+        "operationId": "update_backup_settings_api_v1_settings_backups_patch",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BackupSettingsUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InstanceSettingsRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Update Backup Settings",
         "tags": [
           "settings"
         ]

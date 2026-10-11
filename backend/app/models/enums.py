@@ -160,6 +160,17 @@ class AuditAction(enum.StrEnum):
     delete = "delete"
     enable = "enable"
     disable = "disable"
+    #: Replacing this instance's state from a backup. Its own action because
+    #: "update" would hide the most consequential thing an admin can do.
+    restore = "restore"
+
+
+class BackupFrequency(enum.StrEnum):
+    """How often an automatic backup runs."""
+
+    off = "off"
+    daily = "daily"
+    weekly = "weekly"
 
 
 class SmtpSecurity(enum.StrEnum):
