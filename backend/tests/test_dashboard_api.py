@@ -157,3 +157,36 @@ async def test_visitors_rejects_a_zero_day_window(
 ) -> None:
     resp = await client.get("/api/v1/dashboard/visitors?days=0", headers=auth)
     assert resp.status_code == 422
+
+
+async def test_summary_says_whether_this_is_a_cluster(
+    client: AsyncClient, auth: dict[str, str], monkeypatch
+) -> None:
+    # A single node has no cluster to converge; the card shows the last config
+    # apply instead, so it needs to know which kind of install it is on.
+    monkeypatch.setattr(settings, "ha_enabled", False)
+    body = (await client.get("/api/v1/dashboard/summary", headers=auth)).json()
+
+    assert body["config"]["ha_enabled"] is False
+    assert body["config"]["last_apply_ok"] is None  # nothing applied yet
+    assert body["config"]["last_apply_at"] is None
+
+
+async def test_summary_reports_the_last_config_apply(
+    pg_conn, client: AsyncClient, auth: dict[str, str]
+) -> None:
+    from sqlalchemy import text
+
+    await pg_conn.execute(
+        text(
+            "INSERT INTO cluster_state (id, config_version, last_apply_ok, last_apply_at)"
+            " VALUES (1, 0, false, '2026-10-18T12:00:00+00:00')"
+            " ON CONFLICT (id) DO UPDATE SET last_apply_ok = false,"
+            " last_apply_at = '2026-10-18T12:00:00+00:00'"
+        )
+    )
+
+    body = (await client.get("/api/v1/dashboard/summary", headers=auth)).json()
+
+    assert body["config"]["last_apply_ok"] is False
+    assert body["config"]["last_apply_at"].startswith("2026-10-18T12:00:00")

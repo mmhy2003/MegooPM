@@ -15,6 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.models.certificate import Certificate
+from app.models.cluster_state import CLUSTER_STATE_ROW_ID, ClusterState
 from app.models.dead_host import DeadHost
 from app.models.enums import CertificateStatus
 from app.models.proxy_host import ProxyHost
@@ -100,6 +101,7 @@ async def build_summary(db: AsyncSession, *, crowdsec_client) -> DashboardSummar
     """Assemble every card's numbers."""
     now = datetime.now(UTC)
     cluster = await compute_cluster_status(db)
+    apply_state = await db.get(ClusterState, CLUSTER_STATE_ROW_ID)
     totals = await load_traffic(db, now=now, stale_after=settings.node_liveness_window_seconds)
     return DashboardSummary(
         certificates=await _certificates(db, now),
@@ -114,6 +116,9 @@ async def build_summary(db: AsyncSession, *, crowdsec_client) -> DashboardSummar
             stale_nodes=totals.stale_nodes,
         ),
         config=ConfigHealth(
+            ha_enabled=cluster.ha_enabled,
+            last_apply_ok=apply_state.last_apply_ok if apply_state else None,
+            last_apply_at=apply_state.last_apply_at if apply_state else None,
             config_version=cluster.config_version,
             nodes_total=len(cluster.nodes),
             nodes_in_sync=sum(1 for n in cluster.nodes if n.in_sync and not n.stale),

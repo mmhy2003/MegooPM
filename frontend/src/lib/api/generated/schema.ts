@@ -3087,12 +3087,25 @@ export interface components {
             /** This Node */
             this_node: string;
         };
-        /** ConfigHealth */
+        /**
+         * ConfigHealth
+         * @description How the nginx configuration is doing.
+         *
+         *     Under HA that is a cluster question — how many nodes run the current
+         *     config version. A single node has no cluster: the node fields are all zero
+         *     there and mean nothing, so the card shows the last apply instead.
+         */
         ConfigHealth: {
             /** Config Version */
             config_version: number;
             /** Converged */
             converged: boolean;
+            /** Ha Enabled */
+            ha_enabled: boolean;
+            /** Last Apply At */
+            last_apply_at?: string | null;
+            /** Last Apply Ok */
+            last_apply_ok?: boolean | null;
             /** Nodes In Sync */
             nodes_in_sync: number;
             /** Nodes Stale */

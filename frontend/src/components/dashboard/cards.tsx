@@ -89,7 +89,51 @@ export function CertificatesCard({
   );
 }
 
+/**
+ * The last config apply, for an install that is not a cluster.
+ *
+ * A single node has no cluster to converge: its node counts are all zero, so
+ * the cluster view read "0 of 0 nodes on config version 0 — Not converged",
+ * in warning colour, on every healthy single-node install. What is worth
+ * knowing there is whether nginx took the last change.
+ */
+function SingleNodeConfig({ config }: { config: ConfigHealth }) {
+  if (config.last_apply_ok === null || config.last_apply_ok === undefined) {
+    return <Absent>No config applied yet.</Absent>;
+  }
+  // Absolute, not "3 min ago": a relative time needs the clock during render,
+  // which makes the card impure, and the dashboard re-fetches anyway.
+  const when = config.last_apply_at
+    ? new Date(config.last_apply_at).toLocaleString()
+    : null;
+  if (!config.last_apply_ok) {
+    return (
+      <div className="space-y-1">
+        <p className="text-warning text-2xl font-semibold">Last apply failed</p>
+        <p className="text-muted-foreground text-xs">
+          nginx kept the previous config{when ? ` · ${when}` : ""}
+        </p>
+      </div>
+    );
+  }
+  return (
+    <div className="space-y-1">
+      <p className="text-2xl font-semibold">Applied</p>
+      <p className="text-muted-foreground text-xs">
+        nginx is running the current config{when ? ` · ${when}` : ""}
+      </p>
+    </div>
+  );
+}
+
 export function ConfigHealthCard({ config }: { config: ConfigHealth }) {
+  if (!config.ha_enabled) {
+    return (
+      <Card title="nginx config" icon={Server}>
+        <SingleNodeConfig config={config} />
+      </Card>
+    );
+  }
   return (
     <Card title="Config health" icon={Server}>
       <div className="space-y-1">

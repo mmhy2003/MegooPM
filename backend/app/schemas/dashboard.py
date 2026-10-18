@@ -47,11 +47,23 @@ class SecuritySummary(BaseModel):
 
 
 class ConfigHealth(BaseModel):
+    """How the nginx configuration is doing.
+
+    Under HA that is a cluster question — how many nodes run the current
+    config version. A single node has no cluster: the node fields are all zero
+    there and mean nothing, so the card shows the last apply instead.
+    """
+
+    #: Whether this install is a cluster; decides which half the card shows.
+    ha_enabled: bool
     config_version: int
     nodes_total: int
     nodes_in_sync: int
     nodes_stale: int
     converged: bool
+    #: How the last apply went; None until one has been recorded.
+    last_apply_ok: bool | None = None
+    last_apply_at: datetime | None = None
 
 
 class ThreatPoint(BaseModel):

@@ -139,6 +139,7 @@ describe("ConfigHealthCard", () => {
     render(
       <ConfigHealthCard
         config={{
+          ha_enabled: true,
           config_version: 7,
           nodes_total: 3,
           nodes_in_sync: 2,
@@ -155,6 +156,7 @@ describe("ConfigHealthCard", () => {
     render(
       <ConfigHealthCard
         config={{
+          ha_enabled: true,
           config_version: 7,
           nodes_total: 2,
           nodes_in_sync: 2,
@@ -164,6 +166,70 @@ describe("ConfigHealthCard", () => {
       />,
     );
     expect(screen.getByText(/in sync/i)).toBeInTheDocument();
+  });
+});
+
+describe("ConfigHealthCard on a single node", () => {
+  const SINGLE = {
+    ha_enabled: false,
+    config_version: 0,
+    nodes_total: 0,
+    nodes_in_sync: 0,
+    nodes_stale: 0,
+    converged: false,
+  };
+
+  it("never talks about nodes or convergence", () => {
+    // There is no cluster: "0 of 0 nodes ... Not converged" in warning colour
+    // was the card's whole message on every healthy single-node install.
+    render(
+      <ConfigHealthCard
+        config={{
+          ...SINGLE,
+          last_apply_ok: true,
+          last_apply_at: "2026-10-18T12:00:00Z",
+        }}
+      />,
+    );
+    expect(screen.queryByText(/of 0/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/converged/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/nodes/i)).not.toBeInTheDocument();
+  });
+
+  it("reports the last apply", () => {
+    render(
+      <ConfigHealthCard
+        config={{
+          ...SINGLE,
+          last_apply_ok: true,
+          last_apply_at: "2026-10-18T12:00:00Z",
+        }}
+      />,
+    );
+    expect(screen.getByText("Applied")).toBeInTheDocument();
+  });
+
+  it("says plainly when the last apply failed", () => {
+    render(
+      <ConfigHealthCard
+        config={{
+          ...SINGLE,
+          last_apply_ok: false,
+          last_apply_at: "2026-10-18T12:00:00Z",
+        }}
+      />,
+    );
+    expect(screen.getByText(/last apply failed/i)).toBeInTheDocument();
+    expect(screen.getByText(/kept the previous config/i)).toBeInTheDocument();
+  });
+
+  it("says nothing has been applied rather than claiming success", () => {
+    render(
+      <ConfigHealthCard
+        config={{ ...SINGLE, last_apply_ok: null, last_apply_at: null }}
+      />,
+    );
+    expect(screen.getByText(/no config applied yet/i)).toBeInTheDocument();
   });
 });
 

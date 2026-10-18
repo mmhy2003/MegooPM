@@ -306,8 +306,17 @@ class Settings(BaseSettings):
 
     @property
     def effective_node_id(self) -> str:
-        """This node's identifier, falling back to the hostname."""
-        return self.node_id or socket.gethostname()
+        """This node's identifier.
+
+        NODE_ID when set. Otherwise ``local`` on a single node, and the
+        hostname under HA. Not the hostname on a single node: a container
+        gets a new one every time it is recreated, so each deploy left the
+        dashboard a metrics row under a dead name — and, once those aged out,
+        reported "nodes not reporting" on a server that only ever had one.
+        """
+        if self.node_id:
+            return self.node_id
+        return socket.gethostname() if self.ha_enabled else "local"
 
     @property
     def effective_reconcile_expires_seconds(self) -> float:

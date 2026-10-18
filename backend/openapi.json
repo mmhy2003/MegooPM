@@ -1686,6 +1686,7 @@
         "type": "object"
       },
       "ConfigHealth": {
+        "description": "How the nginx configuration is doing.\n\nUnder HA that is a cluster question — how many nodes run the current\nconfig version. A single node has no cluster: the node fields are all zero\nthere and mean nothing, so the card shows the last apply instead.",
         "properties": {
           "config_version": {
             "title": "Config Version",
@@ -1694,6 +1695,33 @@
           "converged": {
             "title": "Converged",
             "type": "boolean"
+          },
+          "ha_enabled": {
+            "title": "Ha Enabled",
+            "type": "boolean"
+          },
+          "last_apply_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Apply At"
+          },
+          "last_apply_ok": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Apply Ok"
           },
           "nodes_in_sync": {
             "title": "Nodes In Sync",
@@ -1709,6 +1737,7 @@
           }
         },
         "required": [
+          "ha_enabled",
           "config_version",
           "nodes_total",
           "nodes_in_sync",

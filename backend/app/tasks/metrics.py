@@ -75,7 +75,15 @@ async def _scrape_async(*, session_factory=None) -> None:
         session_factory = async_sessionmaker(engine, expire_on_commit=False)
 
     async with session_factory() as session:
-        await record_sample(session, settings.effective_node_id, sample, now=datetime.now(UTC))
+        await record_sample(
+            session,
+            settings.effective_node_id,
+            sample,
+            now=datetime.now(UTC),
+            # Without HA there is one node, so any other row is this node under
+            # a name it no longer has. Under HA the other rows are other nodes.
+            prune_others=not settings.ha_enabled,
+        )
 
 
 @celery_app.task(name="app.tasks.metrics.scrape_local_nginx")

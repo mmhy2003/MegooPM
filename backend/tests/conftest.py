@@ -30,6 +30,7 @@ from app.models.custom_page import CustomPage
 from app.models.dns_credential import DnsProviderCredential
 from app.models.error_page import ErrorPage
 from app.models.instance_settings import InstanceSettings
+from app.models.node_metrics import NodeMetrics
 from app.models.passkey import Passkey
 from app.models.recovery_code import RecoveryCode
 from app.models.user import User, UserRole
@@ -112,6 +113,7 @@ async def session_factory() -> AsyncIterator[async_sessionmaker]:
                 ApiKey.__table__,
                 ClusterState.__table__,
                 CrowdSecJobRun.__table__,
+                NodeMetrics.__table__,
             ],
         )
 

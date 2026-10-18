@@ -36,7 +36,7 @@ async def test_a_successful_scrape_records_a_sample(monkeypatch) -> None:
     async def fake_fetch(url: str) -> str:
         return BODY
 
-    async def fake_record(session, node_id, sample, *, now):
+    async def fake_record(session, node_id, sample, *, now, prune_others=False):
         recorded["node_id"] = node_id
         recorded["active"] = sample.active
         recorded["requests"] = sample.requests

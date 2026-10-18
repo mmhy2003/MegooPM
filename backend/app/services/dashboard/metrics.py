@@ -12,7 +12,7 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import datetime
 
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.node_metrics import NodeMetrics
@@ -55,9 +55,22 @@ def compute_rate(
 
 
 async def record_sample(
-    session: AsyncSession, node_id: str, sample: StubStatus, *, now: datetime
+    session: AsyncSession,
+    node_id: str,
+    sample: StubStatus,
+    *,
+    now: datetime,
+    prune_others: bool = False,
 ) -> None:
-    """Upsert this node's row, deriving the rate from the row it replaces."""
+    """Upsert this node's row, deriving the rate from the row it replaces.
+
+    ``prune_others`` removes every other node's row — right on a single node,
+    where any other row can only be this node under an older name (a
+    container hostname from before a recreation), and wrong under HA, where
+    the other rows are the other nodes.
+    """
+    if prune_others:
+        await session.execute(delete(NodeMetrics).where(NodeMetrics.node_id != node_id))
     row = await session.get(NodeMetrics, node_id)
     previous = (int(row.requests_total), row.sampled_at) if row is not None else None
     rate = compute_rate(sample, previous, now=now)
