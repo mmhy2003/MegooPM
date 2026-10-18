@@ -178,14 +178,20 @@ export function emptyToggles(): Record<ToggleKey, boolean> {
   return Object.fromEntries(TOGGLE_KEYS.map((k) => [k, false])) as Record<ToggleKey, boolean>;
 }
 
-export function stateFromHost(host: ProxyHost | null | undefined): ProxyHostFormState {
+export function stateFromHost(
+  host: ProxyHost | null | undefined,
+  { hasPools = true }: { hasPools?: boolean } = {},
+): ProxyHostFormState {
   if (!host) {
     return {
       domains: [],
       accessListId: NO_ACCESS_LIST,
       enabled: true,
-      // Pools stay the path of least resistance for a new host.
-      rootTargetMode: "pool",
+      // Pools stay the path of least resistance for a new host — when there
+      // are any. On a fresh install there are none, and opening on a picker
+      // that can only say "create one first" hides the single backend that
+      // needs no pool at all.
+      rootTargetMode: hasPools ? "pool" : "host",
       rootUpstreamId: "",
       rootForwardHost: "",
       rootForwardPort: "",

@@ -429,3 +429,67 @@ describe("ProxyHostDialog locations on a phone", () => {
     expect(screen.queryByLabelText("Location path")).not.toBeInTheDocument();
   });
 });
+
+describe("ProxyHostDialog with no upstream pools", () => {
+  // A fresh install has no pools. Create used to be disabled outright in that
+  // case — even with a single backend filled in, which needs no pool at all —
+  // and nothing on screen said why.
+  function renderNew(withPools: Upstream[]) {
+    return render(
+      <ProxyHostDialog
+        open
+        onOpenChange={() => {}}
+        host={null}
+        pools={withPools}
+        pages={[]}
+        lists={[]}
+        certs={[]}
+        onSaved={() => {}}
+      />,
+    );
+  }
+
+  beforeEach(() => {
+    vi.spyOn(proxyHosts, "create").mockResolvedValue(makeHost());
+  });
+  afterEach(() => {
+    cleanup();
+    vi.restoreAllMocks();
+  });
+
+  it("opens on a single backend, which needs no pool", async () => {
+    const user = userEvent.setup();
+    renderNew([]);
+    await user.click(screen.getByRole("tab", { name: /forwarding/i }));
+
+    expect(screen.getByLabelText("Root forward host")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /create host/i })).toBeEnabled();
+  });
+
+  it("creates the host with the backend it was given", async () => {
+    const user = userEvent.setup();
+    renderNew([]);
+    await user.type(screen.getByLabelText("Domain names"), "app.example.com{Enter}");
+    await user.click(screen.getByRole("tab", { name: /forwarding/i }));
+    await user.type(screen.getByLabelText("Root forward host"), "10.0.0.5");
+    await user.clear(screen.getByLabelText("Root forward port"));
+    await user.type(screen.getByLabelText("Root forward port"), "8080");
+
+    await user.click(screen.getByRole("button", { name: /create host/i }));
+
+    await waitFor(() => expect(proxyHosts.create).toHaveBeenCalledTimes(1));
+    expect(vi.mocked(proxyHosts.create).mock.calls[0][0]).toMatchObject({
+      forward_host: "10.0.0.5",
+      forward_port: 8080,
+    });
+  });
+
+  it("still opens on a pool when there are pools", async () => {
+    const user = userEvent.setup();
+    renderNew(pools);
+    await user.click(screen.getByRole("tab", { name: /forwarding/i }));
+
+    expect(screen.getByRole("combobox", { name: "Upstream pool" })).toBeInTheDocument();
+    expect(screen.queryByLabelText("Root forward host")).not.toBeInTheDocument();
+  });
+});

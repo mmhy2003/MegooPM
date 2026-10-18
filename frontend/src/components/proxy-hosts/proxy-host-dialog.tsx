@@ -138,7 +138,9 @@ export function ProxyHostDialog({
   const isEdit = Boolean(host);
   // Seeded from props on mount; the parent remounts this dialog (keyed) per
   // target, so no reset-on-open effect is needed.
-  const [form, setForm] = useState<ProxyHostFormState>(() => stateFromHost(host));
+  const [form, setForm] = useState<ProxyHostFormState>(() =>
+    stateFromHost(host, { hasPools: pools.length > 0 }),
+  );
   const [tab, setTab] = useState<DialogTab>("forwarding");
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -189,7 +191,6 @@ export function ProxyHostDialog({
     }
   }
 
-  const noPools = pools.length === 0;
   const noCertificate = form.certificateId === NO_CERTIFICATE;
 
   return (
@@ -198,7 +199,8 @@ export function ProxyHostDialog({
         <DialogHeader>
           <DialogTitle>{isEdit ? "Edit proxy host" : "New proxy host"}</DialogTitle>
           <DialogDescription>
-            Terminate domain names and forward matching traffic to upstream pools.
+            Terminate domain names and forward matching traffic to an upstream pool or a single
+            backend.
           </DialogDescription>
         </DialogHeader>
 
@@ -372,7 +374,10 @@ export function ProxyHostDialog({
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
             Cancel
           </Button>
-          <Button onClick={handleSubmit} disabled={saving || noPools}>
+          {/* Not gated on pools existing: a single backend needs none, and
+              validateForm already refuses a pool-mode host with no pool
+              chosen — with a message, instead of a button that stays dead. */}
+          <Button onClick={handleSubmit} disabled={saving}>
             {saving ? "Saving…" : isEdit ? "Save changes" : "Create host"}
           </Button>
         </DialogFooter>
