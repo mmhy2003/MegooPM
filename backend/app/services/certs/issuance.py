@@ -26,7 +26,7 @@ from app.services.certs.acme_client import (
     DnsProvider,
     SelfSignedIssuer,
 )
-from app.services.certs.dns_providers.propagation import wait_for_txt
+from app.services.certs.dns_providers.propagation import check_propagation
 from app.services.certs.validation import extract_domain_names
 
 
@@ -41,8 +41,8 @@ def build_issuer(
     :class:`SelfSignedIssuer`; ``letsencrypt`` yields an :class:`AcmeIssuer`
     bound to the configured directory URL and challenge type. The challenge type
     and DNS provider come from the certificate's ``meta`` (``challenge`` key);
-    DNS-01 issuers also verify propagation on the authoritative nameservers
-    before answering.
+    DNS-01 issuers also confirm the TXT record is visible before answering,
+    by the route ``acme_dns_propagation_mode`` selects.
     """
     if certificate.provider == CertificateProvider.self_signed or settings.acme_self_signed:
         return SelfSignedIssuer()
@@ -52,7 +52,9 @@ def build_issuer(
     propagation_check = None
     if challenge_type == ChallengeType.DNS_01:
         propagation_check = functools.partial(
-            wait_for_txt,
+            check_propagation,
+            mode=settings.acme_dns_propagation_mode,
+            doh_urls=[url.strip() for url in settings.acme_doh_urls.split(",") if url.strip()],
             timeout_seconds=settings.acme_dns_propagation_timeout_seconds,
             interval_seconds=settings.acme_dns_propagation_interval_seconds,
             settle_seconds=settings.acme_dns_propagation_settle_seconds,

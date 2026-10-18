@@ -9,14 +9,25 @@ answer for minutes.
 
 from __future__ import annotations
 
+import logging
 import socket
 import time
 from collections import Counter
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
+from dataclasses import dataclass
+from typing import Literal
 
+import dns.message
+import dns.query
+import dns.rdatatype
 import dns.resolver
 
+from app.services.certs.dns_providers.doh import nameservers_doh, query_txt_doh
 from app.services.certs.dns_providers.lexicon_provider import zone_for
+
+log = logging.getLogger(__name__)
+
+PropagationMode = Literal["auto", "authoritative", "doh"]
 
 
 class PropagationTimeoutError(RuntimeError):
@@ -100,6 +111,8 @@ def wait_for_txt(
     query: Callable[[str, str], set[str]] = query_txt,
     sleep: Callable[[float], None] = time.sleep,
     clock: Callable[[], float] = time.monotonic,
+    server_label: str = "authoritative nameservers",
+    reason: str | None = None,
 ) -> None:
     """Block until every authoritative nameserver serves ``value`` at ``name``.
 
@@ -145,16 +158,133 @@ def wait_for_txt(
             detail = ", ".join(
                 f"{count} {reason}" for reason, count in Counter(reasons.values()).most_common()
             )
-            raise PropagationTimeoutError(
-                f"TXT {name} not visible on {len(pending)}/{len(servers)} authoritative "
-                f"nameservers after {timeout_seconds}s ({detail})"
+            message = (
+                f"TXT {name} not visible on {len(pending)}/{len(servers)} {server_label} "
+                f"after {timeout_seconds}s ({detail})"
             )
+            if reason:
+                message += f" — checked this way because {reason}"
+            raise PropagationTimeoutError(message)
         sleep(interval_seconds)
 
 
+@dataclass(frozen=True, slots=True)
+class PropagationPlan:
+    """Where to look for the TXT record, and why there."""
+
+    servers: list[str]
+    query: Callable[[str, str], set[str]]
+    #: How the servers are named in a timeout message.
+    label: str
+    reason: str
+
+
+def _port53_reachable(address: str, *, timeout: float = 3.0) -> bool:
+    """Whether one plain-DNS query to ``address`` gets an answer.
+
+    UDP, because that is how :func:`query_txt` asks. A firewall that drops
+    port 53 shows up as a timeout here instead of as two minutes of
+    "not propagated yet".
+    """
+    try:
+        dns.query.udp(dns.message.make_query(".", dns.rdatatype.NS), address, timeout=timeout)
+    except Exception:  # noqa: BLE001 - any failure means "not usable from here"
+        return False
+    return True
+
+
+def _doh_plan(doh_urls: Sequence[str], reason: str) -> PropagationPlan:
+    return PropagationPlan(
+        servers=list(doh_urls),
+        query=query_txt_doh,
+        label="DoH resolvers",
+        reason=reason,
+    )
+
+
+def plan_propagation(
+    name: str,
+    *,
+    mode: PropagationMode,
+    doh_urls: Sequence[str],
+    discover_via_doh: Callable[[str, Sequence[str]], list[str]] = nameservers_doh,
+    discover_local: Callable[[str], list[str]] = authoritative_nameservers,
+    port53_reachable: Callable[[str], bool] = _port53_reachable,
+) -> PropagationPlan:
+    """Choose how to confirm a TXT record before asking the ACME server.
+
+    ``auto`` never lets the local resolver say who the nameservers are while
+    DoH can: on a network with split-horizon DNS that resolver answers with an
+    internal server that has never heard of the record, and the check waits
+    out its whole timeout on a confident wrong answer. So the nameservers come
+    from DoH, and only the transport is chosen: port 53 straight to them when
+    it gets through (the most accurate check), DoH when it does not.
+    """
+    zone = zone_for(name)
+    if mode == "doh":
+        return _doh_plan(doh_urls, "ACME_DNS_PROPAGATION_MODE=doh")
+    if mode == "authoritative":
+        return PropagationPlan(
+            servers=discover_local(zone),
+            query=query_txt,
+            label="authoritative nameservers",
+            reason="ACME_DNS_PROPAGATION_MODE=authoritative",
+        )
+
+    try:
+        public = discover_via_doh(zone, doh_urls)
+    except Exception as exc:  # noqa: BLE001 - fall back to the old path, and say so
+        log.info("DoH unreachable for %s (%s); using the local resolver", zone, exc)
+        return PropagationPlan(
+            servers=discover_local(zone),
+            query=query_txt,
+            label="authoritative nameservers",
+            reason="DoH was unreachable, so the local resolver chose the nameservers",
+        )
+
+    if any(port53_reachable(address) for address in public[:2]):
+        return PropagationPlan(
+            servers=public,
+            query=query_txt,
+            label="authoritative nameservers",
+            reason="the nameservers were found over DoH and answer on port 53",
+        )
+    return _doh_plan(doh_urls, "port 53 to the zone's nameservers is blocked")
+
+
+def check_propagation(
+    name: str,
+    value: str,
+    *,
+    mode: PropagationMode,
+    doh_urls: Sequence[str],
+    timeout_seconds: int,
+    interval_seconds: int,
+    settle_seconds: int = 0,
+    planner: Callable[..., PropagationPlan] = plan_propagation,
+) -> None:
+    """Plan the check, log the choice, and wait for the record."""
+    plan = planner(name, mode=mode, doh_urls=doh_urls)
+    log.info("checking TXT %s on %d %s (%s)", name, len(plan.servers), plan.label, plan.reason)
+    wait_for_txt(
+        name,
+        value,
+        timeout_seconds=timeout_seconds,
+        interval_seconds=interval_seconds,
+        settle_seconds=settle_seconds,
+        nameservers=plan.servers,
+        query=plan.query,
+        server_label=plan.label,
+        reason=plan.reason,
+    )
+
+
 __all__ = [
+    "PropagationPlan",
     "PropagationTimeoutError",
     "authoritative_nameservers",
+    "check_propagation",
+    "plan_propagation",
     "ipv6_available",
     "query_txt",
     "wait_for_txt",

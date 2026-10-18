@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import socket
 from functools import lru_cache
-from typing import Annotated
+from typing import Annotated, Literal
 
 from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
@@ -149,6 +149,14 @@ class Settings(BaseSettings):
     # secondary validation: Incorrect TXT record ...". certbot's DNS plugins
     # default to the same 10 s.
     acme_dns_propagation_settle_seconds: int = 10
+    # How that check reaches DNS. ``auto`` finds the zone's nameservers over
+    # DNS-over-HTTPS (so a split-horizon local resolver cannot answer with an
+    # internal server that never sees the record), then checks them on port 53
+    # when it gets through and over DoH when it is firewalled. ``authoritative``
+    # is the older local-resolver-plus-port-53 path; ``doh`` never uses port 53.
+    acme_dns_propagation_mode: Literal["auto", "authoritative", "doh"] = "auto"
+    # Comma-separated DoH JSON endpoints, used by ``auto`` and ``doh``.
+    acme_doh_urls: str = "https://cloudflare-dns.com/dns-query,https://dns.google/resolve"
     # Renew a certificate once it is within this many days of expiry. The beat
     # sweep enqueues renewals for everything inside the window.
     cert_renew_before_days: int = 30

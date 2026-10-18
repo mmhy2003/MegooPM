@@ -146,6 +146,32 @@ def test_build_issuer_wires_propagation_check_only_for_dns01() -> None:
     assert build_issuer(http_cert)._propagation_check is None
 
 
+def test_the_propagation_check_follows_the_configured_mode(monkeypatch) -> None:
+    """The DNS-01 check reads its mode and DoH resolvers from settings.
+
+    `auto` is the default: it finds the zone's nameservers over DoH and only
+    falls back to DoH for the TXT check itself when port 53 is blocked — the
+    network a split-horizon domain controller and a firewalled port 53 make.
+    """
+    from app.core.config import settings
+
+    monkeypatch.setattr(settings, "acme_dns_propagation_mode", "doh")
+    monkeypatch.setattr(settings, "acme_doh_urls", "https://doh.example/dns-query")
+    cert = _pending_cert()
+    cert.meta = {"challenge": "dns-01"}
+
+    check = build_issuer(cert)._propagation_check
+
+    assert check.keywords["mode"] == "doh"
+    assert check.keywords["doh_urls"] == ["https://doh.example/dns-query"]
+
+
+def test_auto_is_the_default_propagation_mode() -> None:
+    from app.core.config import Settings
+
+    assert Settings().acme_dns_propagation_mode == "auto"
+
+
 def _acme_issuer_no_store() -> AcmeIssuer:
     return AcmeIssuer(
         directory_url="https://acme.test/directory",

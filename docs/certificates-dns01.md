@@ -14,8 +14,9 @@ hosts that are not reachable on port 80.
 3. For every domain in the order the provider publishes
    `_acme-challenge.<domain>` TXT = validation value in the domain's zone (the
    registered domain, e.g. `example.co.uk`).
-4. **Propagation check**: the zone's authoritative nameservers are polled until
-   all of them serve the record (`ACME_DNS_PROPAGATION_TIMEOUT_SECONDS`, default
+4. **Propagation check**: the zone's authoritative nameservers (or, behind a
+   firewall, DoH resolvers — see below) are polled until all of them serve the
+   record (`ACME_DNS_PROPAGATION_TIMEOUT_SECONDS`, default
    120 s, every `ACME_DNS_PROPAGATION_INTERVAL_SECONDS`, default 5 s), then the
    task waits `ACME_DNS_PROPAGATION_SETTLE_SECONDS` more (default 10 s) before
    the ACME challenge is answered. The settle delay matters for anycast DNS
@@ -28,6 +29,42 @@ hosts that are not reachable on port 80.
 
 Renewals repeat the same steps, re-reading the credential every time, so
 rotating a token in one credential set applies to every certificate using it.
+
+## Behind a firewall or split-horizon DNS
+
+`ACME_DNS_PROPAGATION_MODE` decides how the propagation check reaches DNS.
+
+| Mode | Finds the nameservers | Checks the record |
+| --- | --- | --- |
+| `auto` (default) | over DoH; the local resolver only if DoH is unreachable | on port 53 if it gets out, otherwise over DoH |
+| `authoritative` | local resolver | port 53 |
+| `doh` | not needed | DoH only |
+
+`auto` exists for two network shapes that the old check could not survive:
+
+- **Split-horizon DNS.** The server resolves through an internal DNS server —
+  typically an Active Directory domain controller — that hosts its own copy of
+  the zone. Asked for the zone's nameservers it names itself, has never seen
+  the `_acme-challenge` record written to the public provider, and answers
+  NXDOMAIN until the check times out. The failure reads
+  `TXT _acme-challenge.… not visible on 1/1 authoritative nameservers after
+  120s (1 unreachable (NXDOMAIN))`, or `The DNS response does not contain an
+  answer to the question: … IN NS` when the internal server returns no NS at
+  all. Finding the nameservers over DoH gets the public answer instead. This
+  happens **even with port 53 open**, so opening the firewall alone does not
+  fix it.
+- **Port 53 firewalled.** Only HTTPS gets out. The real nameservers are known
+  but every query to them times out. `auto` then checks the record through the
+  DoH resolvers, which see what the internet sees.
+
+The worker logs which path it chose and why, and a timeout names it: `not
+visible on 1/2 DoH resolvers … — checked this way because port 53 to the
+zone's nameservers is blocked`.
+
+`ACME_DOH_URLS` lists the resolvers (comma-separated JSON endpoints; Cloudflare
+and Google by default). In `auto` and `doh` mode the names being validated are
+looked up there — public records, but set `authoritative` if you would rather
+keep every lookup on your own network.
 
 ## The provider catalog
 
