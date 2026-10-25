@@ -5,7 +5,14 @@ import { Download, Pause, Play, Trash2, TriangleAlert, X } from "lucide-react";
 
 import { deadHosts, proxyHosts, redirectionHosts, streams } from "@/lib/api";
 import { LineDetail, LogHead, LogRow, ROW_HEIGHT } from "@/components/live-logs/log-rows";
-import { LINE_CAP, matches, TABS, toText, type Tab } from "@/components/live-logs/lib";
+import {
+  LINE_CAP,
+  matches,
+  TABS,
+  toText,
+  type LiveLine,
+  type Tab,
+} from "@/components/live-logs/lib";
 import { useLiveLogs } from "@/components/live-logs/use-live-logs";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -49,9 +56,9 @@ const FIXED_OPTIONS: HostOption[] = [
 
 // The themed Select has no empty value, so "every node" / "any status" is a
 // value of its own that the filter state keeps as "".
-const ALL = "all";
+const ANY_FILTER = "any";
 const STATUS_ITEMS: Record<string, string> = {
-  [ALL]: "Status: any",
+  [ANY_FILTER]: "Status: any",
   ...Object.fromEntries(STATUS_CLASSES.map((c) => [c, c])),
 };
 
@@ -161,12 +168,16 @@ export function LiveLogsView() {
   const options = useHostOptions();
   const live = useLiveLogs({ hosts: picked, decisions: tab === "security" });
 
-  const labelOf = useMemo(() => {
-    const map = new Map(options.map((o) => [o.key, o.label]));
-    // A row's host, not the picker's choice: lines that came through All logs
-    // carry their real host key, and nginx's own carry `n`.
-    map.set(NGINX_ITSELF, "nginx");
-    return (key: string) => map.get(key) ?? key;
+  // A chip names the choice as the picker does ("nginx itself (no host)"); a
+  // row names its line's host ("nginx"). Lines that came through All logs
+  // carry their real host key, and nginx's own carry `n`.
+  const { chipLabelOf, labelOf } = useMemo(() => {
+    const chips = new Map(options.map((o) => [o.key, o.label]));
+    const hosts = new Map(chips).set(NGINX_ITSELF, "nginx");
+    return {
+      chipLabelOf: (key: string) => chips.get(key) ?? key,
+      labelOf: (key: string) => hosts.get(key) ?? key,
+    };
   }, [options]);
 
   // One node, "local": a node column would repeat the same word on every row.
@@ -181,8 +192,14 @@ export function LiveLogsView() {
 
   const rows = useMemo(() => {
     const filter = { node: showNode ? node : "", status: tab === "requests" ? status : "", text };
-    return live.lines[tab].filter((line) => matches(line, filter)).reverse();
-  }, [live.lines, tab, node, status, text, showNode]);
+    // A tab keeps what arrived for earlier picks too. Unless All logs is on,
+    // only the picked hosts' lines show, so a single host's view holds no
+    // other host's lines without a Host column to tell them apart. Decisions
+    // belong to no host.
+    const shown = picked.includes(ALL_LOGS) ? null : new Set(picked);
+    const picks = (line: LiveLine) => !shown || line.log === "decision" || shown.has(line.host);
+    return live.lines[tab].filter((line) => picks(line) && matches(line, filter)).reverse();
+  }, [live.lines, tab, node, status, text, showNode, picked]);
 
   const selected = selectedId === null ? null : rows.find((line) => line.id === selectedId);
   const { ref: rowsRef, onScroll, start, end } = useRowWindow(rows.length);
@@ -208,6 +225,16 @@ export function LiveLogsView() {
       if (prev.includes(key)) return prev;
       return [...prev.filter((k) => k !== ALL_LOGS), key];
     });
+
+  // nginx itself sends error lines only: on any other tab, nothing will come.
+  const emptyText =
+    picked.length === 0
+      ? "Pick a host to start watching."
+      : picked.length === 1 && picked[0] === NGINX_ITSELF && tab !== "errors"
+        ? "nginx's own messages show on the Errors tab."
+        : tab === "security" && text === ""
+          ? "Waiting for security events…"
+          : "Waiting for traffic…";
 
   const connection =
     live.status === "live"
@@ -256,10 +283,10 @@ export function LiveLogsView() {
         <div data-testid="picked" className="flex flex-wrap items-center gap-2">
           {visiblePicked.map((key) => (
             <Badge key={key} variant="outline" className="h-7 gap-1.5 pr-1">
-              <span>{labelOf(key)}</span>
+              <span>{chipLabelOf(key)}</span>
               <button
                 type="button"
-                aria-label={`Stop watching ${labelOf(key)}`}
+                aria-label={`Stop watching ${chipLabelOf(key)}`}
                 onClick={() => setPicked((prev) => prev.filter((k) => k !== key))}
                 className="rounded p-0.5 hover:bg-muted"
               >
@@ -284,15 +311,15 @@ export function LiveLogsView() {
         />
         {showNode ? (
           <Select
-            value={node || ALL}
-            onValueChange={(v) => setNode(!v || v === ALL ? "" : String(v))}
-            items={{ [ALL]: "All nodes", ...Object.fromEntries(nodes.map((n) => [n, n])) }}
+            value={node || ANY_FILTER}
+            onValueChange={(v) => setNode(!v || v === ANY_FILTER ? "" : String(v))}
+            items={{ [ANY_FILTER]: "All nodes", ...Object.fromEntries(nodes.map((n) => [n, n])) }}
           >
             <SelectTrigger aria-label="Node filter" className="w-40">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value={ALL}>All nodes</SelectItem>
+              <SelectItem value={ANY_FILTER}>All nodes</SelectItem>
               {nodes.map((n) => (
                 <SelectItem key={n} value={n}>
                   {n}
@@ -303,8 +330,8 @@ export function LiveLogsView() {
         ) : null}
         {tab === "requests" ? (
           <Select
-            value={status || ALL}
-            onValueChange={(v) => setStatus(!v || v === ALL ? "" : String(v))}
+            value={status || ANY_FILTER}
+            onValueChange={(v) => setStatus(!v || v === ANY_FILTER ? "" : String(v))}
             items={STATUS_ITEMS}
           >
             <SelectTrigger aria-label="Status filter" className="w-36">
@@ -362,11 +389,7 @@ export function LiveLogsView() {
         <div ref={rowsRef} onScroll={onScroll} data-testid="rows" className="max-h-[60vh] overflow-auto">
           {rows.length === 0 ? (
             <p className="px-3 py-10 text-center text-sm text-muted-foreground">
-              {picked.length === 0
-                ? "Pick a host to start watching."
-                : tab === "security" && text === ""
-                  ? "Waiting for security events…"
-                  : "Waiting for traffic…"}
+              {emptyText}
             </p>
           ) : (
             // Full height, so the scrollbar is the whole tab's; only the rows in

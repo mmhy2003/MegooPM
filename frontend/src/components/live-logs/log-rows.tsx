@@ -19,7 +19,9 @@ interface Column {
   width: string;
 }
 
-const HOST: Column = { label: "Host", width: "9rem" };
+// Narrows with the table (down to 6rem), so on a small screen the path or
+// message column keeps its room.
+const HOST: Column = { label: "Host", width: "clamp(6rem,18%,9rem)" };
 
 /**
  * Whether Requests or Stream hosts get a Host column: only when the page says
@@ -69,7 +71,7 @@ const GRIDS = new Map<string, CSSProperties>();
  * have not changed must not re-render, and a fresh style object each time
  * would be a changed prop.
  */
-function gridFor(tab: Tab, showNode: boolean, showHost: boolean): CSSProperties {
+export function gridFor(tab: Tab, showNode: boolean, showHost: boolean): CSSProperties {
   const key = `${tab}:${showNode}:${showHost}`;
   let grid = GRIDS.get(key);
   if (!grid) {
