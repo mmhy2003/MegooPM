@@ -28,6 +28,9 @@ RUN opm get ledgetech/lua-resty-http \
 # `require("crowdsec")` (our init handler) and the module's internal
 # `require("plugins.crowdsec.*")` resolve against the default lua_package_path.
 # Pinned so the image is reproducible and the lua API our handlers call is stable.
+# A bump must re-run infra/nginx/tests/live-logs.sh (section 2b): the Live logs
+# "denied" mark (megoopm_crowdsec_check.lua) gives Allow() its own `ngx`, which
+# works only while the bouncer reaches ngx as a global, not a `local ngx = ngx`.
 ARG CS_BOUNCER_VERSION=v1.0.19
 RUN apk add --no-cache --virtual .build-deps git \
     && git clone --depth 1 --branch "${CS_BOUNCER_VERSION}" \

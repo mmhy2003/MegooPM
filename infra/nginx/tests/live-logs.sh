@@ -112,6 +112,21 @@ OUT="$(MSYS_NO_PATHCONV=1 docker run --rm -v "$REPO/infra/nginx/nginx.conf:/etc/
 expect "bare install, openresty -t" 0 "$RC"
 [ "$RC" = 0 ] || echo "$OUT" | tail -5
 
+# --- 0b. A Redis URL the relay cannot use is said out loud at startup ----------
+# The relay, like visitor analytics, connects without a password or TLS: with
+# either in REDIS_URL, Live logs would show nothing from nginx, and quietly.
+redis_warning() { # REDIS_URL -> yes/no
+  MSYS_NO_PATHCONV=1 docker run --rm -e REDIS_URL="$1" "$IMAGE" true 2>&1 \
+    | grep -q 'WARNING: REDIS_URL' && echo yes || echo no
+}
+expect "a warning for a password in REDIS_URL" yes "$(redis_warning 'redis://:secret@ll-redis:6379/0')"
+expect "a warning for a user and password in REDIS_URL" yes "$(redis_warning 'redis://u:secret@ll-redis:6379/0')"
+expect "a warning for rediss://" yes "$(redis_warning 'rediss://ll-redis:6380/0')"
+expect "no warning for a plain REDIS_URL" no "$(redis_warning 'redis://ll-redis:6379/0')"
+expect "the warning does not repeat the password" no \
+  "$(MSYS_NO_PATHCONV=1 docker run --rm -e REDIS_URL='redis://:secret@ll-redis:6379/0' "$IMAGE" true 2>&1 \
+     | grep -q secret && echo yes || echo no)"
+
 docker run -d --name ll-redis --network "$NET" redis:7-alpine >/dev/null
 
 start_nginx() { # name node-id [extra docker args...]; DATA / CONF override /data and nginx.conf

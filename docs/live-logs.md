@@ -154,10 +154,12 @@ Nothing about a live line is written anywhere:
   signature (see below).
 - **`PUBSUB NUMSUB` gating.** The relay publishes a line only while its host's
   channel has a subscriber, and it learns that without anyone writing a key.
-  Each nginx worker caches the count for 1 s in the shared dict
-  `megoopm_live`. That dict holds counts per host key, never lines. With
-  nobody watching, a busy host costs one `NUMSUB` per second per node, and
-  each line is dropped on arrival.
+  The relay caches the count for 1 s in the shared dict `megoopm_live`, one
+  per node: every nginx worker on the node reads and refreshes the same
+  entry. That dict holds numbers per host key (the subscriber count, and the
+  relay's per-second line and skipped counts), never lines. With nobody
+  watching, a busy host costs one `NUMSUB` per second per node, and each line
+  is dropped on arrival.
 - **The browser** keeps the last 1,000 lines per tab, in memory. Leaving the
   page discards them.
 
@@ -177,6 +179,12 @@ nginx sends error lines at `info`, and the relay filters them:
 - So is an `info` line whose message begins `SSL_do_handshake() failed` or
   `peer closed connection in SSL handshake`. nginx logs TLS handshake
   failures at `info`, and an admin chasing one needs them.
+
+  A handshake that fails before the client has named a host (no SNI, or a
+  failure before it is read) is logged by the server nginx falls back to for
+  that `:443` socket. The default-TLS sites are not `default_server`, so that
+  is the first `:443` server block nginx loaded, in filename order. Such a
+  line shows on that host's Errors tab, often an unrelated host's.
 - Everything else is dropped. Most of it is `info` noise, such as "client
   closed connection".
 
@@ -298,7 +306,8 @@ nginx runs the old config, but an old nginx cannot run the new one (HA-SETUP.md
   then leave Live logs too.
 - **The relay ignores a Redis password or TLS** in `REDIS_URL`, as visitor
   analytics does. A Redis that requires auth means the relay drops every
-  line.
+  line. nginx says so at startup: its log carries a `WARNING: REDIS_URL …`
+  line when the URL has credentials or uses `rediss://`.
 - **Order.** Each line is published from its own timer, so lines from one node
   can arrive a few milliseconds out of order. Each carries `ts`.
 - **Invalid UTF-8** in a URL or user agent passes through nginx's JSON

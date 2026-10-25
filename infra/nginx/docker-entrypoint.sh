@@ -101,6 +101,24 @@ _redis_port="$(echo "${_redis_hostport}" | cut -s -d: -f2)"
 # where both call the node `local`. Redis comes from the same REDIS_URL as the
 # analytics above; without one the relay drops every line.
 : "${NODE_ID:=}"
+# The relay, like the analytics above, connects with neither a password nor
+# TLS. Either in REDIS_URL means it reaches no Redis that wants them, and Live
+# logs show nothing from nginx without saying why. The URL itself is not
+# echoed: it may carry the password.
+case "${REDIS_URL}" in
+    rediss://*)
+        echo "[megoopm] WARNING: REDIS_URL uses TLS (rediss://), which nginx's Live logs" \
+             "relay and visitor analytics do not support: Live logs will show nothing" \
+             "from nginx, and visits will not be counted." >&2
+        ;;
+esac
+case "${REDIS_URL}" in
+    *://*@*)
+        echo "[megoopm] WARNING: REDIS_URL carries credentials, which nginx's Live logs" \
+             "relay and visitor analytics ignore: if this Redis requires them, Live logs" \
+             "will show nothing from nginx, and visits will not be counted." >&2
+        ;;
+esac
 # Escaped for a Lua string literal: the id is operator input.
 _node_id="$(printf '%s' "${NODE_ID:-local}" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g')"
 {
