@@ -14,6 +14,7 @@
    Shared fragments live in macros so the redirect target is defined once. #}
 {%- set target_scheme = "$scheme" if host.forward_scheme == "auto" else host.forward_scheme -%}
 {%- set target_path = "$request_uri" if host.preserve_path else "" -%}
+{%- from "_live_log.j2" import live_log -%}
 {%- macro crowdsec() -%}
 {%- if host.crowdsec_enabled %}
     # CrowdSec bouncer, in the server-rewrite phase: this server answers with
@@ -57,6 +58,7 @@ server {
     include {{ default_dir }}/{{ errors_conf }};
     listen 80;
     server_name {{ server_names }};
+{{- live_log("mgm_r" ~ host.id, host.crowdsec_enabled) }}
 {{- crowdsec() }}
 {{- acme_challenge() }}
 {%- if host.ssl_forced %}
@@ -79,6 +81,7 @@ server {
     http2 on;
 {%- endif %}
     server_name {{ server_names }};
+{{- live_log("mgm_r" ~ host.id, host.crowdsec_enabled) }}
 {{- crowdsec() }}
 
     ssl_certificate {{ host.certificate.fullchain_path }};
@@ -98,6 +101,7 @@ server {
     include {{ default_dir }}/{{ errors_conf }};
     listen 80;
     server_name {{ server_names }};
+{{- live_log("mgm_r" ~ host.id, host.crowdsec_enabled) }}
 {{- crowdsec() }}
 {{- acme_challenge() }}
 {{- security() }}

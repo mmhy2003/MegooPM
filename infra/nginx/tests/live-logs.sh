@@ -19,12 +19,12 @@ IMAGE=megoopm-nginx-probe
 WORK="$(mktemp -d)"
 # Docker Desktop cannot mount a Git Bash /tmp path; cygpath gives it the Windows one.
 WORK_MOUNT="$(cygpath -m "$WORK" 2>/dev/null || echo "$WORK")"
-CONTAINERS="ll-redis ll-nginx-a ll-nginx-b ll-client ll-sub ll-monitor"
+CONTAINERS="ll-redis ll-nginx-a ll-nginx-b ll-nginx-c ll-cs ll-client ll-sub ll-sub2 ll-monitor"
 FAILED=0
 
 cleanup() {
   # shellcheck disable=SC2086
-  docker rm -f $CONTAINERS >/dev/null 2>&1 || true
+  docker rm -f -v $CONTAINERS >/dev/null 2>&1 || true
   docker network rm "$NET" >/dev/null 2>&1 || true
   rm -rf "$WORK"
 }
@@ -39,8 +39,8 @@ expect() { # label expected actual
 }
 
 # --- the probe hosts ----------------------------------------------------------
-# Exactly the block the generated templates render (Task 2), plus `set $mgm_cs`:
-# the megoopm_live format names that variable.
+# Exactly the block the generated templates render (_live_log.j2); the
+# megoopm_live format names $mgm_cs, so each server declares it.
 mkdir -p "$WORK/nginx/conf.d/stream" "$WORK/nginx/default" "$WORK/empty"
 cat > "$WORK/nginx/conf.d/probe.conf" <<'EOF'
 server {
@@ -56,6 +56,29 @@ server {
     location / { return 200 "ok\n"; }
     # Nothing listens on :9, so this is the "upstream refused" error line.
     location /up { proxy_pass http://127.0.0.1:9; }
+}
+# The two phases CrowdSec enforces in. A proxy host enforces in the access phase
+# (which a location-level `return` would skip, hence the proxy_pass); a server
+# that only answers with `return` enforces in the server-rewrite phase, before
+# `set` runs, and so carries uninitialized_variable_warn off.
+server {
+    listen 8002;
+    set $mgm_cs "";
+    include /etc/nginx/logging-targets.conf;
+    access_log syslog:server=127.0.0.1:5140,tag=mgm_p2,nohostname megoopm_live;
+    error_log syslog:server=127.0.0.1:5140,tag=mgm_p2,nohostname info;
+    access_by_lua_file /etc/nginx/lua/megoopm_crowdsec.lua;
+    location / { proxy_pass http://127.0.0.1:8001; }
+}
+server {
+    listen 8003;
+    set $mgm_cs "";
+    uninitialized_variable_warn off;
+    include /etc/nginx/logging-targets.conf;
+    access_log syslog:server=127.0.0.1:5140,tag=mgm_r3,nohostname megoopm_live;
+    error_log syslog:server=127.0.0.1:5140,tag=mgm_r3,nohostname info;
+    server_rewrite_by_lua_file /etc/nginx/lua/megoopm_crowdsec.lua;
+    location / { return 200 "ok\n"; }
 }
 EOF
 cat > "$WORK/nginx/conf.d/stream/probe.conf" <<'EOF'
@@ -76,14 +99,14 @@ expect "bare install, openresty -t" 0 "$RC"
 
 docker run -d --name ll-redis --network "$NET" redis:7-alpine >/dev/null
 
-start_nginx() { # name node-id
+start_nginx() { # name node-id [extra docker args...]
   # File by file, not the directory: the entrypoint writes into /etc/nginx/lua.
   local lua=() f
   for f in "$REPO"/infra/nginx/lua/*.lua; do
     lua+=(-v "$f:/etc/nginx/lua/$(basename "$f"):ro")
   done
   MSYS_NO_PATHCONV=1 docker run -d --name "$1" --network "$NET" \
-    -e NODE_ID="$2" -e REDIS_URL=redis://ll-redis:6379/0 "${lua[@]}" \
+    -e NODE_ID="$2" -e REDIS_URL=redis://ll-redis:6379/0 "${@:3}" "${lua[@]}" \
     -v "$REPO/infra/nginx/nginx.conf:/etc/nginx/nginx.conf:ro" \
     -v "$WORK_MOUNT:/data" "$IMAGE" >/dev/null
 }
@@ -130,7 +153,7 @@ sleep 2
 docker logs ll-sub > "$WORK/sub.out" 2>&1
 # One tab-separated row per published message, flattened by the image's own
 # cjson so the payload is checked as JSON, not grepped as text:
-#   node host log truncated st m u ip ua raw-prefix   (or INVALID)
+#   node host log truncated st m u ip ua raw-prefix cs   (or INVALID)
 cat > "$WORK/summarize.lua" <<'EOF'
 local cjson = require("cjson.safe")
 local lines = {}
@@ -146,7 +169,7 @@ while i <= #lines do
             local f = type(m.f) == "table" and m.f or {}
             local raw = type(m.raw) == "string" and m.raw:sub(1, 120) or ""
             print(table.concat({ s(m.node), s(m.host), s(m.log), s(m.truncated), s(f.st),
-                s(f.m), s(f.u), s(f.ip), s(f.ua), raw }, "\t"))
+                s(f.m), s(f.u), s(f.ip), s(f.ua), raw, s(f.cs) }, "\t"))
         end
         i = i + 3
     else
@@ -253,6 +276,48 @@ MSYS_NO_PATHCONV=1 docker run --rm --entrypoint resty -v "$WORK_MOUNT:/w" \
 cat "$WORK/parse.out"
 grep -q '^FAIL' "$WORK/parse.out" && FAILED=1
 [ "$(grep -c '^ok' "$WORK/parse.out" || true)" = 18 ] || { echo "FAIL  parse: not every case ran"; FAILED=1; }
+
+# --- 2b. A CrowdSec denial: a security line, and a request line marked denied ---
+# A LAPI-only CrowdSec (no agent, no online API, so it installs no hub items and
+# works on this network) holds one ban decision for the client. Node c enforces
+# against it; its bouncer refreshes every 10 s (UPDATE_FREQUENCY).
+docker run -d --name ll-cs --network "$NET" -e DISABLE_AGENT=true -e DISABLE_ONLINE_API=true \
+  -e CROWDSEC_BYPASS_DB_VOLUME_CHECK=true -e BOUNCER_KEY_megoopm=livelogs-probe-key crowdsecurity/crowdsec:v1.8.1 >/dev/null
+for _ in $(seq 90); do
+  docker exec ll-cs cscli bouncers list 2>/dev/null | grep -q megoopm && break
+  sleep 1
+done
+start_nginx ll-nginx-c node-c -e CROWDSEC_LAPI_URL=http://ll-cs:8080 -e CROWDSEC_BOUNCER_KEY=livelogs-probe-key -e CROWDSEC_APPSEC_URL=
+for _ in $(seq 30); do [ "$(curl_ "http://ll-nginx-c/healthz")" = 200 ] && break; sleep 1; done
+docker run -d --name ll-sub2 --network "$NET" redis:7-alpine \
+  redis-cli -h ll-redis SUBSCRIBE megoopm:live:p2 megoopm:live:r3 >/dev/null
+for _ in $(seq 20); do [ "$(numsub p2)" = 1 ] && [ "$(numsub r3)" = 1 ] && break; sleep 0.5; done
+docker exec ll-cs cscli decisions add -i "$CLIENT_IP" -d 1h >/dev/null
+# Wait for the bouncer to pick the decision up (polled on the default server,
+# so the probes below are the only denials the two probe servers see). AppSec is
+# off on this node: only the ban decision is under test.
+for _ in $(seq 40); do
+  [ "$(curl_ "http://ll-nginx-c/warmup")" = 403 ] && break
+  sleep 1
+done
+expect "the banned client is refused in the access phase" 403 "$(curl_ "http://ll-nginx-c:8002/denied-access")"
+expect "the banned client is refused in the server-rewrite phase" 403 "$(curl_ "http://ll-nginx-c:8003/denied-rewrite")"
+sleep 2
+docker logs ll-sub2 > "$WORK/sub2.out" 2>&1
+MSYS_NO_PATHCONV=1 docker run --rm --entrypoint resty -v "$WORK_MOUNT:/w" "$IMAGE" \
+  /w/summarize.lua /w/sub2.out > "$WORK/sum2.tsv"
+rows2() { awk -F'\t' "$1" "$WORK/sum2.tsv" | wc -l | tr -d ' '; }
+for u in denied-access:p2 denied-rewrite:r3; do
+  expect "${u%%:*}: the request line carries cs=denied" 1 \
+    "$(rows2 "\$2 == \"${u##*:}\" && \$3 == \"request\" && \$5 == \"403\" && \$7 == \"/${u%%:*}\" && \$11 == \"denied\"")"
+  expect "${u%%:*}: the denial is also a security line" 1 \
+    "$(rows2 "\$2 == \"${u##*:}\" && \$3 == \"security\" && \$10 ~ /denied '$CLIENT_IP'/")"
+done
+expect "only denied requests are marked denied" 0 "$(rows2 '$3 == "request" && $11 == "denied" && $5 != "403"')"
+expect "the server-rewrite bounce logs no unset-variable warning" 0 \
+  "$(docker logs ll-nginx-c 2>&1 | grep -c 'uninitialized "mgm_cs"' || true)"
+# Nodes a and b have no bouncer: their request lines never carry a mark.
+expect "requests that were never denied carry cs empty" 0 "$(rows '$3 == "request" && $11 != ""')"
 
 # --- 3. Nobody watching: the relay asks, and publishes nothing ------------------
 docker rm -f ll-sub >/dev/null

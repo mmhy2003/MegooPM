@@ -5,6 +5,7 @@
    on :443, nginx answers an unmatched HTTPS request from the FIRST server block
    it loaded for that port — an unrelated host, chosen by filename order. This
    block removes that for every name a certificate covers. #}
+{%- from "_live_log.j2" import live_log -%}
 # Managed by MegooPM — do not edit by hand.
 server {
     # Branded error pages for the statuses nginx itself produces. A status
@@ -12,6 +13,7 @@ server {
     include {{ default_dir }}/{{ errors_conf }};
     listen 443 ssl;
     server_name {{ server_names }};
+{{- live_log("mgm_u", true) }}
 
     # CrowdSec bouncer, always on: unclaimed names on a certificate draw
     # scanners, and there is no host to opt out. Server-rewrite phase, like

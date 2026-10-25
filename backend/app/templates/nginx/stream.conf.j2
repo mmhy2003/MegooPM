@@ -7,6 +7,7 @@
      terminating TLS on the TCP listener).
    - udp_forwarding -> `listen <port> udp;` (UDP cannot terminate TLS).
    At least one protocol is always enabled (DB check constraint). #}
+{%- from "_live_log.j2" import live_stream_log -%}
 # Managed by MegooPM — do not edit by hand.
 # stream id={{ stream.id }} — {{ stream.incoming_port }} -> {% if stream.upstream_id %}pool {{ pool_name }}{% else %}{{ stream.forward_host }}:{{ stream.forward_port }}{% endif %}
 server {
@@ -16,6 +17,7 @@ server {
 {%- if stream.udp_forwarding %}
     listen {{ stream.incoming_port }} udp;
 {%- endif %}
+{{- live_stream_log("mgm_s" ~ stream.id) }}
 {%- if stream.certificate %}
 
     ssl_certificate {{ stream.certificate.fullchain_path }};

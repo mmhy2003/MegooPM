@@ -26,9 +26,15 @@ function M.check()
     end
 
     local ip = ngx.var.remote_addr
+    -- Marked before Allow(): on a denial the bouncer ends the request inside
+    -- it and never returns, and the live log's request line reads this mark in
+    -- the log phase (log_by_lua in nginx.conf). Reaching the line after Allow
+    -- means the request was allowed, so the mark is cleared.
+    ngx.ctx.mgm_cs = "denied"
     local ok, err = pcall(function()
         csmod.Allow(ip)
     end)
+    ngx.ctx.mgm_cs = nil
     if not ok then
         -- Failing open on a Lua-level error beats blocking every host. AppSec's
         -- own posture on an AppSec-backend error is APPSEC_FAILURE_ACTION in

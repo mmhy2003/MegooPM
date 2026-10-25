@@ -1,0 +1,39 @@
+{# The live log directives every generated server block carries (docs/live-logs.md).
+
+   Lines go to the loopback relay on this node, which publishes the watched ones
+   to Redis pub/sub; nothing is stored. The tag is `mgm_` plus the host key:
+   p<id> proxy, r<id> redirection, d<id> dead, s<id> stream, u unclaimed.
+
+   Declaring any access_log/error_log stops a block inheriting the http-level
+   ones, so the include restates the stdout and CrowdSec targets first.
+
+   `bounces` is for a server whose CrowdSec bouncer runs in the server-rewrite
+   phase and ends the request before `set $mgm_cs` is reached: the variable is
+   then logged unassigned (empty, which is right) and nginx would warn about it
+   on every denied request. #}
+{%- macro live_log(tag, bounces=false) %}
+
+    # Live logs: lines go to the loopback relay and are stored nowhere (docs/live-logs.md).
+    set $mgm_cs "";
+{%- if bounces %}
+    # Server-wide, not just this variable: the bouncer ends a denied request
+    # before the line above runs, and the warning would be logged for each one.
+    uninitialized_variable_warn off;
+{%- endif %}
+    include /etc/nginx/logging-targets.conf;
+    access_log syslog:server=127.0.0.1:5140,tag={{ tag }},nohostname megoopm_live;
+    error_log syslog:server=127.0.0.1:5140,tag={{ tag }},nohostname info;
+{%- endmacro -%}
+{#- Stream form. No include: logging-targets.conf names the http `combined` format,
+    which stream{} does not have. stream{} declares no access_log of its own, so
+    there is nothing to restate there; the error log is the one target a server
+    block loses by declaring its own, so it is restated (same file as the http
+    targets). -#}
+{%- macro live_stream_log(tag) %}
+
+    # Live logs: lines go to the loopback relay and are stored nowhere (docs/live-logs.md).
+    # A stream line is written when the connection closes.
+    error_log /usr/local/openresty/nginx/logs/error.log warn;
+    access_log syslog:server=127.0.0.1:5140,tag={{ tag }},nohostname megoopm_stream;
+    error_log syslog:server=127.0.0.1:5140,tag={{ tag }},nohostname info;
+{%- endmacro -%}
