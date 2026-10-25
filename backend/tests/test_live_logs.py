@@ -18,6 +18,7 @@ from app.services.live_logs import (
     line_frame,
     new_decisions,
     parse_host_key,
+    relay_skipped,
 )
 
 
@@ -72,6 +73,64 @@ def test_rate_limiter_reports_at_most_once_per_second() -> None:
     limiter.allow(11.3)
     assert limiter.take_skipped(11.9) == 0
     assert limiter.take_skipped(12.3) == 1
+
+
+def test_rate_limiter_reports_the_relays_skips_with_its_own() -> None:
+    # Lines the relay dropped over its own cap never reach the session; the
+    # page still has one "N lines skipped" notice, so they join this count.
+    limiter = RateLimiter(per_second=1)
+    limiter.add_skipped(40, 10.0)
+    assert limiter.take_skipped(10.0) == 40
+
+    limiter.allow(10.2)
+    limiter.allow(10.2)
+    limiter.add_skipped(5, 10.5)
+    assert limiter.take_skipped(10.9) == 0  # still at most once a second
+    assert limiter.take_skipped(11.2) == 6
+
+
+def test_rate_limiter_ignores_a_count_of_nothing() -> None:
+    limiter = RateLimiter()
+    limiter.add_skipped(0, 10.0)
+    assert limiter.take_skipped(20.0) == 0
+
+
+RELAY_SKIPPED = b'{"log":"skipped","node":"node-a","host":"p1","count":7}'
+
+
+def test_the_relays_skipped_message_is_read() -> None:
+    assert relay_skipped(RELAY_SKIPPED) == 7
+    assert relay_skipped(RELAY_SKIPPED.decode()) == 7
+
+
+@pytest.mark.parametrize(
+    "data",
+    [
+        # A line, even one whose JSON happens to put "log" first.
+        b'{"log":"request","node":"a","host":"p1","sev":6,"f":{"u":"skipped"}}',
+        b'{"node":"a","host":"p1","log":"skipped","count":7}',  # not the relay's form
+        None,
+        12,
+    ],
+)
+def test_anything_else_is_not_the_relays_skipped_message(data: object) -> None:
+    assert relay_skipped(data) is None
+
+
+@pytest.mark.parametrize(
+    "data",
+    [
+        b'{"log":"skipped","node":"a","host":"p1","count":-3}',
+        b'{"log":"skipped","node":"a","host":"p1","count":true}',
+        b'{"log":"skipped","node":"a","host":"p1","count":"9"}',
+        b'{"log":"skipped","node":"a","host":"p1","count":2.5}',
+        b'{"log":"skipped","node":"a","host":"p1","count":NaN}',
+        b'{"log":"skipped","node":"a","host":"p1","count":99999999999}',
+        b'{"log":"skipped",',
+    ],
+)
+def test_a_skipped_message_with_a_bad_count_counts_nothing(data: bytes) -> None:
+    assert relay_skipped(data) == 0
 
 
 def _decision(id_: int | None, value: str = "203.0.113.9") -> Decision:

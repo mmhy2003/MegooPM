@@ -536,6 +536,40 @@ def test_a_flood_yields_a_skipped_frame(live: Live, admin: User) -> None:
         assert next_frame(ws)["f"]["u"] == "/after"
 
 
+RELAY_SKIPPED = b'{"log":"skipped","node":"node-a","host":"p1","count":300}'
+
+
+def test_the_relays_skipped_count_joins_the_sessions_own(live: Live, admin: User) -> None:
+    with live.connect(ticket_for(admin)) as ws:
+        watch(ws, ["p1"])
+        live.hub.wait_channels({"megoopm:live:p1"})
+
+        # The session's own cap skips one line; the relay reports 300 it never
+        # sent. The relay's message is a count, so the cap does not apply to it.
+        for i in range(201):
+            live.hub.publish("p1", request_line(u=f"/{i}"))
+        live.hub.publish("p1", RELAY_SKIPPED)
+        live.hub.wait_drained()
+        assert all(next_frame(ws)["type"] == "line" for _ in range(200))
+
+        live.clock.advance(1)
+        assert next_frame(ws) == {"type": "skipped", "count": 301}
+
+
+def test_the_relays_skipped_message_is_never_a_line(live: Live, admin: User) -> None:
+    with live.connect(ticket_for(admin)) as ws:
+        watch(ws, ["p1"])
+        live.hub.wait_channels({"megoopm:live:p1"})
+
+        live.hub.publish("p1", RELAY_SKIPPED)
+        live.hub.publish("p1", request_line(u="/after"))
+        live.hub.wait_drained()
+        assert next_frame(ws)["f"]["u"] == "/after"
+
+        live.clock.advance(1)
+        assert next_frame(ws) == {"type": "skipped", "count": 300}
+
+
 # --- Decisions ------------------------------------------------------------------
 
 

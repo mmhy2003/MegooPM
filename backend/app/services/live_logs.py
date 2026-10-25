@@ -90,6 +90,22 @@ class RateLimiter:
         self._skipped += 1
         return False
 
+    def add_skipped(self, count: int, now: float) -> None:
+        """Count lines skipped before they reached this session (the relay's cap).
+
+        Reported with the session's own, so the page's one "N lines skipped"
+        notice stays the whole truth: as soon as a tick comes, and still at
+        most once a second.
+        """
+        if count <= 0:
+            return
+        self._skipped += count
+        if self._report_at is None:
+            due = now
+            if self._last_report is not None:
+                due = max(due, self._last_report + 1.0)
+            self._report_at = due
+
     def take_skipped(self, now: float) -> int:
         if self._report_at is None or now < self._report_at:
             return 0
@@ -143,6 +159,34 @@ def line_frame(data: Any) -> dict[str, Any] | None:
     ip = fields.get("ip") if isinstance(fields, dict) else None
     cc = country_for("Ip", ip) if isinstance(ip, str) and ip else None
     return {**message, "type": "line", "cc": cc}
+
+
+# The relay's own message when it drops a host's lines over its per-node cap:
+# {"log":"skipped","node":…,"host":…,"count":N}, written with "log" first so it
+# is told from a line by this prefix, before anything is decoded.
+RELAY_SKIPPED_PREFIX = b'{"log":"skipped",'
+# Far above what a relay can skip in a second; a larger number is not a count.
+_MAX_RELAY_SKIPPED = 1_000_000
+
+
+def relay_skipped(data: Any) -> int | None:
+    """The count in the relay's skipped message, or ``None`` if ``data`` is not one.
+
+    A message in that form whose count is not a sane whole number counts 0:
+    it is still never shown as a line.
+    """
+    if isinstance(data, str):
+        data = data.encode("utf-8", errors="replace")
+    if not isinstance(data, bytes) or not data.startswith(RELAY_SKIPPED_PREFIX):
+        return None
+    try:
+        message = json.loads(data, parse_constant=_reject_constant)
+    except ValueError:
+        return 0
+    count = message.get("count") if isinstance(message, dict) else None
+    if not isinstance(count, int) or isinstance(count, bool):
+        return 0
+    return count if 0 < count <= _MAX_RELAY_SKIPPED else 0
 
 
 def decision_frame(decision: Decision) -> dict[str, Any]:

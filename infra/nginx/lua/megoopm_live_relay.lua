@@ -33,6 +33,23 @@ local CHANNEL = "megoopm:live:"
 -- within a second.
 local NUMSUB_TTL = 1
 local TIMEOUT_MS = 200
+-- Lines per second per host on this node. A busy watched host must not load
+-- nginx, Redis and the backend with lines the page would skip anyway (a page
+-- shows at most 200 a second). Over the cap, lines are dropped here and
+-- counted, and the count is published once a second as
+-- {"log":"skipped",…,"count":N}, so skipping is never silent.
+local CAP = 300
+-- The keys of this relay's counters in the shared dict, next to the NUMSUB
+-- counts (which are keyed by the bare host key; a host key has no ":").
+local function lines_key(host)
+    return "n:" .. host .. ":" .. math.floor(ngx.now())
+end
+local function skipped_key(host)
+    return "sk:" .. host
+end
+local function report_key(host)
+    return "skt:" .. host
+end
 
 -- nginx's syslog header without the hostname (`nohostname`): PRI, the BSD
 -- timestamp (day padded with a space), then the tag `mgm_<host key>`.
@@ -224,6 +241,70 @@ local function relay(premature, p, watchers)
     end
 end
 
+-- A second after a host's first skipped line: publish how many were skipped.
+local function report_skipped(premature, host)
+    if premature then
+        return
+    end
+    local shm = ngx.shared[DICT]
+    if not shm then
+        return
+    end
+    -- The flag goes first: a line skipped from here on schedules the next
+    -- report, so nothing counted is left without one.
+    shm:delete(report_key(host))
+    local n = shm:get(skipped_key(host)) or 0
+    if n <= 0 then
+        return
+    end
+    shm:incr(skipped_key(host), -n)
+    local red = connect()
+    if not red then
+        return
+    end
+    -- By hand, so "log" comes first: the backend tells this message from a
+    -- line by that prefix, without decoding every line.
+    local msg = string.format('{"log":"skipped","node":%s,"host":%s,"count":%d}',
+        cjson.encode(conf.node), cjson.encode(host), n)
+    if red:publish(CHANNEL .. host, msg) ~= nil then
+        red:set_keepalive(10000, 32)
+    else
+        red:close()
+    end
+end
+
+-- Count one line this relay did not publish for `host`, and make sure a
+-- report is on its way.
+local function skip(shm, host)
+    if not shm then
+        return
+    end
+    shm:incr(skipped_key(host), 1, 0)
+    -- add() succeeds for the first skip only; the flag expires on its own, so
+    -- a report timer that never ran cannot stop the next one.
+    if shm:add(report_key(host), true, 5) then
+        local ok = ngx.timer.at(1, function(premature)
+            local ok_report, report_err = pcall(report_skipped, premature, host)
+            if not ok_report then
+                ngx.log(ngx.WARN, "[megoopm] live relay: ", tostring(report_err))
+            end
+        end)
+        if not ok then
+            shm:delete(report_key(host))
+        end
+    end
+end
+
+-- Whether `host` is still under this second's cap; counts the line.
+local function admit(shm, host)
+    if not shm then
+        return true
+    end
+    -- A full dict cannot count: let the line through rather than drop it.
+    local n = shm:incr(lines_key(host), 1, 0, 2)
+    return n == nil or n <= CAP
+end
+
 -- One call per datagram, from the relay server's content_by_lua_block.
 --
 -- The Redis work runs in a timer, not here. nginx keeps a UDP session per
@@ -248,18 +329,33 @@ function M.handle()
             -- one pattern match, and no JSON decode.
             return
         end
-        local p = M.classify(s)
-        if not p then
+        -- An error line is filtered first: most are info noise, which must
+        -- not use up the cap. An access line is always shown, so it is
+        -- counted before it is decoded.
+        local p
+        if not s.access then
+            p = M.classify(s)
+            if not p then
+                return
+            end
+        end
+        if not admit(shm, s.host) then
+            skip(shm, s.host)
             return
         end
-        -- A full timer queue drops the line, silently: it is a busy moment,
-        -- and a log line per dropped line would make it busier.
-        ngx.timer.at(0, function(premature)
+        p = p or M.classify(s)
+        -- A full timer queue cannot take the line: it is counted as skipped,
+        -- like a line over the cap, rather than logged (a log line per lost
+        -- line would add load at the worst moment).
+        local scheduled = ngx.timer.at(0, function(premature)
             local ok_relay, relay_err = pcall(relay, premature, p, watchers)
             if not ok_relay then
                 ngx.log(ngx.WARN, "[megoopm] live relay: ", tostring(relay_err))
             end
         end)
+        if not scheduled then
+            skip(shm, s.host)
+        end
     end)
     if not ok then
         ngx.log(ngx.WARN, "[megoopm] live relay: ", tostring(err))

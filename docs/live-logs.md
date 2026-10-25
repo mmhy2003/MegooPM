@@ -25,7 +25,7 @@ involved.
 ```
 nginx                                the relay (stream server, same nginx)           Redis            any backend          browser
   access_log (one, "k":"<key>")      127.0.0.1:5140, Lua: key, NUMSUB cache,  --PUBLISH-->  megoopm:live:<key>  --SUBSCRIBE--  WebSocket  -->  page
-  error_log (per block, mgm_<key>)   classify, add node                                                       (per session)
+  error_log (per block, mgm_<key>)   classify, cap, add node                                                  (per session)
                          --UDP-->
 ```
 
@@ -50,7 +50,8 @@ nginx                                the relay (stream server, same nginx)      
    then looks up the cached answer to `PUBSUB NUMSUB megoopm:live:<key>`
    (cached for 1 s). If nobody is subscribed, the line is dropped before it is
    decoded. Otherwise the relay drops the line unless it is shown (see
-   *Errors* below), and `PUBLISH`es it.
+   *Errors* below), applies its per-host cap (see *Rate limits*), and
+   `PUBLISH`es it.
 3. The WebSocket session (`backend/app/api/routes/live_logs.py`) subscribes
    to the channels of the hosts the page watches, and forwards each message
    as a JSON frame.
@@ -226,10 +227,17 @@ An attacker controls that context. Without this rule, a `Referer:
 
 ## Rate limits
 
+- **300 lines per second per host, on each node, at the relay.** A busy
+  watched host must not load nginx, Redis and the backend with lines the page
+  would skip anyway. Over the cap the relay drops the line (before decoding
+  it) and counts it, and publishes
+  `{"log": "skipped", "node", "host", "count": N}` on the host's channel once
+  a second. A line the relay could not hand to a timer (a full nginx timer
+  queue) is counted the same way. The session adds these counts to its own.
 - **200 lines per second per session**, counting decisions. Over the cap,
   lines are skipped, not queued. The session sends `{"type": "skipped",
-  "count": N}` at most once a second, and the page shows "N lines skipped".
-  Skipping is never silent.
+  "count": N}` at most once a second, counting its own skips and the relay's,
+  and the page shows "N lines skipped". Skipping is never silent.
 - **Decisions** are read from CrowdSec LAPI every 5 s while a session watches
   Security, with the same read the Security page does. The first read only
   notes the decisions that already exist; "new" means new since the page
@@ -288,8 +296,6 @@ is empty, and lines are tagged `local`, as the backend names that node.
   can arrive a few milliseconds out of order. Each carries `ts`.
 - **Invalid UTF-8** in a URL or user agent passes through nginx's JSON
   escaping. The backend decodes it leniently (`errors="replace"`).
-- **Under extreme load**, a full nginx timer queue drops lines silently, by
-  design: logging each drop would add load at the worst moment.
 
 ## How to verify
 
@@ -326,7 +332,9 @@ Automated checks:
   harness. It runs two nginx nodes on one Redis, and a LAPI-only CrowdSec for
   the denial cases. It covers publishing, the node tags, hostile input,
   truncation, the 502 and its error line, stream lines, a 200-request burst,
-  `NUMSUB` gating, the CrowdSec tag on denied requests only, and Redis down.
+  the sockets each server block costs a worker (150 blocks), the relay's cap
+  under a 1,500-request flood, `NUMSUB` gating, the CrowdSec tag on denied
+  requests only, and Redis down.
 - Backend: `tests/test_live_logs.py`, `tests/test_live_logs_ws.py`,
   `tests/test_live_log_render.py`.
 - Frontend: `npx vitest run src/components/live-logs`.

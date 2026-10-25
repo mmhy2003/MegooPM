@@ -22,7 +22,9 @@ understand. 1011: the re-check could not reach the database.
 ``{"type": "watch", "hosts": ["p1", "u", ...], "decisions": bool}``.
 Server → client: ``{"type": "line", ...the published message, "cc"}``,
 ``{"type": "decision", ...}`` (see ``live_logs.decision_frame``),
-``{"type": "skipped", "count": N}`` and ``{"type": "ping"}`` every 25 s.
+``{"type": "skipped", "count": N}`` and ``{"type": "ping"}`` every 25 s. The
+skipped count includes the lines a relay dropped over its own per-host cap,
+which it reports on the host's channel (``live_logs.relay_skipped``).
 """
 
 from __future__ import annotations
@@ -52,6 +54,7 @@ from app.services.live_logs import (
     load_user,
     new_decisions,
     parse_host_key,
+    relay_skipped,
     session_still_valid,
 )
 
@@ -268,11 +271,19 @@ class _Session:
                     await pubsub.aclose()
 
     async def _forward(self, message: dict[str, Any]) -> None:
+        data = message.get("data")
+        # The relay's count of lines it dropped over its own cap: a count, not
+        # a line, so it is added to this session's and never capped itself.
+        # Told apart by a prefix, so a line still costs no parse here.
+        relayed_skips = relay_skipped(data)
+        if relayed_skips is not None:
+            self._limiter.add_skipped(relayed_skips, self._rt.clock())
+            return
         # The cap first: under a flood, a skipped line costs no parse and no
         # country lookup.
         if not self._limiter.allow(self._rt.clock()):
             return
-        frame = line_frame(message.get("data"))
+        frame = line_frame(data)
         if frame is not None:
             await self._send(frame)
 

@@ -19,7 +19,7 @@ IMAGE=megoopm-nginx-probe
 WORK="$(mktemp -d)"
 # Docker Desktop cannot mount a Git Bash /tmp path; cygpath gives it the Windows one.
 WORK_MOUNT="$(cygpath -m "$WORK" 2>/dev/null || echo "$WORK")"
-CONTAINERS="ll-redis ll-nginx-a ll-nginx-b ll-nginx-c ll-nginx-fd ll-cs ll-client ll-sub ll-sub2 ll-monitor"
+CONTAINERS="ll-redis ll-nginx-a ll-nginx-b ll-nginx-c ll-nginx-fd ll-cs ll-client ll-sub ll-sub2 ll-sub3 ll-monitor"
 FAILED=0
 
 cleanup() {
@@ -171,7 +171,7 @@ sleep 2
 docker logs ll-sub > "$WORK/sub.out" 2>&1
 # One tab-separated row per published message, flattened by the image's own
 # cjson so the payload is checked as JSON, not grepped as text:
-#   node host log truncated st m u ip ua raw-prefix cs   (or INVALID)
+#   node host log truncated st m u ip ua raw-prefix cs count   (or INVALID)
 cat > "$WORK/summarize.lua" <<'EOF'
 local cjson = require("cjson.safe")
 local lines = {}
@@ -187,7 +187,7 @@ while i <= #lines do
             local f = type(m.f) == "table" and m.f or {}
             local raw = type(m.raw) == "string" and m.raw:sub(1, 120) or ""
             print(table.concat({ s(m.node), s(m.host), s(m.log), s(m.truncated), s(f.st),
-                s(f.m), s(f.u), s(f.ip), s(f.ua), raw, s(f.cs) }, "\t"))
+                s(f.m), s(f.u), s(f.ip), s(f.ua), raw, s(f.cs), s(m.count) }, "\t"))
         end
         i = i + 3
     else
@@ -269,6 +269,38 @@ expect "each server block costs a worker at most 2 sockets" yes \
 expect "the worker may open 65535 files" 65535 \
   "$(docker exec ll-nginx-fd sh -c 'awk "/Max open files/ { print \$4 }" /proc/$(pgrep -f "nginx: worker" | head -1)/limits')"
 docker rm -f -v ll-nginx-fd >/dev/null
+
+# --- 1c. A flood on one watched host: capped at the relay, never silent ---------
+# 1,500 requests on one connection, far past the relay's 300 lines a second per
+# host. What passes is at most 300 for each second the flood spans; the rest
+# arrive as `skipped` counts, about once a second, and together they account for
+# every request.
+docker run -d --name ll-sub3 --network "$NET" redis:7-alpine \
+  redis-cli -h ll-redis SUBSCRIBE megoopm:live:p1 >/dev/null
+for _ in $(seq 20); do [ "$(numsub p1)" = 2 ] && break; sleep 0.5; done
+sleep 1.2 # a fresh second for the relay's window, past anything earlier
+FLOOD=1500
+T0="$(date +%s.%N)"
+docker exec ll-client curl -s -o /dev/null "http://ll-nginx-a:8001/flood-[1-$FLOOD]" || true
+T1="$(date +%s.%N)"
+sleep 3 # the skipped count is published a second after the first skip
+docker logs ll-sub3 > "$WORK/sub3.out" 2>&1
+MSYS_NO_PATHCONV=1 docker run --rm --entrypoint resty -v "$WORK_MOUNT:/w" "$IMAGE" \
+  /w/summarize.lua /w/sub3.out > "$WORK/sum3.tsv"
+FLOOD_LINES="$(awk -F'\t' '$3 == "request" && $7 ~ /^\/flood-/' "$WORK/sum3.tsv" | wc -l | tr -d ' ')"
+FLOOD_SKIPS="$(awk -F'\t' '$1 == "node-a" && $2 == "p1" && $3 == "skipped"' "$WORK/sum3.tsv" | wc -l | tr -d ' ')"
+FLOOD_SKIPPED="$(awk -F'\t' '$3 == "skipped" { n += $12 } END { print n + 0 }' "$WORK/sum3.tsv")"
+# One more second than the flood spans: a line is counted when the relay sees
+# it, a moment after nginx served it.
+FLOOD_SECONDS="$(awk -v a="$T0" -v b="$T1" 'BEGIN { print int(b) - int(a) + 2 }')"
+echo "info  flood: $FLOOD requests in $(awk -v a="$T0" -v b="$T1" 'BEGIN { printf "%.2f", b - a }') s:" \
+  "$FLOOD_LINES published, $FLOOD_SKIPPED skipped in $FLOOD_SKIPS messages"
+expect "a flood is held to 300 lines a second" yes \
+  "$(awk -v n="$FLOOD_LINES" -v s="$FLOOD_SECONDS" 'BEGIN { print (n >= 300 && n <= 300 * s) ? "yes" : "no" }')"
+expect "what the cap drops is reported as skipped" yes \
+  "$( [ "$FLOOD_SKIPS" -ge 1 ] && [ "$FLOOD_SKIPS" -le "$FLOOD_SECONDS" ] && echo yes || echo no)"
+expect "published plus skipped is every request" "$FLOOD" "$((FLOOD_LINES + FLOOD_SKIPPED))"
+docker rm -f -v ll-sub3 >/dev/null
 
 # --- 2. Parsing, case by case (the pure M.parse) --------------------------------
 cat > "$WORK/parse.lua" <<'EOF'
@@ -362,6 +394,92 @@ cat "$WORK/parse.out"
 grep -q '^FAIL' "$WORK/parse.out" && FAILED=1
 [ "$(grep -c '^ok' "$WORK/parse.out" || true)" = 23 ] || { echo "FAIL  parse: not every case ran"; FAILED=1; }
 
+# --- 2a. The cap and the skipped count, step by step (M.handle) -----------------
+# A fixed clock, a fake socket, timers that run when told, and a fake Redis that
+# records what is published: the relay's own logic, with nothing else in it.
+cat > "$WORK/cap.lua" <<'EOF'
+package.path = "/lua/?.lua;" .. package.path
+package.loaded["megoopm_live_conf"] = { enabled = true, node = "t", redis_host = "127.0.0.1", redis_port = 1 }
+local published = {}
+package.loaded["resty.redis"] = { new = function()
+    return {
+        set_timeouts = function() end,
+        connect = function() return true end,
+        pubsub = function() return { "numsub", 1 } end,
+        publish = function(_, channel, msg) published[#published + 1] = { channel, msg }; return 1 end,
+        set_keepalive = function() end,
+        close = function() end,
+    }
+end }
+local relay = require("megoopm_live_relay")
+local failed = false
+local function expect(label, want, got)
+    local ok = want == got
+    print((ok and "ok    " or "FAIL  ") .. "cap: " .. label .. (ok and "" or (": expected "
+        .. tostring(want) .. ", got " .. tostring(got))))
+    if not ok then failed = true end
+end
+local datagram
+ngx.req.socket = function() return { receive = function() return datagram end } end
+local now = 1000.5
+ngx.now = function() return now end
+local timers, fail_line_timers = {}, false
+ngx.timer.at = function(delay, fn, ...)
+    if delay == 0 and fail_line_timers then return nil, "too many pending timers" end
+    timers[#timers + 1] = { delay = delay, fn = fn, args = { ... } }
+    return true
+end
+local function run(delay)
+    local n = 0
+    for _, t in ipairs(timers) do
+        if t.delay == delay then t.fn(false, unpack(t.args)); n = n + 1 end
+    end
+    return n
+end
+local function skipped_messages()
+    local out = {}
+    for _, p in ipairs(published) do
+        if p[2]:find('"skipped"', 1, true) then out[#out + 1] = p end
+    end
+    return out
+end
+local shm = ngx.shared.megoopm_live
+shm:set("p1", 1, 60) -- the cached NUMSUB count: somebody watches p1
+datagram = '<190>Oct 25 10:00:00 mgm_x: {"k":"p1","st":"200"}'
+
+for _ = 1, 305 do relay.handle() end
+expect("300 lines in one second are relayed", 300, run(0))
+expect("one skipped report is due", 1, run(1))
+local skips = skipped_messages()
+expect("one skipped message", 1, #skips)
+expect("on the host's channel", "megoopm:live:p1", skips[1] and skips[1][1])
+expect("counting the 5 over the cap", '{"log":"skipped","node":"t","host":"p1","count":5}', skips[1] and skips[1][2])
+
+now, timers, published = 1001.5, {}, {}
+for _ = 1, 3 do relay.handle() end
+expect("the next second starts a new count", 3, run(0))
+expect("and nothing was skipped in it", 0, run(1))
+
+now, timers, published, fail_line_timers = 1002.5, {}, {}, true
+relay.handle()
+fail_line_timers = false
+expect("a line whose timer could not start is not lost silently", 1, run(1))
+skips = skipped_messages()
+expect("it is counted as skipped", '{"log":"skipped","node":"t","host":"p1","count":1}', skips[1] and skips[1][2])
+
+now, timers, published = 1003.5, {}, {}
+shm:set("p9", 0, 60) -- nobody watches p9
+datagram = '<190>Oct 25 10:00:00 mgm_x: {"k":"p9","st":"200"}'
+for _ = 1, 400 do relay.handle() end
+expect("an unwatched host costs no timer", 0, #timers)
+os.exit(failed and 1 or 0)
+EOF
+MSYS_NO_PATHCONV=1 docker run --rm --entrypoint resty -v "$WORK_MOUNT:/w" \
+  -v "$REPO/infra/nginx/lua:/lua:ro" "$IMAGE" --shdict 'megoopm_live 1m' /w/cap.lua > "$WORK/cap.out" 2>&1 || true
+cat "$WORK/cap.out"
+grep -q '^FAIL' "$WORK/cap.out" && FAILED=1
+[ "$(grep -c '^ok' "$WORK/cap.out" || true)" = 10 ] || { echo "FAIL  cap: not every case ran"; FAILED=1; }
+
 # --- 2b. A CrowdSec denial: a security line, and a request line marked denied ---
 # A LAPI-only CrowdSec (no agent, no online API, so it installs no hub items and
 # works on this network) holds one ban decision for the client. Node c enforces
@@ -419,7 +537,7 @@ expect "the server-rewrite bounce logs no unset-variable warning" 0 \
 expect "requests that were never denied carry cs empty" 0 "$(rows '$3 == "request" && $11 != ""')"
 
 # --- 3. Nobody watching: the relay asks, and publishes nothing ------------------
-docker rm -f ll-sub >/dev/null
+docker rm -f -v ll-sub >/dev/null
 for _ in $(seq 20); do [ "$(numsub p1)" = 0 ] && break; sleep 0.5; done
 sleep 2 # past the 1 s NUMSUB cache
 docker run -d --name ll-monitor --network "$NET" redis:7-alpine redis-cli -h ll-redis MONITOR >/dev/null
@@ -442,7 +560,7 @@ expect "a denied default-server request logs no warning" 0 \
   "$(docker logs ll-nginx-a 2>&1 | grep -c 'uninitialized "mgm_' || true)"
 
 # --- 4. Redis down: nothing fails, nothing blocks (Review Focus 1) --------------
-docker rm -f ll-monitor ll-redis >/dev/null
+docker rm -f -v ll-monitor ll-redis >/dev/null
 for node in a b; do
   for i in 1 2 3; do
     expect "redis down, request on node-$node" 200 "$(curl_ "http://ll-nginx-$node:8001/down-$i")"
