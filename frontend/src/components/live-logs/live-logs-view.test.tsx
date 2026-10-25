@@ -188,6 +188,77 @@ describe("LiveLogsView", () => {
     expect(screen.queryByRole("option", { name: "Unclaimed (default site)" })).toBeNull();
   });
 
+  const ALL_LOGS = "All logs (every host + nginx itself)";
+  const NGINX_ITSELF = "nginx itself (no host)";
+
+  it("offers All logs first, then nginx itself", async () => {
+    const user = userEvent.setup();
+    render(<LiveLogsView />);
+    await openHostPicker(user);
+    await screen.findByRole("option", { name: "cloud.example.com" });
+    const names = screen.getAllByRole("option").map((o) => o.textContent);
+    expect(names.slice(0, 2)).toEqual([ALL_LOGS, NGINX_ITSELF]);
+  });
+
+  it("makes All logs replace the picked hosts, and a host picked after it replace it", async () => {
+    const user = userEvent.setup();
+    render(<LiveLogsView />);
+    await openHostPicker(user);
+    await user.click(await screen.findByRole("option", { name: "cloud.example.com" }));
+    await openHostPicker(user);
+    await user.click(await screen.findByRole("option", { name: NGINX_ITSELF }));
+    expect(hook.calls.at(-1)).toEqual({ hosts: ["p1", "n"], decisions: false });
+
+    await openHostPicker(user);
+    await user.click(await screen.findByRole("option", { name: ALL_LOGS }));
+    expect(hook.calls.at(-1)).toEqual({ hosts: ["all"], decisions: false });
+    const picked = within(screen.getByTestId("picked"));
+    expect(picked.getByText(ALL_LOGS)).toBeInTheDocument();
+    expect(picked.queryByText("cloud.example.com")).toBeNull();
+
+    await openHostPicker(user);
+    await user.click(await screen.findByRole("option", { name: "old.example.com" }));
+    expect(hook.calls.at(-1)).toEqual({ hosts: ["r2"], decisions: false });
+    expect(picked.queryByText(ALL_LOGS)).toBeNull();
+  });
+
+  it("offers All logs on the Stream tab too, and nginx itself only on the others", async () => {
+    const user = userEvent.setup();
+    render(<LiveLogsView />);
+    for (const tab of ["Errors", "Security", "Requests"]) {
+      await user.click(screen.getByRole("tab", { name: tab }));
+      await openHostPicker(user);
+      expect(await screen.findByRole("option", { name: NGINX_ITSELF })).toBeInTheDocument();
+      await user.keyboard("{Escape}");
+    }
+    await user.click(screen.getByRole("tab", { name: "Stream hosts" }));
+    await openHostPicker(user);
+    await user.click(await screen.findByRole("option", { name: ALL_LOGS }));
+    // Picked on the Stream tab, and still shown there: it covers stream hosts too.
+    expect(hook.calls.at(-1)).toEqual({ hosts: ["all"], decisions: false });
+    expect(within(screen.getByTestId("picked")).getByText(ALL_LOGS)).toBeInTheDocument();
+    await openHostPicker(user);
+    await screen.findByRole("option", { name: /2222/ });
+    expect(screen.queryByRole("option", { name: NGINX_ITSELF })).toBeNull();
+  });
+
+  it("labels nginx's own lines nginx, and a line through All logs with its real host", async () => {
+    const user = userEvent.setup();
+    setState({
+      lines: {
+        errors: [
+          line({ host: "n", log: "error", sev: 5, f: null, raw: "signal process started" }),
+          line({ host: "p1", log: "error", sev: 3, f: null, raw: "connect() failed" }),
+        ],
+      },
+    });
+    render(<LiveLogsView />);
+    await user.click(screen.getByRole("tab", { name: "Errors" }));
+    const table = within(screen.getByRole("table"));
+    expect(table.getByText("nginx")).toBeInTheDocument();
+    expect(await table.findByText("cloud.example.com")).toBeInTheDocument();
+  });
+
   it("uses the themed dropdowns, never the browser's own select", () => {
     setState({ lines: { requests: [line({ node: "node-a" }), line({ node: "node-b" })] } });
     const { container } = render(<LiveLogsView />);

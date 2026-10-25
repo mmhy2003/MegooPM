@@ -31,11 +31,21 @@ const TAB_LABEL: Record<Tab, string> = {
 const STATUS_CLASSES = ["2xx", "3xx", "4xx", "5xx"] as const;
 
 const UNCLAIMED = "u";
+/** Every host's lines plus nginx's own: one channel, so new hosts show up on their own. */
+const ALL_LOGS = "all";
+/** nginx's own messages (reloads, config errors, workers): error lines, no host. */
+const NGINX_ITSELF = "n";
 
 interface HostOption {
   key: string;
   label: string;
 }
+
+/** First in the picker, before any host loads. */
+const FIXED_OPTIONS: HostOption[] = [
+  { key: ALL_LOGS, label: "All logs (every host + nginx itself)" },
+  { key: NGINX_ITSELF, label: "nginx itself (no host)" },
+];
 
 // The themed Select has no empty value, so "every node" / "any status" is a
 // value of its own that the filter state keeps as "".
@@ -47,7 +57,7 @@ const STATUS_ITEMS: Record<string, string> = {
 
 /** Proxy, redirection, dead and stream hosts, keyed the way the socket names them. */
 function useHostOptions() {
-  const [options, setOptions] = useState<HostOption[]>([]);
+  const [options, setOptions] = useState<HostOption[]>(FIXED_OPTIONS);
 
   useEffect(() => {
     let active = true;
@@ -59,7 +69,7 @@ function useHostOptions() {
         streams.list(),
       ]);
       if (!active) return;
-      const out: HostOption[] = [];
+      const out: HostOption[] = [...FIXED_OPTIONS];
       const names = (prefix: string, result: typeof proxy | typeof redirect | typeof dead) => {
         if (result.status !== "fulfilled") return;
         for (const host of result.value) {
@@ -153,6 +163,9 @@ export function LiveLogsView() {
 
   const labelOf = useMemo(() => {
     const map = new Map(options.map((o) => [o.key, o.label]));
+    // A row's host, not the picker's choice: lines that came through All logs
+    // carry their real host key, and nginx's own carry `n`.
+    map.set(NGINX_ITSELF, "nginx");
     return (key: string) => map.get(key) ?? key;
   }, [options]);
 
@@ -177,11 +190,21 @@ export function LiveLogsView() {
   // props change.
   const select = useCallback((id: number) => setSelectedId((cur) => (cur === id ? null : id)), []);
 
-  // Stream hosts belong to the Stream tab, everything else to the others.
+  // Stream hosts belong to the Stream tab, everything else to the others; All
+  // logs covers every tab. Unclaimed is the default servers (http only), and
+  // nginx itself sends error lines only: neither is on the Stream tab.
   const isStream = (key: string) => key.startsWith("s");
-  const visiblePicked = picked.filter((key) => isStream(key) === (tab === "streams"));
-  // Unclaimed is the default servers: http only, so never on the Stream tab.
-  const addable = options.filter((o) => !picked.includes(o.key) && isStream(o.key) === (tab === "streams"));
+  const onTab = (key: string) => key === ALL_LOGS || isStream(key) === (tab === "streams");
+  const visiblePicked = picked.filter(onTab);
+  const addable = options.filter((o) => !picked.includes(o.key) && onTab(o.key));
+  // All logs is exclusive: it already carries every host's lines, and a host
+  // watched beside it would show each of its lines twice.
+  const pick = (key: string) =>
+    setPicked((prev) => {
+      if (key === ALL_LOGS) return [ALL_LOGS];
+      if (prev.includes(key)) return prev;
+      return [...prev.filter((k) => k !== ALL_LOGS), key];
+    });
 
   const connection =
     live.status === "live"
@@ -249,7 +272,7 @@ export function LiveLogsView() {
           value=""
           items={Object.fromEntries(addable.map((o) => [o.key, o.label]))}
           onValueChange={(key) => {
-            if (key) setPicked((prev) => (prev.includes(key) ? prev : [...prev, key]));
+            if (key) pick(key);
           }}
           placeholder="+ host"
           searchLabel="Search hosts"
