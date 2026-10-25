@@ -15,17 +15,28 @@ the page leaves no trace.
 
 The host picker lists proxy, redirection and 404 hosts (stream hosts on the
 Stream tab), and **Unclaimed (default site)**: requests no host claims, where
-most scanners and bans land. Filters (node, status, text) run in the browser
-over what has arrived. **Pause** stops rendering, not receiving. **Save what's
-on screen** downloads the tab's lines from the browser; the server is not
-involved.
+most scanners and bans land. Two choices head the list:
+
+- **All logs (every host + nginx itself)**, on every tab: every host's lines,
+  and nginx's own messages, from every node. It is one subscription, so a
+  host created while it is on shows up without anything being picked. It is
+  exclusive: picking it replaces the picked hosts, and picking a host while it
+  is on replaces it, so no line shows twice.
+- **nginx itself (no host)**, on every tab but Stream hosts: only nginx's own
+  messages (see *nginx itself* below). Its lines show on the Errors tab, with
+  the host **nginx**.
+
+Filters (node, status, text) run in the browser over what has arrived.
+**Pause** stops rendering, not receiving. **Save what's on screen** downloads
+the tab's lines from the browser; the server is not involved.
 
 ## The flow
 
 ```
 nginx                                the relay (stream server, same nginx)           Redis            any backend          browser
   access_log (one, "k":"<key>")      127.0.0.1:5140, Lua: key, NUMSUB cache,  --PUBLISH-->  megoopm:live:<key>  --SUBSCRIBE--  WebSocket  -->  page
-  error_log (per block, mgm_<key>)   classify, cap, add node                                                  (per session)
+  error_log (per block, mgm_<key>)   classify, cap, add node                                megoopm:live:all      (per session)
+  error_log (main, mgm_n)
                          --UDP-->
 ```
 
@@ -44,22 +55,29 @@ nginx                                the relay (stream server, same nginx)      
    `CROWDSEC_SYSLOG_ADDR` is set) with
    `include /etc/nginx/logging-error-targets.conf`. It declares no access log,
    so it inherits the access targets unchanged.
+   nginx's main error log (the `error_log` at the top of `nginx.conf`) also
+   goes to the relay, at `notice`, tagged `mgm_n`: nginx's own messages (see
+   *nginx itself*).
 2. The relay (`infra/nginx/lua/megoopm_live_relay.lua`) reads each datagram's
    host key: from `k` for an access line (whose tag is the shared `mgm_x`),
-   from the tag for an error line. A line with an empty key is dropped. It
-   then looks up the cached answer to `PUBSUB NUMSUB megoopm:live:<key>`
-   (cached for 1 s). If nobody is subscribed, the line is dropped before it is
-   decoded. Otherwise the relay drops the line unless it is shown (see
-   *Errors* below), applies its per-host cap (see *Rate limits*), and
-   `PUBLISH`es it.
+   from the tag for an error line. An error line under the shared tag names
+   no host, so it is nginx's own (`n`). A line with an empty key is dropped.
+   It then looks up the cached answers to `PUBSUB NUMSUB megoopm:live:<key>`
+   and `PUBSUB NUMSUB megoopm:live:all` (each cached for 1 s). If nobody is
+   subscribed to either, the line is dropped before it is decoded. Otherwise
+   the relay drops the line unless it is shown (see *Errors* below), applies
+   each channel's cap (see *Rate limits*), and `PUBLISH`es it, the same
+   message, on each channel that has a subscriber: the host's, and `all`.
 3. The WebSocket session (`backend/app/api/routes/live_logs.py`) subscribes
    to the channels of the hosts the page watches, and forwards each message
-   as a JSON frame.
+   as a JSON frame. All logs is the one channel `megoopm:live:all`; its lines
+   carry their real host.
 
 **Host keys.** `p<id>` proxy host, `r<id>` redirection host, `d<id>` 404
-(dead) host, `s<id>` stream host, `u` unclaimed (the default servers). The
-channel is `megoopm:live:<key>`, an error line's syslog tag `mgm_<key>`, and
-an access line's `k` the key itself.
+(dead) host, `s<id>` stream host, `u` unclaimed (the default servers), `n`
+nginx itself. The channel is `megoopm:live:<key>`, an error line's syslog tag
+`mgm_<key>`, and an access line's `k` the key itself. `all` is a watch key and
+a channel, never a host: the relay drops a line that names it.
 
 **What the relay publishes.**
 
@@ -110,7 +128,10 @@ an access line's `k` the key itself.
 
 The page sends `{"type": "watch", "hosts": ["p3", "u"], "decisions": true}` on
 open and again whenever the picked hosts or tab change. The socket is not
-reopened. `decisions` is true while the Security tab is open.
+reopened. `decisions` is true while the Security tab is open. With All logs
+picked, `hosts` is `["all"]`. The server accepts `all` beside other keys, but
+then each of those hosts' lines arrives twice, once per channel; the page never
+sends that.
 
 Log content is attacker-controlled (URLs, user agents, referrers). The page
 renders it as text, never as HTML.
@@ -154,13 +175,14 @@ Nothing about a live line is written anywhere:
 - **No ticket record.** The WebSocket ticket is a signed token, checked by
   signature (see below).
 - **`PUBSUB NUMSUB` gating.** The relay publishes a line only while its host's
-  channel has a subscriber, and it learns that without anyone writing a key.
-  The relay caches the count for 1 s in the shared dict `megoopm_live`, one
-  per node: every nginx worker on the node reads and refreshes the same
-  entry. That dict holds numbers per host key (the subscriber count, and the
-  relay's per-second line and skipped counts), never lines. With nobody
-  watching, a busy host costs one `NUMSUB` per second per node, and each line
-  is dropped on arrival.
+  channel, or `all`, has a subscriber, and it learns that without anyone
+  writing a key. The relay caches each count for 1 s in the shared dict
+  `megoopm_live`, one per node: every nginx worker on the node reads and
+  refreshes the same entry. That dict holds numbers per host key and for
+  `all` (the subscriber count, and the relay's per-second line and skipped
+  counts), never lines. With nobody watching, a busy host costs one `NUMSUB`
+  for it and one for `all` per second per node, and each line is dropped on
+  arrival.
 - **The browser** keeps the last 1,000 lines per tab, in memory. Leaving the
   page discards them.
 
@@ -194,6 +216,31 @@ request context nginx appends (`, client: …, request: "…", referrer: "…"`)
 An attacker controls that context. Without this rule, a `Referer:
 [Crowdsec] denied` would turn a plain 404 into a security event, or sneak an
 `info` line through.
+
+## nginx itself
+
+**nginx itself** (host key `n`, shown as **nginx**) is what nginx says outside
+any host:
+
+- **Its process messages**: a reload (`signal 1 (SIGHUP) received …,
+  reconfiguring`), workers starting, shutting down and exiting (`worker
+  process 31 exited with code 0`), a worker crashing (`exited on signal 11`),
+  and config errors at load. nginx writes these to its main error log, which
+  `nginx.conf` sends to the relay at `notice`, tagged `mgm_n`. So a reload
+  shows on every node it happens on, a few lines per worker. The Lua modules'
+  own startup lines (the CrowdSec bouncer's, at each reload) are among them.
+- **Error lines with no host key**: an error line under the shared tag
+  `mgm_x`, which no host's block names.
+
+The relay keeps an `n` line at `notice` or above (syslog severity ≤ 5), and
+it is always an Errors line: there is no request, so no denial and no TLS
+handshake to look for.
+
+The main error log keeps its file target exactly as before
+(`error_log logs/error.log error;`, the compiled-in default, which is stderr in
+the image), so the container log is unchanged. `http {}` declares its own
+error logs and does not inherit the main ones. The relay's own server logs to
+stderr only, so it never feeds itself.
 
 ## Who can watch, and re-checks
 
@@ -243,6 +290,12 @@ An attacker controls that context. Without this rule, a `Referer:
   `{"log": "skipped", "node", "host", "count": N}` on the host's channel once
   a second. A line the relay could not hand to a timer (a full nginx timer
   queue) is counted the same way. The session adds these counts to its own.
+- **300 lines per second for All logs, on each node, at the relay.** The `all`
+  channel has a cap of its own, apart from each host's, with the same
+  mechanism: over it, a line is not published on `all` (it still is on its
+  host's channel, if that is watched, under the host's cap), and the relay
+  publishes `{"log": "skipped", "node", "host": "all", "count": N}` on `all`
+  once a second.
 - **200 lines per second per session**, counting decisions. Over the cap,
   lines are skipped, not queued. The session sends `{"type": "skipped",
   "count": N}` at most once a second, counting its own skips and the relay's,
@@ -309,6 +362,15 @@ nginx runs the old config, but an old nginx cannot run the new one (HA-SETUP.md
   analytics does. A Redis that requires auth means the relay drops every
   line. nginx says so at startup: its log carries a `WARNING: REDIS_URL …`
   line when the URL has credentials or uses `rediss://`.
+- **nginx's own start is not in Live logs.** Its first messages are written
+  before the relay listens, so they reach nobody, and nginx says so: a
+  container's start now carries a few lines of
+  `send() failed (111: Connection refused) while logging to syslog, server:
+  127.0.0.1:5140` in its log. Once the relay listens, a reload's messages
+  arrive, and add no such line.
+- **Requests and stream lines have no host column.** Under All logs, the
+  Errors and Security tabs show each line's host; on Requests and Stream
+  hosts the host is in the line's details (click it).
 - **Order.** Each line is published from its own timer, so lines from one node
   can arrive a few milliseconds out of order. Each carries `ts`.
 - **Invalid UTF-8** in a URL or user agent passes through nginx's JSON
@@ -333,6 +395,12 @@ On a running stack (`docker compose -f docker-compose.dev.yml up`):
    closes.
 5. Demote the admin from another browser. The socket closes (4403) within
    60 s.
+6. Pick **nginx itself (no host)**, open Errors, and reload nginx:
+   `docker compose -f docker-compose.dev.yml exec nginx openresty -p
+   /usr/local/openresty/nginx -c /etc/nginx/nginx.conf -s reload`. The
+   reload's notices (`reconfiguring`, workers starting and exiting) appear,
+   host **nginx**. Pick **All logs** and repeat steps 1 and 4: the lines show
+   with their real host, and still once each.
 
 What Redis sees, to check that nothing is stored:
 
@@ -350,8 +418,10 @@ Automated checks:
   the denial cases. It covers publishing, the node tags, hostile input,
   truncation, the 502 and its error line, stream lines, a 200-request burst,
   the sockets each server block costs a worker (150 blocks), the relay's cap
-  under a 1,500-request flood, `NUMSUB` gating, the CrowdSec tag on denied
-  requests only, and Redis down.
+  under a 1,500-request flood, nginx itself (a reload's notices, an error with
+  no host key), All logs (alone, beside a host's channel, and its own cap
+  under a flood), `NUMSUB` gating, the CrowdSec tag on denied requests only,
+  and Redis down.
 - Backend: `tests/test_live_logs.py`, `tests/test_live_logs_ws.py`,
   `tests/test_live_log_render.py`.
 - Frontend: `npx vitest run src/components/live-logs`.
