@@ -19,7 +19,9 @@ open — do not retry with the same session. 4400: a frame the server does not
 understand. 1011: the re-check could not reach the database.
 
 **Frames.** Client → server, at any time:
-``{"type": "watch", "hosts": ["p1", "u", ...], "decisions": bool}``.
+``{"type": "watch", "hosts": ["p1", "u", ...], "decisions": bool}``. ``n`` is
+nginx's own messages, and ``all`` every host's lines plus nginx's own, on the
+one channel ``megoopm:live:all`` the relay also publishes to.
 Server → client: ``{"type": "line", ...the published message, "cc"}``,
 ``{"type": "decision", ...}`` (see ``live_logs.decision_frame``),
 ``{"type": "skipped", "count": N}`` and ``{"type": "ping"}`` every 25 s. The

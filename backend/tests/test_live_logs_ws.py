@@ -445,10 +445,36 @@ def test_unwatched_hosts_are_not_subscribed(live: Live, admin: User) -> None:
         live.hub.wait_channels(set())
 
 
+def test_all_logs_subscribes_to_the_wildcard_channel(live: Live, admin: User) -> None:
+    with live.connect(ticket_for(admin)) as ws:
+        watch(ws, ["all"])
+        live.hub.wait_channels({"megoopm:live:all"})
+
+        # A line on `all` carries its real host; nginx's own messages are host `n`.
+        live.hub.publish("all", request_line("p7"))
+        live.hub.publish("all", {**request_line("n"), "log": "error", "f": None, "raw": "reload"})
+        assert next_frame(ws)["host"] == "p7"
+        assert next_frame(ws)["host"] == "n"
+        # The single hosts' channels are not subscribed: no line arrives twice.
+        assert live.hub.publish("p7", request_line("p7")) == 0
+
+        # The relay's own cap on `all` reports skipped lines like any host's.
+        live.hub.publish("all", b'{"log":"skipped","node":"node-a","host":"all","count":42}')
+        live.hub.wait_drained()
+        live.clock.advance(1)
+        assert next_frame(ws) == {"type": "skipped", "count": 42}
+
+        # Switching to one host replaces the wildcard.
+        watch(ws, ["n"])
+        live.hub.wait_channels({"megoopm:live:n"})
+
+
 @pytest.mark.parametrize(
     "frame",
     [
         {"type": "watch", "hosts": ["p1;flushall"]},
+        {"type": "watch", "hosts": ["all;x"]},
+        {"type": "watch", "hosts": ["nall"]},
         {"type": "watch", "hosts": ["p1", "x1"]},
         {"type": "watch", "hosts": [""]},
         {"type": "watch", "hosts": [1]},

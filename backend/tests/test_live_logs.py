@@ -22,15 +22,24 @@ from app.services.live_logs import (
 )
 
 
-@pytest.mark.parametrize("key", ["p1", "r22", "d3", "s4", "u", "p1234567"])
+@pytest.mark.parametrize("key", ["p1", "r22", "d3", "s4", "u", "p1234567", "n", "all"])
 def test_host_keys_are_validated(key: str) -> None:
     assert parse_host_key(key) == key
     assert channel_for(key) == f"{CHANNEL_PREFIX}{key}"
 
 
+def test_all_is_the_wildcard_channel() -> None:
+    # Every host's lines and nginx's own, on one channel the relay also publishes to.
+    assert channel_for("all") == "megoopm:live:all"
+
+
 @pytest.mark.parametrize(
-    "key", ["p0", "x1", "p1;flushall", "", "p", "u1", "P1", "p01", "p1\n", " p1", "p-1", "*"]
-)
+    "key",
+    [
+        "p0", "x1", "p1;flushall", "", "p", "u1", "P1", "p01", "p1\n", " p1", "p-1", "*",
+        "al", "all;x", "n1", "nall", "all\n", "alll", "N", "ALL", "x",
+    ],
+)  # fmt: skip
 def test_bad_host_keys_raise(key: str) -> None:
     with pytest.raises(ValueError):
         parse_host_key(key)
