@@ -287,11 +287,21 @@ for _ in $(seq 90); do
   docker exec ll-cs cscli bouncers list 2>/dev/null | grep -q megoopm && break
   sleep 1
 done
-start_nginx ll-nginx-c node-c -e CROWDSEC_LAPI_URL=http://ll-cs:8080 -e CROWDSEC_BOUNCER_KEY=livelogs-probe-key -e CROWDSEC_APPSEC_URL=
+# AppSec off for real: the entrypoint turns an empty CROWDSEC_APPSEC_URL back
+# into crowdsec:7422, so the bouncer template itself gets a blank APPSEC_URL.
+# Otherwise an unreachable AppSec fails closed and denies every request.
+sed 's/^APPSEC_URL=.*/APPSEC_URL=/' "$REPO/infra/nginx/crowdsec-bouncer.conf" > "$WORK/bouncer-noappsec.conf"
+start_nginx ll-nginx-c node-c -e CROWDSEC_LAPI_URL=http://ll-cs:8080 -e CROWDSEC_BOUNCER_KEY=livelogs-probe-key \
+  -v "$WORK_MOUNT/bouncer-noappsec.conf:/etc/nginx/crowdsec-bouncer.conf.template:ro"
 for _ in $(seq 30); do [ "$(curl_ "http://ll-nginx-c/healthz")" = 200 ] && break; sleep 1; done
 docker run -d --name ll-sub2 --network "$NET" redis:7-alpine \
   redis-cli -h ll-redis SUBSCRIBE megoopm:live:p2 megoopm:live:r3 >/dev/null
 for _ in $(seq 20); do [ "$(numsub p2)" = 1 ] && [ "$(numsub r3)" = 1 ] && break; sleep 0.5; done
+# Before the ban: the bouncer lets the client through both phases. Allow() ends
+# an allowed request with ngx.exit(ngx.DECLINED), so the request line must not
+# keep the mark set before it.
+expect "the client passes the access phase before the ban" 200 "$(curl_ "http://ll-nginx-c:8002/allowed-access")"
+expect "the client passes the server-rewrite phase before the ban" 200 "$(curl_ "http://ll-nginx-c:8003/allowed-rewrite")"
 docker exec ll-cs cscli decisions add -i "$CLIENT_IP" -d 1h >/dev/null
 # Wait for the bouncer to pick the decision up (polled on the default server,
 # so the probes below are the only denials the two probe servers see). AppSec is
@@ -312,6 +322,10 @@ for u in denied-access:p2 denied-rewrite:r3; do
     "$(rows2 "\$2 == \"${u##*:}\" && \$3 == \"request\" && \$5 == \"403\" && \$7 == \"/${u%%:*}\" && \$11 == \"denied\"")"
   expect "${u%%:*}: the denial is also a security line" 1 \
     "$(rows2 "\$2 == \"${u##*:}\" && \$3 == \"security\" && \$10 ~ /denied '$CLIENT_IP'/")"
+done
+for u in allowed-access:p2 allowed-rewrite:r3; do
+  expect "${u%%:*}: an allowed request line carries cs empty" 1 \
+    "$(rows2 "\$2 == \"${u##*:}\" && \$3 == \"request\" && \$5 == \"200\" && \$7 == \"/${u%%:*}\" && \$11 == \"\"")"
 done
 expect "only denied requests are marked denied" 0 "$(rows2 '$3 == "request" && $11 == "denied" && $5 != "403"')"
 expect "the server-rewrite bounce logs no unset-variable warning" 0 \

@@ -13,6 +13,36 @@
 local M = {}
 
 local warned = false
+local unmarking -- the module whose Allow() already clears the mark
+
+-- The live log's request line says `cs: "denied"` from a mark set before
+-- Allow() (read in the log phase, log_by_lua in nginx.conf). Allow() ends
+-- every request itself and never returns: a denial through ban/captcha/
+-- challenge.apply, an allowed request with ngx.exit(ngx.DECLINED) (or, after a
+-- solved captcha, ngx.redirect). So Allow gets an `ngx` of its own whose exit
+-- with DECLINED and redirect clear the mark first. The apply functions live in
+-- other modules and keep the real ngx, so a denial keeps the mark.
+local function clear_mark_when_allowed(csmod)
+    if unmarking == csmod then
+        return
+    end
+    local real = ngx
+    local own_ngx = setmetatable({
+        exit = function(code)
+            if code == real.DECLINED then
+                real.ctx.mgm_cs = nil
+            end
+            return real.exit(code)
+        end,
+        redirect = function(...)
+            real.ctx.mgm_cs = nil
+            return real.redirect(...)
+        end,
+    }, { __index = real, __newindex = real })
+    local env = getfenv(csmod.Allow)
+    setfenv(csmod.Allow, setmetatable({ ngx = own_ngx }, { __index = env, __newindex = env }))
+    unmarking = csmod
+end
 
 function M.check()
     local csmod = _G.megoopm_crowdsec
@@ -24,12 +54,11 @@ function M.check()
         end
         return
     end
+    clear_mark_when_allowed(csmod)
 
     local ip = ngx.var.remote_addr
-    -- Marked before Allow(): on a denial the bouncer ends the request inside
-    -- it and never returns, and the live log's request line reads this mark in
-    -- the log phase (log_by_lua in nginx.conf). Reaching the line after Allow
-    -- means the request was allowed, so the mark is cleared.
+    -- Marked before Allow(); see clear_mark_when_allowed. The line after the
+    -- call runs only when Allow returns or raises, and then nothing was denied.
     ngx.ctx.mgm_cs = "denied"
     local ok, err = pcall(function()
         csmod.Allow(ip)
