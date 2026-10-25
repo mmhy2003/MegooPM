@@ -184,7 +184,9 @@ def test_crowdsec_applies_to_tls_and_redirect_servers() -> None:
     # to HTTPS, with a `return` that runs before access — so it uses the
     # server-rewrite hook, or a banned client would be redirected, not refused.
     assert server.count("access_by_lua_file /etc/nginx/lua/megoopm_crowdsec.lua;") == 1
-    assert server.count("server_rewrite_by_lua_file /etc/nginx/lua/megoopm_crowdsec.lua;") == 1
+    # (The server-rewrite check also names the host's live log key.)
+    hook = 'server_rewrite_by_lua_block { require("megoopm_crowdsec_check").check("p1") }'
+    assert server.count(hook) == 1
 
 
 def test_a_proxy_host_without_force_ssl_keeps_the_access_hook_on_80() -> None:
@@ -198,7 +200,7 @@ def test_a_proxy_host_without_force_ssl_keeps_the_access_hook_on_80() -> None:
         "megoopm-proxy-1.conf"
     ]
     assert server.count("access_by_lua_file /etc/nginx/lua/megoopm_crowdsec.lua;") == 2
-    assert "server_rewrite_by_lua_file" not in server
+    assert "server_rewrite_by_lua" not in server
 
 
 def test_advanced_config_is_injected() -> None:

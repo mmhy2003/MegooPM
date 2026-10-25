@@ -206,7 +206,8 @@ def test_generated_config_passes_real_nginx_t(tmp_path: Path) -> None:
 
 # --- CrowdSec enforcement ---------------------------------------------------
 
-HOOK = "server_rewrite_by_lua_file /etc/nginx/lua/megoopm_crowdsec.lua;"
+# The check also names the host's live log key (see _live_log.j2).
+HOOK = 'server_rewrite_by_lua_block { require("megoopm_crowdsec_check").check("'
 
 
 def test_redirect_enforces_bans_in_every_server_before_its_return() -> None:

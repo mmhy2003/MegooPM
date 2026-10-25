@@ -23,23 +23,34 @@ involved.
 ## The flow
 
 ```
-nginx (every server block)          the relay (stream server, same nginx)          Redis            any backend          browser
-  access_log + error_log  --UDP-->  127.0.0.1:5140, Lua: parse, classify,  --PUBLISH-->  megoopm:live:<key>  --SUBSCRIBE--  WebSocket  -->  page
-  syslog, tag=mgm_<key>             add node, ask PUBSUB NUMSUB (cached 1 s)                                  (per session)
+nginx                                the relay (stream server, same nginx)           Redis            any backend          browser
+  access_log (one, "k":"<key>")      127.0.0.1:5140, Lua: key, NUMSUB cache,  --PUBLISH-->  megoopm:live:<key>  --SUBSCRIBE--  WebSocket  -->  page
+  error_log (per block, mgm_<key>)   classify, add node                                                       (per session)
+                         --UDP-->
 ```
 
-1. Every generated server block (`backend/app/templates/nginx/_live_log.j2`)
-   and the base default server in `infra/nginx/nginx.conf` send an extra
-   access log, in the `megoopm_live` JSON format, and an error log at `info`
-   over UDP syslog to `127.0.0.1:5140`. The syslog tag names the host:
-   `mgm_<host key>`. Stream servers send `megoopm_stream` lines the same way.
-   The existing targets (`combined` to stdout, and CrowdSec's syslog when
-   `CROWDSEC_SYSLOG_ADDR` is set) are restated in each block by
-   `include /etc/nginx/logging-targets.conf` and keep working as before.
-2. The relay (`infra/nginx/lua/megoopm_live_relay.lua`) parses each datagram
-   and drops it unless it is shown (see *Errors* below). It then asks Redis
-   `PUBSUB NUMSUB megoopm:live:<key>`, caching the answer for 1 s. If nobody is
-   subscribed, the line is dropped. Otherwise it is `PUBLISH`ed.
+1. nginx sends every request line, in the `megoopm_live` JSON format, over
+   UDP syslog to `127.0.0.1:5140`, through **one** access log at the `http {}`
+   level of `infra/nginx/nginx.conf`. Stream lines (`megoopm_stream`) go
+   through one at the `stream {}` level. The line names its host first,
+   `"k":"<host key>"`, from the `set $mgm_key <key>;` that every generated
+   server block (`backend/app/templates/nginx/_live_log.j2`) and the base
+   default server carry.
+
+   Each block also sends its error log at `info` to the relay. An error line
+   has no variables, so the syslog tag names the host: `mgm_<host key>`. A
+   block that declares an error log stops inheriting the http-level ones, so
+   it restates the existing error targets (stdout, and CrowdSec's syslog when
+   `CROWDSEC_SYSLOG_ADDR` is set) with
+   `include /etc/nginx/logging-error-targets.conf`. It declares no access log,
+   so it inherits the access targets unchanged.
+2. The relay (`infra/nginx/lua/megoopm_live_relay.lua`) reads each datagram's
+   host key: from `k` for an access line (whose tag is the shared `mgm_x`),
+   from the tag for an error line. A line with an empty key is dropped. It
+   then looks up the cached answer to `PUBSUB NUMSUB megoopm:live:<key>`
+   (cached for 1 s). If nobody is subscribed, the line is dropped before it is
+   decoded. Otherwise the relay drops the line unless it is shown (see
+   *Errors* below), and `PUBLISH`es it.
 3. The WebSocket session (`backend/app/api/routes/live_logs.py`) subscribes
    to the channels of the hosts the page watches, and forwards each message
    as a JSON frame.
@@ -112,6 +123,16 @@ exists, so the relay is an OpenResty stream server
 (`listen 127.0.0.1:5140 udp`) in the nginx container itself. It needs no
 other container to start, and under HA each node's relay hears only its own
 nginx.
+
+**Why one access log, and not one per host.** Every syslog target an
+`access_log` or `error_log` directive names is its own socket in each nginx
+worker. It is opened on first use and not counted in `worker_connections`. A
+block that restated the CrowdSec targets and added the relay's cost four of
+them per worker: about 800 per worker for 100 TLS hosts. With the access log
+shared, a block costs two (its relay and CrowdSec error targets), and
+`worker_rlimit_nofile 65535` leaves room for many hosts. The harness measures
+it: with 150 blocks served by one worker, 4.03 sockets per block before, 2.05
+after.
 
 The relay logs only to stderr; a relay logging to itself would loop. Logging
 is fire and forget for nginx: the request was served before its line was
@@ -254,6 +275,12 @@ is empty, and lines are tagged `local`, as the backend names that node.
   server has no branded error page, so it keeps the tag. The other ban
   modes (the MegooPM page, a custom page) answer from the bouncer itself and
   keep it.
+- **A request nginx refuses before it reaches a host's directives** (a
+  malformed request line, a 400) carries no host key of its own. It shows
+  under **Unclaimed**, like the other requests no host claims.
+- **An `access_log` in a host's advanced config** replaces the access logs that
+  host inherits, as it always has for stdout and CrowdSec. Its request lines
+  then leave Live logs too.
 - **The relay ignores a Redis password or TLS** in `REDIS_URL`, as visitor
   analytics does. A Redis that requires auth means the relay drops every
   line.

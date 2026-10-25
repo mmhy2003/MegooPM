@@ -1,8 +1,10 @@
 -- CrowdSec bouncer check, shared by every server block that enforces bans.
 --
--- Two entry points call it: megoopm_crowdsec.lua (generated hosts, in the
--- access or server-rewrite phase) and the base default server's inline block,
--- which exempts /healthz. The stock bouncer's `Allow()` applies any IP decision
+-- It is called from megoopm_crowdsec.lua (generated hosts in the access phase,
+-- and the default-TLS sites), from an inline server_rewrite_by_lua_block that
+-- passes the host's live log key (other generated hosts that bounce in the
+-- server-rewrite phase; see _live_log.j2), and from the base default server's
+-- inline block, which exempts /healthz. The stock bouncer's `Allow()` applies any IP decision
 -- and, when AppSec is configured, forwards the request to the WAF; on a hit it
 -- ends the request itself.
 --
@@ -44,7 +46,14 @@ local function clear_mark_when_allowed(csmod)
     unmarking = csmod
 end
 
-function M.check()
+-- `key` is the live log host key of a server that bounces in the
+-- server-rewrite phase: there the bouncer runs before the server's own
+-- `set $mgm_key`, and a denial ends the request before it, so the request
+-- line would not say which host it was. Set first, whatever happens next.
+function M.check(key)
+    if key then
+        pcall(function() ngx.var.mgm_key = key end)
+    end
     local csmod = _G.megoopm_crowdsec
     if not csmod then
         if not warned then

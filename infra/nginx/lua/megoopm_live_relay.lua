@@ -37,6 +37,13 @@ local TIMEOUT_MS = 200
 -- nginx's syslog header without the hostname (`nohostname`): PRI, the BSD
 -- timestamp (day padded with a space), then the tag `mgm_<host key>`.
 local HEADER = "^<(%d+)>%a+ +%d+ [%d:]+ mgm_([%w]+): (.*)$"
+-- Access lines all arrive through one access log per nginx context, tagged
+-- `mgm_x`, and name their host themselves, first: {"k":"p3","ts":…}. nginx
+-- writes that value from the server block's own `set $mgm_key`, ahead of
+-- every value a client controls, so the pattern cannot be spoofed. Error
+-- lines carry no variables and keep the key in their tag.
+local ACCESS_TAG = "x"
+local ACCESS_KEY = '^{"k":"(%w*)",'
 -- Error lines at warn and above are kept (syslog severity 0..4).
 local WARN = 4
 
@@ -83,27 +90,46 @@ local function nginx_message(body)
     return msg
 end
 
--- Pure: no I/O, no ngx state. Returns nil for anything that is not shown.
+-- Pure and cheap: which host a datagram is for, without decoding it, so a
+-- line nobody watches costs no more than this. nil for anything not ours,
+-- and for a line with an empty key (a server that is not a host).
+--   { host, sev, body, access }
+function M.split(datagram)
+    if type(datagram) ~= "string" then
+        return nil
+    end
+    local pri, tag, body = datagram:match(HEADER)
+    if not pri then
+        return nil
+    end
+    -- Access lines are JSON objects (megoopm_live / megoopm_stream); error
+    -- lines start with nginx's own timestamp.
+    local access = body:sub(1, 1) == "{"
+    local host = tag
+    if tag == ACCESS_TAG then
+        -- A tag of its own (not `x`) is a block rendered before the access log
+        -- was shared; it still names the host, until the worker re-renders.
+        host = access and body:match(ACCESS_KEY) or nil
+    end
+    if not host or host == "" then
+        return nil
+    end
+    return { host = host, sev = tonumber(pri) % 8, body = body, access = access }
+end
+
+-- Pure: no I/O, no ngx state. Takes M.split's result; returns nil for
+-- anything that is not shown.
 --   { host, log, sev, body, truncated, f }
 -- `f` is the decoded request/stream line; absent when the body is not JSON.
 -- A body that starts as JSON but does not parse was cut short by nginx's
 -- syslog line limit (a long URL): it is kept, raw, as `truncated`.
-function M.parse(datagram)
-    if type(datagram) ~= "string" then
-        return nil
-    end
-    local pri, host, body = datagram:match(HEADER)
-    if not pri then
-        return nil
-    end
-    local sev = tonumber(pri) % 8
-
-    -- Access lines are JSON objects (megoopm_live / megoopm_stream); error
-    -- lines start with nginx's own timestamp.
-    if body:sub(1, 1) == "{" then
+function M.classify(s)
+    local host, sev, body = s.host, s.sev, s.body
+    if s.access then
         local kind = host:sub(1, 1) == "s" and "stream" or "request"
         local f = cjson.decode(body)
         if type(f) == "table" then
+            f.k = nil -- the key travels as `host`
             return { host = host, log = kind, sev = sev, body = body, truncated = false, f = f }
         end
         return { host = host, log = kind, sev = sev, body = body, truncated = true }
@@ -127,6 +153,12 @@ function M.parse(datagram)
         return nil
     end
     return { host = host, log = kind, sev = sev, body = body, truncated = false }
+end
+
+-- Both steps, for a datagram in hand.
+function M.parse(datagram)
+    local s = M.split(datagram)
+    return s and M.classify(s)
 end
 
 local function message(p)
@@ -205,15 +237,19 @@ function M.handle()
     end
     local ok, err = pcall(function()
         local sock = ngx.req.socket()
-        local p = M.parse(sock:receive())
-        if not p then
+        local s = M.split(sock:receive())
+        if not s then
             return
         end
         local shm = ngx.shared[DICT]
-        local watchers = shm and shm:get(p.host)
+        local watchers = shm and shm:get(s.host)
         if watchers == 0 then
             -- Nobody watching, as of the last second: the common case costs
-            -- nothing but the parse.
+            -- one pattern match, and no JSON decode.
+            return
+        end
+        local p = M.classify(s)
+        if not p then
             return
         end
         -- A full timer queue drops the line, silently: it is a busy moment,

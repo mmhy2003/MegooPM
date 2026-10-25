@@ -19,7 +19,7 @@ IMAGE=megoopm-nginx-probe
 WORK="$(mktemp -d)"
 # Docker Desktop cannot mount a Git Bash /tmp path; cygpath gives it the Windows one.
 WORK_MOUNT="$(cygpath -m "$WORK" 2>/dev/null || echo "$WORK")"
-CONTAINERS="ll-redis ll-nginx-a ll-nginx-b ll-nginx-c ll-cs ll-client ll-sub ll-sub2 ll-monitor"
+CONTAINERS="ll-redis ll-nginx-a ll-nginx-b ll-nginx-c ll-nginx-fd ll-cs ll-client ll-sub ll-sub2 ll-monitor"
 FAILED=0
 
 cleanup() {
@@ -39,8 +39,9 @@ expect() { # label expected actual
 }
 
 # --- the probe hosts ----------------------------------------------------------
-# Exactly the block the generated templates render (_live_log.j2); the
-# megoopm_live format names $mgm_cs, so each server declares it.
+# Exactly the block the generated templates render (_live_log.j2): the key in
+# $mgm_key for the shared http-level access log, and an error log of its own.
+# The megoopm_live format names $mgm_cs, so each server declares it.
 mkdir -p "$WORK/nginx/conf.d/stream" "$WORK/nginx/default" "$WORK/empty"
 cat > "$WORK/nginx/conf.d/probe.conf" <<'EOF'
 server {
@@ -48,9 +49,9 @@ server {
     # Room for the 10 KB URL below: the default 8k buffer would answer 414
     # before the request line reached the log.
     large_client_header_buffers 4 16k;
+    set $mgm_key p1;
     set $mgm_cs "";
-    include /etc/nginx/logging-targets.conf;
-    access_log syslog:server=127.0.0.1:5140,tag=mgm_p1,nohostname megoopm_live;
+    include /etc/nginx/logging-error-targets.conf;
     error_log syslog:server=127.0.0.1:5140,tag=mgm_p1,nohostname info;
 
     location / { return 200 "ok\n"; }
@@ -60,24 +61,36 @@ server {
 # The two phases CrowdSec enforces in. A proxy host enforces in the access phase
 # (which a location-level `return` would skip, hence the proxy_pass); a server
 # that only answers with `return` enforces in the server-rewrite phase, before
-# `set` runs, and so carries uninitialized_variable_warn off.
+# `set` runs, so its hook names the key itself and the block carries
+# uninitialized_variable_warn off.
 server {
     listen 8002;
+    set $mgm_key p2;
     set $mgm_cs "";
-    include /etc/nginx/logging-targets.conf;
-    access_log syslog:server=127.0.0.1:5140,tag=mgm_p2,nohostname megoopm_live;
+    include /etc/nginx/logging-error-targets.conf;
     error_log syslog:server=127.0.0.1:5140,tag=mgm_p2,nohostname info;
     access_by_lua_file /etc/nginx/lua/megoopm_crowdsec.lua;
     location / { proxy_pass http://127.0.0.1:8001; }
 }
 server {
     listen 8003;
+    set $mgm_key r3;
     set $mgm_cs "";
     uninitialized_variable_warn off;
-    include /etc/nginx/logging-targets.conf;
-    access_log syslog:server=127.0.0.1:5140,tag=mgm_r3,nohostname megoopm_live;
+    include /etc/nginx/logging-error-targets.conf;
     error_log syslog:server=127.0.0.1:5140,tag=mgm_r3,nohostname info;
-    server_rewrite_by_lua_file /etc/nginx/lua/megoopm_crowdsec.lua;
+    server_rewrite_by_lua_block { require("megoopm_crowdsec_check").check("r3") }
+    location / { return 200 "ok\n"; }
+}
+# A block as this feature first rendered it: its own access log and tag, and the
+# combined targets file. A new nginx must still run it, and still name its host,
+# until the worker renders it again.
+server {
+    listen 8004;
+    set $mgm_cs "";
+    include /etc/nginx/logging-targets.conf;
+    access_log syslog:server=127.0.0.1:5140,tag=mgm_p4,nohostname megoopm_live;
+    error_log syslog:server=127.0.0.1:5140,tag=mgm_p4,nohostname info;
     location / { return 200 "ok\n"; }
 }
 EOF
@@ -85,7 +98,9 @@ cat > "$WORK/nginx/conf.d/stream/probe.conf" <<'EOF'
 server {
     listen 9001;
     proxy_pass 127.0.0.1:8001;
-    access_log syslog:server=127.0.0.1:5140,tag=mgm_s1,nohostname megoopm_stream;
+    set $mgm_key s1;
+    error_log /usr/local/openresty/nginx/logs/error.log warn;
+    error_log syslog:server=127.0.0.1:5140,tag=mgm_s1,nohostname info;
 }
 EOF
 
@@ -99,7 +114,7 @@ expect "bare install, openresty -t" 0 "$RC"
 
 docker run -d --name ll-redis --network "$NET" redis:7-alpine >/dev/null
 
-start_nginx() { # name node-id [extra docker args...]
+start_nginx() { # name node-id [extra docker args...]; DATA / CONF override /data and nginx.conf
   # File by file, not the directory: the entrypoint writes into /etc/nginx/lua.
   local lua=() f
   for f in "$REPO"/infra/nginx/lua/*.lua; do
@@ -107,8 +122,8 @@ start_nginx() { # name node-id [extra docker args...]
   done
   MSYS_NO_PATHCONV=1 docker run -d --name "$1" --network "$NET" \
     -e NODE_ID="$2" -e REDIS_URL=redis://ll-redis:6379/0 "${@:3}" "${lua[@]}" \
-    -v "$REPO/infra/nginx/nginx.conf:/etc/nginx/nginx.conf:ro" \
-    -v "$WORK_MOUNT:/data" "$IMAGE" >/dev/null
+    -v "${CONF:-$REPO/infra/nginx/nginx.conf}:/etc/nginx/nginx.conf:ro" \
+    -v "${DATA:-$WORK_MOUNT}:/data" "$IMAGE" >/dev/null
 }
 start_nginx ll-nginx-a node-a
 start_nginx ll-nginx-b node-b
@@ -129,7 +144,7 @@ numsub() { docker exec ll-redis redis-cli PUBSUB NUMSUB "megoopm:live:$1" | tail
 
 # --- 1. Watched lines are published ---------------------------------------------
 docker run -d --name ll-sub --network "$NET" redis:7-alpine \
-  redis-cli -h ll-redis SUBSCRIBE megoopm:live:p1 megoopm:live:s1 >/dev/null
+  redis-cli -h ll-redis SUBSCRIBE megoopm:live:p1 megoopm:live:s1 megoopm:live:p4 >/dev/null
 for _ in $(seq 20); do [ "$(numsub p1)" = 1 ] && break; sleep 0.5; done
 
 # The `\n` is a literal backslash and n: HTTP cannot carry a raw newline in a
@@ -146,6 +161,9 @@ expect "hostile user agent" 200 "$(curl_ -A "$UA" "http://ll-nginx-a:8001/ua")"
 expect "10 KB URL" 200 "$(curl_ "http://ll-nginx-a:8001$BIG")"
 expect "closed upstream" 502 "$(curl_ "http://ll-nginx-b:8001/up")"
 expect "stream connection" 200 "$(curl_ "http://ll-nginx-a:9001/via-stream")"
+expect "a block in the earlier shape" 200 "$(curl_ "http://ll-nginx-a:8004/old-shape")"
+# Refused before any `set` runs: no key of its own, and it must not warn (§3).
+expect "a malformed request line" 400 "$(curl_ -X 'BAD METHOD' "http://ll-nginx-a:8001/")"
 # 200 requests on one connection in a few milliseconds: none may be lost.
 docker exec ll-client curl -s -o /dev/null "http://ll-nginx-a:8001/burst-[1-200]" || true
 sleep 2
@@ -203,34 +221,101 @@ expect "the closed upstream's request line says 502" 1 "$(rows '$1 == "node-b" &
 expect "the stream connection yields a stream line" 1 \
   "$(rows '$1 == "node-a" && $2 == "s1" && $3 == "stream" && $5 == "200" && $8 != ""')"
 expect "all 200 burst requests arrive" 200 "$(rows '$3 == "request" && $7 ~ /^\/burst-/')"
+expect "a block in the earlier shape still names its host" 1 \
+  "$(rows '$2 == "p4" && $3 == "request" && $7 == "/old-shape"')"
 expect "info-level noise is dropped" 0 "$(rows '$3 == "error" && $10 ~ /\[info\]/ && $10 !~ /SSL/')"
+
+# --- 1b. Sockets per worker, with many hosts -------------------------------------
+# Every syslog target an access_log/error_log directive names is its own peer,
+# with its own socket in each worker, opened on first use and not counted in
+# worker_connections. 150 server blocks in the generated shape, a CrowdSec
+# syslog target configured (pointed at the relay, which drops its lines), one
+# worker, and one request per block that writes an access line and an error
+# line: what each extra block costs that worker is the number that matters.
+FD_BLOCKS=150
+mkdir -p "$WORK/fd/nginx/conf.d/stream" "$WORK/fd/nginx/default"
+for i in $(seq "$FD_BLOCKS"); do
+  key="d$((1000 + i))"
+  cat <<EOF
+server {
+    listen 8100;
+    server_name h$i.fd.test;
+    root /var/empty/megoopm;
+    set \$mgm_key $key;
+    set \$mgm_cs "";
+    include /etc/nginx/logging-error-targets.conf;
+    error_log syslog:server=127.0.0.1:5140,tag=mgm_$key,nohostname info;
+}
+EOF
+done > "$WORK/fd/nginx/conf.d/hosts.conf"
+sed 's/^worker_processes .*/worker_processes 1;/' "$REPO/infra/nginx/nginx.conf" > "$WORK/nginx-1worker.conf"
+CONF="$WORK_MOUNT/nginx-1worker.conf" DATA="$WORK_MOUNT/fd" \
+  start_nginx ll-nginx-fd node-fd -e CROWDSEC_SYSLOG_ADDR=127.0.0.1:5140
+for _ in $(seq 30); do [ "$(curl_ "http://ll-nginx-fd/healthz")" = 200 ] && break; sleep 1; done
+worker_fds() { docker exec ll-nginx-fd sh -c 'ls /proc/$(pgrep -f "nginx: worker" | head -1)/fd | wc -l' | tr -d ' '; }
+FD_BEFORE="$(worker_fds)"
+# A missing file: a 404 access line plus an [error] open() line, in every block.
+docker exec ll-client sh -c "for i in \$(seq $FD_BLOCKS); do
+  curl -s -o /dev/null -H \"Host: h\$i.fd.test\" http://ll-nginx-fd:8100/missing; done"
+FD_AFTER="$(worker_fds)"
+FD_PER_BLOCK="$(awk -v a="$FD_AFTER" -v b="$FD_BEFORE" -v n="$FD_BLOCKS" 'BEGIN { printf "%.2f", (a - b) / n }')"
+echo "info  fds in the worker: $FD_BEFORE before traffic, $FD_AFTER after $FD_BLOCKS blocks served ($FD_PER_BLOCK per block)"
+# The relay access target is shared by every block; each block restates only
+# its error targets (the relay's and CrowdSec's): two sockets, at most. The
+# slack of 10 is for what is opened once: the shared access targets, and the
+# odd client or upstream connection still open at the count.
+expect "each server block costs a worker at most 2 sockets" yes \
+  "$(awk -v a="$FD_AFTER" -v b="$FD_BEFORE" -v n="$FD_BLOCKS" 'BEGIN { print (a - b <= 2 * n + 10) ? "yes" : "no" }')"
+expect "the worker may open 65535 files" 65535 \
+  "$(docker exec ll-nginx-fd sh -c 'awk "/Max open files/ { print \$4 }" /proc/$(pgrep -f "nginx: worker" | head -1)/limits')"
+docker rm -f -v ll-nginx-fd >/dev/null
 
 # --- 2. Parsing, case by case (the pure M.parse) --------------------------------
 cat > "$WORK/parse.lua" <<'EOF'
 package.path = "/lua/?.lua;" .. package.path
 local relay = require("megoopm_live_relay")
 local failed = false
+local NONE = {} -- "this field must be absent"
+local function matches(got, want)
+    if got == nil then return false end
+    for k, v in pairs(want) do
+        if v == NONE then
+            if got[k] ~= nil then return false end
+        elseif type(v) == "table" then
+            if type(got[k]) ~= "table" or not matches(got[k], v) then return false end
+        elseif got[k] ~= v then
+            return false
+        end
+    end
+    return true
+end
 local function check(label, datagram, want)
     local got = relay.parse(datagram)
     local ok
     if want == nil then
         ok = got == nil
     else
-        ok = got ~= nil
-        for k, v in pairs(want) do
-            ok = ok and got[k] == v
-        end
+        ok = matches(got, want)
     end
     print((ok and "ok    " or "FAIL  ") .. "parse: " .. label)
     if not ok then failed = true end
 end
 local H = "<190>Oct 25 10:00:00 "
-check("a request line", H .. 'mgm_p1: {"st":"200"}',
-    { host = "p1", log = "request", sev = 6, truncated = false })
-check("a single-digit day", '<190>Oct  5 10:00:00 mgm_r22: {"st":"301"}', { host = "r22", log = "request" })
-check("a cut-off request line", H .. 'mgm_p1: {"st":"200","u":"/aaa',
-    { host = "p1", log = "request", truncated = true, body = '{"st":"200","u":"/aaa' })
-check("a stream line", H .. 'mgm_s4: {"st":"200"}', { host = "s4", log = "stream" })
+-- Access lines share the tag mgm_x and name their host first, in "k".
+check("a request line", H .. 'mgm_x: {"k":"p1","st":"200"}',
+    { host = "p1", log = "request", sev = 6, truncated = false, f = { st = "200", k = NONE } })
+check("a single-digit day", '<190>Oct  5 10:00:00 mgm_x: {"k":"r22","st":"301"}', { host = "r22", log = "request" })
+check("a cut-off request line", H .. 'mgm_x: {"k":"p1","st":"200","u":"/aaa',
+    { host = "p1", log = "request", truncated = true, body = '{"k":"p1","st":"200","u":"/aaa' })
+check("a stream line", H .. 'mgm_x: {"k":"s4","st":"200"}', { host = "s4", log = "stream" })
+check("a line with an empty key (not a host) is dropped", H .. 'mgm_x: {"k":"","st":"200"}', nil)
+check("an access line without a key is dropped", H .. 'mgm_x: {"st":"200"}', nil)
+check("a client cannot name the host",
+    H .. 'mgm_x: {"k":"","u":"/\\",\\"k\\":\\"p1","st":"200"}', nil)
+check("a block in the earlier shape is its tag's host", H .. 'mgm_p7: {"k":"u","st":"200"}',
+    { host = "p7", log = "request" })
+check("an error line under the shared tag is dropped",
+    "<187>Oct 25 10:00:00 mgm_x: 2026/10/25 10:00:00 [error] 7#7: *1 connect() failed", nil)
 check("an error", "<187>Oct 25 10:00:00 mgm_p1: 2026/10/25 10:00:00 [error] 7#7: *1 connect() failed",
     { host = "p1", log = "error", sev = 3, truncated = false })
 check("a warning", "<188>Oct 25 10:00:00 mgm_d3: 2026/10/25 10:00:00 [warn] 7#7: *1 an upstream response is buffered",
@@ -275,7 +360,7 @@ MSYS_NO_PATHCONV=1 docker run --rm --entrypoint resty -v "$WORK_MOUNT:/w" \
   -v "$REPO/infra/nginx/lua:/lua:ro" "$IMAGE" /w/parse.lua > "$WORK/parse.out" 2>&1 || true
 cat "$WORK/parse.out"
 grep -q '^FAIL' "$WORK/parse.out" && FAILED=1
-[ "$(grep -c '^ok' "$WORK/parse.out" || true)" = 18 ] || { echo "FAIL  parse: not every case ran"; FAILED=1; }
+[ "$(grep -c '^ok' "$WORK/parse.out" || true)" = 23 ] || { echo "FAIL  parse: not every case ran"; FAILED=1; }
 
 # --- 2b. A CrowdSec denial: a security line, and a request line marked denied ---
 # A LAPI-only CrowdSec (no agent, no online API, so it installs no hub items and
@@ -329,7 +414,7 @@ for u in allowed-access:p2 allowed-rewrite:r3; do
 done
 expect "only denied requests are marked denied" 0 "$(rows2 '$3 == "request" && $11 == "denied" && $5 != "403"')"
 expect "the server-rewrite bounce logs no unset-variable warning" 0 \
-  "$(docker logs ll-nginx-c 2>&1 | grep -c 'uninitialized "mgm_cs"' || true)"
+  "$(docker logs ll-nginx-c 2>&1 | grep -c 'uninitialized "mgm_' || true)"
 # Nodes a and b have no bouncer: their request lines never carry a mark.
 expect "requests that were never denied carry cs empty" 0 "$(rows '$3 == "request" && $11 != ""')"
 
@@ -354,7 +439,7 @@ expect "unwatched: the default server (u) is asked about" yes \
 # The default server's bouncer denies these probes (no CrowdSec here: AppSec
 # fails closed) before `set $mgm_cs` runs; that must not warn on every hit.
 expect "a denied default-server request logs no warning" 0 \
-  "$(docker logs ll-nginx-a 2>&1 | grep -c 'uninitialized "mgm_cs"' || true)"
+  "$(docker logs ll-nginx-a 2>&1 | grep -c 'uninitialized "mgm_' || true)"
 
 # --- 4. Redis down: nothing fails, nothing blocks (Review Focus 1) --------------
 docker rm -f ll-monitor ll-redis >/dev/null

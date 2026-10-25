@@ -13,7 +13,7 @@ server {
     include {{ default_dir }}/{{ errors_conf }};
     listen 443 ssl;
     server_name {{ server_names }};
-{{- live_log("mgm_u", true) }}
+{{- live_log("u", true) }}
 
     # CrowdSec bouncer, always on: unclaimed names on a certificate draw
     # scanners, and there is no host to opt out. Server-rewrite phase, like

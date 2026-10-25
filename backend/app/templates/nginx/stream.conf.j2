@@ -17,7 +17,7 @@ server {
 {%- if stream.udp_forwarding %}
     listen {{ stream.incoming_port }} udp;
 {%- endif %}
-{{- live_stream_log("mgm_s" ~ stream.id) }}
+{{- live_stream_log("s" ~ stream.id) }}
 {%- if stream.certificate %}
 
     ssl_certificate {{ stream.certificate.fullchain_path }};

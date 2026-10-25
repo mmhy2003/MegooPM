@@ -1,10 +1,12 @@
 -- CrowdSec bouncer — handler for generated server blocks (MEG-22).
 --
 -- Rendered as `access_by_lua_file` into proxy-host servers, and as
--- `server_rewrite_by_lua_file` into servers that answer with `return`
--- (redirection hosts, 404 hosts, default-TLS sites, a proxy host's Force-SSL
--- :80 server): `return` runs in the rewrite phase, before access, so an
--- access-phase check there would never run.
+-- `server_rewrite_by_lua_file` into default-TLS sites: they answer with
+-- `return`, which runs in the rewrite phase, before access, so an
+-- access-phase check there would never run. The other servers that answer
+-- with `return` (redirection hosts, 404 hosts, a proxy host's Force-SSL :80
+-- server) call the same check from an inline server_rewrite_by_lua_block,
+-- which also names the host's live log key (see megoopm_crowdsec_check.lua).
 --
 -- AppSec is global while APPSEC_URL is set: `Allow()` inspects every request
 -- on every enforcing server, and the per-host `crowdsec_appsec_enabled` flag

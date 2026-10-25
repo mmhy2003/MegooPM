@@ -94,9 +94,9 @@ The engine moved from v1.6.4 to v1.8.1. Notes measured on v1.8.1:
 | Server block | Enforces | Hook |
 | --- | --- | --- |
 | Proxy host, :443 and plain :80 | when **CrowdSec protection** is on | `access_by_lua_file` |
-| Proxy host, :80 with **Force SSL** | when switched on | `server_rewrite_by_lua_file` |
-| Redirection host, every server | when switched on (default on) | `server_rewrite_by_lua_file` |
-| 404 host, every server | when switched on (default on) | `server_rewrite_by_lua_file` |
+| Proxy host, :80 with **Force SSL** | when switched on | `server_rewrite_by_lua_block` |
+| Redirection host, every server | when switched on (default on) | `server_rewrite_by_lua_block` |
+| 404 host, every server | when switched on (default on) | `server_rewrite_by_lua_block` |
 | Default-TLS site (one per certificate) | always | `server_rewrite_by_lua_file` |
 | Default :80 server (`infra/nginx/nginx.conf`) | always, except `/healthz` | `server_rewrite_by_lua_block` |
 
@@ -106,6 +106,10 @@ which runs *before* the access phase. An `access_by_lua` bouncer on such a
 server never runs: a banned client simply gets the redirect. Those servers use
 `server_rewrite_by_lua`, which runs first. Proxy hosts answer through
 `proxy_pass` in the content phase, so their access-phase hook runs as before.
+The server-rewrite hooks of generated hosts are inline blocks that pass the
+host's Live logs key (`check("r3")`): they run before the block's own
+`set $mgm_key`, and a denial ends the request there (see
+[`live-logs.md`](live-logs.md)).
 `infra/nginx/tests/bouncer-phase.sh` checks both hooks end to end against a
 real CrowdSec: clean requests, a POST body, an AppSec probe, a ban, a captcha,
 the default server and its healthcheck.

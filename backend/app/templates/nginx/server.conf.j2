@@ -5,7 +5,7 @@
      redirects to HTTPS (ssl_forced) or serves the proxy directly.
 
    Shared fragments live in macros so the proxy body is defined once. #}
-{%- from "_live_log.j2" import live_log -%}
+{%- from "_live_log.j2" import live_log, crowdsec_server_rewrite -%}
 {%- macro proxy_block(path, scheme, target, modifier="") %}
     location {{ modifier }}{{ path }} {
 {{- maintenance_guard() }}
@@ -93,7 +93,11 @@
     # every crowdsec-enabled host), so $megoopm_crowdsec_appsec is a reserved
     # marker the handler does not yet gate on — see docs/crowdsec.md (MEG-32 / D3).
     set $megoopm_crowdsec_appsec {% if host.crowdsec_appsec_enabled %}on{% else %}off{% endif %};
+{%- if phase == "server_rewrite" %}
+{{- crowdsec_server_rewrite("p" ~ host.id) }}
+{%- else %}
     {{ phase }}_by_lua_file /etc/nginx/lua/megoopm_crowdsec.lua;
+{%- endif %}
 {%- endif %}
 {%- endmacro -%}
 {%- macro access_control() -%}
@@ -171,7 +175,7 @@ server {
     include {{ default_dir }}/{{ errors_conf }};
     listen 80;
     server_name {{ server_names }};
-{{- live_log("mgm_p" ~ host.id, host.crowdsec_enabled and host.ssl_forced) }}
+{{- live_log("p" ~ host.id, host.crowdsec_enabled and host.ssl_forced) }}
 {{- crowdsec("server_rewrite" if host.ssl_forced else "access") }}
 {{- acme_challenge() }}
 {%- if host.ssl_forced %}
@@ -196,7 +200,7 @@ server {
     http2 on;
 {%- endif %}
     server_name {{ server_names }};
-{{- live_log("mgm_p" ~ host.id) }}
+{{- live_log("p" ~ host.id) }}
 
     # Renewal rewrites the files below in place, so without this line the
     # rendered config would be unchanged and no node would reload onto the new
@@ -222,7 +226,7 @@ server {
     include {{ default_dir }}/{{ errors_conf }};
     listen 80;
     server_name {{ server_names }};
-{{- live_log("mgm_p" ~ host.id) }}
+{{- live_log("p" ~ host.id) }}
 {{- crowdsec() }}
 {{- acme_challenge() }}
 {{- access_control() }}
