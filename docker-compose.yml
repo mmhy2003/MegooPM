@@ -216,7 +216,7 @@ services:
         condition: service_started
 
   crowdsec:
-    image: crowdsecurity/crowdsec:v1.6.4
+    image: crowdsecurity/crowdsec:v1.8.1
     depends_on:
       # The whitelist mount below is a bind mount of a FILE. Docker creates a
       # DIRECTORY at the source when it does not exist, and CrowdSec then

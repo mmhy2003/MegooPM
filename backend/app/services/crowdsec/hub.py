@@ -48,16 +48,25 @@ CMD_BACKUP = [
 CMD_RESTORE = ["tar", "-xzf", HUB_BACKUP_PATH, "-C", "/etc/crowdsec"]
 
 _AGENT_WARNING = re.compile(r"new CrowdSec release is available \((v[\d.]+)\)")
-_AGENT_VERSION = re.compile(r"^version:\s*(v[\d.]+)", re.MULTILINE)
+# "version:" up to v1.6, "Version:" from v1.7 on.
+_AGENT_VERSION = re.compile(r"^version:\s*(v[\d.]+)", re.MULTILINE | re.IGNORECASE)
 
 
 # --- parsing ------------------------------------------------------------------
 
 
 def parse_hub_list(text: str) -> dict[str, str]:
-    """``{"<type>:<name>": local_version}`` for every installed item."""
+    """``{"<type>:<name>": local_version}`` for every installed item.
+
+    From v1.7 on, cscli writes a ``Loaded: …`` summary to stderr before the
+    JSON, and the exec's TTY merges the two streams — so parse from the first
+    brace, not the first byte.
+    """
+    start = text.find("{")
+    if start == -1:
+        return {}
     try:
-        data = json.loads(text)
+        data = json.loads(text[start:])
     except ValueError:
         return {}
     if not isinstance(data, dict):

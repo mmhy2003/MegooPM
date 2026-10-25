@@ -243,7 +243,7 @@ services:
         condition: service_started
 
   crowdsec:
-    image: crowdsecurity/crowdsec:v1.6.4
+    image: crowdsecurity/crowdsec:v1.8.1
     depends_on:
       # The single-file mounts below are seeded by data-init; Docker would
       # otherwise create DIRECTORIES at the sources and CrowdSec refuses to

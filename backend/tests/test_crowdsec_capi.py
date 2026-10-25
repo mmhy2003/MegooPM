@@ -45,6 +45,24 @@ def test_parse_capi_status() -> None:
     assert capi.parse_capi_status(ExecResult(0, "something else")) is False
 
 
+def test_parse_capi_status_accepts_v1_8_success() -> None:
+    # The success line is unchanged in v1.8.1 (cmd/crowdsec-cli/clicapi/capi.go);
+    # the failure now reads as cscli's own "Error: …" line.
+    ok = ExecResult(
+        0,
+        "Loaded credentials from /etc/crowdsec/online_api_credentials.yaml\n"
+        "Trying to authenticate with username abc on https://api.crowdsec.net/\n"
+        "You can successfully interact with Central API (CAPI)\n",
+    )
+    refused = ExecResult(
+        1,
+        "Error: cscli capi status: no configuration for Central API (CAPI) in "
+        "'/etc/crowdsec/config.yaml'\n",
+    )
+    assert capi.parse_capi_status(ok) is True
+    assert capi.parse_capi_status(refused) is False
+
+
 # --- the flow ---------------------------------------------------------------------
 
 

@@ -240,7 +240,7 @@ services:
       # seeded the file.
       data-init:
         condition: service_completed_successfully
-    image: crowdsecurity/crowdsec:v1.6.4
+    image: crowdsecurity/crowdsec:v1.8.1
     restart: unless-stopped
     environment:
       DISABLE_ONLINE_API: "true"

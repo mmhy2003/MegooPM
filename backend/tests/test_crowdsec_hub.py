@@ -73,6 +73,42 @@ def test_parse_agent_version() -> None:
     assert hub.parse_agent_version("") is None
 
 
+# Captured from crowdsecurity/crowdsec:v1.8.1. `cscli version` capitalises its
+# keys, and `cscli hub list -o json` writes a summary line to stderr first —
+# which the exec's TTY merges into the same stream as the JSON.
+V18_VERSION = "Version: v1.8.1-909b5157\nCodename: alphaga\nBuildDate: 2026-09-03_11:03:45\n"
+V18_HUB_LIST = (
+    "Loaded: 166 parsers, 12 postoverflows, 786 scenarios, 10 contexts, 18 appsec-configs, "
+    "222 appsec-rules, 171 collections\n"
+    "{\n"
+    ' "appsec-configs": [],\n'
+    ' "collections": [\n'
+    "  {\n"
+    '   "name": "crowdsecurity/linux",\n'
+    '   "local_version": "0.4",\n'
+    '   "local_path": "/etc/crowdsec/collections/linux.yaml",\n'
+    '   "utf8_status": "✔️  enabled",\n'
+    '   "status": "enabled"\n'
+    "  }\n"
+    " ]\n"
+    "}\n"
+)
+
+
+def test_parse_agent_version_reads_v1_8() -> None:
+    assert hub.parse_agent_version(V18_VERSION) == "v1.8.1"
+
+
+def test_parse_hub_list_reads_v1_8_output() -> None:
+    assert hub.parse_hub_list(V18_HUB_LIST) == {"collections:crowdsecurity/linux": "0.4"}
+
+
+def test_parse_agent_warning_reads_v1_8() -> None:
+    # Same wording in v1.8.1 (cmd/crowdsec-cli/core/require/branch.go).
+    text = "WARN A new CrowdSec release is available (v1.9.0). Your version is 'v1.8.1'."
+    assert hub.parse_agent_warning(text) == "v1.9.0"
+
+
 def test_output_tail_keeps_the_last_lines() -> None:
     text = "\n".join(f"line {i}" for i in range(50))
     tail = hub.output_tail(text, lines=3)

@@ -311,6 +311,29 @@ def test_a_failing_config_test_returns_the_compilers_own_words() -> None:
     assert "Loaded 2 parser nodes" not in message
 
 
+#: The same failure from crowdsecurity/crowdsec:v1.8.1: the expression error
+#: now spans lines inside the quoted message (escaped \n, caret underneath).
+CONFIG_TEST_FAILURE_V18 = "\n".join(
+    [
+        'time="2026-10-25T09:00:14Z" level=info msg="Loaded 1 parser nodes" stage=s01-parse',
+        'time="2026-10-25T09:00:14Z" level=fatal msg="crowdsec init: while loading parsers: '
+        "failed to load parser config: failed to compile node 'megoopm/wl' in "
+        "'/etc/crowdsec/parsers/s02-enrich/99-megoopm-whitelist.yaml' : unable to compile "
+        "whitelist expression 'evt.Meta.source_ip ==' : unexpected token EOF (1:21)\\n | "
+        'evt.Meta.source_ip ==\\n | ....................^"',
+        "",
+    ]
+)
+
+
+def test_a_v1_8_failing_config_test_keeps_the_fatal_line() -> None:
+    message = config_test_error(ExecResult(1, CONFIG_TEST_FAILURE_V18))
+
+    assert message is not None
+    assert "unexpected token EOF (1:21)" in message
+    assert "Loaded 1 parser nodes" not in message
+
+
 def test_a_failure_with_no_fatal_line_still_says_something() -> None:
     message = config_test_error(ExecResult(1, "something went wrong\n"))
     assert message is not None and "something went wrong" in message

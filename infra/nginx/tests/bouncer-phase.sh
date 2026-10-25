@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # End-to-end check of the CrowdSec bouncer in nginx's server-rewrite phase.
 #
-# Runs a real CrowdSec 1.6.4 and the MegooPM nginx image on a private network
+# Runs a real CrowdSec 1.8.1 and the MegooPM nginx image on a private network
 # and compares, request by request, the access-phase hook proxy hosts use
 # (reference, :8001) with the server-rewrite hook (:8002 server-level return,
 # :8003 location-level return). The working tree's Lua is mounted over the
@@ -34,7 +34,7 @@ docker run -d --name bp-crowdsec --network "$NET" --network-alias crowdsec \
   -e DISABLE_ONLINE_API=true -e BOUNCER_KEY_megoopm="$KEY" \
   -e COLLECTIONS="crowdsecurity/appsec-virtual-patching crowdsecurity/appsec-generic-rules" \
   -v "$REPO/infra/crowdsec/acquis/appsec.yaml:/etc/crowdsec/acquis.d/appsec.yaml:ro" \
-  crowdsecurity/crowdsec:v1.6.4 >/dev/null
+  crowdsecurity/crowdsec:v1.8.1 >/dev/null
 for _ in $(seq 60); do
   docker exec bp-crowdsec cscli lapi status >/dev/null 2>&1 && break
   sleep 2

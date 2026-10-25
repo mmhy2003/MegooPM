@@ -45,11 +45,33 @@ asyncio.run(main())"
 
 | Piece | Where | Role |
 | --- | --- | --- |
-| CrowdSec engine | `crowdsec` service (compose) | LAPI on `:8080`, AppSec on `:7422`, detects & decides |
+| CrowdSec engine | `crowdsec` service (compose), `crowdsecurity/crowdsec:v1.8.1` | LAPI on `:8080`, AppSec on `:7422`, detects & decides |
 | nginx bouncer + AppSec | `infra/nginx/` (OpenResty image) | Enforces decisions / forwards to AppSec in nginx's access or server-rewrite phase |
 | Per-host toggles | `proxy_hosts.crowdsec_enabled`, `redirection_hosts.crowdsec_enabled`, `dead_hosts.crowdsec_enabled` (bouncer, per host; the latter two default on) / `crowdsec_appsec_enabled` (reserved — AppSec is global, see below) | Which hosts are protected |
 | Rendered directives | `backend/app/templates/nginx/{server,redirect,dead,default_tls}.conf.j2`, `infra/nginx/nginx.conf` | Emits the bouncer handler into each enforcing server block |
 | Backend LAPI client | `app/services/crowdsec/` + `app/api/routes/crowdsec.py` | Read decisions/alerts, push manual decisions |
+
+### Upgrading from 1.6.4
+
+The engine moved from v1.6.4 to v1.8.1. Notes measured on v1.8.1:
+
+- **Upgrading recreates the container**, and every start re-runs the image's
+  entrypoint. With the community blocklist on, CrowdSec authenticates to its
+  central API while starting, and a refusal is fatal. It reuses a token
+  saved in its database while that is valid, so a start usually works, but
+  do the upgrade while CrowdSec's firewall is not blocking the address (see
+  "When CrowdSec is blocking the address"), or with the blocklist off.
+- **Every start also asks `version.crowdsec.net`** which hub branch to use:
+  the entrypoint runs `cscli … install` for `COLLECTIONS` under `set -e`, and
+  each `cscli` hub command looks the latest release up first. That host is
+  not behind the firewall that blocks the hub and the API, but a start with
+  no route to it fails. (Pinning `cscli.hub_branch` would remove the lookup;
+  there is no `v1.8.1` hub branch, so it is not done.)
+- `cscli version` now prints `Version:`; `cscli hub list -o json` writes a
+  `Loaded: …` summary to stderr before the JSON, which the exec's TTY merges
+  into the same stream. Both parsers handle the old and the new shape.
+- `/var/lib/crowdsec/data` must be a volume from 1.7.0 on; it already is
+  (`crowdsec_data`).
 
 ## Request enforcement flow
 
