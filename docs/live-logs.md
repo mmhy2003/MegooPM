@@ -26,6 +26,11 @@ most scanners and bans land. Two choices head the list:
   messages (see *nginx itself* below). Its lines show on the Errors tab, with
   the host **nginx**.
 
+Errors and Security rows always show their host. Requests and Stream hosts
+rows show a **Host** column whenever the tab can mix hosts: with All logs, or
+with more than one host picked. With one host picked it is hidden, as the
+node column is on a single node.
+
 Filters (node, status, text) run in the browser over what has arrived.
 **Pause** stops rendering, not receiving. **Save what's on screen** downloads
 the tab's lines from the browser; the server is not involved.
@@ -368,9 +373,6 @@ nginx runs the old config, but an old nginx cannot run the new one (HA-SETUP.md
   `send() failed (111: Connection refused) while logging to syslog, server:
   127.0.0.1:5140` in its log. Once the relay listens, a reload's messages
   arrive, and add no such line.
-- **Requests and stream lines have no host column.** Under All logs, the
-  Errors and Security tabs show each line's host; on Requests and Stream
-  hosts the host is in the line's details (click it).
 - **Order.** Each line is published from its own timer, so lines from one node
   can arrive a few milliseconds out of order. Each carries `ts`.
 - **Invalid UTF-8** in a URL or user agent passes through nginx's JSON

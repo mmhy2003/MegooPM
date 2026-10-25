@@ -19,14 +19,26 @@ interface Column {
   width: string;
 }
 
-function columns(tab: Tab, showNode: boolean): Column[] {
+const HOST: Column = { label: "Host", width: "9rem" };
+
+/**
+ * Whether Requests or Stream hosts get a Host column: only when the page says
+ * the view can mix hosts. Errors and Security always have one of their own.
+ */
+function hostColumn(tab: Tab, showHost: boolean): boolean {
+  return showHost && (tab === "requests" || tab === "streams");
+}
+
+function columns(tab: Tab, showNode: boolean, showHost: boolean): Column[] {
   const node: Column[] = showNode ? [{ label: "Node", width: "4.5rem" }] : [];
+  const host: Column[] = showHost ? [HOST] : [];
   const time: Column = { label: "Time", width: "6.5rem" };
   switch (tab) {
     case "requests":
       return [
         time,
         ...node,
+        ...host,
         { label: "Status", width: "3.5rem" },
         { label: "Method", width: "4rem" },
         { label: "Path · client", width: "minmax(0,1fr)" },
@@ -37,6 +49,7 @@ function columns(tab: Tab, showNode: boolean): Column[] {
       return [
         time,
         ...node,
+        ...host,
         { label: "Client", width: "minmax(0,1fr)" },
         { label: "Proto", width: "3.5rem" },
         { label: "Status", width: "3.5rem" },
@@ -45,7 +58,7 @@ function columns(tab: Tab, showNode: boolean): Column[] {
         { label: "Upstream", width: "8rem" },
       ];
     default:
-      return [time, ...node, { label: "Host", width: "9rem" }, { label: "Message", width: "minmax(0,1fr)" }];
+      return [time, ...node, HOST, { label: "Message", width: "minmax(0,1fr)" }];
   }
 }
 
@@ -56,15 +69,23 @@ const GRIDS = new Map<string, CSSProperties>();
  * have not changed must not re-render, and a fresh style object each time
  * would be a changed prop.
  */
-function gridFor(tab: Tab, showNode: boolean): CSSProperties {
-  const key = `${tab}:${showNode}`;
+function gridFor(tab: Tab, showNode: boolean, showHost: boolean): CSSProperties {
+  const key = `${tab}:${showNode}:${showHost}`;
   let grid = GRIDS.get(key);
   if (!grid) {
-    grid = { gridTemplateColumns: columns(tab, showNode).map((c) => c.width).join(" ") };
+    const widths = columns(tab, showNode, showHost).map((c) => c.width);
+    grid = { gridTemplateColumns: widths.join(" ") };
     GRIDS.set(key, grid);
   }
   return grid;
 }
+
+/**
+ * Where a truncated request or stream line starts: after the time, and after
+ * the node and host cells when they show. Literal class names, so Tailwind
+ * sees each one.
+ */
+const RAW_SPAN = ["col-[2/-1]", "col-[3/-1]", "col-[4/-1]"] as const;
 
 /**
  * Every row is exactly this tall (px), so the page can render only the rows in
@@ -75,13 +96,23 @@ export const ROW_HEIGHT = 32;
 const ROW_CLASS =
   "grid items-center gap-2 border-b px-2.5 py-1.5 text-left font-mono text-xs whitespace-nowrap";
 
-export function LogHead({ tab, showNode }: { tab: Tab; showNode: boolean }) {
-  const cols = columns(tab, showNode);
+export function LogHead({
+  tab,
+  showNode,
+  showHost = false,
+}: {
+  tab: Tab;
+  showNode: boolean;
+  /** A Host column on Requests and Stream hosts (Errors and Security always have one). */
+  showHost?: boolean;
+}) {
+  const host = hostColumn(tab, showHost);
+  const cols = columns(tab, showNode, host);
   return (
     <div
       role="row"
       className={cn(ROW_CLASS, "bg-muted/40 text-[11px] tracking-wide text-muted-foreground uppercase")}
-      style={gridFor(tab, showNode)}
+      style={gridFor(tab, showNode, host)}
     >
       {cols.map((c) => (
         <span key={c.label} role="columnheader">
@@ -115,13 +146,13 @@ function Client({ line }: { line: LiveLine }) {
   );
 }
 
-function cells(line: LiveLine, tab: Tab, hostLabel: string, showNode: boolean) {
+function cells(line: LiveLine, tab: Tab, hostLabel: string, showNode: boolean, showHost: boolean) {
   const f = line.f;
   if (line.truncated || !f) {
     const text = line.raw ?? "";
     if (tab === "requests" || tab === "streams") {
-      // Everything after the time, and after the node cell when it shows.
-      const span = showNode ? "col-[3/-1]" : "col-[2/-1]";
+      // Everything after the time, and after the node and host cells when they show.
+      const span = RAW_SPAN[Number(showNode) + Number(showHost)];
       return [
         <span key="raw" className={cn(span, "flex items-center gap-2 overflow-hidden")}>
           <Badge variant="warning">truncated</Badge>
@@ -215,6 +246,7 @@ export const LogRow = memo(function LogRow({
   line,
   tab,
   showNode,
+  showHost = false,
   hostLabel,
   selected,
   onSelect,
@@ -222,23 +254,31 @@ export const LogRow = memo(function LogRow({
   line: LiveLine;
   tab: Tab;
   showNode: boolean;
+  /** A host cell on Requests and Stream hosts (Errors and Security always have one). */
+  showHost?: boolean;
   hostLabel: string;
   selected: boolean;
   onSelect: (id: number) => void;
 }) {
+  const host = hostColumn(tab, showHost);
   return (
     <button
       type="button"
       onClick={() => onSelect(line.id)}
       aria-pressed={selected}
       className={cn(ROW_CLASS, "h-8 w-full py-0 hover:bg-muted/40", selected && "bg-muted/60")}
-      style={gridFor(tab, showNode)}
+      style={gridFor(tab, showNode, host)}
     >
       <span>{lineTime(line)}</span>
       {showNode ? (
         <span className="rounded-md bg-muted px-1.5 text-center text-[11px]">{line.node}</span>
       ) : null}
-      {cells(line, tab, hostLabel, showNode)}
+      {host ? (
+        <span className="truncate text-muted-foreground" title={hostLabel}>
+          {hostLabel}
+        </span>
+      ) : null}
+      {cells(line, tab, hostLabel, showNode, host)}
     </button>
   );
 });

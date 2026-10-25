@@ -259,6 +259,67 @@ describe("LiveLogsView", () => {
     expect(await table.findByText("cloud.example.com")).toBeInTheDocument();
   });
 
+  /** Picks each option, by name, from the host picker. */
+  async function pickHosts(user: ReturnType<typeof userEvent.setup>, ...names: string[]) {
+    for (const name of names) {
+      await openHostPicker(user);
+      await user.click(await screen.findByRole("option", { name }));
+    }
+  }
+
+  const hostHeader = () => screen.queryByRole("columnheader", { name: "Host" });
+
+  it("shows a Host column on Requests when the view can mix hosts, and not for one host", async () => {
+    const user = userEvent.setup();
+    setState({ lines: { requests: [line({ host: "p1" }), line({ host: "u" })] } });
+    render(<LiveLogsView />);
+    expect(hostHeader()).toBeNull();
+    await pickHosts(user, "cloud.example.com");
+    expect(hostHeader()).toBeNull();
+
+    await pickHosts(user, "old.example.com");
+    expect(hostHeader()).toBeInTheDocument();
+    const table = within(screen.getByRole("table"));
+    const cell = table.getByText("cloud.example.com");
+    expect(cell).toHaveAttribute("title", "cloud.example.com");
+    expect(cell.className).toContain("truncate");
+    expect(table.getByText("Unclaimed (default site)")).toBeInTheDocument();
+
+    await user.click(within(screen.getByTestId("picked")).getByRole("button", { name: /old\.example/ }));
+    expect(hostHeader()).toBeNull();
+
+    await pickHosts(user, ALL_LOGS);
+    expect(hostHeader()).toBeInTheDocument();
+  });
+
+  it("shows a Host column on Stream hosts under All logs", async () => {
+    const user = userEvent.setup();
+    setState({
+      lines: {
+        streams: [line({ host: "s3", log: "stream", f: { ip: "1.1.1.1", pr: "TCP", st: "200" } })],
+      },
+    });
+    render(<LiveLogsView />);
+    await user.click(screen.getByRole("tab", { name: "Stream hosts" }));
+    expect(hostHeader()).toBeNull();
+    await pickHosts(user, ALL_LOGS);
+    expect(hostHeader()).toBeInTheDocument();
+    expect(await within(screen.getByRole("table")).findByText("Stream :2222")).toBeInTheDocument();
+  });
+
+  it("starts a truncated line after the node and host cells when both show", async () => {
+    const user = userEvent.setup();
+    const raw = '{"k":"p1","ts":"1790000000.1","u":"/aaaa';
+    setState({
+      lines: { requests: [line({ node: "node-b", f: null, raw, truncated: true })] },
+    });
+    render(<LiveLogsView />);
+    await pickHosts(user, ALL_LOGS);
+    const cell = screen.getByText(raw).parentElement;
+    expect(cell?.className).toContain("col-[4/-1]");
+    expect(within(screen.getByRole("table")).getByText("cloud.example.com")).toBeInTheDocument();
+  });
+
   it("uses the themed dropdowns, never the browser's own select", () => {
     setState({ lines: { requests: [line({ node: "node-a" }), line({ node: "node-b" })] } });
     const { container } = render(<LiveLogsView />);

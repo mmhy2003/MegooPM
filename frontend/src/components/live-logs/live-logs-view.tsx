@@ -197,6 +197,9 @@ export function LiveLogsView() {
   const onTab = (key: string) => key === ALL_LOGS || isStream(key) === (tab === "streams");
   const visiblePicked = picked.filter(onTab);
   const addable = options.filter((o) => !picked.includes(o.key) && onTab(o.key));
+  // A Host column on Requests and Stream hosts whenever this tab can mix hosts;
+  // with one host picked, it would repeat the same name on every row.
+  const showHost = visiblePicked.includes(ALL_LOGS) || visiblePicked.length > 1;
   // All logs is exclusive: it already carries every host's lines, and a host
   // watched beside it would show each of its lines twice.
   const pick = (key: string) =>
@@ -355,7 +358,7 @@ export function LiveLogsView() {
       ) : null}
 
       <div role="table" aria-label={TAB_LABEL[tab]} className="overflow-hidden rounded-xl border">
-        <LogHead tab={tab} showNode={showNode} />
+        <LogHead tab={tab} showNode={showNode} showHost={showHost} />
         <div ref={rowsRef} onScroll={onScroll} data-testid="rows" className="max-h-[60vh] overflow-auto">
           {rows.length === 0 ? (
             <p className="px-3 py-10 text-center text-sm text-muted-foreground">
@@ -376,6 +379,7 @@ export function LiveLogsView() {
                     line={line}
                     tab={tab}
                     showNode={showNode}
+                    showHost={showHost}
                     hostLabel={labelOf(line.host)}
                     selected={line.id === selectedId}
                     onSelect={select}
