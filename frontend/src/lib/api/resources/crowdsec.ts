@@ -28,6 +28,9 @@ export type WhitelistKind = Schemas["WhitelistKind"];
 export type CrowdSecMaintenance = Schemas["CrowdSecMaintenance"];
 export type CapiCredentialHealth = Schemas["CapiCredentialHealth"];
 export type CrowdSecJobRun = Schemas["CrowdSecJobRunRead"];
+export type CrowdSecWafStatus = Schemas["CrowdSecWafStatus"];
+export type ProtectedHost = Schemas["ProtectedHost"];
+export type AppSecBodyAction = Schemas["AppSecBodyAction"];
 
 /**
  * What a whitelist matches on.
@@ -158,6 +161,8 @@ export const crowdsec = {
   applyWhitelists: () => api.post<{ queued: boolean }>(`${BASE}/whitelists/apply`, {}),
   /** Both maintenance jobs' last runs, and whether one is running now. */
   maintenance: () => api.get<CrowdSecMaintenance>(`${BASE}/maintenance`),
+  /** The WAF body limit as saved, its last apply, and the hosts it applies to. */
+  waf: () => api.get<CrowdSecWafStatus>(`${BASE}/waf`),
   /** 202 and a run is queued; 409 while one is running or reloads are unwired. */
   hubUpdateNow: () => api.post<{ queued: boolean }>(`${BASE}/hub/update`, {}),
   /**

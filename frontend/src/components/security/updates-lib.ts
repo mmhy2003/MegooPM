@@ -58,6 +58,15 @@ export function describeCapiRun(
     return { label: `Failed: ${run.error ?? "unknown error"}${restored}`, failed: true };
   }
   const achieved = run ? run.detail.enabled === true : false;
+  // The WAF apply's safety net turned it off, not the admin: say so, or the
+  // card reads as a choice someone made.
+  if (!desired && !achieved && run?.detail.reason === "blocked") {
+    return {
+      label:
+        "Off — switched off because CrowdSec's servers were blocking this address. Turn it back on once the block lifts.",
+      failed: false,
+    };
+  }
   if (desired === achieved) return { label: desired ? "On" : "Off", failed: false };
   // Desired but never applied (e.g. saved while reloads were unconfigured).
   return { label: desired ? "Off — not applied yet" : "On — not applied yet", failed: false };

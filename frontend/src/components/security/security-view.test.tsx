@@ -208,6 +208,7 @@ describe("SecurityView dashboard tab", () => {
       "Recent alerts",
       "Whitelists",
       "Updates",
+      "Settings",
     ]);
     expect(tabs[0]).toHaveAttribute("aria-selected", "true");
   });
@@ -448,11 +449,14 @@ describe("SecurityView updates tab", () => {
 
     expect(await screen.findByRole("tab", { name: /Dashboard/i })).toBeInTheDocument();
     expect(screen.queryByRole("tab", { name: /Updates/i })).not.toBeInTheDocument();
+    // Settings saves the WAF limit and restarts CrowdSec: admin-only too.
+    expect(screen.queryByRole("tab", { name: /Settings/i })).not.toBeInTheDocument();
   });
 
   it("is there for an admin", async () => {
     render(<SecurityView />);
     expect(await screen.findByRole("tab", { name: /Updates/i })).toBeInTheDocument();
+    expect(await screen.findByRole("tab", { name: /Settings/i })).toBeInTheDocument();
   });
 });
 

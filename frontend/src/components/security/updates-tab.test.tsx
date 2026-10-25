@@ -34,6 +34,8 @@ const SETTINGS = {
   crowdsec_hub_update_weekday: 6,
   crowdsec_hub_update_hour_utc: 3,
   crowdsec_capi_enabled: false,
+  crowdsec_appsec_max_body_mb: 10,
+  crowdsec_appsec_body_action: "partial" as const,
   backup_frequency: "off" as const,
   backup_hour_utc: 3,
   backup_weekday: 6,
@@ -152,6 +154,8 @@ describe("UpdatesTab blocklist", () => {
     vi.mocked(instanceSettings.get).mockResolvedValue({
       ...SETTINGS,
       crowdsec_capi_enabled: true,
+      crowdsec_appsec_max_body_mb: 10,
+      crowdsec_appsec_body_action: "partial" as const,
       backup_frequency: "off" as const,
       backup_hour_utc: 3,
       backup_weekday: 6,

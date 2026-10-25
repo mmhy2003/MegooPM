@@ -29,6 +29,7 @@ export type MailTestResult = Schemas["MailTestResult"];
 export type CrowdSecHubUpdate = Schemas["CrowdSecHubUpdate"];
 export type BackupSettingsUpdate = Schemas["BackupSettingsUpdate"];
 export type CrowdSecCapiUpdate = Schemas["CrowdSecCapiUpdate"];
+export type CrowdSecWafUpdate = Schemas["CrowdSecWafUpdate"];
 export type HubUpdateFrequency = Schemas["HubUpdateFrequency"];
 export type ErrorPageRead = Schemas["ErrorPageRead"];
 export type ErrorPageUpdate = Schemas["ErrorPageUpdate"];
@@ -68,6 +69,9 @@ export const instanceSettings = {
   /** Desired blocklist state; 202 and an apply is queued (CrowdSec restarts). */
   updateCrowdSecCapi: (body: CrowdSecCapiUpdate) =>
     api.patch<InstanceSettings>(`${BASE}/crowdsec-capi`, body),
+  /** The WAF body limit; 202 and an apply is queued (CrowdSec restarts). */
+  updateCrowdSecWaf: (body: CrowdSecWafUpdate) =>
+    api.patch<InstanceSettings>(`${BASE}/crowdsec-waf`, body),
   /** All eight branded codes with their effective setting. */
   listErrorPages: () => api.get<ErrorPageRead[]>(`${BASE}/error-pages`),
   /** Replace the whole set; nginx is rewritten and reloaded. */

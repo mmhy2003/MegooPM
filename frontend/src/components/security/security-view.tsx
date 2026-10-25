@@ -7,6 +7,7 @@ import {
   Plus,
   RefreshCw,
   Eye,
+  Settings2,
   ShieldAlert,
   ShieldCheck,
   ShieldX,
@@ -42,6 +43,7 @@ import { SecurityMetrics } from "@/components/security/security-metrics";
 import { UnbanDialog } from "@/components/security/unban-dialog";
 import { WhitelistDialog } from "@/components/security/whitelist-dialog";
 import { WhitelistStatusBanner } from "@/components/security/whitelist-status-banner";
+import { SettingsTab } from "@/components/security/settings-tab";
 import { UpdatesTab } from "@/components/security/updates-tab";
 import { WhitelistsTable } from "@/components/security/whitelists-table";
 import { Badge } from "@/components/ui/badge";
@@ -464,6 +466,12 @@ export function SecurityView() {
           {canWrite ? (
             <TabsTab value="updates">
               <RefreshCw /> Updates
+            </TabsTab>
+          ) : null}
+          {/* Saves the WAF limit and restarts CrowdSec: admin-only, like Updates. */}
+          {canWrite ? (
+            <TabsTab value="settings">
+              <Settings2 /> Settings
             </TabsTab>
           ) : null}
         </TabsList>
@@ -961,6 +969,13 @@ export function SecurityView() {
         {canWrite ? (
           <TabsPanel value="updates" className="space-y-3">
             <UpdatesTab />
+          </TabsPanel>
+        ) : null}
+
+        {/* ---- Settings ---- */}
+        {canWrite ? (
+          <TabsPanel value="settings" className="space-y-3">
+            <SettingsTab />
           </TabsPanel>
         ) : null}
       </Tabs>

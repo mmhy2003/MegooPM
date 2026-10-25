@@ -836,6 +836,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/crowdsec/waf": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Waf Status
+         * @description The WAF body limit as saved, its last apply, and whom it affects. Admin-only.
+         */
+        get: operations["waf_status_api_v1_crowdsec_waf_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/crowdsec/whitelists": {
         parameters: {
             query?: never;
@@ -1538,6 +1558,31 @@ export interface paths {
          * @description The hub refresh schedule. Admin-only. Takes effect at the next hourly tick.
          */
         patch: operations["update_crowdsec_hub_settings_api_v1_settings_crowdsec_hub_patch"];
+        trace?: never;
+    };
+    "/api/v1/settings/crowdsec-waf": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Update Crowdsec Waf Settings
+         * @description The WAF's request-body limit; enqueues the apply, which restarts CrowdSec.
+         *
+         *     Refused before anything is stored while another apply holds CrowdSec: the
+         *     CAPI apply rewrites the same config and restarts the same container. When
+         *     the apply cannot be enqueued the value is still saved, like the blocklist
+         *     switch, and the 409 says why nothing happened.
+         */
+        patch: operations["update_crowdsec_waf_settings_api_v1_settings_crowdsec_waf_patch"];
         trace?: never;
     };
     "/api/v1/settings/default-site": {
@@ -2695,6 +2740,16 @@ export interface components {
             enabled: boolean;
         };
         /**
+         * AppSecBodyAction
+         * @description What CrowdSec's WAF does with a request body over the size limit.
+         *
+         *     The values are CrowdSec's own (``SetBodySizeExceededAction``): ``drop``
+         *     refuses the request unchecked, ``partial`` checks the first part only,
+         *     ``allow`` skips the body and still checks the rest of the request.
+         * @enum {string}
+         */
+        AppSecBodyAction: "drop" | "partial" | "allow";
+        /**
          * AuditAction
          * @description The mutation an audit-log row records.
          * @enum {string}
@@ -3206,7 +3261,7 @@ export interface components {
          * @description The maintenance jobs that record an outcome in ``crowdsec_job_run``.
          * @enum {string}
          */
-        CrowdSecJobKind: "hub_update" | "capi_apply";
+        CrowdSecJobKind: "hub_update" | "capi_apply" | "waf_apply";
         /**
          * CrowdSecJobRunRead
          * @description The last run of one maintenance job.
@@ -3251,6 +3306,46 @@ export interface components {
             running: {
                 [key: string]: boolean;
             };
+        };
+        /**
+         * CrowdSecWafStatus
+         * @description What the Security → Settings tab needs in one call.
+         */
+        CrowdSecWafStatus: {
+            /**
+             * Appsec Configured
+             * @description False when CROWDSEC_APPSEC_URL is blank: the limit is saved but inert
+             */
+            appsec_configured: boolean;
+            body_exceeded_action: components["schemas"]["AppSecBodyAction"];
+            /**
+             * Capi Blocked
+             * @description CrowdSec's firewall was blocking this address at the last check
+             */
+            capi_blocked: boolean;
+            /** Capi Enabled */
+            capi_enabled: boolean;
+            /** Max Body Mb */
+            max_body_mb: number;
+            /** Protected Hosts */
+            protected_hosts: components["schemas"]["ProtectedHost"][];
+            /** Reload Configured */
+            reload_configured: boolean;
+            run: components["schemas"]["CrowdSecJobRunRead"] | null;
+            /** Running */
+            running: boolean;
+        };
+        /**
+         * CrowdSecWafUpdate
+         * @description The WAF's request-body limit. Applying it restarts CrowdSec.
+         */
+        CrowdSecWafUpdate: {
+            body_exceeded_action: components["schemas"]["AppSecBodyAction"];
+            /**
+             * Max Body Mb
+             * @description Whole megabytes
+             */
+            max_body_mb: number;
         };
         /**
          * CustomCertificateCreate
@@ -3817,6 +3912,9 @@ export interface components {
             backup_keep: number;
             /** Backup Weekday */
             backup_weekday: number;
+            crowdsec_appsec_body_action: components["schemas"]["AppSecBodyAction"];
+            /** Crowdsec Appsec Max Body Mb */
+            crowdsec_appsec_max_body_mb: number;
             crowdsec_ban_mode: components["schemas"]["CrowdSecBanMode"];
             /** Crowdsec Ban Page Id */
             crowdsec_ban_page_id: number | null;
@@ -4333,6 +4431,24 @@ export interface components {
         ProfileUpdate: {
             /** Full Name */
             full_name: string;
+        };
+        /**
+         * ProtectedHost
+         * @description A host whose requests go through CrowdSec, and so through the WAF.
+         */
+        ProtectedHost: {
+            /** Id */
+            id: number;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "proxy" | "redirection" | "dead";
+            /**
+             * Name
+             * @description The host's first domain name
+             */
+            name: string;
         };
         /**
          * ProxyHostCreate
@@ -7079,6 +7195,26 @@ export interface operations {
             };
         };
     };
+    waf_status_api_v1_crowdsec_waf_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CrowdSecWafStatus"];
+                };
+            };
+        };
+    };
     list_whitelists_api_v1_crowdsec_whitelists_get: {
         parameters: {
             query?: never;
@@ -8354,6 +8490,39 @@ export interface operations {
         responses: {
             /** @description Successful Response */
             200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InstanceSettingsRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_crowdsec_waf_settings_api_v1_settings_crowdsec_waf_patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CrowdSecWafUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
                 headers: {
                     [name: string]: unknown;
                 };

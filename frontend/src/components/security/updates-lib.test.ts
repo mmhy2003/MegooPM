@@ -86,6 +86,19 @@ describe("describeCapiRun", () => {
     expect(label).not.toMatch(/previous configuration was restored/i);
   });
 
+  it("says why the WAF apply switched the blocklist off", () => {
+    // Off, applied — but not by the admin: without the reason the card would
+    // read as if someone had turned it off on purpose.
+    const label = describeCapiRun(
+      false,
+      run({ kind: "capi_apply", detail: { enabled: false, reason: "blocked" } }),
+      false,
+    ).label;
+    expect(label).toBe(
+      "Off — switched off because CrowdSec's servers were blocking this address. Turn it back on once the block lifts.",
+    );
+  });
+
   it("off with nothing applied", () => {
     expect(describeCapiRun(false, null, false)).toEqual({ label: "Off", failed: false });
   });
