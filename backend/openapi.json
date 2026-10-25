@@ -3592,6 +3592,26 @@
         "title": "LetsEncryptCertificateCreate",
         "type": "object"
       },
+      "LiveTicket": {
+        "description": "What opens the Live logs WebSocket: pass ``ticket`` as ``?ticket=``.",
+        "properties": {
+          "expires_in": {
+            "description": "Seconds the ticket stays valid for.",
+            "title": "Expires In",
+            "type": "integer"
+          },
+          "ticket": {
+            "title": "Ticket",
+            "type": "string"
+          }
+        },
+        "required": [
+          "ticket",
+          "expires_in"
+        ],
+        "title": "LiveTicket",
+        "type": "object"
+      },
       "LlmSettingsUpdate": {
         "description": "Set the LLM integration. Carries the whole group; the key is the exception.\n\n``llm_enabled`` is required for the same reason ``default_site_mode`` is on\nits sibling: \"enabled needs a model\" cannot be checked against a payload\nthat omits it, and a schema never sees the stored row.\n\n``llm_api_key`` is the one field that cannot work that way — it is never\nreturned, so a client has nothing to send back. Absent keeps the stored key;\na string replaces it; an explicit ``null`` clears it. The three states are\ndistinguished with ``model_fields_set``, which is why the service is handed\n``model_dump(exclude_unset=True)``.",
         "properties": {
@@ -10359,6 +10379,33 @@
         "summary": "Stream Events",
         "tags": [
           "events"
+        ]
+      }
+    },
+    "/api/v1/live-logs/ticket": {
+      "post": {
+        "description": "A 30-second ticket that opens ``/live-logs/ws``. Browser sessions only.",
+        "operationId": "issue_live_ticket_api_v1_live_logs_ticket_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LiveTicket"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Issue Live Ticket",
+        "tags": [
+          "live-logs"
         ]
       }
     },

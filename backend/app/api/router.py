@@ -22,6 +22,7 @@ from app.api.routes import (
     dead_hosts,
     dns_providers,
     events,
+    live_logs,
     nginx,
     proxy_hosts,
     redirection_hosts,
@@ -43,6 +44,7 @@ api_router.include_router(nginx.router, prefix="/nginx")
 api_router.include_router(cluster.router, prefix="/cluster")
 api_router.include_router(dashboard.router, prefix="/dashboard")
 api_router.include_router(events.router, prefix="/events")
+api_router.include_router(live_logs.router, prefix="/live-logs")
 api_router.include_router(certificates.router, prefix="/certificates")
 # Paths already carry /dns-providers and /dns-credentials (two resources, one module).
 api_router.include_router(dns_providers.router)

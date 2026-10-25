@@ -23,7 +23,7 @@ from app.core.config import settings
 # which follow current OWASP guidance; tune here if profiling demands it.
 _password_hasher = PasswordHasher()
 
-TokenType = Literal["access", "refresh", "mfa"]
+TokenType = Literal["access", "refresh", "mfa", "live"]
 
 
 def hash_password(password: str) -> str:
@@ -114,6 +114,29 @@ def create_mfa_token(subject: str | int, *, token_version: int) -> str:
         subject=str(subject),
         token_type="mfa",
         expires_delta=timedelta(minutes=MFA_TOKEN_MINUTES),
+        extra_claims={"tv": token_version},
+    )
+
+
+#: Long enough to open a WebSocket after asking for it; short enough that one
+#: copied out of a URL (an access log, a proxy) is dead before it is useful.
+LIVE_TICKET_SECONDS = 30
+
+
+def create_live_ticket(subject: str | int, *, token_version: int) -> str:
+    """The credential that opens the Live logs WebSocket.
+
+    A browser cannot set headers on a WebSocket, and the session cookie is
+    host-only, so the socket takes this in its query string instead. Stateless
+    on purpose — Live logs stores nothing, a ticket record included — so it is
+    not one-time: it can be replayed for its 30 seconds. What bounds that is the
+    socket itself, which re-reads the user on open and every minute after, and
+    refuses a ``tv`` that no longer matches.
+    """
+    return _create_token(
+        subject=str(subject),
+        token_type="live",
+        expires_delta=timedelta(seconds=LIVE_TICKET_SECONDS),
         extra_claims={"tv": token_version},
     )
 

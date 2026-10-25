@@ -24,6 +24,9 @@ def iter_routes(router, prefix: str = ""):
             context = getattr(route, "include_context", None)
             inner_prefix = prefix + (context.prefix if context else "")
             yield from iter_routes(route.original_router, inner_prefix)
+        elif type(route).__name__ == "APIWebSocketRoute":
+            # A WebSocket has no HTTP method; "WS" keeps it in the same table.
+            yield "WS", prefix + route.path, route
         elif getattr(route, "dependant", None) is not None:
             for method in sorted(set(route.methods or ()) - {"HEAD", "OPTIONS"}):
                 yield method, prefix + route.path, route
@@ -42,6 +45,12 @@ def route_guard(route) -> str:
             visit(sub)
 
     visit(route.dependant)
+    # An admin who must be in a browser: API keys are refused. require_live_ticket
+    # is the Live logs socket's guard. It accepts only a ticket that the
+    # session-admin ticket route issues, and re-checks the role and token
+    # version that ticket was issued for, so it demands the same.
+    if "require_session_admin" in seen or "require_live_ticket" in seen:
+        return "session_admin"
     # require_admin_from_token is the database-free admin check used by the one
     # route that must answer while a restore holds the database's locks. It
     # enforces the same role, so it counts as admin here.
@@ -129,6 +138,8 @@ ROUTE_ROLES: dict[tuple[str, str], str] = {
     ("POST", "/api/v1/dns-credentials/{credential_id}/verify"): "admin",
     ("GET", "/api/v1/dns-providers"): "admin",
     ("GET", "/api/v1/events"): "admin",
+    ("POST", "/api/v1/live-logs/ticket"): "session_admin",
+    ("WS", "/api/v1/live-logs/ws"): "session_admin",
     ("GET", "/api/v1/nginx/preview"): "admin",
     ("POST", "/api/v1/nginx/reload"): "admin",
     ("GET", "/api/v1/nginx/status"): "admin",
@@ -171,9 +182,9 @@ ROUTE_ROLES: dict[tuple[str, str], str] = {
     ("POST", "/api/v1/upstreams/{upstream_id}/backends"): "admin",
     ("DELETE", "/api/v1/upstreams/{upstream_id}/backends/{backend_id}"): "admin",
     ("PATCH", "/api/v1/upstreams/{upstream_id}/backends/{backend_id}"): "admin",
-    ("GET", "/api/v1/users"): "admin",
-    ("POST", "/api/v1/users"): "admin",
-    ("POST", "/api/v1/users/invite"): "admin",
+    ("GET", "/api/v1/users"): "session_admin",
+    ("POST", "/api/v1/users"): "session_admin",
+    ("POST", "/api/v1/users/invite"): "session_admin",
     ("GET", "/api/v1/users/me"): "member",
     ("PATCH", "/api/v1/users/me"): "member",
     ("GET", "/api/v1/users/me/passkeys"): "member",
@@ -189,11 +200,11 @@ ROUTE_ROLES: dict[tuple[str, str], str] = {
     ("POST", "/api/v1/users/me/api-keys"): "member",
     ("PATCH", "/api/v1/users/me/api-keys/{key_id}"): "member",
     ("DELETE", "/api/v1/users/me/api-keys/{key_id}"): "member",
-    ("DELETE", "/api/v1/users/{user_id}"): "admin",
-    ("PATCH", "/api/v1/users/{user_id}"): "admin",
-    ("POST", "/api/v1/users/{user_id}/invite"): "admin",
-    ("PUT", "/api/v1/users/{user_id}/password"): "admin",
-    ("POST", "/api/v1/users/{user_id}/totp/disable"): "admin",
+    ("DELETE", "/api/v1/users/{user_id}"): "session_admin",
+    ("PATCH", "/api/v1/users/{user_id}"): "session_admin",
+    ("POST", "/api/v1/users/{user_id}/invite"): "session_admin",
+    ("PUT", "/api/v1/users/{user_id}/password"): "session_admin",
+    ("POST", "/api/v1/users/{user_id}/totp/disable"): "session_admin",
     ("GET", "/health"): "public",
 }
 
@@ -235,7 +246,7 @@ def test_writes_are_admin_only(method: str) -> None:
         path
         for (verb, path), role in ROUTE_ROLES.items()
         if verb == method
-        and role != "admin"
+        and role not in ("admin", "session_admin")
         and not path.startswith("/api/v1/auth/")
         and not path.startswith("/api/v1/users/me")
     ]
