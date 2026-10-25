@@ -6,8 +6,10 @@ export type SizeUnit = "MB" | "GB";
 export const MIN_MB = 1;
 export const MAX_MB = 2048;
 
-/** Above this, the card notes what the limit costs in memory. */
-export const MEMORY_NOTE_MB = 100;
+/** Above CrowdSec's default the card notes the memory cost. Measured on
+ *  CrowdSec 1.8.1 with one 600 MB upload: ~40 MB at 10 MB, ~800 MB at 100 MB,
+ *  ~1.3 GB at 1 GB — several times the limit, not the limit itself. */
+export const MEMORY_NOTE_MB = 10;
 
 /** Whole MB for the API, or null for anything it would refuse. */
 export function toMb(value: string, unit: SizeUnit): number | null {

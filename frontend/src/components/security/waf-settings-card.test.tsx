@@ -62,14 +62,17 @@ describe("WafSettingsCard", () => {
     ).toBeInTheDocument();
   });
 
-  it("shows the memory note only for a large limit", async () => {
+  it("shows the memory note above CrowdSec's default", async () => {
+    // Measured on CrowdSec 1.8.1: checking 100 MB of one upload took ~800 MB,
+    // while the 10 MB default stayed near 40 MB. Above the default, say so.
     const user = userEvent.setup();
-    renderCard({ max_body_mb: 50 });
-    expect(screen.queryByText(/holds up to this much/i)).not.toBeInTheDocument();
+    renderCard({ max_body_mb: 10 });
+    expect(screen.queryByText(/several times that in memory/i)).not.toBeInTheDocument();
 
     await user.clear(SIZE());
-    await user.type(SIZE(), "200");
-    expect(screen.getByText(/holds up to this much/i)).toBeInTheDocument();
+    await user.type(SIZE(), "50");
+    expect(screen.getByText(/several times that in memory/i)).toBeInTheDocument();
+    expect(screen.getByText(/about 800 MB/i)).toBeInTheDocument();
   });
 
   it("will not save a size the API would refuse", async () => {

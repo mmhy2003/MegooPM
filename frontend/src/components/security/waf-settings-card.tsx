@@ -162,8 +162,9 @@ export function WafSettingsCard({
 
         {mb !== null && mb > MEMORY_NOTE_MB ? (
           <p className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 text-sm">
-            CrowdSec holds up to this much of each request body in memory while it checks it, so
-            several large uploads at once can use a lot of memory on this server.
+            Checking this much of a body takes several times that in memory: on CrowdSec 1.8.1,
+            checking 100 MB of one upload used about 800 MB. Several large uploads at once can
+            run this server out of memory.
           </p>
         ) : null}
 

@@ -321,6 +321,13 @@ node (`RUN_MIGRATIONS=1`) up first — its backend applies Alembic migrations �
 then the others with `docker compose -f docker-compose.ha.yml up -d --build`.
 Migrations are additive; older nodes keep working during the roll.
 
+Upgrading across the CrowdSec 1.6.4 → 1.8.1 change recreates the CrowdSec
+container on the control-plane node, and `data-init` seeds
+`${SHARED_DATA_PATH}/crowdsec/appsec/megoopm-body-size.yaml` before it starts.
+With the community blocklist on, CrowdSec must reach its central API to
+start: upgrade while CrowdSec's firewall is not blocking the address, or with
+the blocklist off (see docs/crowdsec.md, "Upgrading from 1.6.4").
+
 **Changing `NEXT_PUBLIC_*`.** They are baked into the UI image at build time:
 edit `.env`, then `docker compose -f docker-compose.ha.yml build frontend && … up -d frontend`
 on every node.

@@ -139,7 +139,7 @@ would eventually ban the proxy itself** — i.e. all traffic.
 ### AppSec scope: global, not per host (yet)
 
 AppSec/WAF is currently a **global on/off**, not per host. lua-cs-bouncer
-v1.0.8 runs AppSec *inside* `Allow()` whenever `APPSEC_URL` is set in
+(v1.0.8, and still v1.0.19) runs AppSec *inside* `Allow()` whenever `APPSEC_URL` is set in
 `crowdsec-bouncer.conf`, with no per-request switch. So once the AppSec engine
 is wired, **every** `crowdsec_enabled` host is inspected, regardless of its
 per-host `crowdsec_appsec_enabled` value.
@@ -154,7 +154,86 @@ per-host `crowdsec_appsec_enabled` value.
 This was a deliberate scope call on MEG-32/D3: making AppSec genuinely per-host
 requires reimplementing `Allow()`'s remediation handling against the module's
 non-public internals, which was judged not worth blocking the CrowdSec chain on.
-Reintroduce per-host AppSec when a user asks for it.
+Reintroduce per-host AppSec when a user asks for it. v1.0.19 makes that
+cheaper: it honours per-request `$crowdsec_enable_appsec` /
+`$crowdsec_disable_appsec` nginx variables, so a server block can opt out
+without touching `Allow()`.
+
+The WAF upload limit (below) is engine-wide for the same reason: it is an
+AppSec `on_load` hook, and there is one AppSec engine.
+
+### WAF upload limit (Security → Settings)
+
+CrowdSec from 1.7 on buffers each request body in memory before its AppSec
+rules run, up to **10 MB by default**, and by default **refuses** anything
+larger with the ban remediation (`SetBodySizeExceededAction("drop")`). Behind
+Nextcloud or any upload-heavy app, that fails every large upload. MegooPM sets
+both from Security → Settings:
+
+| Setting | Values | Default |
+| --- | --- | --- |
+| Maximum body size | 1 MB – 2 GB, whole MB | 10 MB |
+| Over the limit | `drop` (block, body unchecked) · `partial` (check the first part, pass the rest) · `allow` (skip the body, still check URL/headers) | `partial` |
+
+The default is **not** CrowdSec's `drop`: an upgraded instance keeps accepting
+large uploads, and the first 10 MB of every body is still checked.
+
+**Wiring.** The values live on `instance_settings`
+(`crowdsec_appsec_max_body_bytes`, `crowdsec_appsec_body_action`) and are
+rendered by `app.services.crowdsec.waf` into MegooPM's own AppSec config:
+
+```yaml
+name: megoopm/body-size
+on_load:
+  - apply:
+      - SetMaxBodySize(10485760)
+      - SetBodySizeExceededAction("partial")
+```
+
+The file is `/data/crowdsec/appsec/megoopm-body-size.yaml` (`CROWDSEC_WAF_CONFIG_PATH`),
+seeded by `data-init` from `infra/crowdsec/appsec-body-size.yaml` — byte for
+byte the default render, so nothing restarts at boot to reconcile — and
+mounted read-only as a single FILE at
+`/etc/crowdsec/appsec-configs/megoopm-body-size.yaml`. The acquisition
+(`infra/crowdsec/acquis/appsec.yaml`) lists it **after**
+`crowdsecurity/appsec-default`: hooks run in list order and later options
+win. It is in backups, next to the whitelist and `config.yaml.local`.
+
+**Applying.** `PATCH /api/v1/settings/crowdsec-waf` stores the values and
+queues `app.tasks.crowdsec.apply_waf_settings` (control-plane node under HA;
+409 while a WAF or CAPI apply holds its lock). The task follows the whitelist
+apply — write in place, `crowdsec -t`, restart, wait for LAPI, restore and
+restart on failure — and records a `crowdsec_job_run` of kind `waf_apply`.
+An unchanged render restarts nothing.
+
+**The safety net.** The admin wants the limit live at once, block or not, so
+Save always restarts. If CrowdSec does not come back **and** the community
+blocklist is on **and** CrowdSec's firewall is blocking this address
+(`capi.probe_edge_block()`, asked only at that moment), the task rewrites
+`config.yaml.local` without `online_client` — exactly what the Blocklist
+card's off switch writes — and restarts again. Without the blocklist CrowdSec
+needs no central API at startup, so it comes back with the new limit. The
+switch-off is recorded like that off switch (`crowdsec_capi_enabled=false`,
+a `capi_apply` run with `detail.reason = "blocked"`), and the Blocklist card
+says why it is off. Only if CrowdSec still does not come back does the
+ordinary rollback restore both files. Whitelist, hub and CAPI applies do not
+have this net yet.
+
+**Memory.** Measured on CrowdSec 1.8.1 with one 600 MB upload through the
+real nginx image: peak CrowdSec memory ~40 MB at a 10 MB limit (any action),
+~800 MB at 100 MB with `partial`, ~1.3 GB at 1 GB. Checking a body costs
+several times its checked size, per request in flight, which is why the card
+notes it above 10 MB. nginx's own memory stayed flat (~35 MB): bouncer
+v1.0.19 streams file-backed bodies to AppSec in 64 KB chunks, where v1.0.8
+read the whole body into one Lua string.
+
+**Verifying.**
+
+```bash
+docker compose exec crowdsec cat /etc/crowdsec/appsec-configs/megoopm-body-size.yaml
+docker compose logs crowdsec | grep megoopm-body-size        # "loading …/megoopm-body-size.yaml"
+# Over the limit with partial, CrowdSec logs "request body was truncated to N bytes (partial mode)".
+```
 
 ## Backend API (`/api/v1/crowdsec`, admin-only)
 
