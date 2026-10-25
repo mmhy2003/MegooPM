@@ -185,7 +185,7 @@ cp .env.ha.example .env
 Edit `.env` — only the first block differs from the control-plane host:
 
 ```dotenv
-NODE_ID=node-a                            # unique per node
+NODE_ID=node-a                            # unique per node; also tags this node's live log lines
 SHARED_DATA_PATH=/mnt/megoopm
 COMPOSE_PROFILES=                         # no shared services here
 RUN_MIGRATIONS=0                          # the control-plane node owns migrations
@@ -230,6 +230,14 @@ Point DNS for your proxied sites at the LB, and the admin hostnames
 (`NEXT_PUBLIC_API_BASE_URL`, `CORS_ORIGINS`) at the LB's `:8000`/`:3000`
 frontends (behind your own TLS).
 
+The **Live logs** page opens a WebSocket to `:8000`
+(`/api/v1/live-logs/ws`), so the API frontend must pass WebSocket upgrades.
+HAProxy in `mode http` does. The socket sends a ping every 25 s, so the
+example's 60 s timeouts never cut a quiet one. Any node can hold the socket:
+every node's nginx publishes its lines to the shared Redis, tagged with its
+`NODE_ID`. The socket's URL carries a 30-second ticket, which an LB that logs
+URLs will record (see [`docs/live-logs.md`](docs/live-logs.md)).
+
 ---
 
 ## 7. Verify the cluster
@@ -261,6 +269,11 @@ docker compose -f docker-compose.ha.yml exec worker cat /var/run/megoopm/nginx-c
 
 A node whose marker lags `cluster_state.config_version` has not reloaded yet —
 see §8.
+
+Every node feeds Live logs. Open **Live logs**, pick a proxy host, and request it
+through the LB a few times. Lines appear within a second, and the node column
+shows each `NODE_ID` that served one. A node that never appears is getting no
+traffic from the LB, or its nginx cannot reach Redis (`REDIS_URL`).
 
 ---
 
@@ -328,6 +341,11 @@ With the community blocklist on, CrowdSec must reach its central API to
 start: upgrade while CrowdSec's firewall is not blocking the address, or with
 the blocklist off (see docs/crowdsec.md, "Upgrading from 1.6.4").
 
+Upgrading to the release with **Live logs**: nginx now needs `NODE_ID`, the
+same value the rest of the node already uses. `docker-compose.ha.yml` passes it
+from `.env`, so a node whose `.env` has it needs nothing. Without it, compose
+refuses to start nginx.
+
 **Changing `NEXT_PUBLIC_*`.** They are baked into the UI image at build time:
 edit `.env`, then `docker compose -f docker-compose.ha.yml build frontend && … up -d frontend`
 on every node.
@@ -357,7 +375,7 @@ plane) shows the periodic sweeps.
 
 | Variable | Per node / identical | Meaning |
 | --- | --- | --- |
-| `NODE_ID` | per node | unique id stamped on `cluster_state.updated_by` |
+| `NODE_ID` | per node | unique id stamped on `cluster_state.updated_by`; nginx gets it too and tags every live log line with it, and compose refuses to start nginx without it ([`docs/live-logs.md`](docs/live-logs.md)) |
 | `SHARED_DATA_PATH` | per node (usually the same path) | host directory of the shared mount → `/data` in containers |
 | `COMPOSE_PROFILES` | per node | `control-plane` on one node, empty elsewhere |
 | `RUN_MIGRATIONS` | `1` on one node | that node's backend runs `alembic upgrade head` on start |

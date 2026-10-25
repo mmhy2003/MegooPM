@@ -113,6 +113,15 @@ route. nginx honours the `X-Accel-Buffering: no` header the endpoint sends;
 other proxies may need explicit configuration. A buffered stream is a
 slowdown, not a failure — the dashboard falls back to its 60-second poll.
 
+## Live logs
+
+The **Live logs** page streams nginx's requests, errors, CrowdSec denials and
+stream connections for the hosts you pick, from every node, over a WebSocket
+(`/api/v1/live-logs/ws`). Nothing is stored. A reverse proxy in front of the
+admin API must pass WebSocket upgrades. The socket's URL carries a 30-second
+ticket that proxies' access logs will record. See
+[`docs/live-logs.md`](docs/live-logs.md).
+
 ## Attribution
 
 Visitor analytics resolves countries using the
