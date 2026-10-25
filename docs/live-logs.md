@@ -58,7 +58,8 @@ nginx                                the relay (stream server, same nginx)      
 
 **Host keys.** `p<id>` proxy host, `r<id>` redirection host, `d<id>` 404
 (dead) host, `s<id>` stream host, `u` unclaimed (the default servers). The
-channel is `megoopm:live:<key>` and the syslog tag `mgm_<key>`.
+channel is `megoopm:live:<key>`, an error line's syslog tag `mgm_<key>`, and
+an access line's `k` the key itself.
 
 **What the relay publishes.**
 
