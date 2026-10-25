@@ -194,6 +194,7 @@ def _configure_ha(celery_app: Celery) -> None:
             "app.tasks.crowdsec.hub_update_tick",
             "app.tasks.crowdsec.update_hub",
             "app.tasks.crowdsec.apply_capi",
+            "app.tasks.crowdsec.apply_waf_settings",
             # These two exec into the container as well, so they belong on the
             # node holding the socket like the rest.
             "app.tasks.crowdsec.check_capi_credentials",

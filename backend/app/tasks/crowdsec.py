@@ -29,10 +29,15 @@ from sqlalchemy import Connection, select
 from app.core.celery_app import celery_app
 from app.core.config import settings
 from app.models.crowdsec_whitelist import CrowdSecWhitelist
-from app.models.enums import CrowdSecJobKind, CrowdSecJobTrigger, HubUpdateFrequency
+from app.models.enums import (
+    AppSecBodyAction,
+    CrowdSecJobKind,
+    CrowdSecJobTrigger,
+    HubUpdateFrequency,
+)
 from app.models.instance_settings import InstanceSettings
 from app.services.cluster import sync_engine
-from app.services.crowdsec import CrowdSecClient, CrowdSecError, capi, hub
+from app.services.crowdsec import CrowdSecClient, CrowdSecError, capi, hub, waf
 from app.services.crowdsec.apply_state import read_apply_state, record_apply
 from app.services.crowdsec.job_run import finish_job_run, read_job_run, start_job_run
 from app.services.crowdsec.reload import (
@@ -219,6 +224,7 @@ def apply_crowdsec_whitelists() -> dict:
 
 HUB_LOCK_KEY = "megoopm:crowdsec:hub-update"
 CAPI_LOCK_KEY = "megoopm:crowdsec:capi-apply"
+WAF_LOCK_KEY = "megoopm:crowdsec:waf-apply"
 #: Both jobs talk to the internet and restart a container; well under this.
 _LOCK_TIMEOUT_S = 900
 _EXEC_TIMEOUT_S = 120
@@ -484,9 +490,88 @@ def apply_capi() -> dict:
     return _run_locked(CAPI_LOCK_KEY, _go)
 
 
+@celery_app.task(name="app.tasks.crowdsec.apply_waf_settings")
+def apply_waf_settings() -> dict:
+    """Make MegooPM's AppSec config match the WAF body limit in the settings.
+
+    Holds the CAPI lock as well as its own: the safety net may rewrite
+    config.yaml.local, which the CAPI apply owns, and both restart CrowdSec.
+    When the safety net switches the blocklist off, that is recorded exactly
+    as the Blocklist card's own off switch would be, with the reason, so the
+    card reads "Off" and says why instead of "On — not applied yet".
+    """
+
+    def _go() -> dict:
+        engine = sync_engine()
+        try:
+            table = InstanceSettings.__table__
+            with engine.begin() as conn:
+                row = conn.execute(select(table).where(table.c.id == 1)).one()
+                start_job_run(
+                    conn,
+                    CrowdSecJobKind.waf_apply,
+                    trigger=CrowdSecJobTrigger.manual,
+                    started_at=_now(),
+                )
+            max_body_bytes = int(row.crowdsec_appsec_max_body_bytes)
+            action = AppSecBodyAction(row.crowdsec_appsec_body_action)
+            config_local = Path(settings.crowdsec_config_local_path)
+            result = waf.run_waf_apply(
+                content=waf.render_body_size_config(max_body_bytes=max_body_bytes, action=action),
+                path=Path(settings.crowdsec_waf_config_path),
+                config_local_path=config_local,
+                # What the engine loads, not the desired state: see read_capi_enabled.
+                capi_enabled=capi.read_capi_enabled(config_local),
+                validate=lambda: _container_exec(CMD_CONFIG_TEST),
+                restart=_container_restart,
+                healthy=_wait_for_lapi,
+                edge_blocked=_edge_blocked,
+            )
+            with engine.begin() as conn:
+                finish_job_run(
+                    conn,
+                    CrowdSecJobKind.waf_apply,
+                    ok=result.ok,
+                    error=result.error,
+                    restarted=result.restarted,
+                    detail={
+                        "max_body_bytes": max_body_bytes,
+                        "action": action.value,
+                        "blocklist_switched_off": result.blocklist_switched_off,
+                    },
+                    finished_at=_now(),
+                )
+                if result.blocklist_switched_off:
+                    conn.execute(
+                        table.update().where(table.c.id == 1).values(crowdsec_capi_enabled=False)
+                    )
+                    start_job_run(
+                        conn,
+                        CrowdSecJobKind.capi_apply,
+                        trigger=CrowdSecJobTrigger.manual,
+                        started_at=_now(),
+                    )
+                    finish_job_run(
+                        conn,
+                        CrowdSecJobKind.capi_apply,
+                        ok=True,
+                        error=None,
+                        restarted=True,
+                        detail={"enabled": False, "reason": "blocked"},
+                        finished_at=_now(),
+                    )
+            return result.as_dict()
+        finally:
+            engine.dispose()
+
+    return _run_locked(WAF_LOCK_KEY, lambda: _run_locked(CAPI_LOCK_KEY, _go))
+
+
 __all__ = [
     "CAPI_LOCK_KEY",
     "HUB_LOCK_KEY",
+    "WAF_LOCK_KEY",
+    "apply_waf_settings",
     "ApplyResult",
     "apply_capi",
     "apply_crowdsec_whitelists",

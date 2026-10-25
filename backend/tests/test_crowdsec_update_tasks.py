@@ -10,7 +10,7 @@ import pytest
 from app.models.crowdsec_job_run import CrowdSecJobRun
 from app.models.enums import CrowdSecJobKind, HubUpdateFrequency
 from app.models.instance_settings import InstanceSettings
-from app.services.crowdsec import capi, hub
+from app.services.crowdsec import capi, hub, waf
 from app.services.crowdsec.job_run import read_job_run
 from app.services.crowdsec.reload import ExecResult
 from app.tasks import crowdsec as tasks
@@ -288,3 +288,97 @@ def test_a_failed_re_registration_is_recorded_as_failed(
     with engine.begin() as conn:
         row = read_job_run(conn, CrowdSecJobKind.capi_apply)
     assert row is not None and not row.ok and "too many requests" in row.error
+
+
+# --- the WAF body limit ------------------------------------------------------------
+
+
+class KeyedRedis:
+    """A lock per key, some of them already held by another job."""
+
+    def __init__(self, held: set[str]) -> None:
+        self.held = held
+
+    def lock(self, name: str, timeout: int | None = None) -> FakeLock:
+        return FakeLock(held=name in self.held)
+
+    def close(self) -> None:
+        pass
+
+
+@pytest.fixture
+def waf_paths(monkeypatch, tmp_path):
+    body = tmp_path / "megoopm-body-size.yaml"
+    body.write_text(
+        waf.render_body_size_config(
+            max_body_bytes=waf.DEFAULT_MAX_BODY_BYTES, action=waf.DEFAULT_ACTION
+        ),
+        encoding="utf-8",
+    )
+    (tmp_path / "config.yaml.local").write_text(
+        capi.render_config_local(capi_enabled=True), encoding="utf-8"
+    )
+    monkeypatch.setattr(tasks.settings, "crowdsec_waf_config_path", str(body))
+    return body
+
+
+def _set_waf(engine, *, mb: int, action: str) -> None:
+    with engine.begin() as conn:
+        conn.execute(
+            InstanceSettings.__table__.update().values(
+                crowdsec_appsec_max_body_bytes=mb * 1024 * 1024,
+                crowdsec_appsec_body_action=action,
+                crowdsec_capi_enabled=True,
+            )
+        )
+
+
+def test_apply_waf_writes_the_file_and_records_the_run(engine, fakes, waf_paths) -> None:
+    _set_waf(engine, mb=100, action="allow")
+
+    out = tasks.apply_waf_settings.run()
+
+    assert out["ok"] is True and out["restarted"] is True
+    text = waf_paths.read_text(encoding="utf-8")
+    assert "SetMaxBodySize(104857600)" in text and '"allow"' in text
+    assert fakes["restarts"] == 1
+    with engine.begin() as conn:
+        row = read_job_run(conn, CrowdSecJobKind.waf_apply)
+    assert row is not None and row.ok
+    assert row.detail == {
+        "max_body_bytes": 104857600,
+        "action": "allow",
+        "blocklist_switched_off": False,
+    }
+
+
+def test_apply_waf_switch_off_turns_the_blocklist_off_everywhere(
+    engine, fakes, waf_paths, monkeypatch, tmp_path
+) -> None:
+    _set_waf(engine, mb=100, action="partial")
+    answers = [False, True]
+    monkeypatch.setattr(tasks, "_wait_for_lapi", lambda: answers.pop(0))
+    monkeypatch.setattr(tasks, "_edge_blocked", lambda: True)
+
+    out = tasks.apply_waf_settings.run()
+
+    assert out["ok"] is True and out["blocklist_switched_off"] is True
+    assert "online_client:" not in (tmp_path / "config.yaml.local").read_text(encoding="utf-8")
+    with engine.begin() as conn:
+        settings_row = conn.execute(select(InstanceSettings.__table__)).one()
+        capi_run = read_job_run(conn, CrowdSecJobKind.capi_apply)
+    # The Blocklist card reads both: desired off, and the reason it went off.
+    assert settings_row.crowdsec_capi_enabled is False
+    assert capi_run is not None and capi_run.ok
+    assert capi_run.detail == {"enabled": False, "reason": "blocked"}
+
+
+def test_apply_waf_skips_while_the_capi_lock_is_held(engine, fakes, waf_paths, monkeypatch):
+    """Both rewrite what the container reads and restart it: never at once."""
+    _set_waf(engine, mb=100, action="partial")
+    monkeypatch.setattr(tasks, "_lock_client", lambda: KeyedRedis({tasks.CAPI_LOCK_KEY}))
+
+    out = tasks.apply_waf_settings.run()
+
+    assert out == {"ran": False, "reason": "already running"}
+    assert fakes["restarts"] == 0
