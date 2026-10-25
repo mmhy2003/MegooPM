@@ -215,6 +215,14 @@ class Settings(BaseSettings):
     # Seeded by data-init from infra/crowdsec/config.yaml.local and bind-mounted
     # into the container; the community-blocklist switch rewrites it.
     crowdsec_config_local_path: str = "/data/crowdsec/config.yaml.local"
+    # MegooPM's AppSec config: the WAF's request-body limit from Security →
+    # Settings. Seeded by data-init, mounted read-only into
+    # /etc/crowdsec/appsec-configs/, and written in place like the files above.
+    crowdsec_waf_config_path: str = "/data/crowdsec/appsec/megoopm-body-size.yaml"
+    # Where nginx's bouncer sends requests for AppSec (same env var and default
+    # nginx uses). Blank means the WAF is not wired: the limit still saves, and
+    # the Settings tab says it has no effect.
+    crowdsec_appsec_url: str = "http://crowdsec:7422"
     # Applying a whitelist restarts CrowdSec so it re-reads its parsers. That
     # container runs only on the control-plane node (compose profile
     # "control-plane") while workers run everywhere, so this names the node

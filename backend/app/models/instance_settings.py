@@ -28,6 +28,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
 from app.models.enums import (
+    AppSecBodyAction,
     BackupFrequency,
     CrowdSecBanMode,
     DefaultSiteMode,
@@ -219,6 +220,23 @@ class InstanceSettings(TimestampMixin, Base):
     )
     crowdsec_capi_checked_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
+    )
+    # The WAF's request-body limit (Security → Settings), rendered into
+    # MegooPM's AppSec config. Desired state: what is live is the last
+    # crowdsec_job_run(kind=waf_apply). Not CrowdSec's own default of
+    # 10 MB / drop, which would refuse every large upload after the upgrade.
+    crowdsec_appsec_max_body_bytes: Mapped[int] = mapped_column(
+        BigInteger, nullable=False, default=10 * 1024 * 1024, server_default="10485760"
+    )
+    crowdsec_appsec_body_action: Mapped[AppSecBodyAction] = mapped_column(
+        Enum(
+            AppSecBodyAction,
+            name="appsec_body_action",
+            values_callable=lambda e: [m.value for m in e],
+        ),
+        nullable=False,
+        default=AppSecBodyAction.partial,
+        server_default="partial",
     )
 
     # --- Backups (Backups page) ---------------------------------------------

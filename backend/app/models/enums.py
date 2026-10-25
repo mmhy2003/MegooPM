@@ -203,6 +203,20 @@ class CrowdSecJobKind(enum.StrEnum):
 
     hub_update = "hub_update"
     capi_apply = "capi_apply"
+    waf_apply = "waf_apply"
+
+
+class AppSecBodyAction(enum.StrEnum):
+    """What CrowdSec's WAF does with a request body over the size limit.
+
+    The values are CrowdSec's own (``SetBodySizeExceededAction``): ``drop``
+    refuses the request unchecked, ``partial`` checks the first part only,
+    ``allow`` skips the body and still checks the rest of the request.
+    """
+
+    drop = "drop"
+    partial = "partial"
+    allow = "allow"
 
 
 class CrowdSecJobTrigger(enum.StrEnum):
