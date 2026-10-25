@@ -18,9 +18,20 @@ from collections.abc import Callable
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
+import httpx
+
 from app.services.crowdsec.reload import CrowdSecReloadError, ExecResult
 
 CREDENTIALS_PATH = "/etc/crowdsec/online_api_credentials.yaml"
+
+#: Needs no credentials and sits behind the same firewall as the central API,
+#: so a refusal here says the address is blocked, not the machine. ``master``
+#: rather than a version, because it exists for every engine version.
+HUB_PROBE_URL = "https://cdn-hub.crowdsec.net/crowdsecurity/master/.index.json"
+#: CloudFront's wording when AWS WAF blocks the request. WAF can only answer
+#: 403, so the status alone would also match an ordinary access-denied.
+_WAF_BLOCK_TEXT = "Request blocked"
+_PROBE_TIMEOUT_S = 10.0
 
 CMD_HAS_CREDENTIALS = [
     "sh",
@@ -77,11 +88,64 @@ class CapiStatus:
     out" — the blocklist is off, or the container could not be reached — and
     that is not the same as "rejected": reporting rejection for a docker
     socket problem would send an operator re-registering working credentials.
+
+    ``blocked`` refines ``ok=False`` for the same reason: CrowdSec's firewall
+    refuses a blocked address with the same "Forbidden" as bad credentials,
+    and re-registering from that address only adds to what it is refusing.
     """
 
     enabled: bool
     ok: bool | None
     detail: str | None
+    blocked: bool = False
+
+
+_AT_STAKE = (
+    "The engine is running on what it loaded at start, but it will not survive a "
+    "restart until this is fixed."
+)
+
+
+def _blocked_detail(tail: str) -> str:
+    return (
+        "CrowdSec's servers are refusing this server's internet address: its hub, "
+        'which needs no credentials, answers "Request blocked" too, so this is not '
+        "about the credentials. CrowdSec blocks addresses that send it too many "
+        "requests, which happens when several machines share one internet "
+        "connection. It usually lifts on its own; if it lasts, ask CrowdSec to "
+        "unblock the address. Until then, avoid restarting CrowdSec: it cannot start "
+        f"while the central API refuses it, and protected hosts would deny traffic. {tail}"
+    )
+
+
+def _refused_detail(tail: str, *, forbidden: bool) -> str:
+    # The probe cannot be certain: a block that has already lifted for the hub
+    # but not for the API answers like this too.
+    hedge = (
+        " CrowdSec blocking this server's internet address for a while answers "
+        "the same way, so if re-registering fails too, wait an hour and look again."
+        if forbidden
+        else ""
+    )
+    return f"CrowdSec's central API is refusing these credentials. {_AT_STAKE}{hedge} {tail}"
+
+
+def probe_edge_block(*, transport: httpx.BaseTransport | None = None) -> bool | None:
+    """Whether CrowdSec's firewall is blocking this address; ``None`` if no answer.
+
+    Streamed, and the body read only on a 403: a served index is megabytes
+    that nobody needs, and fetching it in full is exactly the kind of traffic
+    that gets an address blocked.
+    """
+    try:
+        with httpx.Client(transport=transport, timeout=_PROBE_TIMEOUT_S) as client:
+            with client.stream("GET", HUB_PROBE_URL) as resp:
+                if resp.status_code != httpx.codes.FORBIDDEN:
+                    return False
+                body = resp.read()[:16384].decode("utf-8", errors="replace")
+    except httpx.HTTPError:
+        return None
+    return _WAF_BLOCK_TEXT in body
 
 
 def read_capi_enabled(path: Path) -> bool:
@@ -93,13 +157,21 @@ def read_capi_enabled(path: Path) -> bool:
     return "online_client:" in _read(path)
 
 
-def check_capi_status(*, path: Path, exec: Callable[[list[str]], ExecResult]) -> CapiStatus:
+def check_capi_status(
+    *,
+    path: Path,
+    exec: Callable[[list[str]], ExecResult],
+    edge_blocked: Callable[[], bool | None] = lambda: None,
+) -> CapiStatus:
     """Ask the engine whether CAPI still accepts us.
 
     Worth doing on its own, away from any change: CrowdSec authenticates to
     CAPI during LAPI init and treats a rejection as fatal, so credentials that
     have gone stale sit harmlessly in a running container until something
     restarts it — and then nothing starts. This is the warning before that.
+
+    A "Forbidden" is ambiguous — bad credentials and a blocked address read
+    the same in cscli's output — so only then is ``edge_blocked`` asked.
     """
     if not read_capi_enabled(path):
         return CapiStatus(enabled=False, ok=None, detail=None)
@@ -114,16 +186,11 @@ def check_capi_status(*, path: Path, exec: Callable[[list[str]], ExecResult]) ->
     if parse_capi_status(result):
         return CapiStatus(enabled=True, ok=True, detail=None)
 
-    tail = result.output.strip().splitlines()[-1:] or ["cscli capi status said nothing"]
-    return CapiStatus(
-        enabled=True,
-        ok=False,
-        detail=(
-            "CrowdSec's central API is refusing these credentials. The engine "
-            "is running on what it loaded at start, but it will not survive a "
-            f"restart until this is fixed. {tail[0]}"
-        ),
-    )
+    tail = (result.output.strip().splitlines()[-1:] or ["cscli capi status said nothing"])[0]
+    forbidden = "Forbidden" in result.output
+    if forbidden and edge_blocked() is True:
+        return CapiStatus(enabled=True, ok=False, detail=_blocked_detail(tail), blocked=True)
+    return CapiStatus(enabled=True, ok=False, detail=_refused_detail(tail, forbidden=forbidden))
 
 
 @dataclass(frozen=True, slots=True)
@@ -286,8 +353,12 @@ __all__ = [
     "CMD_REGISTER",
     "CMD_STATUS",
     "CREDENTIALS_PATH",
+    "HUB_PROBE_URL",
     "CapiApplyResult",
+    "CapiStatus",
+    "check_capi_status",
     "parse_capi_status",
+    "probe_edge_block",
     "render_config_local",
     "run_capi_apply",
 ]

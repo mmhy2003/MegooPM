@@ -535,6 +535,43 @@ the blocklist is off, the check has not run, or the container could not be
 reached — reporting a docker socket problem as a rejection would send an
 operator re-registering working credentials.
 
+### When CrowdSec is blocking the address, not the credentials
+
+The `Forbidden` above is not proof of bad credentials. CrowdSec's API and hub
+sit behind AWS WAF, which blocks addresses that send too many requests — and
+WAF can only answer 403. A blocked address therefore gets exactly the same
+`API error: Forbidden` from `cscli capi status`, the same fatal line at
+startup, and `bad HTTP code 403 for https://cdn-hub.crowdsec.net/…` from
+`cscli hub update`. It is common behind a shared office connection or CGNAT:
+every machine there counts against one address. The block comes and goes
+(on one such connection, the blocklist pull succeeded about once in five
+tries) and usually lifts by itself.
+
+So on a `Forbidden`, the check also asks the hub — which needs no credentials
+— for its index (`capi.probe_edge_block`, from the worker, which leaves
+through the same address). CloudFront's "Request blocked" page there means
+the address is blocked: the check records `crowdsec_capi_status_blocked`,
+the Updates tab says so, and **Re-register is not offered**, because
+registering from a blocked address only adds requests to the ones being
+refused. A served index, or no answer at all, leaves it a credentials
+problem, with a note that a block reads the same.
+
+Either way the restart risk is real: CrowdSec cannot start while CAPI refuses
+it. While blocked, avoid restarting CrowdSec (a whitelist change or a hub
+upgrade that changes something both restart it), or turn the community
+blocklist off until the block lifts. A hub update that gets a 403 stops
+before any restart and says so.
+
+To check by hand, from the host:
+
+```bash
+curl -s https://cdn-hub.crowdsec.net/crowdsecurity/master/.index.json | head -c 300
+# A JSON index: not blocked. An HTML page saying "Request blocked": blocked.
+```
+
+If it lasts, ask CrowdSec (Discord or discourse.crowdsec.net) to unblock the
+address, with a CloudFront request id from that page.
+
 `POST /api/v1/crowdsec/capi/register` (`app.tasks.crowdsec.register_capi`) is
 the repair: re-register, restart, then confirm. Confirming before the restart
 would only report on the credentials the running process already loaded, and a

@@ -107,6 +107,8 @@ def fakes(monkeypatch: pytest.MonkeyPatch, tmp_path):
     monkeypatch.setattr(tasks, "_container_restart", fake_restart)
     monkeypatch.setattr(tasks, "_wait_for_lapi", lambda: True)
     monkeypatch.setattr(tasks, "_lock_client", lambda: FakeRedis())
+    # Never the real internet: CrowdSec's hub answers, unless a test says not.
+    monkeypatch.setattr(tasks, "_edge_blocked", lambda: False)
     monkeypatch.setattr(
         tasks.settings, "crowdsec_config_local_path", str(tmp_path / "config.yaml.local")
     )
@@ -207,8 +209,28 @@ def test_the_check_records_a_rejection_with_its_reason(
     with engine.begin() as conn:
         row = conn.execute(select(InstanceSettings.__table__)).one()
     assert row.crowdsec_capi_status_ok is False
+    assert row.crowdsec_capi_status_blocked is False
     assert "Forbidden" in row.crowdsec_capi_status_detail
     assert "restart" in row.crowdsec_capi_status_detail.lower()
+
+
+def test_the_check_records_a_blocked_address(engine, fakes, tmp_path, monkeypatch) -> None:
+    """Recorded apart from a rejection, so the UI can withhold Re-register."""
+    (tmp_path / "config.yaml.local").write_text(
+        capi.render_config_local(capi_enabled=True), encoding="utf-8"
+    )
+    monkeypatch.setattr(
+        tasks, "_container_exec", lambda argv: ExecResult(1, 'msg="API error: Forbidden"')
+    )
+    monkeypatch.setattr(tasks, "_edge_blocked", lambda: True)
+
+    tasks.check_capi_credentials.run()
+
+    with engine.begin() as conn:
+        row = conn.execute(select(InstanceSettings.__table__)).one()
+    assert row.crowdsec_capi_status_ok is False
+    assert row.crowdsec_capi_status_blocked is True
+    assert "internet address" in row.crowdsec_capi_status_detail
 
 
 def test_the_check_does_nothing_when_the_blocklist_is_off(engine, fakes, tmp_path) -> None:

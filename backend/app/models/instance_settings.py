@@ -212,6 +212,11 @@ class InstanceSettings(TimestampMixin, Base):
     # not the same as checked-and-rejected.
     crowdsec_capi_status_ok: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
     crowdsec_capi_status_detail: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Refines status_ok=False: CrowdSec's firewall is refusing this address,
+    # not the credentials, so re-registering is not the repair.
+    crowdsec_capi_status_blocked: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default="false"
+    )
     crowdsec_capi_checked_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )

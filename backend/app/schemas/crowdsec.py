@@ -191,11 +191,16 @@ class CapiCredentialHealth(BaseModel):
     ``ok`` is three-valued. ``null`` means the question could not be answered
     — the blocklist is off, the check has never run, or the container could
     not be reached — and must not be shown as either healthy or rejected.
+
+    ``blocked`` refines ``ok: false``: CrowdSec's firewall is refusing this
+    server's address, so the credentials are fine and re-registering is not
+    the repair.
     """
 
     ok: bool | None = None
     detail: str | None = None
     checked_at: datetime | None = None
+    blocked: bool = False
 
 
 class CrowdSecMaintenance(BaseModel):

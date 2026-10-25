@@ -6,11 +6,17 @@ import { toast } from "sonner";
 import { crowdsec, type CapiCredentialHealth, type CrowdSecJobRun } from "@/lib/api";
 import { BlocklistCard } from "@/components/security/blocklist-card";
 
-const UNKNOWN: CapiCredentialHealth = { ok: null, detail: null, checked_at: null };
+const UNKNOWN: CapiCredentialHealth = {
+  ok: null,
+  detail: null,
+  checked_at: null,
+  blocked: false,
+};
 const HEALTHY: CapiCredentialHealth = {
   ok: true,
   detail: null,
   checked_at: "2026-09-06T07:00:00Z",
+  blocked: false,
 };
 const REJECTED: CapiCredentialHealth = {
   ok: false,
@@ -18,6 +24,16 @@ const REJECTED: CapiCredentialHealth = {
     "CrowdSec's central API is refusing these credentials. The engine is running on what it " +
     "loaded at start, but it will not survive a restart until this is fixed. API error: Forbidden",
   checked_at: "2026-09-06T07:00:00Z",
+  blocked: false,
+};
+const BLOCKED: CapiCredentialHealth = {
+  ok: false,
+  detail:
+    "CrowdSec's servers are refusing this server's internet address: its hub, which needs no " +
+    'credentials, answers "Request blocked" too, so this is not about the credentials. ' +
+    "Until then, avoid restarting CrowdSec. API error: Forbidden",
+  checked_at: "2026-10-25T07:25:00Z",
+  blocked: true,
 };
 
 const DONE: CrowdSecJobRun = {
@@ -72,6 +88,18 @@ describe("BlocklistCard credential health", () => {
     cleanup();
     renderCard({ credentials: HEALTHY });
     expect(screen.queryByRole("button", { name: /re-register/i })).not.toBeInTheDocument();
+  });
+
+  it("explains a blocked address and withholds the repair", () => {
+    // Re-registering from a blocked address only adds to what CrowdSec is
+    // refusing, and the credentials are not the problem.
+    renderCard({ credentials: BLOCKED });
+
+    const warning = screen.getByRole("alert");
+    expect(warning).toHaveTextContent(/internet address/i);
+    expect(warning).toHaveTextContent(/avoid restarting CrowdSec/i);
+    expect(screen.queryByRole("button", { name: /re-register/i })).not.toBeInTheDocument();
+    expect(screen.queryByText(/credentials have to be replaced/i)).not.toBeInTheDocument();
   });
 
   it("says nothing when the check has never run", () => {

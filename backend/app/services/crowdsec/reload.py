@@ -12,6 +12,7 @@ and the API process is the one taking internet traffic.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 
 import httpx
@@ -22,6 +23,10 @@ _DOCKER_API = "v1.43"
 
 # Seconds docker waits for a graceful stop before killing the container.
 _STOP_GRACE_SECONDS = 10
+
+# CSI sequences: the exec's TTY makes cscli colour its log levels, and every
+# caller ends up showing this output to a person.
+_ANSI_ESCAPE = re.compile(r"\x1b\[[0-?]*[ -/]*[@-~]")
 
 
 class CrowdSecReloadError(RuntimeError):
@@ -123,6 +128,9 @@ def exec_in_container(
     plain text rather than docker's multiplexed frames), inspect it for the
     exit code. A non-zero exit is a result, not an error: the caller reads
     the output. Errors are for the daemon being unreachable or refusing.
+
+    The TTY's side effects — colour codes and CRLF line ends — are undone
+    here, once, rather than in every message built from the output.
     """
     client_transport = transport or httpx.HTTPTransport(uds=socket_path)
     where = f"container {name!r} via {socket_path}"
@@ -151,6 +159,7 @@ def exec_in_container(
                     f"Docker could not start the exec in {where}: HTTP {started.status_code}"
                 )
             output = started.content.decode("utf-8", errors="replace")
+            output = _ANSI_ESCAPE.sub("", output).replace("\r\n", "\n")
             inspected = client.get(f"/{_DOCKER_API}/exec/{exec_id}/json")
             exit_code = int(inspected.json().get("ExitCode") or 0)
     except httpx.HTTPError as exc:

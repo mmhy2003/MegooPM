@@ -236,6 +236,67 @@ def test_a_failed_upgrade_stops_before_any_restart() -> None:
     assert c.restarts == 0
 
 
+# What `cscli hub update` printed on a blocked office connection, 2026-10-25
+# (colours already stripped by the exec).
+BLOCKED_UPDATE = (
+    "WARN A new CrowdSec release is available (v1.8.0). Your version is 'v1.6.4'. "
+    "Please update it to use new parsers/scenarios/collections.\n"
+    "WARN Failed to check last modified: bad HTTP code 403 for "
+    "https://cdn-hub.crowdsec.net/crowdsecurity/v1.6.4/.index.json "
+    'url="https://cdn-hub.crowdsec.net/crowdsecurity/v1.6.4/.index.json"\n'
+    "FATA failed to update hub: bad HTTP code 403 for "
+    "https://cdn-hub.crowdsec.net/crowdsecurity/v1.6.4/.index.json\n"
+)
+
+
+def test_a_refused_hub_download_says_why_in_plain_words() -> None:
+    c = FakeContainer(lists=[LIST_BEFORE], update=ExecResult(1, BLOCKED_UPDATE))
+    result = hub.run_hub_update(exec=c.exec, restart=c.restart, healthy=lambda: True)
+
+    assert not result.ok and not result.restarted
+    error = result.error or ""
+    assert "internet address" in error
+    # The engine's own last word stays, so the cause is not guesswork.
+    assert error.endswith(
+        "failed to update hub: bad HTTP code 403 for "
+        "https://cdn-hub.crowdsec.net/crowdsecurity/v1.6.4/.index.json"
+    )
+    # The card already shows the release; repeating it here buries the error.
+    assert "new CrowdSec release" not in error
+    # Still parsed for the card, though.
+    assert result.latest_agent_version == "v1.8.0"
+
+
+def test_a_refused_item_download_during_the_upgrade_says_why_too() -> None:
+    c = FakeContainer(
+        lists=[LIST_BEFORE],
+        upgrade=ExecResult(
+            1,
+            "FATA failed to download item: bad HTTP code 403 for "
+            "https://cdn-hub.crowdsec.net/crowdsecurity/v1.6.4/parsers/x.yaml\n",
+        ),
+    )
+    result = hub.run_hub_update(exec=c.exec, restart=c.restart, healthy=lambda: True)
+    assert not result.ok
+    assert "internet address" in (result.error or "")
+
+
+def test_other_failures_drop_the_release_notice_but_keep_the_rest() -> None:
+    c = FakeContainer(
+        lists=[LIST_BEFORE],
+        update=ExecResult(
+            1,
+            "WARN A new CrowdSec release is available (v1.8.0). Your version is 'v1.6.4'.\n"
+            "FATA failed to update hub: dial tcp: lookup cdn-hub.crowdsec.net: no such host\n",
+        ),
+    )
+    result = hub.run_hub_update(exec=c.exec, restart=c.restart, healthy=lambda: True)
+    assert result.error == (
+        "hub update failed: FATA failed to update hub: dial tcp: lookup "
+        "cdn-hub.crowdsec.net: no such host"
+    )
+
+
 def test_a_failed_restart_is_reported() -> None:
     c = FakeContainer(lists=[LIST_BEFORE, LIST_AFTER])
 

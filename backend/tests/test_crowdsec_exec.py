@@ -64,6 +64,26 @@ def test_a_non_zero_exit_is_returned_not_raised() -> None:
     assert result.exit_code == 1 and "boom" in result.output
 
 
+def test_terminal_colours_are_stripped_from_the_output() -> None:
+    """The TTY makes cscli colour its log levels.
+
+    Left in, the escape codes reach the UI verbatim — every error read as
+    ``[33mWARN[0m …`` with an unprintable box before each bracket.
+    """
+    transport, _ = _daemon(
+        exit_code=1,
+        output="\x1b[33mWARN\x1b[0m new release\r\n\x1b[31mFATA\x1b[0m failed to update hub\r\n",
+    )
+    result = exec_in_container(
+        "megoopm-crowdsec-1",
+        ["cscli", "hub", "update"],
+        socket_path="/var/run/docker.sock",
+        timeout_seconds=30,
+        transport=transport,
+    )
+    assert result.output == "WARN new release\nFATA failed to update hub\n"
+
+
 def test_missing_container_names_what_it_tried() -> None:
     transport = httpx.MockTransport(lambda _r: httpx.Response(404, text="No such container"))
     with pytest.raises(CrowdSecReloadError) as exc:

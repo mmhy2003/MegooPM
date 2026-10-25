@@ -90,6 +90,33 @@ def output_tail(text: str, lines: int = 20) -> str:
     return "\n".join(text.strip().splitlines()[-lines:])
 
 
+#: cscli's wording when the hub's CDN refuses a download — in practice
+#: CrowdSec's firewall, which can only answer 403.
+_HUB_REFUSED = "bad HTTP code 403"
+
+_HUB_REFUSED_MESSAGE = (
+    "CrowdSec's hub refused the download (HTTP 403). CrowdSec blocks internet "
+    "addresses that send it too many requests, which happens when several machines "
+    "share one internet connection; it usually lifts on its own. CrowdSec was not "
+    "restarted, so protected hosts are unaffected; try again later."
+)
+
+
+def describe_failure(step: str, output: str) -> str:
+    """The error recorded for a failed ``cscli hub`` step.
+
+    The release notice is dropped: it rides along on every cscli call, the
+    card already shows the version from ``latest_agent_version``, and leading
+    with it buries the actual failure. A 403 gets a sentence saying what it
+    means, then the engine's own last line, so the cause is not guesswork.
+    """
+    kept = "\n".join(line for line in output.splitlines() if not _AGENT_WARNING.search(line))
+    if _HUB_REFUSED in output:
+        last = kept.strip().splitlines()[-1:] or [""]
+        return f"{_HUB_REFUSED_MESSAGE} {last[0]}".strip()
+    return f"{step} failed: {output_tail(kept)}"
+
+
 # --- the schedule ----------------------------------------------------------------
 
 
@@ -164,7 +191,7 @@ def run_hub_update(
         if update.exit_code != 0:
             return HubUpdateResult(
                 False,
-                f"hub update failed: {output_tail(update.output)}",
+                describe_failure("hub update", update.output),
                 False,
                 [],
                 agent_version,
@@ -174,7 +201,7 @@ def run_hub_update(
         if upgrade.exit_code != 0:
             return HubUpdateResult(
                 False,
-                f"hub upgrade failed: {output_tail(upgrade.output)}",
+                describe_failure("hub upgrade", upgrade.output),
                 False,
                 [],
                 agent_version,
@@ -230,6 +257,7 @@ __all__ = [
     "HUB_BACKUP_PATH",
     "HUB_ITEM_TYPES",
     "HubUpdateResult",
+    "describe_failure",
     "diff_versions",
     "is_due",
     "output_tail",

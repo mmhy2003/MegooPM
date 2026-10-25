@@ -262,6 +262,12 @@ def _container_exec(argv: list[str]) -> ExecResult:
     )
 
 
+def _edge_blocked() -> bool | None:
+    # From the worker, not the container: on the control node both leave
+    # through the same address, which is the thing being asked about.
+    return capi.probe_edge_block()
+
+
 def _container_restart() -> None:
     restart_container(
         settings.crowdsec_container_name,
@@ -356,6 +362,7 @@ def _record_capi_status(conn: Connection, status: capi.CapiStatus) -> None:
         .values(
             crowdsec_capi_status_ok=status.ok,
             crowdsec_capi_status_detail=status.detail,
+            crowdsec_capi_status_blocked=status.blocked,
             crowdsec_capi_checked_at=_now(),
         )
     )
@@ -374,7 +381,9 @@ def check_capi_credentials() -> dict:
     one.
     """
     status = capi.check_capi_status(
-        path=Path(settings.crowdsec_config_local_path), exec=_container_exec
+        path=Path(settings.crowdsec_config_local_path),
+        exec=_container_exec,
+        edge_blocked=_edge_blocked,
     )
     engine = sync_engine()
     try:
@@ -410,7 +419,9 @@ def register_capi() -> dict:
                 restart=_container_restart,
                 healthy=_wait_for_lapi,
             )
-            status = capi.check_capi_status(path=path, exec=_container_exec)
+            status = capi.check_capi_status(
+                path=path, exec=_container_exec, edge_blocked=_edge_blocked
+            )
             with engine.begin() as conn:
                 finish_job_run(
                     conn,

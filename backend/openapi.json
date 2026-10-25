@@ -1382,8 +1382,13 @@
         "type": "object"
       },
       "CapiCredentialHealth": {
-        "description": "The last answer from ``cscli capi status``, recorded by the worker.\n\n``ok`` is three-valued. ``null`` means the question could not be answered\n— the blocklist is off, the check has never run, or the container could\nnot be reached — and must not be shown as either healthy or rejected.",
+        "description": "The last answer from ``cscli capi status``, recorded by the worker.\n\n``ok`` is three-valued. ``null`` means the question could not be answered\n— the blocklist is off, the check has never run, or the container could\nnot be reached — and must not be shown as either healthy or rejected.\n\n``blocked`` refines ``ok: false``: CrowdSec's firewall is refusing this\nserver's address, so the credentials are fine and re-registering is not\nthe repair.",
         "properties": {
+          "blocked": {
+            "default": false,
+            "title": "Blocked",
+            "type": "boolean"
+          },
           "checked_at": {
             "anyOf": [
               {

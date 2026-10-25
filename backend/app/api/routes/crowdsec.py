@@ -521,6 +521,7 @@ async def maintenance(_admin: AdminUser, db: SessionDep) -> CrowdSecMaintenance:
             ok=row.crowdsec_capi_status_ok,
             detail=row.crowdsec_capi_status_detail,
             checked_at=row.crowdsec_capi_checked_at,
+            blocked=row.crowdsec_capi_status_blocked,
         ),
         reload_configured=_reload_configured(),
         running={

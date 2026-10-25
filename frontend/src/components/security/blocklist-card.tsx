@@ -38,6 +38,9 @@ export function BlocklistCard({
   // Only false is actionable. null means the check has not run, or could not
   // run, and a warning nobody can act on is worse than silence.
   const refused = desired && credentials.ok === false;
+  // CrowdSec's firewall refusing this address: the credentials are fine, and
+  // re-registering would only send it more requests to refuse.
+  const blocked = refused && credentials.blocked;
   const state = describeCapiRun(desired, run, running);
 
   async function apply(enabled: boolean) {
@@ -94,32 +97,36 @@ export function BlocklistCard({
             <p role="alert" className="text-destructive text-sm">
               {credentials.detail}
             </p>
-            <div>
-              <Button
-                size="sm"
-                variant="outline"
-                disabled={running || !reloadConfigured || registering}
-                onClick={() => {
-                  setRegistering(true);
-                  crowdsec
-                    .capiRegister()
-                    .then(() => {
-                      toast.success("Re-registering…");
-                      onChanged();
-                    })
-                    .catch((err: unknown) => toast.error(describeError(err).message))
-                    .finally(() => setRegistering(false));
-                }}
-              >
-                Re-register with CrowdSec
-              </Button>
-            </div>
-            {/* The repair execs into the container, so it cannot help once
-                the engine is already failing to start. */}
-            <p className="text-muted-foreground text-xs">
-              Do this while CrowdSec is still running. Once it fails to start, the credentials have
-              to be replaced from a shell on the host.
-            </p>
+            {blocked ? null : (
+              <>
+                <div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={running || !reloadConfigured || registering}
+                    onClick={() => {
+                      setRegistering(true);
+                      crowdsec
+                        .capiRegister()
+                        .then(() => {
+                          toast.success("Re-registering…");
+                          onChanged();
+                        })
+                        .catch((err: unknown) => toast.error(describeError(err).message))
+                        .finally(() => setRegistering(false));
+                    }}
+                  >
+                    Re-register with CrowdSec
+                  </Button>
+                </div>
+                {/* The repair execs into the container, so it cannot help once
+                    the engine is already failing to start. */}
+                <p className="text-muted-foreground text-xs">
+                  Do this while CrowdSec is still running. Once it fails to start, the credentials
+                  have to be replaced from a shell on the host.
+                </p>
+              </>
+            )}
           </div>
         ) : null}
         {!reloadConfigured ? (

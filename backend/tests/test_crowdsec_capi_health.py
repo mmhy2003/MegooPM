@@ -16,6 +16,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import httpx
 import pytest
 from app.services.crowdsec import capi
 from app.services.crowdsec.reload import CrowdSecReloadError, ExecResult
@@ -87,6 +88,122 @@ def test_rejected_credentials_say_what_is_at_stake(tmp_path: Path) -> None:
     assert "restart" in status.detail.lower()
     # And the engine's own words, so the cause is not guesswork.
     assert "Forbidden" in status.detail
+
+
+def test_a_blocked_address_is_not_reported_as_bad_credentials(tmp_path: Path) -> None:
+    """CrowdSec's firewall answers "Forbidden" too, and cscli cannot tell.
+
+    When CrowdSec's hub — which needs no credentials at all — also refuses
+    this address, the credentials are not the problem. Re-registering would
+    only send more requests from an address already being refused.
+    """
+    status = capi.check_capi_status(
+        path=_enabled_config(tmp_path),
+        exec=lambda cmd: ExecResult(1, FORBIDDEN),
+        edge_blocked=lambda: True,
+    )
+
+    assert status.ok is False
+    assert status.blocked is True
+    detail = (status.detail or "").lower()
+    assert "internet address" in detail
+    assert "refusing these credentials" not in detail
+    # The consequence still has to be spelled out: a restart is what turns
+    # this into an outage.
+    assert "restart" in detail
+
+
+def test_forbidden_with_a_reachable_hub_stays_a_credentials_problem(tmp_path: Path) -> None:
+    probed: list[int] = []
+
+    def _probe() -> bool:
+        probed.append(1)
+        return False
+
+    status = capi.check_capi_status(
+        path=_enabled_config(tmp_path),
+        exec=lambda cmd: ExecResult(1, FORBIDDEN),
+        edge_blocked=_probe,
+    )
+
+    assert probed == [1]
+    assert status.ok is False
+    assert status.blocked is False
+    # A block that has lifted for the hub but not yet for the API answers the
+    # same way, so the message must not claim more than it knows.
+    assert "internet address" in (status.detail or "")
+
+
+def test_an_unanswered_probe_is_not_taken_as_a_block(tmp_path: Path) -> None:
+    status = capi.check_capi_status(
+        path=_enabled_config(tmp_path),
+        exec=lambda cmd: ExecResult(1, FORBIDDEN),
+        edge_blocked=lambda: None,
+    )
+    assert status.ok is False
+    assert status.blocked is False
+
+
+def test_the_hub_is_only_probed_for_a_forbidden(tmp_path: Path) -> None:
+    probed: list[int] = []
+
+    def _probe() -> bool:
+        probed.append(1)
+        return True
+
+    capi.check_capi_status(
+        path=_enabled_config(tmp_path),
+        exec=lambda cmd: ExecResult(0, OK_OUTPUT),
+        edge_blocked=_probe,
+    )
+    capi.check_capi_status(
+        path=_enabled_config(tmp_path),
+        exec=lambda cmd: ExecResult(1, 'level=fatal msg="no configuration for Central API"'),
+        edge_blocked=_probe,
+    )
+    assert probed == []
+
+
+# --- probing CrowdSec's edge ---------------------------------------------------
+
+# What CloudFront serves when CrowdSec's firewall blocks an address, as seen
+# from a blocked office connection on 2026-10-25.
+WAF_BLOCK_PAGE = (
+    "<HTML><HEAD><TITLE>ERROR: The request could not be satisfied</TITLE></HEAD><BODY>"
+    '<H1>403 ERROR</H1><H2>The request could not be satisfied.</H2><HR noshade size="1px">'
+    "Request blocked.\nWe can't connect to the server for this app or website at this time."
+    "</BODY></HTML>"
+)
+
+
+def _transport(response: httpx.Response | Exception) -> httpx.MockTransport:
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.url.host == "cdn-hub.crowdsec.net"
+        if isinstance(response, Exception):
+            raise response
+        return response
+
+    return httpx.MockTransport(handler)
+
+
+def test_the_firewall_page_is_a_block() -> None:
+    transport = _transport(httpx.Response(403, text=WAF_BLOCK_PAGE))
+    assert capi.probe_edge_block(transport=transport) is True
+
+
+def test_a_served_index_is_not_a_block() -> None:
+    transport = _transport(httpx.Response(200, json={"collections": {}}))
+    assert capi.probe_edge_block(transport=transport) is False
+
+
+def test_some_other_403_is_not_a_block() -> None:
+    transport = _transport(httpx.Response(403, text="<Error><Code>AccessDenied</Code></Error>"))
+    assert capi.probe_edge_block(transport=transport) is False
+
+
+def test_no_answer_is_unknown() -> None:
+    transport = _transport(httpx.ConnectError("no route to host"))
+    assert capi.probe_edge_block(transport=transport) is None
 
 
 def test_an_unreachable_container_is_unknown_not_broken(tmp_path: Path) -> None:

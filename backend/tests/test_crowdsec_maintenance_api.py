@@ -6,7 +6,9 @@ import pytest
 from app.api.routes import crowdsec as crowdsec_routes
 from app.models.crowdsec_job_run import CrowdSecJobRun
 from app.models.enums import CrowdSecJobKind, CrowdSecJobTrigger
+from app.models.instance_settings import InstanceSettings
 from httpx import AsyncClient
+from sqlalchemy import update
 
 SETTINGS = "/api/v1/settings"
 MAINT = "/api/v1/crowdsec/maintenance"
@@ -110,7 +112,12 @@ async def test_maintenance_is_empty_at_first(
         "hub": None,
         "capi": None,
         # Never checked is its own state: not healthy, not rejected.
-        "capi_credentials": {"ok": None, "detail": None, "checked_at": None},
+        "capi_credentials": {
+            "ok": None,
+            "detail": None,
+            "checked_at": None,
+            "blocked": False,
+        },
         "reload_configured": True,
         "running": {"hub": False, "capi": False},
     }
@@ -139,6 +146,25 @@ async def test_maintenance_reports_the_last_runs(
     assert body["hub"]["detail"]["latest_agent_version"] == "v1.8.0"
     assert body["hub"]["trigger"] == "scheduled"
     assert body["capi"] is None
+
+
+async def test_maintenance_says_when_the_address_is_blocked(
+    db_client: AsyncClient, admin_token: str, sent, session_factory
+) -> None:
+    """Apart from ``ok``: the card offers Re-register only for a rejection."""
+    await db_client.get(MAINT, headers=_auth(admin_token))  # creates the settings row
+    async with session_factory() as db:
+        await db.execute(
+            update(InstanceSettings).values(
+                crowdsec_capi_status_ok=False,
+                crowdsec_capi_status_blocked=True,
+                crowdsec_capi_status_detail="blocked",
+            )
+        )
+        await db.commit()
+    body = (await db_client.get(MAINT, headers=_auth(admin_token))).json()
+    assert body["capi_credentials"]["ok"] is False
+    assert body["capi_credentials"]["blocked"] is True
 
 
 async def test_maintenance_says_when_a_job_is_running(

@@ -2965,8 +2965,17 @@ export interface components {
          *     ``ok`` is three-valued. ``null`` means the question could not be answered
          *     — the blocklist is off, the check has never run, or the container could
          *     not be reached — and must not be shown as either healthy or rejected.
+         *
+         *     ``blocked`` refines ``ok: false``: CrowdSec's firewall is refusing this
+         *     server's address, so the credentials are fine and re-registering is not
+         *     the repair.
          */
         CapiCredentialHealth: {
+            /**
+             * Blocked
+             * @default false
+             */
+            blocked: boolean;
             /** Checked At */
             checked_at?: string | null;
             /** Detail */
