@@ -297,3 +297,17 @@ def test_appsec_loads_megoopm_body_size_last() -> None:
     )
     assert acquis["appsec_configs"] == ["crowdsecurity/appsec-default", "megoopm/body-size"]
     assert "appsec_config" not in acquis
+
+
+def test_the_bouncer_e2e_mounts_every_appsec_config_the_acquisition_names() -> None:
+    """infra/nginx/tests/bouncer-phase.sh mounts the real acquisition file.
+
+    That file names megoopm/body-size; a CrowdSec without the config cannot
+    resolve it, the AppSec datasource fails to load, and the script fails
+    before testing anything.
+    """
+    script = (REPO_ROOT / "infra" / "nginx" / "tests" / "bouncer-phase.sh").read_text(
+        encoding="utf-8"
+    )
+    assert "infra/crowdsec/acquis/appsec.yaml:/etc/crowdsec/acquis.d/appsec.yaml" in script
+    assert f"infra/crowdsec/appsec-body-size.yaml:{WAF_TARGET}:ro" in script

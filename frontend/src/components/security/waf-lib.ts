@@ -6,10 +6,14 @@ export type SizeUnit = "MB" | "GB";
 export const MIN_MB = 1;
 export const MAX_MB = 2048;
 
+/** What every install starts with (migration defaults and the seeded file). */
+export const DEFAULT_MB = 10;
+export const DEFAULT_ACTION: AppSecBodyAction = "partial";
+
 /** Above CrowdSec's default the card notes the memory cost. Measured on
  *  CrowdSec 1.8.1 with one 600 MB upload: ~40 MB at 10 MB, ~800 MB at 100 MB,
  *  ~1.3 GB at 1 GB — several times the limit, not the limit itself. */
-export const MEMORY_NOTE_MB = 10;
+export const MEMORY_NOTE_MB = DEFAULT_MB;
 
 /** Whole MB for the API, or null for anything it would refuse. */
 export function toMb(value: string, unit: SizeUnit): number | null {
@@ -78,8 +82,12 @@ export function describeWafRun(status: CrowdSecWafStatus): { label: string; fail
     return { label: "Applying… CrowdSec is restarting.", failed: false };
   }
   if (!run) {
-    const title = ACTION_COPY[status.body_exceeded_action].title;
-    return { label: `Live: ${formatMb(status.max_body_mb)} · ${title} — the default.`, failed: false };
+    // Nothing has been applied, so only the seeded defaults can be live.
+    if (status.max_body_mb !== DEFAULT_MB || status.body_exceeded_action !== DEFAULT_ACTION) {
+      return { label: "Saved — not applied yet.", failed: false };
+    }
+    const title = ACTION_COPY[DEFAULT_ACTION].title;
+    return { label: `Live: ${formatMb(DEFAULT_MB)} · ${title} — the default.`, failed: false };
   }
   if (!run.ok) return { label: `Failed: ${run.error ?? "unknown error"}`, failed: true };
   const appliedMb = Number(run.detail.max_body_bytes) / (1024 * 1024);

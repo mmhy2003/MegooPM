@@ -79,6 +79,17 @@ describe("describeWafRun", () => {
     );
   });
 
+  it("never calls a saved, unapplied value live or the default", () => {
+    // First save on an install: the reload can land before the worker takes
+    // the lock, so there is no run yet — but 1 GB / allow is not in force.
+    expect(describeWafRun(status({ max_body_mb: 1024, body_exceeded_action: "allow" })).label).toBe(
+      "Saved — not applied yet.",
+    );
+    expect(describeWafRun(status({ body_exceeded_action: "drop" })).label).toBe(
+      "Saved — not applied yet.",
+    );
+  });
+
   it("says it is applying", () => {
     expect(describeWafRun(status({ running: true })).label).toMatch(/applying/i);
   });

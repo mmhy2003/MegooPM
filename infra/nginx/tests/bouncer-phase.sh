@@ -34,6 +34,7 @@ docker run -d --name bp-crowdsec --network "$NET" --network-alias crowdsec \
   -e DISABLE_ONLINE_API=true -e BOUNCER_KEY_megoopm="$KEY" \
   -e COLLECTIONS="crowdsecurity/appsec-virtual-patching crowdsecurity/appsec-generic-rules" \
   -v "$REPO/infra/crowdsec/acquis/appsec.yaml:/etc/crowdsec/acquis.d/appsec.yaml:ro" \
+  -v "$REPO/infra/crowdsec/appsec-body-size.yaml:/etc/crowdsec/appsec-configs/megoopm-body-size.yaml:ro" \
   crowdsecurity/crowdsec:v1.8.1 >/dev/null
 for _ in $(seq 60); do
   docker exec bp-crowdsec cscli lapi status >/dev/null 2>&1 && break
