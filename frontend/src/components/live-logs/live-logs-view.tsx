@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type UIEvent } from "react";
 import { Download, Pause, Play, Trash2, TriangleAlert, X } from "lucide-react";
 
 import { deadHosts, proxyHosts, redirectionHosts, streams } from "@/lib/api";
-import { LineDetail, LogHead, LogRow } from "@/components/live-logs/log-rows";
-import { matches, TABS, toText, type Tab } from "@/components/live-logs/lib";
+import { LineDetail, LogHead, LogRow, ROW_HEIGHT } from "@/components/live-logs/log-rows";
+import { LINE_CAP, matches, TABS, toText, type Tab } from "@/components/live-logs/lib";
 import { useLiveLogs } from "@/components/live-logs/use-live-logs";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -72,6 +72,42 @@ function useHostOptions() {
   return options;
 }
 
+/** Rows rendered beyond each edge of the view, so a fast scroll shows no gap. */
+const OVERSCAN = 10;
+/** The view's height before it has been measured (or where it cannot be: tests). */
+const FALLBACK_VIEW_PX = 900;
+
+/**
+ * Which of `count` fixed-height rows are in view in the scroller `ref` points
+ * at. A tab keeps 1,000 lines and a busy one changes ten times a second: only
+ * the rows that can be seen are put in the page, so a flush costs the same
+ * whether the tab holds 30 lines or 1,000.
+ */
+function useRowWindow(count: number) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [scrollTop, setScrollTop] = useState(0);
+  const [viewPx, setViewPx] = useState(0);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const measure = () => setViewPx(el.clientHeight);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  const onScroll = useCallback((event: UIEvent<HTMLDivElement>) => {
+    setScrollTop(event.currentTarget.scrollTop);
+  }, []);
+
+  const inView = Math.ceil((viewPx || FALLBACK_VIEW_PX) / ROW_HEIGHT);
+  const start = Math.min(Math.max(0, Math.floor(scrollTop / ROW_HEIGHT) - OVERSCAN), count);
+  const end = Math.min(count, start + inView + 2 * OVERSCAN);
+  return { ref, onScroll, start, end };
+}
+
 function Notice({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex items-start gap-2.5 rounded-xl border border-warning/30 bg-warning/5 p-3 text-sm">
@@ -87,7 +123,8 @@ function saveAsFile(name: string, text: string) {
   link.href = url;
   link.download = name;
   link.click();
-  URL.revokeObjectURL(url);
+  // After the click has been handled: revoking at once can cancel the download.
+  setTimeout(() => URL.revokeObjectURL(url), 0);
 }
 
 export function LiveLogsView() {
@@ -122,13 +159,16 @@ export function LiveLogsView() {
   }, [live.lines, tab, node, status, text, showNode]);
 
   const selected = selectedId === null ? null : rows.find((line) => line.id === selectedId);
+  const { ref: rowsRef, onScroll, start, end } = useRowWindow(rows.length);
+  // One callback for every row, so a memoised row re-renders only when its own
+  // props change.
+  const select = useCallback((id: number) => setSelectedId((cur) => (cur === id ? null : id)), []);
 
   // Stream hosts belong to the Stream tab, everything else to the others.
   const isStream = (key: string) => key.startsWith("s");
   const visiblePicked = picked.filter((key) => isStream(key) === (tab === "streams"));
-  const addable = options.filter(
-    (o) => !picked.includes(o.key) && (o.key === UNCLAIMED || isStream(o.key) === (tab === "streams")),
-  );
+  // Unclaimed is the default servers: http only, so never on the Stream tab.
+  const addable = options.filter((o) => !picked.includes(o.key) && isStream(o.key) === (tab === "streams"));
 
   const connection =
     live.status === "live"
@@ -260,7 +300,11 @@ export function LiveLogsView() {
           {live.paused ? "Resume" : "Pause"}
         </Button>
         {live.paused && live.pending > 0 ? (
-          <span className="text-xs text-muted-foreground">{live.pending} new</span>
+          <span className="text-xs text-muted-foreground">
+            {live.pending > LINE_CAP
+              ? `${LINE_CAP.toLocaleString()}+ new`
+              : `${live.pending.toLocaleString()} new`}
+          </span>
         ) : null}
       </div>
 
@@ -270,7 +314,7 @@ export function LiveLogsView() {
 
       <div role="table" aria-label={TAB_LABEL[tab]} className="overflow-hidden rounded-xl border">
         <LogHead tab={tab} showNode={showNode} />
-        <div className="max-h-[60vh] overflow-auto">
+        <div ref={rowsRef} onScroll={onScroll} data-testid="rows" className="max-h-[60vh] overflow-auto">
           {rows.length === 0 ? (
             <p className="px-3 py-10 text-center text-sm text-muted-foreground">
               {picked.length === 0
@@ -280,17 +324,23 @@ export function LiveLogsView() {
                   : "Waiting for traffic…"}
             </p>
           ) : (
-            rows.map((line) => (
-              <LogRow
-                key={line.id}
-                line={line}
-                tab={tab}
-                showNode={showNode}
-                hostLabel={labelOf(line.host)}
-                selected={line.id === selectedId}
-                onSelect={() => setSelectedId(line.id === selectedId ? null : line.id)}
-              />
-            ))
+            // Full height, so the scrollbar is the whole tab's; only the rows in
+            // view are in it, moved to where they sit.
+            <div style={{ height: rows.length * ROW_HEIGHT }}>
+              <div style={{ transform: `translateY(${start * ROW_HEIGHT}px)` }}>
+                {rows.slice(start, end).map((line) => (
+                  <LogRow
+                    key={line.id}
+                    line={line}
+                    tab={tab}
+                    showNode={showNode}
+                    hostLabel={labelOf(line.host)}
+                    selected={line.id === selectedId}
+                    onSelect={select}
+                  />
+                ))}
+              </div>
+            </div>
           )}
         </div>
       </div>

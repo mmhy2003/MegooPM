@@ -1,4 +1,4 @@
-import type { CSSProperties } from "react";
+import { memo, type CSSProperties } from "react";
 
 import { lineTime, statusClass, type LiveLine, type Tab } from "@/components/live-logs/lib";
 import { Badge } from "@/components/ui/badge";
@@ -49,9 +49,28 @@ function columns(tab: Tab, showNode: boolean): Column[] {
   }
 }
 
-function gridStyle(cols: Column[]): CSSProperties {
-  return { gridTemplateColumns: cols.map((c) => c.width).join(" ") };
+const GRIDS = new Map<string, CSSProperties>();
+
+/**
+ * The grid for a tab, built once and then the same object: a row whose props
+ * have not changed must not re-render, and a fresh style object each time
+ * would be a changed prop.
+ */
+function gridFor(tab: Tab, showNode: boolean): CSSProperties {
+  const key = `${tab}:${showNode}`;
+  let grid = GRIDS.get(key);
+  if (!grid) {
+    grid = { gridTemplateColumns: columns(tab, showNode).map((c) => c.width).join(" ") };
+    GRIDS.set(key, grid);
+  }
+  return grid;
 }
+
+/**
+ * Every row is exactly this tall (px), so the page can render only the rows in
+ * view and still know where each one sits.
+ */
+export const ROW_HEIGHT = 32;
 
 const ROW_CLASS =
   "grid items-center gap-2 border-b px-2.5 py-1.5 text-left font-mono text-xs whitespace-nowrap";
@@ -62,7 +81,7 @@ export function LogHead({ tab, showNode }: { tab: Tab; showNode: boolean }) {
     <div
       role="row"
       className={cn(ROW_CLASS, "bg-muted/40 text-[11px] tracking-wide text-muted-foreground uppercase")}
-      style={gridStyle(cols)}
+      style={gridFor(tab, showNode)}
     >
       {cols.map((c) => (
         <span key={c.label} role="columnheader">
@@ -96,13 +115,15 @@ function Client({ line }: { line: LiveLine }) {
   );
 }
 
-function cells(line: LiveLine, tab: Tab, hostLabel: string) {
+function cells(line: LiveLine, tab: Tab, hostLabel: string, showNode: boolean) {
   const f = line.f;
   if (line.truncated || !f) {
     const text = line.raw ?? "";
     if (tab === "requests" || tab === "streams") {
+      // Everything after the time, and after the node cell when it shows.
+      const span = showNode ? "col-[3/-1]" : "col-[2/-1]";
       return [
-        <span key="raw" className="col-[2/-1] flex items-center gap-2 overflow-hidden">
+        <span key="raw" className={cn(span, "flex items-center gap-2 overflow-hidden")}>
           <Badge variant="warning">truncated</Badge>
           <span className="truncate">{text}</span>
         </span>,
@@ -184,7 +205,13 @@ function cells(line: LiveLine, tab: Tab, hostLabel: string) {
   ];
 }
 
-export function LogRow({
+/**
+ * One line. Memoised: a busy tab flushes ten times a second, and only the rows
+ * that arrived (or whose selection changed) should render again, not all 1,000.
+ * Every prop is a value or stable: `onSelect` takes the id, so the page passes
+ * one callback for every row.
+ */
+export const LogRow = memo(function LogRow({
   line,
   tab,
   showNode,
@@ -197,25 +224,24 @@ export function LogRow({
   showNode: boolean;
   hostLabel: string;
   selected: boolean;
-  onSelect: () => void;
+  onSelect: (id: number) => void;
 }) {
-  const cols = columns(tab, showNode);
   return (
     <button
       type="button"
-      onClick={onSelect}
+      onClick={() => onSelect(line.id)}
       aria-pressed={selected}
-      className={cn(ROW_CLASS, "w-full hover:bg-muted/40", selected && "bg-muted/60")}
-      style={gridStyle(cols)}
+      className={cn(ROW_CLASS, "h-8 w-full py-0 hover:bg-muted/40", selected && "bg-muted/60")}
+      style={gridFor(tab, showNode)}
     >
       <span>{lineTime(line)}</span>
       {showNode ? (
         <span className="rounded-md bg-muted px-1.5 text-center text-[11px]">{line.node}</span>
       ) : null}
-      {cells(line, tab, hostLabel)}
+      {cells(line, tab, hostLabel, showNode)}
     </button>
   );
-}
+});
 
 /** Every field of the selected line. */
 export function LineDetail({ line, hostLabel }: { line: LiveLine; hostLabel: string }) {

@@ -1,9 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { cleanup, render, screen, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import { LiveLogsView } from "@/components/live-logs/live-logs-view";
 import type { LiveLine, Tab } from "@/components/live-logs/lib";
+import { ROW_HEIGHT } from "@/components/live-logs/log-rows";
 
 const hook = vi.hoisted(() => ({ state: {} as Record<string, unknown>, calls: [] as unknown[] }));
 vi.mock("@/components/live-logs/use-live-logs", () => ({
@@ -12,6 +13,19 @@ vi.mock("@/components/live-logs/use-live-logs", () => ({
     return hook.state;
   },
 }));
+
+// Counts row renders: every row shows its time, and nothing else asks for it.
+const rendered = vi.hoisted(() => ({ rows: 0 }));
+vi.mock("@/components/live-logs/lib", async (importOriginal) => {
+  const lib = await importOriginal<typeof import("@/components/live-logs/lib")>();
+  return {
+    ...lib,
+    lineTime: (l: LiveLine) => {
+      rendered.rows += 1;
+      return lib.lineTime(l);
+    },
+  };
+});
 
 vi.mock("@/lib/api", () => ({
   proxyHosts: { list: async () => [{ id: 1, domain_names: ["cloud.example.com"] }] },
@@ -134,13 +148,91 @@ describe("LiveLogsView", () => {
     expect(hook.calls.at(-1)).toEqual({ hosts: ["p1"], decisions: true });
   });
 
-  it("offers stream hosts only on the Stream tab, and the default site always", async () => {
+  it("offers stream hosts only on the Stream tab, and the default site everywhere else", async () => {
     render(<LiveLogsView />);
     const add = await screen.findByLabelText("Add host");
-    expect(within(add).getByRole("option", { name: "Unclaimed (default site)" })).toBeInTheDocument();
+    expect(await within(add).findByRole("option", { name: "Unclaimed (default site)" })).toBeInTheDocument();
     expect(within(add).queryByRole("option", { name: /2222/ })).toBeNull();
     await userEvent.click(screen.getByRole("tab", { name: "Stream hosts" }));
-    expect(within(screen.getByLabelText("Add host")).getByRole("option", { name: /2222/ })).toBeInTheDocument();
+    const streamAdd = screen.getByLabelText("Add host");
+    expect(within(streamAdd).getByRole("option", { name: /2222/ })).toBeInTheDocument();
+    // The default servers carry no stream lines; its chip would not even show here.
+    expect(within(streamAdd).queryByRole("option", { name: "Unclaimed (default site)" })).toBeNull();
+  });
+
+  it("renders only the new row when a line arrives, and only the clicked one on select", async () => {
+    const first = [line(), line(), line()];
+    setState({ lines: { requests: first } });
+    const { rerender } = render(<LiveLogsView />);
+    // The host labels load once; rows re-render for that, and only that.
+    await screen.findByRole("option", { name: "Unclaimed (default site)" });
+
+    rendered.rows = 0;
+    setState({ lines: { requests: [...first, line({ f: { st: "200", m: "GET", u: "/new" } })] } });
+    rerender(<LiveLogsView />);
+    expect(rendered.rows).toBe(1);
+
+    rendered.rows = 0;
+    fireEvent.click(screen.getByRole("button", { name: /\/new/ }));
+    expect(rendered.rows).toBe(1);
+  });
+
+  it("puts only the rows in view in the page, and follows the scroll", () => {
+    const many = Array.from({ length: 1000 }, (_, i) =>
+      line({ f: { st: "200", m: "GET", u: `/n${i}`, ip: "1.1.1.1" } }),
+    );
+    setState({ lines: { requests: many } });
+    render(<LiveLogsView />);
+    const table = screen.getByRole("table");
+    const rows = () => within(table).getAllByRole("button");
+    // Newest first: /n999 at the top. A tab holds 1,000 lines; the page
+    // renders a window of them, not all.
+    expect(rows().length).toBeLessThan(100);
+    expect(within(table).getByText("/n999")).toBeInTheDocument();
+    expect(within(table).queryByText("/n0")).toBeNull();
+
+    const scroller = screen.getByTestId("rows");
+    fireEvent.scroll(scroller, { target: { scrollTop: ROW_HEIGHT * 990 } });
+    expect(within(table).getByText("/n0")).toBeInTheDocument();
+    expect(within(table).queryByText("/n999")).toBeNull();
+    expect(rows().length).toBeLessThan(100);
+  });
+
+  it("starts a truncated line after the node cell when the node column shows", () => {
+    const raw = '{"k":"p1","ts":"1790000000.1","u":"/aaaa';
+    setState({
+      lines: { requests: [line({ node: "node-b", f: null, raw, truncated: true })] },
+    });
+    render(<LiveLogsView />);
+    const cell = screen.getByText(raw).parentElement;
+    expect(cell?.className).toContain("col-[3/-1]");
+    expect(cell?.className).not.toContain("col-[2/-1]");
+  });
+
+  it("says 1,000+ new when more arrived while paused than a tab keeps", () => {
+    setState({ paused: true, pending: 4321 });
+    render(<LiveLogsView />);
+    expect(screen.getByText("1,000+ new")).toBeInTheDocument();
+  });
+
+  it("revokes the saved file's URL only after the download has started", async () => {
+    const revoke = vi.fn();
+    const created = vi.fn(() => "blob:live");
+    const fakeUrl = { createObjectURL: created, revokeObjectURL: revoke };
+    vi.stubGlobal("URL", Object.assign(Object.create(URL), fakeUrl));
+    const click = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+    try {
+      setState({ lines: { requests: [line()] } });
+      render(<LiveLogsView />);
+      fireEvent.click(screen.getByRole("button", { name: /save what/i }));
+      expect(click).toHaveBeenCalledTimes(1);
+      expect(revoke).not.toHaveBeenCalled();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      expect(revoke).toHaveBeenCalledWith("blob:live");
+    } finally {
+      click.mockRestore();
+      vi.unstubAllGlobals();
+    }
   });
 
   it("says when access was revoked", () => {
