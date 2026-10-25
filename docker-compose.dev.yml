@@ -243,6 +243,9 @@ services:
       - "${NGINX_HTTPS_PORT:-8443}:443"
     volumes:
       - ./infra/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      # The same /data the worker renders into: the vhosts include documents
+      # from /data/nginx/default (error pages, ban page), which live here.
+      - app_data:/data
       - nginx_confd:/data/nginx/conf.d
       - nginx_certs:/data/certs:ro
     depends_on:
