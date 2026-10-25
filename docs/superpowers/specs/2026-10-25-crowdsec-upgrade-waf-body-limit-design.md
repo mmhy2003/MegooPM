@@ -1,7 +1,8 @@
 # CrowdSec 1.8 upgrade and the WAF upload limit — design
 
 **Status:** awaiting review, 2026-10-25. The Settings tab mockup, the
-defaults and the restart guard were agreed in the brainstorm.
+defaults and the always-restart behaviour with its safety net were agreed
+in the brainstorm.
 
 ## Intent
 
@@ -114,16 +115,27 @@ choice trades away before picking it.
   first 10 MB of every body is still checked. These are the migration's
   column defaults and the seeded file's values, so every install — fresh or
   upgraded — starts here.
-- **Restart guard: Save refuses while CrowdSec's firewall is blocking this
-  address.** When the community blocklist is on and the last credential check
-  recorded `crowdsec_capi_status_blocked`, a restart cannot come back: CrowdSec
-  treats a CAPI rejection as fatal at startup, so the rollback restart fails
-  too and every protected host denies all traffic until the block lifts. The
-  desired values are still stored; the apply is refused with a clear message
-  (409 from the PATCH, and the task re-checks before restarting, since the
-  state can change between the two). The card shows the refusal and that the
-  change is saved but not applied. With the blocklist off, CAPI is not needed
-  at startup and the guard does not apply.
+- **Save always restarts, block or not — with a safety net.** The user cannot
+  wait for CrowdSec to lift a block: the setting must take effect at once. The
+  danger is real but narrower on v1.8.1: at startup it reuses the CAPI token
+  saved in its database (`apic.Authenticate`, "using valid token from DB") and
+  only logs in when that token is missing or expired. If it must log in while
+  the address is blocked, startup fails and every protected host denies all
+  traffic. So when CrowdSec does not come back from the apply's restart **and**
+  the community blocklist is on **and** CrowdSec's firewall is blocking the
+  address (`capi.probe_edge_block()` asked at that moment), the task switches
+  the blocklist off — `config.yaml.local` rendered without `online_client`,
+  exactly as the Blocklist card's off switch writes it — keeps the new body-size
+  file, and restarts again. Without the blocklist CrowdSec needs no CAPI at
+  startup, so it comes back with the new limit in force. The switch-off is
+  recorded like an off switch from the Blocklist card (desired state off, a
+  `capi_apply` run whose detail says why), so that card reads "Off" with the
+  reason — switched off because CrowdSec's servers were blocking this address
+  — and the admin turns it back on once the block lifts. Only if CrowdSec
+  still does not come back does the ordinary rollback run.
+- **The confirmation dialog warns** when the last check recorded the address
+  as blocked and the blocklist is on: the restart may switch the community
+  blocklist off to get CrowdSec back.
 
 ## How it works
 
@@ -207,14 +219,27 @@ mockup's "nginx and CrowdSec each hold the body" wording).
 Mirror `apply_whitelists_to_disk`: render → compare with what is on disk and
 skip if identical → write in place → `crowdsec -t` (`CMD_CONFIG_TEST`) →
 restart → wait for LAPI → on failure restore the previous content and
-restart again. Run it under a Redis lock; record the run. Before writing,
-apply the restart guard (see *Decided in the brainstorm*); a refused apply
-writes nothing and is recorded as not applied, with the reason.
+restart again. Run it under a Redis lock; record the run.
 
-The guard reads the recorded status rather than probing on every save. Note
-for the builder: no other path that restarts CrowdSec (whitelists, hub
-upgrade, CAPI apply) checks this today. Extending the guard to them is a
-sensible follow-up but outside this project.
+The safety net (see *Decided in the brainstorm*) sits between the failed
+health wait and the rollback:
+
+1. Restart → healthy: done.
+2. Not healthy, blocklist on, `probe_edge_block()` is `True`: write
+   `config.yaml.local` without `online_client`, restart → healthy: done,
+   recorded as applied **with** the blocklist switched off and why. The task
+   takes the CAPI lock as well as its own, since it rewrites the file the CAPI
+   apply owns.
+3. Otherwise, or if step 2 is not healthy either: restore the previous
+   body-size file (and the previous `config.yaml.local`, if step 2 changed
+   it) and restart — the ordinary rollback, reported as failed.
+
+The probe is asked only after a failed restart, never on every save: an
+apply that comes back healthy costs no request to CrowdSec's servers.
+
+No other path that restarts CrowdSec (whitelists, hub upgrade, CAPI apply)
+has this net today. Extending it to them is a sensible follow-up, outside
+this project.
 
 ### The tab
 
