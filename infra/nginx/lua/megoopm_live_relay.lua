@@ -39,13 +39,49 @@ local TIMEOUT_MS = 200
 local HEADER = "^<(%d+)>%a+ +%d+ [%d:]+ mgm_([%w]+): (.*)$"
 -- Error lines at warn and above are kept (syslog severity 0..4).
 local WARN = 4
+
+-- CLASSIFYING AN ERROR LINE: ONLY ON WHAT NGINX WROTE
+--
+-- An error line is `<date> <time> [level] pid#tid: *conn <message>`, then the
+-- request context nginx appends: `, client: …, server: …, request: "…",
+-- host: "…", referrer: "…"`. The context is attacker-controlled (a Referer of
+-- "[Crowdsec] denied" must not make a 404 a security event), and so are parts
+-- of some messages (`open() "/var/empty/<uri>" failed`, `client sent invalid
+-- header line: "<header>"`). So the markers are matched at the START of the
+-- message, where only nginx or the bouncer's own ngx.log prefix can put them,
+-- and the context after the first ", client: " is never searched. The
+-- published `raw` is still the whole line.
+local PREFIX = "^%d+/%d+/%d+ [%d:]+ %[%a+%] %d+#%d+: "
+local CONN = "^%*%d+ "
 -- nginx logs these TLS failures at info, but an admin chasing a handshake
--- problem needs them.
+-- problem needs them. Each is how nginx's message begins.
 local KEEP_AT_INFO = {
     "SSL_do_handshake() failed",
     "peer closed connection in SSL handshake",
 }
-local DENIED = "[Crowdsec] denied"
+-- The bouncer's denial, as ngx.log writes it:
+--   [lua] crowdsec.lua:902: Allow(): [Crowdsec] denied '1.2.3.4' with 'ban' (by appsec)
+-- The marker must be the first "[" after the Lua source location.
+local DENIED = "^%[lua%] %S+:%d+: [^%[]*%[Crowdsec%] denied"
+
+-- nginx's own message: without the timestamp/level/pid prefix and without the
+-- request context.
+local function nginx_message(body)
+    local msg = body
+    local _, prefix_end = msg:find(PREFIX)
+    if prefix_end then
+        msg = msg:sub(prefix_end + 1)
+        local _, conn_end = msg:find(CONN)
+        if conn_end then
+            msg = msg:sub(conn_end + 1)
+        end
+    end
+    local context = msg:find(", client: ", 1, true)
+    if context then
+        msg = msg:sub(1, context - 1)
+    end
+    return msg
+end
 
 -- Pure: no I/O, no ngx state. Returns nil for anything that is not shown.
 --   { host, log, sev, body, truncated, f }
@@ -73,14 +109,15 @@ function M.parse(datagram)
         return { host = host, log = kind, sev = sev, body = body, truncated = true }
     end
 
+    local msg = nginx_message(body)
     local kind
-    if body:find(DENIED, 1, true) then
+    if msg:find(DENIED) then
         kind = "security"
     elseif sev <= WARN then
         kind = "error"
     else
         for _, needle in ipairs(KEEP_AT_INFO) do
-            if body:find(needle, 1, true) then
+            if msg:sub(1, #needle) == needle then
                 kind = "error"
                 break
             end

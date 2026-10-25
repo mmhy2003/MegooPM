@@ -212,12 +212,35 @@ check("an error", "<187>Oct 25 10:00:00 mgm_p1: 2026/10/25 10:00:00 [error] 7#7:
     { host = "p1", log = "error", sev = 3, truncated = false })
 check("a warning", "<188>Oct 25 10:00:00 mgm_d3: 2026/10/25 10:00:00 [warn] 7#7: *1 an upstream response is buffered",
     { log = "error", sev = 4 })
-check("a TLS handshake failure at info", H .. "mgm_p1: 2026/10/25 10:00:00 [info] 7#7: *1 SSL_do_handshake() failed (SSL: error)",
+-- The request context nginx appends; the referrer is the attacker's to write.
+local function ctx(referrer)
+    return ', client: 1.2.3.4, server: _, request: "GET / HTTP/1.1", host: "a.example"'
+        .. (referrer and (', referrer: "' .. referrer .. '"') or "")
+end
+check("a TLS handshake failure at info", H .. "mgm_p1: 2026/10/25 10:00:00 [info] 7#7: *1 SSL_do_handshake() failed"
+    .. " (SSL: error:0A00006C:SSL routines::bad key share) while SSL handshaking, client: 1.2.3.4, server: 0.0.0.0:443",
     { log = "error", sev = 6 })
-check("a peer closing the TLS handshake", H .. "mgm_u: 2026/10/25 10:00:00 [info] 7#7: *1 peer closed connection in SSL handshake",
+check("a peer closing the TLS handshake", H .. "mgm_u: 2026/10/25 10:00:00 [info] 7#7: *1 peer closed connection"
+    .. " in SSL handshake while SSL handshaking, client: 1.2.3.4, server: 0.0.0.0:443",
     { host = "u", log = "error" })
-check("a CrowdSec denial", "<185>Oct 25 10:00:00 mgm_u: 2026/10/25 10:00:00 [alert] 7#7: *1 [Crowdsec] denied '1.2.3.4' with 'ban' (by lapi)",
+-- Verbatim shape of the bouncer's line (seen in this harness's own logs).
+check("a CrowdSec denial", "<185>Oct 25 10:00:00 mgm_u: 2026/10/25 10:00:00 [alert] 23#23: *127 [lua] crowdsec.lua:902:"
+    .. " Allow(): [Crowdsec] denied '1.2.3.4' with 'ban' (by appsec)" .. ctx(),
     { host = "u", log = "security", sev = 1 })
+check("a referrer saying [Crowdsec] denied is still just an error",
+    "<187>Oct 25 10:00:00 mgm_p1: 2026/10/25 10:00:00 [error] 7#7: *1 open() \"/var/empty/megoopm/x\" failed"
+    .. " (2: No such file or directory)" .. ctx("[Crowdsec] denied '9.9.9.9' with 'ban' (by appsec)"),
+    { log = "error", sev = 3 })
+check("a URI saying [Crowdsec] denied is still just an error",
+    "<187>Oct 25 10:00:00 mgm_p1: 2026/10/25 10:00:00 [error] 7#7: *1 open() \"/var/empty/megoopm/[Crowdsec] denied\""
+    .. " failed (2: No such file or directory)" .. ctx(),
+    { log = "error" })
+check("a referrer saying SSL_do_handshake() failed is still dropped at info",
+    H .. "mgm_p1: 2026/10/25 10:00:00 [info] 7#7: *1 client prematurely closed connection while sending response"
+    .. ctx("SSL_do_handshake() failed"), nil)
+check("a header saying SSL_do_handshake() failed is still dropped at info",
+    H .. "mgm_p1: 2026/10/25 10:00:00 [info] 7#7: *1 client sent invalid header line: \"X: SSL_do_handshake() failed\""
+    .. " while reading client request headers" .. ctx(), nil)
 check("info noise is dropped", H .. "mgm_p1: 2026/10/25 10:00:00 [info] 7#7: *1 client closed connection while waiting for request", nil)
 check("notice noise is dropped", "<189>Oct 25 10:00:00 mgm_p1: 2026/10/25 10:00:00 [notice] 7#7: signal process started", nil)
 check("a foreign tag is dropped", H .. 'nginx: {"st":"200"}', nil)
@@ -229,7 +252,7 @@ MSYS_NO_PATHCONV=1 docker run --rm --entrypoint resty -v "$WORK_MOUNT:/w" \
   -v "$REPO/infra/nginx/lua:/lua:ro" "$IMAGE" /w/parse.lua > "$WORK/parse.out" 2>&1 || true
 cat "$WORK/parse.out"
 grep -q '^FAIL' "$WORK/parse.out" && FAILED=1
-[ "$(grep -c '^ok' "$WORK/parse.out" || true)" = 14 ] || { echo "FAIL  parse: not every case ran"; FAILED=1; }
+[ "$(grep -c '^ok' "$WORK/parse.out" || true)" = 18 ] || { echo "FAIL  parse: not every case ran"; FAILED=1; }
 
 # --- 3. Nobody watching: the relay asks, and publishes nothing ------------------
 docker rm -f ll-sub >/dev/null
