@@ -227,6 +227,12 @@ services:
       CROWDSEC_APPSEC_URL: http://crowdsec:7422
       CROWDSEC_BOUNCER_KEY: ${CROWDSEC_BOUNCER_KEY:-megoopm-dev-bouncer-key}
       NGINX_RELOAD_TOKEN: ${NGINX_RELOAD_TOKEN:-megoopm-dev-reload-token}
+      # The live log relay publishes to Redis (and the visitor analytics count
+      # into it). Without it, Live logs would show nothing.
+      REDIS_URL: redis://redis:6379/0
+      # Single node: unset, so live log lines are tagged `local`, as the
+      # backend names this node.
+      NODE_ID: ""
       # Ship access/error logs to the CrowdSec agent (syslog/UDP) so its nginx
       # scenarios detect attackers; real-IP settings for CDN/tunnel setups.
       CROWDSEC_SYSLOG_ADDR: crowdsec:514

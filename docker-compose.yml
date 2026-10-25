@@ -199,6 +199,9 @@ services:
       # Set ANALYTICS_ENABLED=false to turn counting off entirely.
       REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
       ANALYTICS_ENABLED: ${ANALYTICS_ENABLED:-true}
+      # Live logs tag each line with the node. Single node: unset, so the
+      # relay calls this node `local`, as the backend does.
+      NODE_ID: ""
       # Ship access/error logs to the CrowdSec agent (syslog/UDP) so its nginx
       # scenarios detect attackers. Behind a CDN/tunnel/LB set the real-IP pair
       # (e.g. Cloudflare: NGINX_REAL_IP_HEADER=CF-Connecting-IP) or detections

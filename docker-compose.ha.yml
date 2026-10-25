@@ -152,6 +152,9 @@ services:
       # Redis, so the counts aggregate cluster-wide before any flush.
       REDIS_URL: ${REDIS_URL:?REDIS_URL is required (shared Redis)}
       ANALYTICS_ENABLED: ${ANALYTICS_ENABLED:-true}
+      # Live logs tag each line with the node that served it -- the same id
+      # the backend on this node uses.
+      NODE_ID: ${NODE_ID:?NODE_ID is required and must be unique per node}
       # This node's nginx ships its logs to the shared CrowdSec agent's
       # syslog port (control-plane host:514/udp). Real-IP for CDN/LB setups.
       CROWDSEC_SYSLOG_ADDR: ${CROWDSEC_SYSLOG_ADDR:?CROWDSEC_SYSLOG_ADDR is required (shared CrowdSec host:514)}
