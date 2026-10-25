@@ -3,9 +3,12 @@
 -- Every server block sends its request and error lines, as syslog over UDP,
 -- to 127.0.0.1:5140 -- the stream server in nginx.conf that runs this module,
 -- once per datagram. Each line is classified, tagged with this node's id and
--- PUBLISHed to `megoopm:live:<host key>`, but only while that channel has a
--- subscriber (a Live logs page watching that host); otherwise it is dropped on
--- arrival. Redis is a pass-through here: no key is ever written.
+-- PUBLISHed to `megoopm:live:<host key>` while that channel has a subscriber
+-- (a Live logs page watching that host), and to `megoopm:live:all` while that
+-- one has (a page watching All logs); with neither, it is dropped on arrival.
+-- nginx's own messages -- its main error log, and error lines no host key is
+-- attached to -- are host `n`. Redis is a pass-through here: no key is ever
+-- written.
 --
 -- Nothing here may slow or fail nginx. The request that produced a line was
 -- already served -- syslog over UDP is fire and forget -- so the worst a fault
@@ -39,6 +42,14 @@ local TIMEOUT_MS = 200
 -- counted, and the count is published once a second as
 -- {"log":"skipped",…,"count":N}, so skipping is never silent.
 local CAP = 300
+-- All logs: every host's lines, and nginx's own, on one more channel. It has a
+-- NUMSUB count, a cap of 300 a second and skipped reports of its own, kept
+-- like a host's under the key `all` -- which is why no line may be for a host
+-- of that name.
+local ALL = "all"
+-- nginx itself: the main error log (tag mgm_n) and error lines that carry no
+-- host key (the shared tag mgm_x).
+local NGINX = "n"
 -- The keys of this relay's counters in the shared dict, next to the NUMSUB
 -- counts (which are keyed by the bare host key; a host key has no ":").
 local function lines_key(host)
@@ -63,6 +74,9 @@ local ACCESS_TAG = "x"
 local ACCESS_KEY = '^{"k":"(%w*)",'
 -- Error lines at warn and above are kept (syslog severity 0..4).
 local WARN = 4
+-- nginx's own lines down to notice (5): its process messages -- reloads,
+-- workers starting and exiting -- are notices.
+local NOTICE = 5
 
 -- CLASSIFYING AN ERROR LINE: ONLY ON WHAT NGINX WROTE
 --
@@ -126,9 +140,14 @@ function M.split(datagram)
     if tag == ACCESS_TAG then
         -- A tag of its own (not `x`) is a block rendered before the access log
         -- was shared; it still names the host, until the worker re-renders.
-        host = access and body:match(ACCESS_KEY) or nil
+        -- An error line under the shared tag names no host: it is nginx's own.
+        if access then
+            host = body:match(ACCESS_KEY)
+        else
+            host = NGINX
+        end
     end
-    if not host or host == "" then
+    if not host or host == "" or host == ALL then
         return nil
     end
     return { host = host, sev = tonumber(pri) % 8, body = body, access = access }
@@ -150,6 +169,14 @@ function M.classify(s)
             return { host = host, log = kind, sev = sev, body = body, truncated = false, f = f }
         end
         return { host = host, log = kind, sev = sev, body = body, truncated = true }
+    end
+
+    if host == NGINX then
+        -- nginx's own: no request, so no denial and no TLS handshake to keep.
+        if sev > NOTICE then
+            return nil
+        end
+        return { host = host, log = "error", sev = sev, body = body, truncated = false }
     end
 
     local msg = nginx_message(body)
@@ -204,7 +231,9 @@ local function connect()
     return red
 end
 
-local function relay(premature, p, watchers)
+-- Publishes `p` on each of `targets`: { { key = <host key or "all">, watchers =
+-- <cached count, or nil when not known> }, ... }. The same message on each.
+local function relay(premature, p, targets)
     if premature then
         return
     end
@@ -212,26 +241,37 @@ local function relay(premature, p, watchers)
 
     local red = connect()
     if not red then
-        -- Unreachable: drop, and do not try again for this host until the
-        -- cache entry lapses -- a Redis outage must not cost a connect per line.
+        -- Unreachable: drop, and do not try again for these channels until
+        -- the cache entries lapse -- a Redis outage must not cost a connect
+        -- per line.
         if shm then
-            shm:set(p.host, 0, NUMSUB_TTL)
+            for _, t in ipairs(targets) do
+                shm:set(t.key, 0, NUMSUB_TTL)
+            end
         end
         return
     end
 
-    local channel = CHANNEL .. p.host
     local healthy = true
-    if watchers == nil then
-        local res = red:pubsub("numsub", channel)
-        healthy = type(res) == "table"
-        watchers = healthy and tonumber(res[2]) or 0
-        if shm then
-            shm:set(p.host, watchers, NUMSUB_TTL)
+    local msg
+    for _, t in ipairs(targets) do
+        local channel = CHANNEL .. t.key
+        local watchers = t.watchers
+        if watchers == nil then
+            local res = red:pubsub("numsub", channel)
+            healthy = type(res) == "table"
+            watchers = healthy and tonumber(res[2]) or 0
+            if shm then
+                shm:set(t.key, watchers, NUMSUB_TTL)
+            end
         end
-    end
-    if watchers > 0 then
-        healthy = red:publish(channel, message(p)) ~= nil
+        if healthy and watchers > 0 then
+            msg = msg or message(p)
+            healthy = red:publish(channel, msg) ~= nil
+        end
+        if not healthy then
+            break
+        end
     end
 
     if healthy then
@@ -323,10 +363,12 @@ function M.handle()
             return
         end
         local shm = ngx.shared[DICT]
+        -- nil: not known this second, so the timer asks.
         local watchers = shm and shm:get(s.host)
-        if watchers == 0 then
-            -- Nobody watching, as of the last second: the common case costs
-            -- one pattern match, and no JSON decode.
+        local all_watchers = shm and shm:get(ALL)
+        if watchers == 0 and all_watchers == 0 then
+            -- Nobody watching the host or All logs, as of the last second:
+            -- the common case costs one pattern match, and no JSON decode.
             return
         end
         -- An error line is filtered first: most are info noise, which must
@@ -339,8 +381,21 @@ function M.handle()
                 return
             end
         end
-        if not admit(shm, s.host) then
-            skip(shm, s.host)
+        -- Each channel has its own cap, and its own skipped count.
+        local targets = {}
+        local function target(key, n)
+            if n == 0 then
+                return
+            end
+            if admit(shm, key) then
+                targets[#targets + 1] = { key = key, watchers = n }
+            else
+                skip(shm, key)
+            end
+        end
+        target(s.host, watchers)
+        target(ALL, all_watchers)
+        if #targets == 0 then
             return
         end
         p = p or M.classify(s)
@@ -348,13 +403,15 @@ function M.handle()
         -- like a line over the cap, rather than logged (a log line per lost
         -- line would add load at the worst moment).
         local scheduled = ngx.timer.at(0, function(premature)
-            local ok_relay, relay_err = pcall(relay, premature, p, watchers)
+            local ok_relay, relay_err = pcall(relay, premature, p, targets)
             if not ok_relay then
                 ngx.log(ngx.WARN, "[megoopm] live relay: ", tostring(relay_err))
             end
         end)
         if not scheduled then
-            skip(shm, s.host)
+            for _, t in ipairs(targets) do
+                skip(shm, t.key)
+            end
         end
     end)
     if not ok then

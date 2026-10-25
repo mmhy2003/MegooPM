@@ -19,7 +19,8 @@ IMAGE=megoopm-nginx-probe
 WORK="$(mktemp -d)"
 # Docker Desktop cannot mount a Git Bash /tmp path; cygpath gives it the Windows one.
 WORK_MOUNT="$(cygpath -m "$WORK" 2>/dev/null || echo "$WORK")"
-CONTAINERS="ll-redis ll-nginx-a ll-nginx-b ll-nginx-c ll-nginx-fd ll-cs ll-client ll-sub ll-sub2 ll-sub3 ll-monitor"
+CONTAINERS="ll-redis ll-nginx-a ll-nginx-b ll-nginx-c ll-nginx-fd ll-cs ll-client ll-sub ll-sub2 ll-sub3 ll-sub-n
+  ll-sub-all ll-sub-all2 ll-monitor"
 FAILED=0
 
 cleanup() {
@@ -186,7 +187,7 @@ sleep 2
 docker logs ll-sub > "$WORK/sub.out" 2>&1
 # One tab-separated row per published message, flattened by the image's own
 # cjson so the payload is checked as JSON, not grepped as text:
-#   node host log truncated st m u ip ua raw-prefix cs count   (or INVALID)
+#   node host log truncated st m u ip ua raw-prefix cs count sev   (or INVALID)
 cat > "$WORK/summarize.lua" <<'EOF'
 local cjson = require("cjson.safe")
 local lines = {}
@@ -202,7 +203,7 @@ while i <= #lines do
             local f = type(m.f) == "table" and m.f or {}
             local raw = type(m.raw) == "string" and m.raw:sub(1, 120) or ""
             print(table.concat({ s(m.node), s(m.host), s(m.log), s(m.truncated), s(f.st),
-                s(f.m), s(f.u), s(f.ip), s(f.ua), raw, s(f.cs), s(m.count) }, "\t"))
+                s(f.m), s(f.u), s(f.ip), s(f.ua), raw, s(f.cs), s(m.count), s(m.sev) }, "\t"))
         end
         i = i + 3
     else
@@ -317,6 +318,88 @@ expect "what the cap drops is reported as skipped" yes \
 expect "published plus skipped is every request" "$FLOOD" "$((FLOOD_LINES + FLOOD_SKIPPED))"
 docker rm -f -v ll-sub3 >/dev/null
 
+# --- 1d. nginx itself (n), and All logs (all) --------------------------------------
+# nginx's main error log sends its process messages (reloads, workers starting
+# and exiting) at notice, tagged mgm_n; an error line with no host key (tag
+# mgm_x) is nginx's own too. All logs is one more channel: every line goes to
+# its host's channel if watched, and to megoopm:live:all if that is watched.
+# ll-sub still watches p1, so a p1 line arrives once on each of the two.
+docker run -d --name ll-sub-n --network "$NET" redis:7-alpine \
+  redis-cli -h ll-redis SUBSCRIBE megoopm:live:n >/dev/null
+docker run -d --name ll-sub-all --network "$NET" redis:7-alpine \
+  redis-cli -h ll-redis SUBSCRIBE megoopm:live:all >/dev/null
+for _ in $(seq 20); do [ "$(numsub n)" = 1 ] && [ "$(numsub all)" = 1 ] && break; sleep 0.5; done
+sleep 1.2 # past the relay's cached "nobody watches all" from the flood
+for node in a b; do
+  expect "a request on node-$node, watched as p1 and as all" 200 "$(curl_ "http://ll-nginx-$node:8001/both-$node")"
+done
+# Before the relay listens (nginx's own start), a send to it is refused and
+# nginx says so in the container log; once it listens, a reload's are not.
+refused() { docker logs ll-nginx-a 2>&1 | grep -c 'while logging to syslog' || true; }
+REFUSED_BEFORE="$(refused)"
+docker exec ll-nginx-a openresty -p /usr/local/openresty/nginx -c /etc/nginx/nginx.conf -s reload \
+  >/dev/null 2>&1 && RC=0 || RC=$?
+expect "reload on node-a" 0 "$RC"
+# What an error line with no host key looks like on the wire, straight to node-b's relay.
+docker exec ll-nginx-b sh -c "printf '%s' '<187>Oct 25 10:00:00 mgm_x: 2026/10/25 10:00:00 [error] 7#7: *1 probe-no-key' \
+  | socat - UDP:127.0.0.1:5140"
+sleep 2
+for s in sub-n sub-all sub; do
+  docker logs "ll-$s" > "$WORK/$s.out" 2>&1
+  MSYS_NO_PATHCONV=1 docker run --rm --entrypoint resty -v "$WORK_MOUNT:/w" "$IMAGE" \
+    /w/summarize.lua "/w/$s.out" > "$WORK/$s.tsv"
+done
+rows_in() { awk -F'\t' "$2" "$WORK/$1.tsv" | wc -l | tr -d ' '; }
+expect "a reload yields a notice-level process line under n" yes \
+  "$( [ "$(rows_in sub-n '$1 == "node-a" && $2 == "n" && $3 == "error" && $13 == "5" && $10 ~ /reconfiguring/')" -ge 1 ] \
+     && echo yes || echo no)"
+expect "an error with no host key arrives under n" 1 \
+  "$(rows_in sub-n '$1 == "node-b" && $2 == "n" && $3 == "error" && $10 ~ /probe-no-key/')"
+expect "n carries nginx's own lines only" 0 "$(rows_in sub-n '$2 != "n"')"
+# The relay's own server logs to stderr, not to the main error log: a relay
+# that fed itself would never stop.
+expect "nginx's own lines do not feed themselves" yes \
+  "$( [ "$(rows_in sub-n '$2 == "n"')" -lt 100 ] && echo yes || echo no)"
+expect "the main log's notices stay out of the container log, as before" 0 \
+  "$(docker logs ll-nginx-a 2>&1 | grep -c 'reconfiguring' || true)"
+expect "a reload's own lines reach the relay, none refused" "$REFUSED_BEFORE" "$(refused)"
+for node in a b; do
+  expect "all: the request on node-$node arrives once, as host p1" 1 \
+    "$(rows_in sub-all "\$1 == \"node-$node\" && \$2 == \"p1\" && \$3 == \"request\" && \$7 == \"/both-$node\"")"
+  expect "p1: the same request arrives once on p1's channel too" 1 \
+    "$(rows_in sub "\$1 == \"node-$node\" && \$2 == \"p1\" && \$3 == \"request\" && \$7 == \"/both-$node\"")"
+done
+expect "all: nginx's own lines are in it" yes \
+  "$( [ "$(rows_in sub-all '$2 == "n" && $10 ~ /reconfiguring/')" -ge 1 ] && echo yes || echo no)"
+expect "all: nothing is published as host all" 0 "$(rows_in sub-all '$2 == "all" && $3 != "skipped"')"
+
+# --- 1e. A flood on All logs: its own cap of 300 lines a second -------------------
+# Like 1c, on the all channel: what passes is at most 300 for each second, the
+# rest arrive as `skipped` counts with host "all", and the two add up.
+docker run -d --name ll-sub-all2 --network "$NET" redis:7-alpine \
+  redis-cli -h ll-redis SUBSCRIBE megoopm:live:all >/dev/null
+for _ in $(seq 20); do [ "$(numsub all)" = 2 ] && break; sleep 0.5; done
+sleep 1.2
+T0="$(date +%s.%N)"
+docker exec ll-client curl -s -o /dev/null "http://ll-nginx-a:8001/flood-all-[1-$FLOOD]" || true
+T1="$(date +%s.%N)"
+sleep 3
+docker logs ll-sub-all2 > "$WORK/sub-all2.out" 2>&1
+MSYS_NO_PATHCONV=1 docker run --rm --entrypoint resty -v "$WORK_MOUNT:/w" "$IMAGE" \
+  /w/summarize.lua /w/sub-all2.out > "$WORK/sub-all2.tsv"
+ALL_LINES="$(rows_in sub-all2 '$3 == "request" && $7 ~ /^\/flood-all-/')"
+ALL_SKIPS="$(rows_in sub-all2 '$1 == "node-a" && $2 == "all" && $3 == "skipped"')"
+ALL_SKIPPED="$(awk -F'\t' '$3 == "skipped" && $2 == "all" { n += $12 } END { print n + 0 }' "$WORK/sub-all2.tsv")"
+ALL_SECONDS="$(awk -v a="$T0" -v b="$T1" 'BEGIN { print int(b) - int(a) + 2 }')"
+echo "info  flood on all: $FLOOD requests in $(awk -v a="$T0" -v b="$T1" 'BEGIN { printf "%.2f", b - a }') s:" \
+  "$ALL_LINES published, $ALL_SKIPPED skipped in $ALL_SKIPS messages"
+expect "all: a flood is held to 300 lines a second" yes \
+  "$(awk -v n="$ALL_LINES" -v s="$ALL_SECONDS" 'BEGIN { print (n >= 300 && n <= 300 * s) ? "yes" : "no" }')"
+expect "all: what the cap drops is reported as skipped" yes \
+  "$( [ "$ALL_SKIPS" -ge 1 ] && [ "$ALL_SKIPS" -le "$ALL_SECONDS" ] && echo yes || echo no)"
+expect "all: published plus skipped is every request" "$FLOOD" "$((ALL_LINES + ALL_SKIPPED))"
+docker rm -f -v ll-sub-all2 >/dev/null
+
 # --- 2. Parsing, case by case (the pure M.parse) --------------------------------
 cat > "$WORK/parse.lua" <<'EOF'
 package.path = "/lua/?.lua;" .. package.path
@@ -361,8 +444,25 @@ check("a client cannot name the host",
     H .. 'mgm_x: {"k":"","u":"/\\",\\"k\\":\\"p1","st":"200"}', nil)
 check("a block in the earlier shape is its tag's host", H .. 'mgm_p7: {"k":"u","st":"200"}',
     { host = "p7", log = "request" })
-check("an error line under the shared tag is dropped",
-    "<187>Oct 25 10:00:00 mgm_x: 2026/10/25 10:00:00 [error] 7#7: *1 connect() failed", nil)
+-- nginx itself (host n): an error line under the shared tag carries no host
+-- key, and the main error log (nginx's process messages) is tagged mgm_n.
+check("an error line under the shared tag is nginx's own",
+    "<187>Oct 25 10:00:00 mgm_x: 2026/10/25 10:00:00 [error] 7#7: *1 connect() failed",
+    { host = "n", log = "error", sev = 3, truncated = false })
+check("a process message at notice is nginx's own",
+    "<189>Oct 25 10:00:00 mgm_n: 2026/10/25 10:00:00 [notice] 1#1: signal 1 (SIGHUP) received from 9, reconfiguring",
+    { host = "n", log = "error", sev = 5 })
+check("a worker crash is nginx's own",
+    "<185>Oct 25 10:00:00 mgm_n: 2026/10/25 10:00:00 [alert] 1#1: worker process 8 exited on signal 11",
+    { host = "n", log = "error", sev = 1 })
+check("nginx's own info noise is dropped",
+    H .. "mgm_n: 2026/10/25 10:00:00 [info] 1#1: *1 client closed connection", nil)
+check("info under the shared tag is dropped",
+    H .. "mgm_x: 2026/10/25 10:00:00 [info] 7#7: *1 client closed connection", nil)
+-- `all` is a channel, never a host: nothing may be published as host "all".
+check("an access line keyed all is dropped", H .. 'mgm_x: {"k":"all","st":"200"}', nil)
+check("an error line tagged all is dropped",
+    "<187>Oct 25 10:00:00 mgm_all: 2026/10/25 10:00:00 [error] 7#7: *1 connect() failed", nil)
 check("an error", "<187>Oct 25 10:00:00 mgm_p1: 2026/10/25 10:00:00 [error] 7#7: *1 connect() failed",
     { host = "p1", log = "error", sev = 3, truncated = false })
 check("a warning", "<188>Oct 25 10:00:00 mgm_d3: 2026/10/25 10:00:00 [warn] 7#7: *1 an upstream response is buffered",
@@ -407,7 +507,7 @@ MSYS_NO_PATHCONV=1 docker run --rm --entrypoint resty -v "$WORK_MOUNT:/w" \
   -v "$REPO/infra/nginx/lua:/lua:ro" "$IMAGE" /w/parse.lua > "$WORK/parse.out" 2>&1 || true
 cat "$WORK/parse.out"
 grep -q '^FAIL' "$WORK/parse.out" && FAILED=1
-[ "$(grep -c '^ok' "$WORK/parse.out" || true)" = 23 ] || { echo "FAIL  parse: not every case ran"; FAILED=1; }
+[ "$(grep -c '^ok' "$WORK/parse.out" || true)" = 29 ] || { echo "FAIL  parse: not every case ran"; FAILED=1; }
 
 # --- 2a. The cap and the skipped count, step by step (M.handle) -----------------
 # A fixed clock, a fake socket, timers that run when told, and a fake Redis that
@@ -458,8 +558,16 @@ local function skipped_messages()
     end
     return out
 end
+local function on(channel)
+    local n = 0
+    for _, p in ipairs(published) do
+        if p[1] == channel then n = n + 1 end
+    end
+    return n
+end
 local shm = ngx.shared.megoopm_live
 shm:set("p1", 1, 60) -- the cached NUMSUB count: somebody watches p1
+shm:set("all", 0, 60) -- and nobody watches All logs, until the cases below
 datagram = '<190>Oct 25 10:00:00 mgm_x: {"k":"p1","st":"200"}'
 
 for _ = 1, 305 do relay.handle() end
@@ -487,13 +595,52 @@ shm:set("p9", 0, 60) -- nobody watches p9
 datagram = '<190>Oct 25 10:00:00 mgm_x: {"k":"p9","st":"200"}'
 for _ = 1, 400 do relay.handle() end
 expect("an unwatched host costs no timer", 0, #timers)
+
+-- All logs: every line also goes to megoopm:live:all, under a cap of its own.
+now, timers, published = 1004.5, {}, {}
+shm:set("all", 1, 60) -- somebody watches All logs; still nobody p9
+for _ = 1, 305 do relay.handle() end
+expect("all: 300 lines of a host nobody else watches are relayed", 300, run(0))
+expect("all: on the all channel", 300, on("megoopm:live:all"))
+expect("all: and not on the host's", 0, on("megoopm:live:p9"))
+expect("all: each keeps its real host", true, published[1] and published[1][2]:find('"host":"p9"', 1, true) ~= nil)
+published = {}
+expect("all: one skipped report is due", 1, run(1))
+skips = skipped_messages()
+expect("all: one skipped message", 1, #skips)
+expect("all: on the all channel", "megoopm:live:all", skips[1] and skips[1][1])
+expect("all: counting the 5 over its cap", '{"log":"skipped","node":"t","host":"all","count":5}',
+    skips[1] and skips[1][2])
+
+now, timers, published = 1005.5, {}, {}
+datagram = '<190>Oct 25 10:00:00 mgm_x: {"k":"p1","st":"200"}'
+relay.handle()
+expect("both watched: one line is one timer", 1, run(0))
+expect("both watched: published on the host's channel", 1, on("megoopm:live:p1"))
+expect("both watched: and on all", 1, on("megoopm:live:all"))
+expect("both watched: the same message", true, published[2] ~= nil and published[1][2] == published[2][2])
+
+-- nginx itself: an error line with no host key is host n.
+now, timers, published = 1006.5, {}, {}
+shm:set("all", 0, 60)
+shm:set("n", 1, 60)
+datagram = "<187>Oct 25 10:00:00 mgm_x: 2026/10/25 10:00:00 [error] 7#7: *1 no host here"
+relay.handle()
+run(0)
+expect("n: an error with no host key is published as nginx's own", 1, on("megoopm:live:n"))
+expect("n: as host n", true, published[1] and published[1][2]:find('"host":"n"', 1, true) ~= nil)
+
+now, timers, published = 1007.5, {}, {}
+shm:set("n", 0, 60)
+for _ = 1, 10 do relay.handle() end
+expect("neither n nor all watched: no timer", 0, #timers)
 os.exit(failed and 1 or 0)
 EOF
 MSYS_NO_PATHCONV=1 docker run --rm --entrypoint resty -v "$WORK_MOUNT:/w" \
   -v "$REPO/infra/nginx/lua:/lua:ro" "$IMAGE" --shdict 'megoopm_live 1m' /w/cap.lua > "$WORK/cap.out" 2>&1 || true
 cat "$WORK/cap.out"
 grep -q '^FAIL' "$WORK/cap.out" && FAILED=1
-[ "$(grep -c '^ok' "$WORK/cap.out" || true)" = 10 ] || { echo "FAIL  cap: not every case ran"; FAILED=1; }
+[ "$(grep -c '^ok' "$WORK/cap.out" || true)" = 25 ] || { echo "FAIL  cap: not every case ran"; FAILED=1; }
 
 # --- 2b. A CrowdSec denial: a security line, and a request line marked denied ---
 # A LAPI-only CrowdSec (no agent, no online API, so it installs no hub items and
@@ -555,15 +702,33 @@ expect "requests that were never denied carry cs empty" 0 "$(rows '$3 == "reques
 docker rm -f -v ll-sub >/dev/null
 for _ in $(seq 20); do [ "$(numsub p1)" = 0 ] && break; sleep 0.5; done
 sleep 2 # past the 1 s NUMSUB cache
+# All logs alone: nobody watches p1 itself, and its lines still reach all.
+expect "all only: a request on p1" 200 "$(curl_ "http://ll-nginx-a:8001/all-only")"
+sleep 1
+docker logs ll-sub-all > "$WORK/sub-all.out" 2>&1
+MSYS_NO_PATHCONV=1 docker run --rm --entrypoint resty -v "$WORK_MOUNT:/w" "$IMAGE" \
+  /w/summarize.lua /w/sub-all.out > "$WORK/sub-all.tsv"
+expect "all only: it arrives on all, as host p1" 1 \
+  "$(rows_in sub-all '$1 == "node-a" && $2 == "p1" && $3 == "request" && $7 == "/all-only"')"
+docker rm -f -v ll-sub-n ll-sub-all >/dev/null
+for _ in $(seq 20); do [ "$(numsub all)" = 0 ] && [ "$(numsub n)" = 0 ] && break; sleep 0.5; done
+sleep 2 # past the 1 s NUMSUB cache
 docker run -d --name ll-monitor --network "$NET" redis:7-alpine redis-cli -h ll-redis MONITOR >/dev/null
 sleep 1
 for node in a b; do
   curl_ "http://ll-nginx-$node:8001/unwatched" >/dev/null
   curl_ "http://ll-nginx-$node/scanner-probe" >/dev/null # the base default server, tag mgm_u
+  # nginx's own: a line for n, which nobody watches either.
+  docker exec "ll-nginx-$node" sh -c "printf '%s' '<187>Oct 25 10:00:00 mgm_x: 2026/10/25 10:00:00 [error] 7#7: *1 unwatched-n' \
+    | socat - UDP:127.0.0.1:5140"
 done
 sleep 2
 docker logs ll-monitor > "$WORK/monitor.out" 2>&1
 expect "unwatched: no PUBLISH" 0 "$(grep -ci '"publish"' "$WORK/monitor.out" || true)"
+expect "unwatched: all is asked about" yes \
+  "$(grep -qi '"pubsub" "numsub" "megoopm:live:all"' "$WORK/monitor.out" && echo yes || echo no)"
+expect "unwatched: n is asked about" yes \
+  "$(grep -qi '"pubsub" "numsub" "megoopm:live:n"' "$WORK/monitor.out" && echo yes || echo no)"
 expect "unwatched: p1 is asked about" yes \
   "$(grep -qi '"pubsub" "numsub" "megoopm:live:p1"' "$WORK/monitor.out" && echo yes || echo no)"
 expect "unwatched: the default server (u) is asked about" yes \
