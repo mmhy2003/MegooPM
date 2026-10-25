@@ -27,6 +27,8 @@ import logging
 from contextlib import nullcontext
 from datetime import UTC, datetime
 
+from celery.signals import worker_ready
+
 from app.core.celery_app import celery_app, node_queue
 from app.core.config import settings
 from app.schemas.events import Event
@@ -208,6 +210,33 @@ def reload_nginx_config() -> dict:
     if settings.ha_enabled:
         return _apply_ha()
     return _apply_single_host()
+
+
+# Long enough for the node's nginx reload agent to be listening when the worker
+# came up with it (compose only waits for nginx to have started): an apply that
+# cannot reach it would roll back and report a failure nobody caused.
+STARTUP_RENDER_DELAY_SECONDS = 10
+
+
+@worker_ready.connect
+def render_nginx_on_worker_start(**_kwargs: object) -> None:
+    """Render the managed nginx config once, when this worker is ready.
+
+    Nothing else re-renders at startup, so after an upgrade that changes the
+    templates every host would keep the shape the previous release rendered
+    until someone changed something. This is the same apply an admin's change
+    sends, with its validation and rollback; a render identical to what is on
+    disk changes nothing and reloads nothing.
+
+    Under HA each node's worker sends one. The apply lock serialises them with
+    each other and with every other write, so one node at a time renders the
+    shared files: the first changes them and pushes the reconcile, and the rest
+    find nothing to change.
+    """
+    try:
+        reload_nginx_config.apply_async(countdown=STARTUP_RENDER_DELAY_SECONDS)
+    except Exception as exc:  # noqa: BLE001 - the next change renders anyway
+        log.warning("could not queue the startup nginx render: %s", exc)
 
 
 @celery_app.task(name="app.tasks.nginx.reconcile_local_nginx")

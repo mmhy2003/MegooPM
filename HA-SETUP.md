@@ -341,10 +341,28 @@ With the community blocklist on, CrowdSec must reach its central API to
 start: upgrade while CrowdSec's firewall is not blocking the address, or with
 the blocklist off (see docs/crowdsec.md, "Upgrading from 1.6.4").
 
-Upgrading to the release with **Live logs**: nginx now needs `NODE_ID`, the
-same value the rest of the node already uses. `docker-compose.ha.yml` passes it
-from `.env`, so a node whose `.env` has it needs nothing. Without it, compose
-refuses to start nginx.
+Upgrading to the release with **Live logs** changes what the worker renders
+for nginx, so the order matters:
+
+1. **nginx first, on every node.** Pull the commit, then
+   `docker compose -f docker-compose.ha.yml up -d --build nginx`, on each node
+   before anything else. The new nginx runs the config the previous release
+   rendered. The previous nginx cannot run what this release renders (it
+   names files the old image does not have), and fails `nginx -t` on it.
+2. **Then the rest**, control-plane node first, as above. Each node's worker
+   renders the managed config once when it starts, through the same apply
+   lock as any change. So every host moves to the new shape without anyone
+   touching it, and the shared files are written by one node at a time.
+3. **Until nginx is upgraded everywhere, make no config changes, and do not
+   restart an nginx container still on the old image.** An old nginx keeps
+   serving what it loaded, but refuses the new config: a reconcile reports
+   `shared config failed nginx -t` and leaves it as it was, and a restart
+   would not come up. Pulling the commit already changes the `nginx.conf` an
+   old nginx would read on its next reload.
+
+nginx now also gets `NODE_ID`, the same value the rest of the node uses.
+`docker-compose.ha.yml` already requires it for every service, so a node that
+runs today has it, and there is nothing to do.
 
 **Changing `NEXT_PUBLIC_*`.** They are baked into the UI image at build time:
 edit `.env`, then `docker compose -f docker-compose.ha.yml build frontend && … up -d frontend`
@@ -375,7 +393,7 @@ plane) shows the periodic sweeps.
 
 | Variable | Per node / identical | Meaning |
 | --- | --- | --- |
-| `NODE_ID` | per node | unique id stamped on `cluster_state.updated_by`; nginx gets it too and tags every live log line with it, and compose refuses to start nginx without it ([`docs/live-logs.md`](docs/live-logs.md)) |
+| `NODE_ID` | per node | unique id stamped on `cluster_state.updated_by`; nginx gets it too and tags every live log line with it ([`docs/live-logs.md`](docs/live-logs.md)). Required: compose refuses to start any service without it |
 | `SHARED_DATA_PATH` | per node (usually the same path) | host directory of the shared mount → `/data` in containers |
 | `COMPOSE_PROFILES` | per node | `control-plane` on one node, empty elsewhere |
 | `RUN_MIGRATIONS` | `1` on one node | that node's backend runs `alembic upgrade head` on start |

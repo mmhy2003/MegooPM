@@ -28,6 +28,7 @@ from app.services.nginx.state import (
     ProxyHostSpec,
     UpstreamSpec,
 )
+from celery.signals import worker_ready
 from sqlalchemy import create_engine
 
 
@@ -211,3 +212,21 @@ def test_reconcile_does_not_claim_convergence_when_nginx_test_fails(ha_env, monk
         states = {s.node_id: s.applied_version for s in node_states(conn)}
     # -1 = never converged. Reporting 1 here would hide a broken node.
     assert states["node-b"] == -1
+
+
+def test_every_node_renders_at_startup_and_only_the_first_changes_anything(ha_env) -> None:
+    """The render each worker sends when it is ready goes through the apply lock.
+
+    Two nodes starting together both send one; the first rewrites the shared
+    files and bumps the version, and the second, serialised behind it by the
+    lock, finds nothing to change and bumps nothing (eager mode runs the task
+    as it is sent).
+    """
+    worker_ready.send(sender=None)
+    assert (ha_env["confd"] / "megoopm-proxy-1.conf").exists()
+    worker_ready.send(sender=None)
+
+    with ha_env["engine"].connect() as conn:
+        states = {s.node_id: s.applied_version for s in node_states(conn)}
+    assert states == {"node-a": 1}
+    assert ha_env["controller"].reloads == 1

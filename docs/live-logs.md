@@ -267,9 +267,16 @@ browser's socket, whichever node it is, subscribes there. So one page sees
 every node in one timeline, with a node column and filter (hidden on a
 single node).
 
-nginx therefore needs **`NODE_ID`** under HA; `docker-compose.ha.yml` refuses
-to start without it (see [`HA-SETUP.md`](../HA-SETUP.md)). On a single node it
-is empty, and lines are tagged `local`, as the backend names that node.
+nginx therefore needs **`NODE_ID`** under HA. `docker-compose.ha.yml` passes
+it, and already refuses to start any service without it (see
+[`HA-SETUP.md`](../HA-SETUP.md)). On a single node it is empty, and lines are
+tagged `local`, as the backend names that node.
+
+**Upgrading.** Each worker renders the managed nginx config once when it
+starts, so existing hosts get the live log directives without anyone
+changing them. Under HA, upgrade nginx on every node before the rest: the new
+nginx runs the old config, but an old nginx cannot run the new one (HA-SETUP.md
+§9).
 
 ## Known limits
 
