@@ -77,6 +77,14 @@ local WARN = 4
 -- nginx's own lines down to notice (5): its process messages -- reloads,
 -- workers starting and exiting -- are notices.
 local NOTICE = 5
+-- nginx's own messages the relay itself causes, on the main log: relayed as n
+-- lines, each would need one more timer -- the very thing that ran out. Matched
+-- at the start of nginx's message ("stream lua: " is the relay's VM, the bare
+-- count http's).
+local FED_BACK = {
+    "^stream lua: %d+ lua_max_running_timers are not enough",
+    "^%d+ lua_max_running_timers are not enough",
+}
 
 -- CLASSIFYING AN ERROR LINE: ONLY ON WHAT NGINX WROTE
 --
@@ -175,6 +183,12 @@ function M.classify(s)
         -- nginx's own: no request, so no denial and no TLS handshake to keep.
         if sev > NOTICE then
             return nil
+        end
+        local own = nginx_message(body)
+        for _, needle in ipairs(FED_BACK) do
+            if own:find(needle) then
+                return nil
+            end
         end
         return { host = host, log = "error", sev = sev, body = body, truncated = false }
     end

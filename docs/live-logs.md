@@ -243,9 +243,23 @@ handshake to look for.
 
 The main error log keeps its file target exactly as before
 (`error_log logs/error.log error;`, the compiled-in default, which is stderr in
-the image), so the container log is unchanged. `http {}` declares its own
-error logs and does not inherit the main ones. The relay's own server logs to
-stderr only, so it never feeds itself.
+the image), so the container log is unchanged, except at start (see *Known
+limits*). `http {}` declares its own error logs and does not inherit the main
+ones. The relay's own server logs to stderr only, so it never feeds itself.
+
+**What can still come back.** A few messages the relay itself causes are
+written to the main log, not to the relay server's: `lua_max_running_timers
+are not enough` (a full timer queue), and stream resolver errors (Redis is
+reached by name). They come back as `n` lines. The relay drops the timer one,
+matched at the start of nginx's message: relaying it would ask for another
+timer. The rest are bounded by the relay's caps, and dropped on arrival while
+nobody watches nginx itself or All logs.
+
+**Every stream server declares its own error log.** `stream {}` has no
+error log of its own, so it inherits the main targets, `mgm_n` included. The
+relay's server logs to stderr, and every generated stream host to its own
+targets (`_live_log.j2`). A stream server added without one would have its
+error lines relayed as nginx's own.
 
 ## Who can watch, and re-checks
 

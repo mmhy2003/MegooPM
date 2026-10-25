@@ -357,9 +357,18 @@ expect "an error with no host key arrives under n" 1 \
   "$(rows_in sub-n '$1 == "node-b" && $2 == "n" && $3 == "error" && $10 ~ /probe-no-key/')"
 expect "n carries nginx's own lines only" 0 "$(rows_in sub-n '$2 != "n"')"
 # The relay's own server logs to stderr, not to the main error log: a relay
-# that fed itself would never stop.
-expect "nginx's own lines do not feed themselves" yes \
-  "$( [ "$(rows_in sub-n '$2 == "n"')" -lt 100 ] && echo yes || echo no)"
+# that fed itself would never stop. So once the reload is over, the count of
+# n lines stops growing. A reload logs a few lines per worker, and
+# worker_processes is auto, so any bound scales with the workers.
+n_lines() { docker logs ll-sub-n 2>&1 | grep -c '"host":"n"' || true; }
+N_BEFORE="$(n_lines)"
+sleep 2
+N_AFTER="$(n_lines)"
+WORKERS="$(docker exec ll-nginx-a sh -c 'pgrep -f "^nginx: worker" | wc -l' | tr -d ' ')"
+echo "info  nginx itself: $N_AFTER lines for one reload, $WORKERS workers"
+expect "nginx's own lines stop once the reload is over (nothing feeds itself)" "$N_BEFORE" "$N_AFTER"
+expect "a reload's lines stay within 20 per worker" yes \
+  "$( [ "$N_AFTER" -ge 1 ] && [ "$N_AFTER" -le $((20 * WORKERS + 50)) ] && echo yes || echo no)"
 expect "the main log's notices stay out of the container log, as before" 0 \
   "$(docker logs ll-nginx-a 2>&1 | grep -c 'reconfiguring' || true)"
 expect "a reload's own lines reach the relay, none refused" "$REFUSED_BEFORE" "$(refused)"
@@ -455,6 +464,16 @@ check("a process message at notice is nginx's own",
 check("a worker crash is nginx's own",
     "<185>Oct 25 10:00:00 mgm_n: 2026/10/25 10:00:00 [alert] 1#1: worker process 8 exited on signal 11",
     { host = "n", log = "error", sev = 1 })
+-- The relay's own timer shortage is logged on the main log: fed back as an n
+-- line, it would ask for one more timer each time.
+check("the relay's own timer shortage is not fed back",
+    "<185>Oct 25 10:00:00 mgm_n: 2026/10/25 10:00:00 [alert] 7#7: stream lua: 256 lua_max_running_timers are not enough",
+    nil)
+check("nor http's",
+    "<185>Oct 25 10:00:00 mgm_n: 2026/10/25 10:00:00 [alert] 7#7: 256 lua_max_running_timers are not enough", nil)
+check("a timer shortage named in a config error is still shown",
+    "<186>Oct 25 10:00:00 mgm_n: 2026/10/25 10:00:00 [emerg] 1#1: invalid value \"x\" in"
+    .. " \"lua_max_running_timers\" in /etc/nginx/nginx.conf:30", { host = "n", log = "error", sev = 2 })
 check("nginx's own info noise is dropped",
     H .. "mgm_n: 2026/10/25 10:00:00 [info] 1#1: *1 client closed connection", nil)
 check("info under the shared tag is dropped",
@@ -507,7 +526,7 @@ MSYS_NO_PATHCONV=1 docker run --rm --entrypoint resty -v "$WORK_MOUNT:/w" \
   -v "$REPO/infra/nginx/lua:/lua:ro" "$IMAGE" /w/parse.lua > "$WORK/parse.out" 2>&1 || true
 cat "$WORK/parse.out"
 grep -q '^FAIL' "$WORK/parse.out" && FAILED=1
-[ "$(grep -c '^ok' "$WORK/parse.out" || true)" = 29 ] || { echo "FAIL  parse: not every case ran"; FAILED=1; }
+[ "$(grep -c '^ok' "$WORK/parse.out" || true)" = 32 ] || { echo "FAIL  parse: not every case ran"; FAILED=1; }
 
 # --- 2a. The cap and the skipped count, step by step (M.handle) -----------------
 # A fixed clock, a fake socket, timers that run when told, and a fake Redis that
