@@ -1,0 +1,10 @@
+# Managed by MegooPM — Security → Settings rewrites this file. Edit
+# infra/crowdsec/appsec-body-size.yaml in the repo for the seed.
+#
+# The WAF's request-body limit. Loaded after crowdsecurity/appsec-default
+# (see infra/crowdsec/acquis/appsec.yaml), so these hooks run last and win.
+name: megoopm/body-size
+on_load:
+  - apply:
+      - SetMaxBodySize(10485760)
+      - SetBodySizeExceededAction("partial")

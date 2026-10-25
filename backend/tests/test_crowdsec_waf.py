@@ -11,6 +11,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+from app.core.config import settings
 from app.models.enums import AppSecBodyAction
 from app.services.crowdsec import capi, waf
 from app.services.crowdsec.reload import CrowdSecReloadError, ExecResult
@@ -215,3 +217,30 @@ def test_an_unreachable_container_during_the_test_writes_nothing_live(tmp_path: 
     assert result.ok is False and "docker daemon" in (result.error or "")
     assert body.read_text(encoding="utf-8") == old_body
     assert engine.restarts == 0
+
+
+# --- the seed and the backup -----------------------------------------------------
+
+SEED = Path(__file__).resolve().parents[2] / "infra" / "crowdsec" / "appsec-body-size.yaml"
+
+
+def test_the_seed_is_the_default_render() -> None:
+    """data-init copies this file on a fresh or upgraded install.
+
+    It must be byte-for-byte what the apply would render from the column
+    defaults: then the first save of the defaults is a no-op, and nothing has
+    to restart CrowdSec at boot to bring the two in step.
+    """
+    if not SEED.parent.is_dir():
+        pytest.skip(f"{SEED.parent} is not mounted here")
+    assert SEED.is_file(), f"{SEED} is missing: data-init would have nothing to seed"
+    assert SEED.read_text(encoding="utf-8") == waf.render_body_size_config(
+        max_body_bytes=waf.DEFAULT_MAX_BODY_BYTES, action=waf.DEFAULT_ACTION
+    )
+
+
+def test_backups_carry_the_body_size_config() -> None:
+    from app.tasks.backup import _crowdsec_files
+
+    files = _crowdsec_files()
+    assert files["appsec-body-size.yaml"] == Path(settings.crowdsec_waf_config_path)

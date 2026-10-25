@@ -128,6 +128,7 @@ def _crowdsec_files() -> dict[str, Path]:
     return {
         "whitelists.yaml": Path(settings.crowdsec_whitelist_path),
         "config.yaml.local": Path(settings.crowdsec_config_local_path),
+        "appsec-body-size.yaml": Path(settings.crowdsec_waf_config_path),
     }
 
 

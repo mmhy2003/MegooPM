@@ -58,6 +58,8 @@ x-app-env: &app-env
   # then save but are reported as not applied. See docs/crowdsec.md.
   CROWDSEC_CONTROL_NODE_ID: ${CROWDSEC_CONTROL_NODE_ID:-}
   CROWDSEC_CONTAINER_NAME: ${CROWDSEC_CONTAINER_NAME:-megoopm-crowdsec-1}
+  # Same value nginx gets (required there), so Security → Settings knows AppSec is wired.
+  CROWDSEC_APPSEC_URL: ${CROWDSEC_APPSEC_URL:?CROWDSEC_APPSEC_URL is required (shared AppSec)}
   CROWDSEC_RELOAD_HEALTH_TIMEOUT_SECONDS: ${CROWDSEC_RELOAD_HEALTH_TIMEOUT_SECONDS:-60}
   FIRST_ADMIN_EMAIL: ${FIRST_ADMIN_EMAIL:-}
   FIRST_ADMIN_PASSWORD: ${FIRST_ADMIN_PASSWORD:-}
@@ -71,7 +73,7 @@ services:
     command:
       - sh
       - -c
-      - "mkdir -p /data/nginx/conf.d/stream /data/nginx/default /data/certs/_acme-challenge /data/crowdsec/whitelists && { [ -f /data/crowdsec/whitelists/megoopm.yaml ] || echo '# Managed by MegooPM - no whitelists defined.' > /data/crowdsec/whitelists/megoopm.yaml; } && { [ -f /data/crowdsec/config.yaml.local ] || cp /seed/config.yaml.local /data/crowdsec/config.yaml.local; } && mkdir -p /backups && chmod 700 /backups && chown -R 1000:1000 /data /backups || { echo 'data-init: cannot prepare /data (SHARED_DATA_PATH) and /backups for uid 1000' >&2; exit 1; }"
+      - "mkdir -p /data/nginx/conf.d/stream /data/nginx/default /data/certs/_acme-challenge /data/crowdsec/whitelists /data/crowdsec/appsec && { [ -f /data/crowdsec/whitelists/megoopm.yaml ] || echo '# Managed by MegooPM - no whitelists defined.' > /data/crowdsec/whitelists/megoopm.yaml; } && { [ -f /data/crowdsec/config.yaml.local ] || cp /seed/config.yaml.local /data/crowdsec/config.yaml.local; } && { [ -f /data/crowdsec/appsec/megoopm-body-size.yaml ] || cp /seed/appsec-body-size.yaml /data/crowdsec/appsec/megoopm-body-size.yaml; } && mkdir -p /backups && chmod 700 /backups && chown -R 1000:1000 /data /backups || { echo 'data-init: cannot prepare /data (SHARED_DATA_PATH) and /backups for uid 1000' >&2; exit 1; }"
     volumes:
       - ${SHARED_DATA_PATH:?SHARED_DATA_PATH is required (host path of the shared mount)}:/data
       # Shared storage, not a per-node path: the worker writes on one node
@@ -81,6 +83,7 @@ services:
       # containers run as uid 1000 — hence the chown below.
       - ${BACKUP_PATH:?BACKUP_PATH is required (shared path, identical on every node)}:/backups
       - ./infra/crowdsec/config.yaml.local:/seed/config.yaml.local:ro
+      - ./infra/crowdsec/appsec-body-size.yaml:/seed/appsec-body-size.yaml:ro
 
   backend:
     build: ./backend
@@ -273,6 +276,9 @@ services:
       # file, because Docker creates a DIRECTORY when a bind-mount source is
       # missing and CrowdSec then refuses to start.
       - ${SHARED_DATA_PATH:?}/crowdsec/whitelists/megoopm.yaml:/etc/crowdsec/parsers/s02-enrich/99-megoopm-whitelist.yaml:ro
+      # The WAF's request-body limit, set in Security → Settings. A single FILE,
+      # like the whitelist above: data-init must have seeded it first.
+      - ${SHARED_DATA_PATH:?}/crowdsec/appsec/megoopm-body-size.yaml:/etc/crowdsec/appsec-configs/megoopm-body-size.yaml:ro
 
 volumes:
   # Control-plane node only (local state of the shared services).

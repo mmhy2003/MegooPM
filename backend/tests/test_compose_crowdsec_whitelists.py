@@ -245,3 +245,55 @@ def test_worker_carries_the_docker_socket_group(compose_file: str) -> None:
     services = _services(compose_file)
     groups = services["worker"].get("group_add") or []
     assert any("DOCKER_GID" in str(g) for g in groups), groups
+
+
+# --- Security → Settings: the WAF's request-body limit ------------------------------
+
+WAF_TARGET = "/etc/crowdsec/appsec-configs/megoopm-body-size.yaml"
+
+
+@pytest.mark.parametrize("compose_file", ALL_COMPOSE)
+def test_crowdsec_mounts_the_body_size_config_read_only(compose_file: str) -> None:
+    """One FILE among hub-installed AppSec configs, from the data path."""
+    mounts = _services(compose_file)["crowdsec"]["volumes"]
+    sources = _sources_for(mounts, WAF_TARGET)
+    assert len(sources) == 1, sources
+    assert "infra/crowdsec" not in sources[0]
+    assert "crowdsec/appsec/megoopm-body-size.yaml" in sources[0]
+    for mount in mounts:
+        if isinstance(mount, str) and WAF_TARGET in mount:
+            assert mount.endswith(":ro")
+        elif isinstance(mount, dict) and mount.get("target") == WAF_TARGET:
+            assert mount.get("read_only") is True
+
+
+@pytest.mark.parametrize("compose_file", ALL_COMPOSE)
+def test_data_init_seeds_the_body_size_config(compose_file: str) -> None:
+    """A missing source makes Docker create a DIRECTORY, and CrowdSec won't start.
+
+    An upgraded install has no crowdsec/appsec/ yet, so data-init creates it.
+    """
+    services = _services(compose_file)
+    command = " ".join(services["data-init"]["command"])
+    assert "mkdir -p" in command and "/data/crowdsec/appsec" in command
+    assert "/data/crowdsec/appsec/megoopm-body-size.yaml" in command
+    assert any(
+        v.endswith("/seed/appsec-body-size.yaml:ro") for v in services["data-init"]["volumes"]
+    )
+
+
+@pytest.mark.parametrize("compose_file", ALL_COMPOSE)
+@pytest.mark.parametrize("service", ["backend", "worker"])
+def test_the_appsec_url_reaches_the_app(compose_file: str, service: str) -> None:
+    """The Settings tab says when AppSec is not wired; it can only know from this."""
+    env = _services(compose_file)[service].get("environment", {})
+    assert "CROWDSEC_APPSEC_URL" in env
+
+
+def test_appsec_loads_megoopm_body_size_last() -> None:
+    """Later AppSec configs win; the hub default must not override the limit."""
+    acquis = yaml.safe_load(
+        (REPO_ROOT / "infra" / "crowdsec" / "acquis" / "appsec.yaml").read_text(encoding="utf-8")
+    )
+    assert acquis["appsec_configs"] == ["crowdsecurity/appsec-default", "megoopm/body-size"]
+    assert "appsec_config" not in acquis

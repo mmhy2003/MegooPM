@@ -51,6 +51,8 @@ x-backend-env: &backend-env
   # then save but are reported as not applied. See docs/crowdsec.md.
   CROWDSEC_CONTROL_NODE_ID: ${CROWDSEC_CONTROL_NODE_ID:-}
   CROWDSEC_CONTAINER_NAME: ${CROWDSEC_CONTAINER_NAME:-megoopm-crowdsec-1}
+  # Same value nginx gets: blank means AppSec is not wired (Security → Settings says so).
+  CROWDSEC_APPSEC_URL: ${CROWDSEC_APPSEC_URL:-http://crowdsec:7422}
   CROWDSEC_RELOAD_HEALTH_TIMEOUT_SECONDS: ${CROWDSEC_RELOAD_HEALTH_TIMEOUT_SECONDS:-60}
   FIRST_ADMIN_EMAIL: ${FIRST_ADMIN_EMAIL:-}
   FIRST_ADMIN_PASSWORD: ${FIRST_ADMIN_PASSWORD:-}
@@ -87,13 +89,14 @@ services:
     command:
       - sh
       - -c
-      - "mkdir -p /data/nginx/conf.d/stream /data/nginx/default /data/certs/_acme-challenge /data/crowdsec/whitelists && { [ -f /data/crowdsec/whitelists/megoopm.yaml ] || echo '# Managed by MegooPM - no whitelists defined.' > /data/crowdsec/whitelists/megoopm.yaml; } && { [ -f /data/crowdsec/config.yaml.local ] || cp /seed/config.yaml.local /data/crowdsec/config.yaml.local; } && mkdir -p /backups && chmod 700 /backups && chown -R 1000:1000 /data /backups || { echo 'data-init: cannot prepare /data and /backups for uid 1000' >&2; exit 1; }"
+      - "mkdir -p /data/nginx/conf.d/stream /data/nginx/default /data/certs/_acme-challenge /data/crowdsec/whitelists /data/crowdsec/appsec && { [ -f /data/crowdsec/whitelists/megoopm.yaml ] || echo '# Managed by MegooPM - no whitelists defined.' > /data/crowdsec/whitelists/megoopm.yaml; } && { [ -f /data/crowdsec/config.yaml.local ] || cp /seed/config.yaml.local /data/crowdsec/config.yaml.local; } && { [ -f /data/crowdsec/appsec/megoopm-body-size.yaml ] || cp /seed/appsec-body-size.yaml /data/crowdsec/appsec/megoopm-body-size.yaml; } && mkdir -p /backups && chmod 700 /backups && chown -R 1000:1000 /data /backups || { echo 'data-init: cannot prepare /data and /backups for uid 1000' >&2; exit 1; }"
     volumes:
       - app_data:/data
       # The backup directory is a bind mount: dockerd creates it as root,
       # and the backend and worker run as uid 1000.
       - ${BACKUP_PATH:-./backups}:/backups
       - ./infra/crowdsec/config.yaml.local:/seed/config.yaml.local:ro
+      - ./infra/crowdsec/appsec-body-size.yaml:/seed/appsec-body-size.yaml:ro
 
   backend:
     build: ./backend
@@ -264,6 +267,14 @@ services:
         read_only: true
         volume:
           subpath: crowdsec/whitelists/megoopm.yaml
+      # The WAF's request-body limit, set in Security → Settings. A single FILE
+      # among hub-installed AppSec configs, like the whitelist above.
+      - type: volume
+        source: app_data
+        target: /etc/crowdsec/appsec-configs/megoopm-body-size.yaml
+        read_only: true
+        volume:
+          subpath: crowdsec/appsec/megoopm-body-size.yaml
 
 volumes:
   pgdata:
