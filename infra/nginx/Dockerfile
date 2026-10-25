@@ -28,7 +28,7 @@ RUN opm get ledgetech/lua-resty-http \
 # `require("crowdsec")` (our init handler) and the module's internal
 # `require("plugins.crowdsec.*")` resolve against the default lua_package_path.
 # Pinned so the image is reproducible and the lua API our handlers call is stable.
-ARG CS_BOUNCER_VERSION=v1.0.8
+ARG CS_BOUNCER_VERSION=v1.0.19
 RUN apk add --no-cache --virtual .build-deps git \
     && git clone --depth 1 --branch "${CS_BOUNCER_VERSION}" \
         https://github.com/crowdsecurity/lua-cs-bouncer.git /tmp/lua-cs-bouncer \
