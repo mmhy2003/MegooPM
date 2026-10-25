@@ -102,6 +102,13 @@ export const primaryNav: NavItem[] = [
     adminOnly: true,
   },
   {
+    title: "Live logs",
+    href: "/live-logs",
+    icon: ScrollText,
+    description: "Requests, errors and security events as they happen. Nothing is stored.",
+    adminOnly: true,
+  },
+  {
     title: "Users",
     href: "/users",
     icon: Users,

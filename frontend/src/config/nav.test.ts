@@ -17,6 +17,7 @@ describe("primaryNav", () => {
       "404 Hosts",
       "Custom Pages",
       "Security",
+      "Live logs",
       "Users",
       "Audit Log",
       "Backups",
