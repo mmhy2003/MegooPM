@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import { LiveLogsView } from "@/components/live-logs/live-logs-view";
@@ -27,12 +27,20 @@ vi.mock("@/components/live-logs/lib", async (importOriginal) => {
   };
 });
 
-vi.mock("@/lib/api", () => ({
-  proxyHosts: { list: async () => [{ id: 1, domain_names: ["cloud.example.com"] }] },
-  redirectionHosts: { list: async () => [{ id: 2, domain_names: ["old.example.com"] }] },
-  deadHosts: { list: async () => [] },
-  streams: { list: async () => [{ id: 3, incoming_port: 2222 }] },
-}));
+// Counts finished host-list loads, so a test can wait for the picker's data.
+const loads = vi.hoisted(() => ({ done: 0 }));
+vi.mock("@/lib/api", () => {
+  const done = <T,>(rows: T[]) => {
+    loads.done += 1;
+    return rows;
+  };
+  return {
+    proxyHosts: { list: async () => done([{ id: 1, domain_names: ["cloud.example.com"] }]) },
+    redirectionHosts: { list: async () => done([{ id: 2, domain_names: ["old.example.com"] }]) },
+    deadHosts: { list: async () => done([]) },
+    streams: { list: async () => done([{ id: 3, incoming_port: 2222 }]) },
+  };
+});
 
 let nextId = 1;
 function line(over: Partial<LiveLine> = {}): LiveLine {
@@ -112,7 +120,7 @@ describe("LiveLogsView", () => {
     setState({ lines: { requests: [line(), line({ node: "node-b" })] } });
     render(<LiveLogsView />);
     expect(screen.getByRole("columnheader", { name: "Node" })).toBeInTheDocument();
-    expect(screen.getAllByText("node-b").length).toBeGreaterThan(1);
+    expect(within(screen.getByRole("table")).getByText("node-b")).toBeInTheDocument();
   });
 
   it("tags a CrowdSec-denied request", () => {
@@ -139,33 +147,81 @@ describe("LiveLogsView", () => {
     expect(setPaused).toHaveBeenCalledWith(false);
   });
 
+  /** Opens the host picker and waits for the host list to have loaded. */
+  async function openHostPicker(user: ReturnType<typeof userEvent.setup>) {
+    await user.click(screen.getByRole("combobox", { name: "Add host" }));
+    return screen.findByRole("listbox");
+  }
+
   it("watches the hosts picked, and decisions only on the Security tab", async () => {
+    const user = userEvent.setup();
     render(<LiveLogsView />);
-    await userEvent.selectOptions(await screen.findByLabelText("Add host"), "p1");
+    await openHostPicker(user);
+    await user.click(await screen.findByRole("option", { name: "cloud.example.com" }));
     expect(hook.calls.at(-1)).toEqual({ hosts: ["p1"], decisions: false });
     expect(within(screen.getByTestId("picked")).getByText("cloud.example.com")).toBeInTheDocument();
-    await userEvent.click(screen.getByRole("tab", { name: "Security" }));
+    await user.click(screen.getByRole("tab", { name: "Security" }));
     expect(hook.calls.at(-1)).toEqual({ hosts: ["p1"], decisions: true });
   });
 
-  it("offers stream hosts only on the Stream tab, and the default site everywhere else", async () => {
+  it("finds a host by typing part of its name", async () => {
+    const user = userEvent.setup();
     render(<LiveLogsView />);
-    const add = await screen.findByLabelText("Add host");
-    expect(await within(add).findByRole("option", { name: "Unclaimed (default site)" })).toBeInTheDocument();
-    expect(within(add).queryByRole("option", { name: /2222/ })).toBeNull();
-    await userEvent.click(screen.getByRole("tab", { name: "Stream hosts" }));
-    const streamAdd = screen.getByLabelText("Add host");
-    expect(within(streamAdd).getByRole("option", { name: /2222/ })).toBeInTheDocument();
+    await openHostPicker(user);
+    await user.type(screen.getByLabelText("Search hosts"), "OLD");
+    expect(await screen.findByRole("option", { name: "old.example.com" })).toBeInTheDocument();
+    expect(screen.queryByRole("option", { name: "cloud.example.com" })).toBeNull();
+  });
+
+  it("offers stream hosts only on the Stream tab, and the default site everywhere else", async () => {
+    const user = userEvent.setup();
+    render(<LiveLogsView />);
+    await openHostPicker(user);
+    const unclaimed = await screen.findByRole("option", { name: "Unclaimed (default site)" });
+    expect(unclaimed).toBeInTheDocument();
+    expect(screen.queryByRole("option", { name: /2222/ })).toBeNull();
+    await user.keyboard("{Escape}");
+    await user.click(screen.getByRole("tab", { name: "Stream hosts" }));
+    await openHostPicker(user);
+    expect(await screen.findByRole("option", { name: /2222/ })).toBeInTheDocument();
     // The default servers carry no stream lines; its chip would not even show here.
-    expect(within(streamAdd).queryByRole("option", { name: "Unclaimed (default site)" })).toBeNull();
+    expect(screen.queryByRole("option", { name: "Unclaimed (default site)" })).toBeNull();
+  });
+
+  it("uses the themed dropdowns, never the browser's own select", () => {
+    setState({ lines: { requests: [line({ node: "node-a" }), line({ node: "node-b" })] } });
+    const { container } = render(<LiveLogsView />);
+    // A native <select> ignores the app theme: its open list is drawn by the OS.
+    expect(container.querySelector("select")).toBeNull();
+    expect(screen.getByRole("combobox", { name: "Node filter" })).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: "Status filter" })).toBeInTheDocument();
+  });
+
+  it("filters requests by status class from the themed dropdown", async () => {
+    const user = userEvent.setup();
+    setState({
+      lines: {
+        requests: [
+          line({ f: { st: "200", m: "GET", u: "/fine" } }),
+          line({ f: { st: "502", m: "GET", u: "/broken" } }),
+        ],
+      },
+    });
+    render(<LiveLogsView />);
+    await user.click(screen.getByRole("combobox", { name: "Status filter" }));
+    await user.click(await screen.findByRole("option", { name: "5xx" }));
+    expect(screen.getByText("/broken")).toBeInTheDocument();
+    expect(screen.queryByText("/fine")).toBeNull();
   });
 
   it("renders only the new row when a line arrives, and only the clicked one on select", async () => {
     const first = [line(), line(), line()];
     setState({ lines: { requests: first } });
+    loads.done = 0;
     const { rerender } = render(<LiveLogsView />);
     // The host labels load once; rows re-render for that, and only that.
-    await screen.findByRole("option", { name: "Unclaimed (default site)" });
+    await waitFor(() => expect(loads.done).toBe(4));
+    await act(async () => {});
 
     rendered.rows = 0;
     setState({ lines: { requests: [...first, line({ f: { st: "200", m: "GET", u: "/new" } })] } });

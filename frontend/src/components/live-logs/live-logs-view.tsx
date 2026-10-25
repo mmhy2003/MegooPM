@@ -10,6 +10,14 @@ import { useLiveLogs } from "@/components/live-logs/use-live-logs";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { SearchInput } from "@/components/ui/search-input";
+import { SearchableSelect } from "@/components/ui/searchable-select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Tabs, TabsList, TabsTab } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 
@@ -29,8 +37,13 @@ interface HostOption {
   label: string;
 }
 
-const SELECT_CLASS =
-  "h-8 rounded-lg border border-input bg-transparent px-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30";
+// The themed Select has no empty value, so "every node" / "any status" is a
+// value of its own that the filter state keeps as "".
+const ALL = "all";
+const STATUS_ITEMS: Record<string, string> = {
+  [ALL]: "Status: any",
+  ...Object.fromEntries(STATUS_CLASSES.map((c) => [c, c])),
+};
 
 /** Proxy, redirection, dead and stream hosts, keyed the way the socket names them. */
 function useHostOptions() {
@@ -229,50 +242,56 @@ export function LiveLogsView() {
             </Badge>
           ))}
         </div>
-        <select
+        {/* Keyed by tab: the picker's own filter text belongs to the list it filtered. */}
+        <SearchableSelect
+          key={tab}
           aria-label="Add host"
-          className={SELECT_CLASS}
           value=""
-          onChange={(e) => {
-            if (e.target.value) setPicked((prev) => [...prev, e.target.value]);
+          items={Object.fromEntries(addable.map((o) => [o.key, o.label]))}
+          onValueChange={(key) => {
+            if (key) setPicked((prev) => (prev.includes(key) ? prev : [...prev, key]));
           }}
-        >
-          <option value="">+ host</option>
-          {addable.map((o) => (
-            <option key={o.key} value={o.key}>
-              {o.label}
-            </option>
-          ))}
-        </select>
+          placeholder="+ host"
+          searchLabel="Search hosts"
+          disabled={addable.length === 0}
+          className="w-56"
+        />
         {showNode ? (
-          <select
-            aria-label="Node filter"
-            className={SELECT_CLASS}
-            value={node}
-            onChange={(e) => setNode(e.target.value)}
+          <Select
+            value={node || ALL}
+            onValueChange={(v) => setNode(!v || v === ALL ? "" : String(v))}
+            items={{ [ALL]: "All nodes", ...Object.fromEntries(nodes.map((n) => [n, n])) }}
           >
-            <option value="">All nodes</option>
-            {nodes.map((n) => (
-              <option key={n} value={n}>
-                {n}
-              </option>
-            ))}
-          </select>
+            <SelectTrigger aria-label="Node filter" className="w-40">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL}>All nodes</SelectItem>
+              {nodes.map((n) => (
+                <SelectItem key={n} value={n}>
+                  {n}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         ) : null}
         {tab === "requests" ? (
-          <select
-            aria-label="Status filter"
-            className={SELECT_CLASS}
-            value={status}
-            onChange={(e) => setStatus(e.target.value)}
+          <Select
+            value={status || ALL}
+            onValueChange={(v) => setStatus(!v || v === ALL ? "" : String(v))}
+            items={STATUS_ITEMS}
           >
-            <option value="">Status: any</option>
-            {STATUS_CLASSES.map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
-            ))}
-          </select>
+            <SelectTrigger aria-label="Status filter" className="w-36">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {Object.entries(STATUS_ITEMS).map(([value, label]) => (
+                <SelectItem key={value} value={value}>
+                  {label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         ) : null}
         <SearchInput
           value={text}
