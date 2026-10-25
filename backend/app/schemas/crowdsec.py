@@ -13,7 +13,7 @@ from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from app.models.enums import CrowdSecJobKind, CrowdSecJobTrigger
+from app.models.enums import AppSecBodyAction, CrowdSecJobKind, CrowdSecJobTrigger
 
 
 class Decision(BaseModel):
@@ -203,6 +203,32 @@ class CapiCredentialHealth(BaseModel):
     blocked: bool = False
 
 
+class ProtectedHost(BaseModel):
+    """A host whose requests go through CrowdSec, and so through the WAF."""
+
+    kind: Literal["proxy", "redirection", "dead"]
+    id: int
+    name: str = Field(description="The host's first domain name")
+
+
+class CrowdSecWafStatus(BaseModel):
+    """What the Security → Settings tab needs in one call."""
+
+    max_body_mb: int
+    body_exceeded_action: AppSecBodyAction
+    run: CrowdSecJobRunRead | None
+    running: bool
+    reload_configured: bool
+    appsec_configured: bool = Field(
+        description="False when CROWDSEC_APPSEC_URL is blank: the limit is saved but inert"
+    )
+    protected_hosts: list[ProtectedHost]
+    capi_enabled: bool
+    capi_blocked: bool = Field(
+        description="CrowdSec's firewall was blocking this address at the last check"
+    )
+
+
 class CrowdSecMaintenance(BaseModel):
     """What the Updates tab needs in one call."""
 
@@ -215,6 +241,8 @@ class CrowdSecMaintenance(BaseModel):
 
 __all__ = [
     "CapiCredentialHealth",
+    "CrowdSecWafStatus",
+    "ProtectedHost",
     "CrowdSecJobRunRead",
     "CrowdSecMaintenance",
     "Alert",

@@ -29,7 +29,10 @@ from app.core.config import settings
 from app.core.redis import redis_client
 from app.models.crowdsec_job_run import CrowdSecJobRun
 from app.models.crowdsec_whitelist import CrowdSecWhitelist, CrowdSecWhitelistApply
+from app.models.dead_host import DeadHost
 from app.models.enums import AuditAction, CrowdSecJobKind
+from app.models.proxy_host import ProxyHost
+from app.models.redirection_host import RedirectionHost
 from app.schemas.crowdsec import (
     Alert,
     AlertList,
@@ -37,9 +40,11 @@ from app.schemas.crowdsec import (
     CrowdSecHealth,
     CrowdSecJobRunRead,
     CrowdSecMaintenance,
+    CrowdSecWafStatus,
     Decision,
     DecisionCreate,
     DecisionList,
+    ProtectedHost,
 )
 from app.schemas.crowdsec_whitelist import (
     WhitelistApplyStatus,
@@ -73,7 +78,7 @@ from app.services.crowdsec.whitelists import (
     slugify,
 )
 from app.services.events import publish
-from app.tasks.crowdsec import CAPI_LOCK_KEY, HUB_LOCK_KEY
+from app.tasks.crowdsec import CAPI_LOCK_KEY, HUB_LOCK_KEY, WAF_LOCK_KEY
 
 router = APIRouter(tags=["crowdsec"])
 
@@ -354,6 +359,14 @@ async def _job_running(key: str) -> bool:
         await client.aclose()
 
 
+async def job_running(*keys: str) -> bool:
+    """Whether any of these maintenance locks is held right now."""
+    for key in keys:
+        if await _job_running(key):
+            return True
+    return False
+
+
 async def _guard_slug_unique(db: SessionDep, name: str, *, exclude_id: int | None) -> None:
     """409 when two names would render the same CrowdSec ``name:``.
 
@@ -528,6 +541,52 @@ async def maintenance(_admin: AdminUser, db: SessionDep) -> CrowdSecMaintenance:
             "hub": await _job_running(HUB_LOCK_KEY),
             "capi": await _job_running(CAPI_LOCK_KEY),
         },
+    )
+
+
+# --- Security → Settings: the WAF body limit --------------------------------------
+
+_HOST_KINDS = (("dead", DeadHost), ("proxy", ProxyHost), ("redirection", RedirectionHost))
+
+
+async def _protected_hosts(db: SessionDep) -> list[ProtectedHost]:
+    """Every enabled host that enforces CrowdSec — so every host AppSec inspects.
+
+    AppSec is global while CROWDSEC_APPSEC_URL is set (docs/crowdsec.md,
+    "AppSec scope"): the per-host ``crowdsec_appsec_enabled`` flag is a
+    reserved marker, and listing by it would show none of the hosts the
+    limit actually applies to.
+    """
+    hosts: list[ProtectedHost] = []
+    for kind, model in _HOST_KINDS:
+        rows = await db.execute(
+            select(model.id, model.domain_names).where(
+                model.crowdsec_enabled.is_(True), model.enabled.is_(True)
+            )
+        )
+        found = [
+            ProtectedHost(kind=kind, id=host_id, name=(names or ["?"])[0])
+            for host_id, names in rows.all()
+        ]
+        hosts.extend(sorted(found, key=lambda h: h.name))
+    return hosts
+
+
+@router.get("/waf", response_model=CrowdSecWafStatus)
+async def waf_status(_admin: AdminUser, db: SessionDep) -> CrowdSecWafStatus:
+    """The WAF body limit as saved, its last apply, and whom it affects. Admin-only."""
+    row = await instance_settings_service.get_instance_settings(db)
+    run = await db.get(CrowdSecJobRun, CrowdSecJobKind.waf_apply)
+    return CrowdSecWafStatus(
+        max_body_mb=row.crowdsec_appsec_max_body_bytes // (1024 * 1024),
+        body_exceeded_action=row.crowdsec_appsec_body_action,
+        run=CrowdSecJobRunRead.model_validate(run) if run else None,
+        running=await _job_running(WAF_LOCK_KEY),
+        reload_configured=_reload_configured(),
+        appsec_configured=bool(settings.crowdsec_appsec_url.strip()),
+        protected_hosts=await _protected_hosts(db),
+        capi_enabled=row.crowdsec_capi_enabled,
+        capi_blocked=row.crowdsec_capi_status_blocked,
     )
 
 

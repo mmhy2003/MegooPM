@@ -19,6 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.crypto import decrypt_secret, encrypt_secret
 from app.models.enums import (
+    AppSecBodyAction,
     CrowdSecBanMode,
     DefaultSiteMode,
     MaintenancePageMode,
@@ -218,6 +219,18 @@ async def update_crowdsec_capi(db: AsyncSession, *, enabled: bool) -> InstanceSe
     return row
 
 
+async def update_crowdsec_waf(
+    db: AsyncSession, *, max_body_bytes: int, action: AppSecBodyAction
+) -> InstanceSettings:
+    """Record the desired WAF body limit. The apply task makes it real."""
+    row = await get_instance_settings(db)
+    row.crowdsec_appsec_max_body_bytes = max_body_bytes
+    row.crowdsec_appsec_body_action = action
+    await db.commit()
+    await db.refresh(row)
+    return row
+
+
 __all__ = [
     "SETTINGS_ID",
     "UnknownCustomPageError",
@@ -226,6 +239,7 @@ __all__ = [
     "mail_config_from_row",
     "update_crowdsec_capi",
     "update_crowdsec_hub",
+    "update_crowdsec_waf",
     "update_default_site",
     "update_llm_settings",
     "update_smtp_settings",

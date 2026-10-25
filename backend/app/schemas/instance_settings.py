@@ -28,6 +28,7 @@ from pydantic import (
 )
 
 from app.models.enums import (
+    AppSecBodyAction,
     BackupFrequency,
     CrowdSecBanMode,
     DefaultSiteMode,
@@ -138,6 +139,8 @@ class InstanceSettingsRead(BaseModel):
     crowdsec_hub_update_weekday: int
     crowdsec_hub_update_hour_utc: int
     crowdsec_capi_enabled: bool
+    crowdsec_appsec_max_body_mb: int
+    crowdsec_appsec_body_action: AppSecBodyAction
     backup_frequency: BackupFrequency
     backup_hour_utc: int
     backup_weekday: int
@@ -182,6 +185,8 @@ class InstanceSettingsRead(BaseModel):
             crowdsec_hub_update_weekday=row.crowdsec_hub_update_weekday,
             crowdsec_hub_update_hour_utc=row.crowdsec_hub_update_hour_utc,
             crowdsec_capi_enabled=row.crowdsec_capi_enabled,
+            crowdsec_appsec_max_body_mb=row.crowdsec_appsec_max_body_bytes // (1024 * 1024),
+            crowdsec_appsec_body_action=row.crowdsec_appsec_body_action,
             backup_frequency=row.backup_frequency,
             backup_hour_utc=row.backup_hour_utc,
             backup_weekday=row.backup_weekday,
@@ -302,6 +307,18 @@ class CrowdSecCapiUpdate(BaseModel):
     """Desired state of the community blocklist. Applying it restarts CrowdSec."""
 
     enabled: bool
+
+
+#: Above this one request could hold gigabytes of CrowdSec's memory; `partial`
+#: and `allow` already let larger uploads through.
+WAF_MAX_BODY_MB = 2048
+
+
+class CrowdSecWafUpdate(BaseModel):
+    """The WAF's request-body limit. Applying it restarts CrowdSec."""
+
+    max_body_mb: int = Field(ge=1, le=WAF_MAX_BODY_MB, description="Whole megabytes")
+    body_exceeded_action: AppSecBodyAction
 
 
 class LlmSettingsUpdate(BaseModel):
@@ -434,6 +451,7 @@ class MailTestResult(BaseModel):
 
 __all__ = [
     "CrowdSecCapiUpdate",
+    "CrowdSecWafUpdate",
     "CrowdSecHubUpdate",
     "InstanceSettingsRead",
     "MailTestRequest",

@@ -27,7 +27,7 @@ from fastapi import APIRouter, HTTPException, Response, status
 
 from app.api.deps import AdminUser, SessionDep
 from app.api.routes._config_writes import after_config_write
-from app.api.routes.crowdsec import RELOADS_NOT_CONFIGURED, enqueue_control_task
+from app.api.routes.crowdsec import RELOADS_NOT_CONFIGURED, enqueue_control_task, job_running
 from app.models.enums import AuditAction, ErrorPageMode
 from app.schemas.error_page import ErrorPageRead, ErrorPageUpdate
 from app.schemas.instance_settings import (
@@ -35,6 +35,7 @@ from app.schemas.instance_settings import (
     CrowdSecBanUpdate,
     CrowdSecCapiUpdate,
     CrowdSecHubUpdate,
+    CrowdSecWafUpdate,
     InstanceSettingsRead,
     InstanceSettingsUpdate,
     LlmSettingsUpdate,
@@ -53,6 +54,7 @@ from app.services.mail import sender as mail_sender
 from app.services.mail.config import MailNotConfigured
 from app.services.mail.templates import APP_NAME
 from app.services.mail.templates import render as render_email
+from app.tasks.crowdsec import CAPI_LOCK_KEY, WAF_LOCK_KEY
 
 router = APIRouter(tags=["settings"])
 
@@ -361,6 +363,42 @@ async def update_crowdsec_capi_settings(
     )
     await db.commit()
     if not enqueue_control_task("app.tasks.crowdsec.apply_capi"):
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=RELOADS_NOT_CONFIGURED)
+    return InstanceSettingsRead.from_row(row)
+
+
+@router.patch(
+    "/crowdsec-waf", response_model=InstanceSettingsRead, status_code=status.HTTP_202_ACCEPTED
+)
+async def update_crowdsec_waf_settings(
+    body: CrowdSecWafUpdate, admin: AdminUser, db: SessionDep
+) -> InstanceSettingsRead:
+    """The WAF's request-body limit; enqueues the apply, which restarts CrowdSec.
+
+    Refused before anything is stored while another apply holds CrowdSec: the
+    CAPI apply rewrites the same config and restarts the same container. When
+    the apply cannot be enqueued the value is still saved, like the blocklist
+    switch, and the 409 says why nothing happened.
+    """
+    if await job_running(WAF_LOCK_KEY, CAPI_LOCK_KEY):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail="An apply is already running."
+        )
+    row = await settings_service.update_crowdsec_waf(
+        db,
+        max_body_bytes=body.max_body_mb * 1024 * 1024,
+        action=body.body_exceeded_action,
+    )
+    await record_audit(
+        db,
+        actor=admin.email,
+        action=AuditAction.update,
+        object_type="instance_settings",
+        object_id=row.id,
+        meta={"crowdsec_waf": body.model_dump(mode="json")},
+    )
+    await db.commit()
+    if not enqueue_control_task("app.tasks.crowdsec.apply_waf_settings"):
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=RELOADS_NOT_CONFIGURED)
     return InstanceSettingsRead.from_row(row)
 

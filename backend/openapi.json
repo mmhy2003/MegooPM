@@ -867,6 +867,16 @@
         "title": "ApiKeyUpdate",
         "type": "object"
       },
+      "AppSecBodyAction": {
+        "description": "What CrowdSec's WAF does with a request body over the size limit.\n\nThe values are CrowdSec's own (``SetBodySizeExceededAction``): ``drop``\nrefuses the request unchecked, ``partial`` checks the first part only,\n``allow`` skips the body and still checks the rest of the request.",
+        "enum": [
+          "drop",
+          "partial",
+          "allow"
+        ],
+        "title": "AppSecBodyAction",
+        "type": "string"
+      },
       "AuditAction": {
         "description": "The mutation an audit-log row records.",
         "enum": [
@@ -1902,7 +1912,8 @@
         "description": "The maintenance jobs that record an outcome in ``crowdsec_job_run``.",
         "enum": [
           "hub_update",
-          "capi_apply"
+          "capi_apply",
+          "waf_apply"
         ],
         "title": "CrowdSecJobKind",
         "type": "string"
@@ -2025,6 +2036,91 @@
           "running"
         ],
         "title": "CrowdSecMaintenance",
+        "type": "object"
+      },
+      "CrowdSecWafStatus": {
+        "description": "What the Security → Settings tab needs in one call.",
+        "properties": {
+          "appsec_configured": {
+            "description": "False when CROWDSEC_APPSEC_URL is blank: the limit is saved but inert",
+            "title": "Appsec Configured",
+            "type": "boolean"
+          },
+          "body_exceeded_action": {
+            "$ref": "#/components/schemas/AppSecBodyAction"
+          },
+          "capi_blocked": {
+            "description": "CrowdSec's firewall was blocking this address at the last check",
+            "title": "Capi Blocked",
+            "type": "boolean"
+          },
+          "capi_enabled": {
+            "title": "Capi Enabled",
+            "type": "boolean"
+          },
+          "max_body_mb": {
+            "title": "Max Body Mb",
+            "type": "integer"
+          },
+          "protected_hosts": {
+            "items": {
+              "$ref": "#/components/schemas/ProtectedHost"
+            },
+            "title": "Protected Hosts",
+            "type": "array"
+          },
+          "reload_configured": {
+            "title": "Reload Configured",
+            "type": "boolean"
+          },
+          "run": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CrowdSecJobRunRead"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "running": {
+            "title": "Running",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "max_body_mb",
+          "body_exceeded_action",
+          "run",
+          "running",
+          "reload_configured",
+          "appsec_configured",
+          "protected_hosts",
+          "capi_enabled",
+          "capi_blocked"
+        ],
+        "title": "CrowdSecWafStatus",
+        "type": "object"
+      },
+      "CrowdSecWafUpdate": {
+        "description": "The WAF's request-body limit. Applying it restarts CrowdSec.",
+        "properties": {
+          "body_exceeded_action": {
+            "$ref": "#/components/schemas/AppSecBodyAction"
+          },
+          "max_body_mb": {
+            "description": "Whole megabytes",
+            "maximum": 2048.0,
+            "minimum": 1.0,
+            "title": "Max Body Mb",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "max_body_mb",
+          "body_exceeded_action"
+        ],
+        "title": "CrowdSecWafUpdate",
         "type": "object"
       },
       "CustomCertificateCreate": {
@@ -3118,6 +3214,13 @@
             "title": "Backup Weekday",
             "type": "integer"
           },
+          "crowdsec_appsec_body_action": {
+            "$ref": "#/components/schemas/AppSecBodyAction"
+          },
+          "crowdsec_appsec_max_body_mb": {
+            "title": "Crowdsec Appsec Max Body Mb",
+            "type": "integer"
+          },
           "crowdsec_ban_mode": {
             "$ref": "#/components/schemas/CrowdSecBanMode"
           },
@@ -3350,6 +3453,8 @@
           "crowdsec_hub_update_weekday",
           "crowdsec_hub_update_hour_utc",
           "crowdsec_capi_enabled",
+          "crowdsec_appsec_max_body_mb",
+          "crowdsec_appsec_body_action",
           "backup_frequency",
           "backup_hour_utc",
           "backup_weekday",
@@ -4210,6 +4315,36 @@
           "full_name"
         ],
         "title": "ProfileUpdate",
+        "type": "object"
+      },
+      "ProtectedHost": {
+        "description": "A host whose requests go through CrowdSec, and so through the WAF.",
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "kind": {
+            "enum": [
+              "proxy",
+              "redirection",
+              "dead"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "name": {
+            "description": "The host's first domain name",
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "id",
+          "name"
+        ],
+        "title": "ProtectedHost",
         "type": "object"
       },
       "ProxyHostCreate": {
@@ -9039,6 +9174,33 @@
         ]
       }
     },
+    "/api/v1/crowdsec/waf": {
+      "get": {
+        "description": "The WAF body limit as saved, its last apply, and whom it affects. Admin-only.",
+        "operationId": "waf_status_api_v1_crowdsec_waf_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CrowdSecWafStatus"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Waf Status",
+        "tags": [
+          "crowdsec"
+        ]
+      }
+    },
     "/api/v1/crowdsec/whitelists": {
       "get": {
         "description": "Every whitelist, enabled or not, oldest first.",
@@ -10929,6 +11091,53 @@
           }
         ],
         "summary": "Update Crowdsec Hub Settings",
+        "tags": [
+          "settings"
+        ]
+      }
+    },
+    "/api/v1/settings/crowdsec-waf": {
+      "patch": {
+        "description": "The WAF's request-body limit; enqueues the apply, which restarts CrowdSec.\n\nRefused before anything is stored while another apply holds CrowdSec: the\nCAPI apply rewrites the same config and restarts the same container. When\nthe apply cannot be enqueued the value is still saved, like the blocklist\nswitch, and the 409 says why nothing happened.",
+        "operationId": "update_crowdsec_waf_settings_api_v1_settings_crowdsec_waf_patch",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CrowdSecWafUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InstanceSettingsRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Update Crowdsec Waf Settings",
         "tags": [
           "settings"
         ]
