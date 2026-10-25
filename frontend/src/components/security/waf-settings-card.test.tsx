@@ -73,15 +73,17 @@ describe("WafSettingsCard", () => {
     await user.type(SIZE(), "50");
     expect(screen.getByText(/several times that in memory/i)).toBeInTheDocument();
     expect(screen.getByText(/about 800 MB/i)).toBeInTheDocument();
+    // Time too: past the bouncer's 30 s an upload is denied, not slowed.
+    expect(screen.getByText(/30 seconds/i)).toBeInTheDocument();
   });
 
   it("will not save a size the API would refuse", async () => {
     const user = userEvent.setup();
     renderCard();
     await user.clear(SIZE());
-    await user.type(SIZE(), "2049");
+    await user.type(SIZE(), "101");
     expect(SAVE()).toBeDisabled();
-    expect(screen.getByText(/between 1 MB and 2 GB/i)).toBeInTheDocument();
+    expect(screen.getByText(/between 1 and 100 MB/i)).toBeInTheDocument();
   });
 
   it("saves after the confirmation", async () => {

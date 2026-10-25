@@ -11,24 +11,14 @@ import {
   MEMORY_NOTE_MB,
   describeWafRun,
   formatMb,
-  fromMb,
   toMb,
-  type SizeUnit,
 } from "@/components/security/waf-lib";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Radio, RadioGroup } from "@/components/ui/radio-group";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 
-const UNIT_ITEMS: Record<SizeUnit, string> = { MB: "MB", GB: "GB" };
 const TITLE = "flex flex-wrap items-center gap-2 text-sm leading-none font-medium";
 const TAG = "text-muted-foreground rounded-full border px-2 py-0.5 text-[11px] font-normal";
 
@@ -44,13 +34,11 @@ export function WafSettingsCard({
   status: CrowdSecWafStatus;
   onChanged: () => void;
 }) {
-  const initial = fromMb(status.max_body_mb);
-  const [value, setValue] = useState(initial.value);
-  const [unit, setUnit] = useState<SizeUnit>(initial.unit);
+  const [value, setValue] = useState(String(status.max_body_mb));
   const [action, setAction] = useState<AppSecBodyAction>(status.body_exceeded_action);
   const [confirming, setConfirming] = useState(false);
 
-  const mb = toMb(value, unit);
+  const mb = toMb(value);
   const state = describeWafRun(status);
   const limit = mb === null ? "limit" : formatMb(mb);
   const hosts = status.protected_hosts;
@@ -92,35 +80,26 @@ export function WafSettingsCard({
         <div className="grid gap-4 sm:grid-cols-[minmax(0,15rem)_minmax(0,1fr)]">
           <div className="space-y-1.5">
             <Label htmlFor="waf-size">Maximum body size</Label>
-            <div className="flex gap-2">
+            <div className="flex items-center gap-2">
               <Input
                 id="waf-size"
-                inputMode="decimal"
+                inputMode="numeric"
                 value={value}
                 onChange={(e) => setValue(e.target.value)}
                 className="w-28"
                 aria-invalid={mb === null}
               />
-              <Select
-                value={unit}
-                onValueChange={(v) => setUnit(v as SizeUnit)}
-                items={UNIT_ITEMS}
-              >
-                <SelectTrigger aria-label="Size unit" className="w-20">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="MB">MB</SelectItem>
-                  <SelectItem value="GB">GB</SelectItem>
-                </SelectContent>
-              </Select>
+              <span className="text-muted-foreground text-sm">MB</span>
             </div>
             {mb === null ? (
               <p className="text-destructive text-xs">
-                Enter a size between 1 MB and 2 GB, in whole megabytes.
+                Enter a whole number between 1 and 100 MB.
               </p>
             ) : (
-              <p className="text-muted-foreground text-xs">CrowdSec&apos;s default is 10 MB.</p>
+              <p className="text-muted-foreground text-xs">
+                CrowdSec&apos;s default is 10 MB. Its WAF cannot check more than about 100 MB of
+                one body; choose what happens to bigger uploads below.
+              </p>
             )}
           </div>
 
@@ -163,8 +142,9 @@ export function WafSettingsCard({
         {mb !== null && mb > MEMORY_NOTE_MB ? (
           <p className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 text-sm">
             Checking this much of a body takes several times that in memory: on CrowdSec 1.8.1,
-            checking 100 MB of one upload used about 800 MB. Several large uploads at once can
-            run this server out of memory.
+            checking 100 MB of one upload used about 800 MB. It also takes time, and an upload
+            whose check runs past 30 seconds is denied rather than slowed — against a heavy rule
+            set, 100 MB took about that long. If large uploads are refused, lower the limit.
           </p>
         ) : null}
 

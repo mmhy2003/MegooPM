@@ -71,19 +71,23 @@ async def test_save_stores_bytes_and_queues_the_apply(
     resp = await db_client.patch(
         SAVE,
         headers=_auth(admin_token),
-        json={"max_body_mb": 2048, "body_exceeded_action": "allow"},
+        json={"max_body_mb": 100, "body_exceeded_action": "allow"},
     )
 
     assert resp.status_code == 202, resp.text
-    assert resp.json()["crowdsec_appsec_max_body_mb"] == 2048
+    assert resp.json()["crowdsec_appsec_max_body_mb"] == 100
     assert resp.json()["crowdsec_appsec_body_action"] == "allow"
     assert [name for name, _ in sent] == ["app.tasks.crowdsec.apply_waf_settings"]
     async with session_factory() as db:
         row = (await db.execute(select(InstanceSettings))).scalar_one()
-    assert row.crowdsec_appsec_max_body_bytes == 2048 * 1024 * 1024
+    assert row.crowdsec_appsec_max_body_bytes == 100 * 1024 * 1024
 
 
-@pytest.mark.parametrize("mb", [0, 2049, -5])
+# Coraza, under CrowdSec's WAF, rejects any body of 128 MiB or more on its own
+# (RequestBodyLimit, hard-coded in crowdsecurity/coraza v3.7.0): a CrowdSec
+# limit at or above it turns every upload in between into a 403, whatever the
+# action. 100 MB keeps a margin below it.
+@pytest.mark.parametrize("mb", [0, 101, 128, 2048, -5])
 async def test_save_refuses_out_of_range(
     db_client: AsyncClient, admin_token: str, sent, mb: int
 ) -> None:

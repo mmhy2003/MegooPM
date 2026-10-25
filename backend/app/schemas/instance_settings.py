@@ -309,9 +309,12 @@ class CrowdSecCapiUpdate(BaseModel):
     enabled: bool
 
 
-#: Above this one request could hold gigabytes of CrowdSec's memory; `partial`
-#: and `allow` already let larger uploads through.
-WAF_MAX_BODY_MB = 2048
+#: Coraza, under CrowdSec's WAF, rejects any body of 128 MiB or more on its own
+#: (RequestBodyLimit, hard-coded in crowdsecurity/coraza v3.7.0). A CrowdSec
+#: limit at or above that turns every upload in between into a 403 whatever the
+#: action, so the setting stops with a margin below it. `partial` and `allow`
+#: already let larger uploads through.
+WAF_MAX_BODY_MB = 100
 
 
 class CrowdSecWafUpdate(BaseModel):

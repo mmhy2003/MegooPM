@@ -172,7 +172,7 @@ both from Security → Settings:
 
 | Setting | Values | Default |
 | --- | --- | --- |
-| Maximum body size | 1 MB – 2 GB, whole MB | 10 MB |
+| Maximum body size | 1 – 100 MB, whole MB | 10 MB |
 | Over the limit | `drop` (block, body unchecked) · `partial` (check the first part, pass the rest) · `allow` (skip the body, still check URL/headers) | `partial` |
 
 The default is **not** CrowdSec's `drop`: an upgraded instance keeps accepting
@@ -219,13 +219,45 @@ says why it is off. Only if CrowdSec still does not come back does the
 ordinary rollback restore both files. Whitelist, hub and CAPI applies do not
 have this net yet.
 
-**Memory.** Measured on CrowdSec 1.8.1 with one 600 MB upload through the
-real nginx image: peak CrowdSec memory ~40 MB at a 10 MB limit (any action),
-~800 MB at 100 MB with `partial`, ~1.3 GB at 1 GB. Checking a body costs
-several times its checked size, per request in flight, which is why the card
-notes it above 10 MB. nginx's own memory stayed flat (~35 MB): bouncer
-v1.0.19 streams file-backed bodies to AppSec in 64 KB chunks, where v1.0.8
-read the whole body into one Lua string.
+**Why 100 MB is the ceiling.** Coraza, the engine under CrowdSec's WAF,
+has its own request-body limit: `RequestBodyLimit = 134217728` (128 MiB),
+hard-coded in crowdsecurity/coraza v3.7.0 and not raised by CrowdSec 1.8.1,
+with action Reject. A CrowdSec limit at or above it means every body between
+128 MiB and that limit is refused with a 403 — measured: a clean 600 MB upload
+at a 1 GB `partial` limit, and even at exactly 128 MiB, logged "Disrupting
+transaction with body size above the configured limit (Action Reject)". 100 MB
+keeps a margin below it. `partial` and `allow` still let bigger uploads
+through.
+
+**Timeouts — the part that silently blocks uploads.** Checking a big body
+takes time, and three timeouts sit in its way. Each one fails closed:
+- the bouncer's `APPSEC_SEND_TIMEOUT` / `APPSEC_PROCESS_TIMEOUT` (v1.0.19
+  defaults 100 ms / 500 ms) — set to 30 s in `infra/nginx/crowdsec-bouncer.conf`;
+- AppSec's `body_read_timeout` (default 1 s) — set to 30 s in the acquisition.
+
+With the defaults, a 600 MB upload at a 100 MB `partial` limit was denied.
+**v1.0.19 serves that denial with status 200** (the error path keeps its
+initial status), so an upload looks successful while the app never sees it —
+check the nginx error log for `AppSec check: timeout`.
+
+**Measured** on CrowdSec 1.8.1 with the real nginx image, 600 MB uploads,
+judged by whether the body reached the backend:
+
+| Limit | Rules | Time | CrowdSec peak memory |
+| --- | --- | --- | --- |
+| 10 MB `partial` | one rule | 0.7 s | ~40 MB |
+| 10 MB `partial` | 40 heavy body regexes | 3.6 s | — |
+| 100 MB `partial` | one rule | 1.6 s | ~800 MB |
+| 100 MB `partial` | 40 heavy body regexes | ~30 s: **denied** at the 30 s timeout | — |
+| 100 MB `allow` / `drop` | one rule | 0.8 s / 0.7 s (drop denies) | — |
+
+Checking costs several times the checked size in memory, per request in
+flight, and time grows with the rule set. The real hub collections were not
+measurable from the development network (CrowdSec's firewall blocks it).
+If large uploads are refused at a high limit, lower the limit, or raise both
+timeouts. nginx's own memory stayed flat (~35 MB) throughout: bouncer v1.0.19
+streams file-backed bodies to AppSec in 64 KB chunks, where v1.0.8 read the
+whole body into one Lua string.
 
 **Verifying.**
 

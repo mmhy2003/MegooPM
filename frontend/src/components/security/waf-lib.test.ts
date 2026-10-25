@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { CrowdSecJobRun, CrowdSecWafStatus } from "@/lib/api";
-import { ACTION_COPY, describeWafRun, fromMb, toMb } from "@/components/security/waf-lib";
+import { ACTION_COPY, describeWafRun, toMb } from "@/components/security/waf-lib";
 
 function status(over: Partial<CrowdSecWafStatus> = {}): CrowdSecWafStatus {
   return {
@@ -33,31 +33,20 @@ function run(over: Partial<CrowdSecJobRun> = {}): CrowdSecJobRun {
 }
 
 describe("toMb", () => {
-  it("takes whole megabytes and gigabytes", () => {
-    expect(toMb("100", "MB")).toBe(100);
-    expect(toMb("1.5", "GB")).toBe(1536);
-    expect(toMb("2", "GB")).toBe(2048);
+  it("takes whole megabytes up to 100", () => {
+    expect(toMb("1")).toBe(1);
+    expect(toMb(" 100 ")).toBe(100);
   });
 
   it("refuses what the API would refuse", () => {
-    expect(toMb("2049", "MB")).toBeNull();
-    expect(toMb("3", "GB")).toBeNull();
-    expect(toMb("0", "MB")).toBeNull();
-    expect(toMb("-1", "MB")).toBeNull();
-    expect(toMb("", "MB")).toBeNull();
-    expect(toMb("12.5", "MB")).toBeNull();
-    expect(toMb("abc", "MB")).toBeNull();
-  });
-});
-
-describe("fromMb", () => {
-  it("shows a whole number of gigabytes in GB", () => {
-    expect(fromMb(2048)).toEqual({ value: "2", unit: "GB" });
-    expect(fromMb(1024)).toEqual({ value: "1", unit: "GB" });
-  });
-  it("shows anything else in MB", () => {
-    expect(fromMb(100)).toEqual({ value: "100", unit: "MB" });
-    expect(fromMb(1536)).toEqual({ value: "1536", unit: "MB" });
+    // 128 MiB and up is rejected by Coraza itself, whatever the action.
+    expect(toMb("101")).toBeNull();
+    expect(toMb("128")).toBeNull();
+    expect(toMb("0")).toBeNull();
+    expect(toMb("-1")).toBeNull();
+    expect(toMb("")).toBeNull();
+    expect(toMb("12.5")).toBeNull();
+    expect(toMb("abc")).toBeNull();
   });
 });
 
@@ -81,8 +70,8 @@ describe("describeWafRun", () => {
 
   it("never calls a saved, unapplied value live or the default", () => {
     // First save on an install: the reload can land before the worker takes
-    // the lock, so there is no run yet — but 1 GB / allow is not in force.
-    expect(describeWafRun(status({ max_body_mb: 1024, body_exceeded_action: "allow" })).label).toBe(
+    // the lock, so there is no run yet — but 100 MB / allow is not in force.
+    expect(describeWafRun(status({ max_body_mb: 100, body_exceeded_action: "allow" })).label).toBe(
       "Saved — not applied yet.",
     );
     expect(describeWafRun(status({ body_exceeded_action: "drop" })).label).toBe(

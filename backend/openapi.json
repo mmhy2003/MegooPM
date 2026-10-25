@@ -2110,7 +2110,7 @@
           },
           "max_body_mb": {
             "description": "Whole megabytes",
-            "maximum": 2048.0,
+            "maximum": 100.0,
             "minimum": 1.0,
             "title": "Max Body Mb",
             "type": "integer"

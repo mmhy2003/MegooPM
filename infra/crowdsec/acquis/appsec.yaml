@@ -12,6 +12,10 @@
 #     (/etc/crowdsec/appsec-configs/megoopm-body-size.yaml). Hooks run in list
 #     order and later options win, so it must stay last.
 listen_addr: 0.0.0.0:7422
+# How long AppSec waits for the bouncer to finish sending a body. The 1s
+# default is shorter than streaming a large upload takes, and a timeout there
+# denies the request just like a WAF match would.
+body_read_timeout: 30s
 appsec_configs:
   - crowdsecurity/appsec-default
   - megoopm/body-size

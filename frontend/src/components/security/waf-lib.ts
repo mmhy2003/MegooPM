@@ -1,10 +1,10 @@
 import type { AppSecBodyAction, CrowdSecWafStatus } from "@/lib/api";
 
-export type SizeUnit = "MB" | "GB";
-
-/** The API's bounds, in whole megabytes (CrowdSecWafUpdate.max_body_mb). */
+/** The API's bounds, in whole megabytes (CrowdSecWafUpdate.max_body_mb). The
+ *  ceiling sits below the 128 MiB that Coraza, under CrowdSec's WAF, rejects
+ *  on its own whatever the action. */
 export const MIN_MB = 1;
-export const MAX_MB = 2048;
+export const MAX_MB = 100;
 
 /** What every install starts with (migration defaults and the seeded file). */
 export const DEFAULT_MB = 10;
@@ -16,27 +16,17 @@ export const DEFAULT_ACTION: AppSecBodyAction = "partial";
 export const MEMORY_NOTE_MB = DEFAULT_MB;
 
 /** Whole MB for the API, or null for anything it would refuse. */
-export function toMb(value: string, unit: SizeUnit): number | null {
+export function toMb(value: string): number | null {
   const trimmed = value.trim();
   if (trimmed === "") return null;
-  const n = Number(trimmed);
-  if (!Number.isFinite(n)) return null;
-  const mb = unit === "GB" ? n * 1024 : n;
+  const mb = Number(trimmed);
   if (!Number.isInteger(mb) || mb < MIN_MB || mb > MAX_MB) return null;
   return mb;
 }
 
-/** How a stored limit reads in the field: GB only when it is a whole number of them. */
-export function fromMb(mb: number): { value: string; unit: SizeUnit } {
-  return mb % 1024 === 0
-    ? { value: String(mb / 1024), unit: "GB" }
-    : { value: String(mb), unit: "MB" };
-}
-
-/** "10 MB", "2 GB" — the limit as the copy names it. */
+/** "10 MB" — the limit as the copy names it. */
 export function formatMb(mb: number): string {
-  const { value, unit } = fromMb(mb);
-  return `${value} ${unit}`;
+  return `${mb} MB`;
 }
 
 export const ACTIONS = ["drop", "partial", "allow"] as const satisfies readonly AppSecBodyAction[];

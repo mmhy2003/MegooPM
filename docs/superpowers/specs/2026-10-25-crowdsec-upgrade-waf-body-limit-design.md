@@ -210,7 +210,10 @@ mockup's "nginx and CrowdSec each hold the body" wording).
   when reloads are not configured. A read endpoint (or the existing
   maintenance payload) returns desired values, last run, and the WAF-enabled
   host list for the card.
-- Validation: whole MB, **1 MB to 2 GB** (my call: above that, a single
+- Validation: whole MB, **1 to 100 MB** — *amended during implementation*: the
+  original 2 GB ceiling was disproved; Coraza rejects any body of 128 MiB or
+  more on its own (see docs/crowdsec.md, "Why 100 MB is the ceiling"). The
+  original reasoning was (my call: above that, a single
   request can hold gigabytes of CrowdSec's memory, and `partial`/`allow`
   already cover larger uploads). The action is one of the three.
 

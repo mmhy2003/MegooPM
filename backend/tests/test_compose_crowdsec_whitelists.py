@@ -311,3 +311,38 @@ def test_the_bouncer_e2e_mounts_every_appsec_config_the_acquisition_names() -> N
     )
     assert "infra/crowdsec/acquis/appsec.yaml:/etc/crowdsec/acquis.d/appsec.yaml" in script
     assert f"infra/crowdsec/appsec-body-size.yaml:{WAF_TARGET}:ro" in script
+
+
+# --- big bodies must not time out into a denial ---------------------------------------
+#
+# Measured on CrowdSec 1.8.1 + lua-cs-bouncer v1.0.19: with the bouncer's
+# defaults (APPSEC_PROCESS_TIMEOUT=500 ms) checking a 100 MB body takes longer
+# than that, the bouncer fails closed (APPSEC_FAILURE_ACTION=deny) and the
+# upload gets the ban page — served with status 200, which hides it. AppSec's
+# own body_read_timeout (default 1 s) does the same from the other side.
+
+UPLOAD_TIMEOUT_MS = 30_000
+
+
+def _bouncer_conf() -> dict[str, str]:
+    text = (REPO_ROOT / "infra" / "nginx" / "crowdsec-bouncer.conf").read_text(encoding="utf-8")
+    pairs = (
+        line.split("=", 1)
+        for line in text.splitlines()
+        if "=" in line and not line.lstrip().startswith("#")
+    )
+    return {k.strip(): v.strip() for k, v in pairs}
+
+
+@pytest.mark.parametrize("key", ["APPSEC_SEND_TIMEOUT", "APPSEC_PROCESS_TIMEOUT"])
+def test_the_bouncer_waits_long_enough_for_a_big_body(key: str) -> None:
+    conf = _bouncer_conf()
+    assert key in conf, f"{key} unset: v1.0.19's default is far too short for uploads"
+    assert int(conf[key]) >= UPLOAD_TIMEOUT_MS
+
+
+def test_appsec_reads_a_big_body_without_its_one_second_deadline() -> None:
+    acquis = yaml.safe_load(
+        (REPO_ROOT / "infra" / "crowdsec" / "acquis" / "appsec.yaml").read_text(encoding="utf-8")
+    )
+    assert acquis.get("body_read_timeout") == "30s"
