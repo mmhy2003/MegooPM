@@ -4,7 +4,7 @@ import userEvent from "@testing-library/user-event";
 
 import { LiveLogsView } from "@/components/live-logs/live-logs-view";
 import type { LiveLine, Tab } from "@/components/live-logs/lib";
-import { gridFor, ROW_HEIGHT } from "@/components/live-logs/log-rows";
+import { CARD_HEIGHT, gridFor, ROW_HEIGHT } from "@/components/live-logs/log-rows";
 
 const hook = vi.hoisted(() => ({ state: {} as Record<string, unknown>, calls: [] as unknown[] }));
 vi.mock("@/components/live-logs/use-live-logs", () => ({
@@ -13,6 +13,10 @@ vi.mock("@/components/live-logs/use-live-logs", () => ({
     return hook.state;
   },
 }));
+
+// The layout under test is chosen deliberately, not by whatever width jsdom pretends to be.
+const useIsMobile = vi.hoisted(() => vi.fn(() => false));
+vi.mock("@/hooks/use-mobile", () => ({ useIsMobile }));
 
 // Counts row renders: every row shows its time, and nothing else asks for it.
 const rendered = vi.hoisted(() => ({ rows: 0 }));
@@ -79,7 +83,10 @@ beforeEach(() => {
   hook.calls = [];
   setState({});
 });
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  useIsMobile.mockReturnValue(false);
+});
 
 type User = ReturnType<typeof userEvent.setup>;
 
@@ -516,5 +523,182 @@ describe("LiveLogsView", () => {
     setState({ status: "revoked" });
     render(<LiveLogsView />);
     expect(screen.getByText(/access was revoked/i)).toBeInTheDocument();
+  });
+});
+
+describe("LiveLogsView picked hosts", () => {
+  it("shows no Watching line until a host is picked", () => {
+    render(<LiveLogsView />);
+    expect(screen.queryByTestId("picked")).toBeNull();
+    expect(screen.queryByText("Watching")).toBeNull();
+  });
+
+  it("lists the picked hosts on their own line, after the controls", async () => {
+    const user = userEvent.setup();
+    render(<LiveLogsView />);
+    await pickHosts(user, "cloud.example.com", "old.example.com");
+    const picked = screen.getByTestId("picked");
+    expect(within(picked).getByText("Watching")).toBeInTheDocument();
+    expect(within(picked).getByText("cloud.example.com")).toBeInTheDocument();
+    expect(within(picked).getByText("old.example.com")).toBeInTheDocument();
+    // Not among the controls: picking a host must not push them along.
+    const picker = screen.getByRole("combobox", { name: "Add host" });
+    expect(picked.contains(picker)).toBe(false);
+    expect(picker.compareDocumentPosition(picked) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    const filter = screen.getByRole("searchbox", { name: "Filter lines" });
+    expect(filter.compareDocumentPosition(picked) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("offers Clear all once two hosts are picked, and it stops watching them", async () => {
+    const user = userEvent.setup();
+    render(<LiveLogsView />);
+    await pickHosts(user, "cloud.example.com");
+    expect(screen.queryByRole("button", { name: "Clear all" })).toBeNull();
+    await pickHosts(user, "old.example.com");
+    await user.click(screen.getByRole("button", { name: "Clear all" }));
+    expect(hook.calls.at(-1)).toEqual({ hosts: [], decisions: false });
+    expect(screen.queryByTestId("picked")).toBeNull();
+  });
+
+  it("clears only the hosts this tab shows", async () => {
+    const user = userEvent.setup();
+    render(<LiveLogsView />);
+    await user.click(screen.getByRole("tab", { name: "Stream hosts" }));
+    await pickHosts(user, "Stream :2222");
+    await user.click(screen.getByRole("tab", { name: "Requests" }));
+    await pickHosts(user, "cloud.example.com", "old.example.com");
+    await user.click(screen.getByRole("button", { name: "Clear all" }));
+    expect(hook.calls.at(-1)).toEqual({ hosts: ["s3"], decisions: false });
+  });
+});
+
+describe("LiveLogsView on a phone", () => {
+  beforeEach(() => {
+    useIsMobile.mockReturnValue(true);
+  });
+
+  async function renderPhoneWatchingP1() {
+    const user = userEvent.setup();
+    const result = render(<LiveLogsView />);
+    await pickHosts(user, "cloud.example.com");
+    return { user, ...result };
+  }
+
+  it("shows each request as a card with every field the table has, and no table", async () => {
+    setState({
+      lines: {
+        requests: [
+          line({
+            f: { st: "502", m: "POST", u: "/upload", ip: "5.6.7.8", up: "10.0.0.12:80", rt: "0.038" },
+          }),
+        ],
+      },
+    });
+    await renderPhoneWatchingP1();
+    expect(screen.queryByRole("table")).toBeNull();
+    expect(screen.queryByRole("columnheader")).toBeNull();
+    const card = within(screen.getByRole("region", { name: "Requests" })).getByRole("button");
+    for (const text of ["502", "POST", "/upload", "38 ms", "10.0.0.12:80", "cloud.example.com"]) {
+      expect(within(card).getByText(text, { exact: false })).toBeInTheDocument();
+    }
+    expect(within(card).getByText(/5\.6\.7\.8/)).toBeInTheDocument();
+  });
+
+  it("shows an error line's level, host and message", async () => {
+    setState({
+      lines: { errors: [line({ log: "error", sev: 3, f: null, raw: "upstream timed out (110)" })] },
+    });
+    const { user } = await renderPhoneWatchingP1();
+    await user.click(screen.getByRole("tab", { name: "Errors" }));
+    const card = within(screen.getByRole("region", { name: "Errors" })).getByRole("button");
+    expect(within(card).getByText("error")).toBeInTheDocument();
+    expect(within(card).getByText("cloud.example.com")).toBeInTheDocument();
+    expect(within(card).getByText("upstream timed out (110)")).toBeInTheDocument();
+  });
+
+  it("names the stream tab short enough for four tabs to fit", () => {
+    render(<LiveLogsView />);
+    expect(screen.getByRole("tab", { name: "Streams" })).toBeInTheDocument();
+  });
+
+  it("opens every field of a tapped line in a panel, and copies it", async () => {
+    setState({ lines: { requests: [line({ f: { st: "200", m: "GET", u: "/x", ua: "curl/8.1" } })] } });
+    const { user } = await renderPhoneWatchingP1();
+    await user.click(within(screen.getByRole("region", { name: "Requests" })).getByRole("button"));
+    const panel = await screen.findByRole("dialog");
+    expect(within(panel).getByText("curl/8.1")).toBeInTheDocument();
+
+    await user.click(within(panel).getByRole("button", { name: "Copy line" }));
+    // userEvent stands in for the clipboard; what was written reads back.
+    expect(await navigator.clipboard.readText()).toContain("GET /x");
+
+    await user.click(within(panel).getByRole("button", { name: "Close" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+  });
+
+  it("moves the status and node filters into a Filters panel", async () => {
+    setState({
+      lines: {
+        requests: [
+          line({ f: { st: "200", m: "GET", u: "/fine" } }),
+          line({ node: "node-b", f: { st: "502", m: "GET", u: "/broken" } }),
+        ],
+      },
+    });
+    const { user } = await renderPhoneWatchingP1();
+    expect(screen.queryByRole("combobox", { name: "Status filter" })).toBeNull();
+    expect(screen.queryByRole("combobox", { name: "Node filter" })).toBeNull();
+
+    await user.click(screen.getByRole("button", { name: "Filters" }));
+    const panel = await screen.findByRole("dialog");
+    expect(within(panel).getByRole("button", { name: "node-b" })).toBeInTheDocument();
+    await user.click(within(panel).getByRole("button", { name: "5xx" }));
+    expect(within(panel).getByRole("button", { name: "5xx" })).toHaveAttribute("aria-pressed", "true");
+    await user.click(within(panel).getByRole("button", { name: "Done" }));
+
+    expect(screen.getByText("/broken")).toBeInTheDocument();
+    expect(screen.queryByText("/fine")).toBeNull();
+    expect(screen.getByRole("button", { name: "Filters, 1 on" })).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Filters, 1 on" }));
+    await user.click(within(await screen.findByRole("dialog")).getByRole("button", { name: "Reset" }));
+    expect(screen.getByText("/fine")).toBeInTheDocument();
+  });
+
+  it("offers no Filters button where no filter applies", async () => {
+    const user = userEvent.setup();
+    render(<LiveLogsView />);
+    await user.click(screen.getByRole("tab", { name: "Errors" }));
+    expect(screen.queryByRole("button", { name: /^Filters/ })).toBeNull();
+  });
+
+  it("puts Save and Clear in a menu beside Pause", async () => {
+    const clear = vi.fn();
+    const setPaused = vi.fn();
+    setState({ lines: { requests: [line()] }, clear, setPaused });
+    const { user } = await renderPhoneWatchingP1();
+    expect(screen.queryByRole("button", { name: /save what/i })).toBeNull();
+    await user.click(screen.getByRole("button", { name: "Pause" }));
+    expect(setPaused).toHaveBeenCalledWith(true);
+
+    await user.click(screen.getByRole("button", { name: "More actions" }));
+    expect(await screen.findByRole("menuitem", { name: /save what/i })).toBeInTheDocument();
+    await user.click(screen.getByRole("menuitem", { name: "Clear" }));
+    expect(clear).toHaveBeenCalled();
+  });
+
+  it("puts only the cards in view in the page, and follows the scroll", async () => {
+    const many = Array.from({ length: 1000 }, (_, i) =>
+      line({ f: { st: "200", m: "GET", u: `/n${i}`, ip: "1.1.1.1" } }),
+    );
+    setState({ lines: { requests: many } });
+    await renderPhoneWatchingP1();
+    const list = screen.getByRole("region", { name: "Requests" });
+    expect(within(list).getAllByRole("button").length).toBeLessThan(100);
+    expect(within(list).getByText("/n999")).toBeInTheDocument();
+
+    fireEvent.scroll(screen.getByTestId("rows"), { target: { scrollTop: CARD_HEIGHT * 990 } });
+    expect(within(list).getByText("/n0")).toBeInTheDocument();
+    expect(within(list).queryByText("/n999")).toBeNull();
   });
 });

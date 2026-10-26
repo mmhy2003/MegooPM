@@ -1,4 +1,4 @@
-import { memo, type CSSProperties } from "react";
+import { memo, type CSSProperties, type ReactNode } from "react";
 
 import { lineTime, statusClass, type LiveLine, type Tab } from "@/components/live-logs/lib";
 import { Badge } from "@/components/ui/badge";
@@ -281,6 +281,157 @@ export const LogRow = memo(function LogRow({
         </span>
       ) : null}
       {cells(line, tab, hostLabel, showNode, host)}
+    </button>
+  );
+});
+
+/**
+ * Every phone card is exactly this tall (px), for the same reason as
+ * {@link ROW_HEIGHT}: the page renders only the cards in view.
+ */
+export const CARD_HEIGHT = 72;
+// One object for every card, so a memoised card is not handed a "new" style.
+const CARD_STYLE: CSSProperties = { height: CARD_HEIGHT };
+
+/** nginx's syslog severities, 0 to 7, as nginx names them. */
+const LEVEL = ["emerg", "alert", "crit", "error", "warn", "notice", "info", "debug"];
+
+function levelClass(sev: number): string {
+  if (sev <= 3) return "text-destructive";
+  if (sev === 4) return "text-warning";
+  return "text-muted-foreground";
+}
+
+/** A card's top row: what the line is, then (pushed right) the node and time. */
+function CardTop({
+  line,
+  showNode,
+  children,
+}: {
+  line: LiveLine;
+  showNode: boolean;
+  children: ReactNode;
+}) {
+  return (
+    <span className="flex min-w-0 items-center gap-2">
+      {children}
+      <span className="ml-auto flex shrink-0 items-center gap-1.5 text-[11px] text-muted-foreground">
+        {showNode ? <span className="rounded-md bg-muted px-1.5">{line.node}</span> : null}
+        {lineTime(line)}
+      </span>
+    </span>
+  );
+}
+
+/** A line of text that fills the card's width and ends in "…" when it does not fit. */
+const ONE_ROW = "block truncate";
+/** A message given two rows, then "…". */
+const TWO_ROWS = "line-clamp-2 break-all whitespace-normal";
+
+function cardBody(line: LiveLine, tab: Tab, hostLabel: string, showNode: boolean) {
+  const f = line.f;
+  if (line.truncated || !f) {
+    const level = tab === "requests" || tab === "streams" ? null : LEVEL[line.sev] ?? null;
+    return (
+      <>
+        <CardTop line={line} showNode={showNode}>
+          {line.truncated ? <Badge variant="warning">truncated</Badge> : null}
+          {level ? <span className={levelClass(line.sev)}>{level}</span> : null}
+          <span className="truncate text-muted-foreground">{hostLabel}</span>
+        </CardTop>
+        <span className={TWO_ROWS}>{line.raw ?? ""}</span>
+      </>
+    );
+  }
+  if (line.log === "decision") {
+    return (
+      <>
+        <CardTop line={line} showNode={showNode}>
+          <Badge variant="destructive">{f.type ?? "decision"}</Badge>
+        </CardTop>
+        <span className={cn(ONE_ROW, "flex items-center gap-1.5")}>
+          <span className="truncate">
+            {f.scope} {f.value}
+          </span>
+          <CountryFlag country={line.cc} />
+        </span>
+        <span className={cn(ONE_ROW, "text-muted-foreground")}>
+          {f.scenario || f.origin} · {f.duration}
+        </span>
+      </>
+    );
+  }
+  if (tab === "streams") {
+    return (
+      <>
+        <CardTop line={line} showNode={showNode}>
+          <span>{f.st}</span>
+          <span>{f.pr}</span>
+          <span className="text-muted-foreground">{seconds(f.dur)}</span>
+        </CardTop>
+        <span className="flex min-w-0 items-center gap-1.5">
+          <span className="truncate">{f.ip ?? "—"}</span>
+          <CountryFlag country={line.cc} />
+        </span>
+        <span className={cn(ONE_ROW, "text-muted-foreground")}>
+          {hostLabel} · {bytes(f.in)} / {bytes(f.out)} · {f.up || "—"}
+        </span>
+      </>
+    );
+  }
+  const cls = statusClass(f.st);
+  return (
+    <>
+      <CardTop line={line} showNode={showNode}>
+        <span className={cn("font-semibold", cls ? STATUS_COLOUR[cls] : undefined)}>{f.st}</span>
+        <span>{f.m}</span>
+        {f.cs === "denied" ? <Badge variant="destructive">CrowdSec</Badge> : null}
+        <span className="text-muted-foreground">{seconds(f.rt)}</span>
+      </CardTop>
+      <span className={ONE_ROW}>{f.u}</span>
+      <span className="flex min-w-0 items-center gap-1 text-muted-foreground">
+        <span className="truncate">
+          {hostLabel} · {f.ip ?? "—"}
+        </span>
+        <CountryFlag country={line.cc} />
+        <span className="truncate"> · {f.up || "—"}</span>
+      </span>
+    </>
+  );
+}
+
+/**
+ * One line on a phone: the table's cells stacked into three short rows, so
+ * nothing scrolls sideways. Memoised like {@link LogRow}.
+ */
+export const LogCard = memo(function LogCard({
+  line,
+  tab,
+  showNode,
+  hostLabel,
+  selected,
+  onSelect,
+}: {
+  line: LiveLine;
+  tab: Tab;
+  showNode: boolean;
+  hostLabel: string;
+  selected: boolean;
+  onSelect: (id: number) => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={() => onSelect(line.id)}
+      aria-pressed={selected}
+      className={cn(
+        "flex w-full flex-col justify-center gap-0.5 overflow-hidden border-b px-3",
+        "text-left font-mono text-xs hover:bg-muted/40",
+        selected && "bg-muted/60",
+      )}
+      style={CARD_STYLE}
+    >
+      {cardBody(line, tab, hostLabel, showNode)}
     </button>
   );
 });

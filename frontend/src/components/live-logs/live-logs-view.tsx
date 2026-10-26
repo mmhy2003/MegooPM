@@ -1,10 +1,26 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState, type UIEvent } from "react";
-import { Download, Pause, Play, Trash2, TriangleAlert, X } from "lucide-react";
+import {
+  Download,
+  Pause,
+  Play,
+  SlidersHorizontal,
+  Trash2,
+  TriangleAlert,
+  X,
+} from "lucide-react";
 
 import { deadHosts, proxyHosts, redirectionHosts, streams } from "@/lib/api";
-import { LineDetail, LogHead, LogRow, ROW_HEIGHT } from "@/components/live-logs/log-rows";
+import {
+  CARD_HEIGHT,
+  LineDetail,
+  LogCard,
+  LogHead,
+  LogRow,
+  ROW_HEIGHT,
+} from "@/components/live-logs/log-rows";
+import { FiltersSheet, LineSheet, MoreMenu } from "@/components/live-logs/phone";
 import {
   LINE_CAP,
   matches,
@@ -14,6 +30,7 @@ import {
   type Tab,
 } from "@/components/live-logs/lib";
 import { useLiveLogs } from "@/components/live-logs/use-live-logs";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { SearchInput } from "@/components/ui/search-input";
@@ -34,6 +51,13 @@ const TAB_LABEL: Record<Tab, string> = {
   security: "Security",
   streams: "Stream hosts",
 };
+
+const FILTER_COUNT =
+  "inline-flex size-4 items-center justify-center rounded-full bg-primary " +
+  "text-[10px] font-semibold text-primary-foreground";
+
+/** Short enough for all four to fit across a phone. */
+const PHONE_TAB_LABEL: Record<Tab, string> = { ...TAB_LABEL, streams: "Streams" };
 
 const STATUS_CLASSES = ["2xx", "3xx", "4xx", "5xx"] as const;
 
@@ -108,12 +132,12 @@ const OVERSCAN = 10;
 const FALLBACK_VIEW_PX = 900;
 
 /**
- * Which of `count` fixed-height rows are in view in the scroller `ref` points
- * at. A tab keeps 1,000 lines and a busy one changes ten times a second: only
- * the rows that can be seen are put in the page, so a flush costs the same
- * whether the tab holds 30 lines or 1,000.
+ * Which of `count` rows, each `rowHeight` px tall, are in view in the
+ * scroller `ref` points at. A tab keeps 1,000 lines and a busy one changes
+ * ten times a second: only the rows that can be seen are put in the page, so
+ * a flush costs the same whether the tab holds 30 lines or 1,000.
  */
-function useRowWindow(count: number) {
+function useRowWindow(count: number, rowHeight: number) {
   const ref = useRef<HTMLDivElement>(null);
   const [scrollTop, setScrollTop] = useState(0);
   const [viewPx, setViewPx] = useState(0);
@@ -132,8 +156,8 @@ function useRowWindow(count: number) {
     setScrollTop(event.currentTarget.scrollTop);
   }, []);
 
-  const inView = Math.ceil((viewPx || FALLBACK_VIEW_PX) / ROW_HEIGHT);
-  const start = Math.min(Math.max(0, Math.floor(scrollTop / ROW_HEIGHT) - OVERSCAN), count);
+  const inView = Math.ceil((viewPx || FALLBACK_VIEW_PX) / rowHeight);
+  const start = Math.min(Math.max(0, Math.floor(scrollTop / rowHeight) - OVERSCAN), count);
   const end = Math.min(count, start + inView + 2 * OVERSCAN);
   return { ref, onScroll, start, end };
 }
@@ -164,6 +188,8 @@ export function LiveLogsView() {
   const [status, setStatus] = useState("");
   const [text, setText] = useState("");
   const [selectedId, setSelectedId] = useState<number | null>(null);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const isMobile = useIsMobile();
 
   const options = useHostOptions();
   const live = useLiveLogs({ hosts: picked, decisions: tab === "security" });
@@ -202,7 +228,8 @@ export function LiveLogsView() {
   }, [live.lines, tab, node, status, text, showNode, picked]);
 
   const selected = selectedId === null ? null : rows.find((line) => line.id === selectedId);
-  const { ref: rowsRef, onScroll, start, end } = useRowWindow(rows.length);
+  const rowHeight = isMobile ? CARD_HEIGHT : ROW_HEIGHT;
+  const { ref: rowsRef, onScroll, start, end } = useRowWindow(rows.length, rowHeight);
   // One callback for every row, so a memoised row re-renders only when its own
   // props change.
   const select = useCallback((id: number) => setSelectedId((cur) => (cur === id ? null : id)), []);
@@ -225,6 +252,8 @@ export function LiveLogsView() {
       if (prev.includes(key)) return prev;
       return [...prev.filter((k) => k !== ALL_LOGS), key];
     });
+  // Only the chips on screen: a stream host picked on the Stream tab stays.
+  const clearShown = () => setPicked((prev) => prev.filter((k) => !onTab(k)));
 
   // nginx itself sends error lines only: on any other tab, nothing will come.
   const emptyText =
@@ -242,6 +271,79 @@ export function LiveLogsView() {
       : live.status === "connecting"
         ? "Connecting…"
         : "Reconnecting…";
+
+  const pending =
+    live.paused && live.pending > 0 ? (
+      <span className="text-xs text-muted-foreground">
+        {live.pending > LINE_CAP
+          ? `${LINE_CAP.toLocaleString()}+ new`
+          : `${live.pending.toLocaleString()} new`}
+      </span>
+    ) : null;
+
+  const liveStatus = (
+    <span
+      className={cn(
+        "inline-flex items-center gap-1.5 text-xs",
+        live.status === "live" ? "text-success" : "text-muted-foreground",
+      )}
+    >
+      <span
+        className={cn(
+          "size-2 rounded-full",
+          live.status === "live" ? "bg-success" : "bg-muted-foreground",
+        )}
+      />
+      {connection}
+    </span>
+  );
+
+  // Keyed by tab: the picker's own filter text belongs to the list it filtered.
+  const hostPicker = (
+    <SearchableSelect
+      key={tab}
+      aria-label="Add host"
+      value=""
+      items={Object.fromEntries(addable.map((o) => [o.key, o.label]))}
+      onValueChange={(key) => {
+        if (key) pick(key);
+      }}
+      placeholder="+ Add host"
+      searchLabel="Search hosts"
+      disabled={addable.length === 0}
+      className={isMobile ? "w-full" : "w-56"}
+    />
+  );
+
+  const textFilter = (
+    <SearchInput
+      value={text}
+      onValueChange={setText}
+      label="Filter lines"
+      placeholder="Filter: path, IP, user agent…"
+      className={isMobile ? "min-w-0 flex-1" : "sm:max-w-64"}
+    />
+  );
+
+  const chips = visiblePicked.map((key) => (
+    <Badge key={key} variant="outline" className="h-7 shrink-0 gap-1.5 pr-1">
+      <span>{chipLabelOf(key)}</span>
+      <button
+        type="button"
+        aria-label={`Stop watching ${chipLabelOf(key)}`}
+        onClick={() => setPicked((prev) => prev.filter((k) => k !== key))}
+        className="rounded p-0.5 hover:bg-muted"
+      >
+        <X className="size-3" />
+      </button>
+    </Badge>
+  ));
+
+  const save = () => saveAsFile(`live-logs-${tab}.txt`, toText([...rows].reverse()));
+
+  // The filters a phone moves into its panel, each only where it applies.
+  const statusApplies = tab === "requests";
+  const filtersOn = (statusApplies && status ? 1 : 0) + (showNode && node ? 1 : 0);
 
   return (
     <div className="flex flex-col gap-3">
@@ -270,167 +372,220 @@ export function LiveLogsView() {
           setSelectedId(null);
         }}
       >
-        <TabsList>
+        <TabsList className={isMobile ? "w-full" : undefined}>
           {TABS.map((t) => (
-            <TabsTab key={t} value={t}>
-              {TAB_LABEL[t]}
+            <TabsTab key={t} value={t} className={isMobile ? "px-2" : undefined}>
+              {isMobile ? PHONE_TAB_LABEL[t] : TAB_LABEL[t]}
             </TabsTab>
           ))}
         </TabsList>
       </Tabs>
 
-      <div className="flex flex-wrap items-center gap-2">
-        <div data-testid="picked" className="flex flex-wrap items-center gap-2">
-          {visiblePicked.map((key) => (
-            <Badge key={key} variant="outline" className="h-7 gap-1.5 pr-1">
-              <span>{chipLabelOf(key)}</span>
-              <button
-                type="button"
-                aria-label={`Stop watching ${chipLabelOf(key)}`}
-                onClick={() => setPicked((prev) => prev.filter((k) => k !== key))}
-                className="rounded p-0.5 hover:bg-muted"
+      {isMobile ? (
+        <>
+          {hostPicker}
+          {chips.length > 0 ? (
+            // One row that slides sideways: on a phone, wrapping chips would
+            // push the lines off the first screen.
+            <div data-testid="picked" className="-mx-1 flex items-center gap-2 overflow-x-auto px-1">
+              {chips}
+            </div>
+          ) : null}
+          <div className="flex items-center gap-2">
+            {textFilter}
+            {statusApplies || showNode ? (
+              <Button
+                variant="outline"
+                size="sm"
+                aria-label={filtersOn ? `Filters, ${filtersOn} on` : "Filters"}
+                onClick={() => setFiltersOpen(true)}
               >
-                <X className="size-3" />
-              </button>
-            </Badge>
-          ))}
-        </div>
-        {/* Keyed by tab: the picker's own filter text belongs to the list it filtered. */}
-        <SearchableSelect
-          key={tab}
-          aria-label="Add host"
-          value=""
-          items={Object.fromEntries(addable.map((o) => [o.key, o.label]))}
-          onValueChange={(key) => {
-            if (key) pick(key);
-          }}
-          placeholder="+ host"
-          searchLabel="Search hosts"
-          disabled={addable.length === 0}
-          className="w-56"
-        />
-        {showNode ? (
-          <Select
-            value={node || ANY_FILTER}
-            onValueChange={(v) => setNode(!v || v === ANY_FILTER ? "" : String(v))}
-            items={{ [ANY_FILTER]: "All nodes", ...Object.fromEntries(nodes.map((n) => [n, n])) }}
-          >
-            <SelectTrigger aria-label="Node filter" className="w-40">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={ANY_FILTER}>All nodes</SelectItem>
-              {nodes.map((n) => (
-                <SelectItem key={n} value={n}>
-                  {n}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        ) : null}
-        {tab === "requests" ? (
-          <Select
-            value={status || ANY_FILTER}
-            onValueChange={(v) => setStatus(!v || v === ANY_FILTER ? "" : String(v))}
-            items={STATUS_ITEMS}
-          >
-            <SelectTrigger aria-label="Status filter" className="w-36">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {Object.entries(STATUS_ITEMS).map(([value, label]) => (
-                <SelectItem key={value} value={value}>
-                  {label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        ) : null}
-        <SearchInput
-          value={text}
-          onValueChange={setText}
-          label="Filter lines"
-          placeholder="Filter: path, IP, user agent…"
-          className="sm:max-w-64"
-        />
-        <span
-          className={cn(
-            "inline-flex items-center gap-1.5 text-xs",
-            live.status === "live" ? "text-success" : "text-muted-foreground",
-          )}
-        >
-          <span
-            className={cn(
-              "size-2 rounded-full",
-              live.status === "live" ? "bg-success" : "bg-muted-foreground",
-            )}
+                <SlidersHorizontal />
+                Filters
+                {filtersOn ? (
+                  <span className={FILTER_COUNT}>
+                    {filtersOn}
+                  </span>
+                ) : null}
+              </Button>
+            ) : null}
+            <Button
+              variant="outline"
+              size="icon-sm"
+              aria-label={live.paused ? "Resume" : "Pause"}
+              onClick={() => live.setPaused(!live.paused)}
+            >
+              {live.paused ? <Play /> : <Pause />}
+            </Button>
+            <MoreMenu onSave={save} canSave={rows.length > 0} onClear={live.clear} />
+          </div>
+          <div className="flex items-center justify-between gap-2">
+            {liveStatus}
+            {pending}
+          </div>
+          <FiltersSheet
+            open={filtersOpen}
+            onOpenChange={setFiltersOpen}
+            status={status}
+            statuses={statusApplies ? STATUS_CLASSES : null}
+            onStatus={setStatus}
+            node={node}
+            nodes={showNode ? nodes : null}
+            onNode={setNode}
           />
-          {connection}
-        </span>
-        <Button variant="outline" size="sm" onClick={() => live.setPaused(!live.paused)}>
-          {live.paused ? <Play /> : <Pause />}
-          {live.paused ? "Resume" : "Pause"}
-        </Button>
-        {live.paused && live.pending > 0 ? (
-          <span className="text-xs text-muted-foreground">
-            {live.pending > LINE_CAP
-              ? `${LINE_CAP.toLocaleString()}+ new`
-              : `${live.pending.toLocaleString()} new`}
-          </span>
-        ) : null}
-      </div>
+        </>
+      ) : (
+        <>
+          <div className="flex flex-wrap items-center gap-2">
+            {hostPicker}
+            {showNode ? (
+              <Select
+                value={node || ANY_FILTER}
+                onValueChange={(v) => setNode(!v || v === ANY_FILTER ? "" : String(v))}
+                items={{ [ANY_FILTER]: "All nodes", ...Object.fromEntries(nodes.map((n) => [n, n])) }}
+              >
+                <SelectTrigger aria-label="Node filter" className="w-40">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={ANY_FILTER}>All nodes</SelectItem>
+                  {nodes.map((n) => (
+                    <SelectItem key={n} value={n}>
+                      {n}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            ) : null}
+            {statusApplies ? (
+              <Select
+                value={status || ANY_FILTER}
+                onValueChange={(v) => setStatus(!v || v === ANY_FILTER ? "" : String(v))}
+                items={STATUS_ITEMS}
+              >
+                <SelectTrigger aria-label="Status filter" className="w-36">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.entries(STATUS_ITEMS).map(([value, label]) => (
+                    <SelectItem key={value} value={value}>
+                      {label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            ) : null}
+            {textFilter}
+            {/* Pinned to the end of the line, so they keep their corner. */}
+            <span className="ml-auto flex items-center gap-2">
+              {pending}
+              {liveStatus}
+              <Button variant="outline" size="sm" onClick={() => live.setPaused(!live.paused)}>
+                {live.paused ? <Play /> : <Pause />}
+                {live.paused ? "Resume" : "Pause"}
+              </Button>
+            </span>
+          </div>
+          {chips.length > 0 ? (
+            // Their own line, below the controls: picking a host never moves them.
+            <div data-testid="picked" className="flex flex-wrap items-center gap-2">
+              <span className="text-xs text-muted-foreground">Watching</span>
+              {chips}
+              {chips.length > 1 ? (
+                <Button variant="ghost" size="xs" onClick={clearShown}>
+                  Clear all
+                </Button>
+              ) : null}
+            </div>
+          ) : null}
+        </>
+      )}
 
       {tab === "streams" ? (
         <p className="text-sm text-muted-foreground">Connections appear here when they close.</p>
       ) : null}
 
-      <div role="table" aria-label={TAB_LABEL[tab]} className="overflow-hidden rounded-xl border">
-        <LogHead tab={tab} showNode={showNode} showHost={showHost} />
-        <div ref={rowsRef} onScroll={onScroll} data-testid="rows" className="max-h-[60vh] overflow-auto">
-          {rows.length === 0 ? (
-            <p className="px-3 py-10 text-center text-sm text-muted-foreground">
-              {emptyText}
-            </p>
-          ) : (
-            // Full height, so the scrollbar is the whole tab's; only the rows in
-            // view are in it, moved to where they sit.
-            <div style={{ height: rows.length * ROW_HEIGHT }}>
-              <div style={{ transform: `translateY(${start * ROW_HEIGHT}px)` }}>
-                {rows.slice(start, end).map((line) => (
-                  <LogRow
-                    key={line.id}
-                    line={line}
-                    tab={tab}
-                    showNode={showNode}
-                    showHost={showHost}
-                    hostLabel={labelOf(line.host)}
-                    selected={line.id === selectedId}
-                    onSelect={select}
-                  />
-                ))}
+      {isMobile ? (
+        <section aria-label={TAB_LABEL[tab]} className="overflow-hidden rounded-xl border">
+          <div ref={rowsRef} onScroll={onScroll} data-testid="rows" className="max-h-[65vh] overflow-auto">
+            {rows.length === 0 ? (
+              <p className="px-3 py-10 text-center text-sm text-muted-foreground">{emptyText}</p>
+            ) : (
+              <div style={{ height: rows.length * CARD_HEIGHT }}>
+                <div style={{ transform: `translateY(${start * CARD_HEIGHT}px)` }}>
+                  {rows.slice(start, end).map((line) => (
+                    <LogCard
+                      key={line.id}
+                      line={line}
+                      tab={tab}
+                      showNode={showNode}
+                      hostLabel={labelOf(line.host)}
+                      selected={line.id === selectedId}
+                      onSelect={select}
+                    />
+                  ))}
+                </div>
               </div>
-            </div>
-          )}
+            )}
+          </div>
+        </section>
+      ) : (
+        <div role="table" aria-label={TAB_LABEL[tab]} className="overflow-hidden rounded-xl border">
+          <LogHead tab={tab} showNode={showNode} showHost={showHost} />
+          <div ref={rowsRef} onScroll={onScroll} data-testid="rows" className="max-h-[60vh] overflow-auto">
+            {rows.length === 0 ? (
+              <p className="px-3 py-10 text-center text-sm text-muted-foreground">
+                {emptyText}
+              </p>
+            ) : (
+              // Full height, so the scrollbar is the whole tab's; only the rows in
+              // view are in it, moved to where they sit.
+              <div style={{ height: rows.length * ROW_HEIGHT }}>
+                <div style={{ transform: `translateY(${start * ROW_HEIGHT}px)` }}>
+                  {rows.slice(start, end).map((line) => (
+                    <LogRow
+                      key={line.id}
+                      line={line}
+                      tab={tab}
+                      showNode={showNode}
+                      showHost={showHost}
+                      hostLabel={labelOf(line.host)}
+                      selected={line.id === selectedId}
+                      onSelect={select}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
         </div>
-      </div>
+      )}
 
-      {selected ? <LineDetail line={selected} hostLabel={labelOf(selected.host)} /> : null}
+      {isMobile ? (
+        <LineSheet
+          line={selected ?? null}
+          hostLabel={selected ? labelOf(selected.host) : ""}
+          onClose={() => setSelectedId(null)}
+        />
+      ) : selected ? (
+        <LineDetail line={selected} hostLabel={labelOf(selected.host)} />
+      ) : null}
 
       <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
-        <span>Showing the last 1,000 lines in this tab only. Click a line for every field.</span>
-        <span className="flex gap-2">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => saveAsFile(`live-logs-${tab}.txt`, toText([...rows].reverse()))}
-            disabled={rows.length === 0}
-          >
-            <Download /> Save what&apos;s on screen
-          </Button>
-          <Button variant="ghost" size="sm" onClick={live.clear}>
-            <Trash2 /> Clear
-          </Button>
+        <span>
+          Showing the last 1,000 lines in this tab only.{" "}
+          {isMobile ? "Tap a line for every field." : "Click a line for every field."}
         </span>
+        {isMobile ? null : (
+          <span className="flex gap-2">
+            <Button variant="ghost" size="sm" onClick={save} disabled={rows.length === 0}>
+              <Download /> Save what&apos;s on screen
+            </Button>
+            <Button variant="ghost" size="sm" onClick={live.clear}>
+              <Trash2 /> Clear
+            </Button>
+          </span>
+        )}
       </div>
     </div>
   );
