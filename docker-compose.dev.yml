@@ -256,6 +256,10 @@ services:
 
   crowdsec:
     image: crowdsecurity/crowdsec:v1.8.1
+    # The image's own /docker_start.sh, wrapped so that CrowdSec starts on
+    # its installed hub items when the hub cannot be reached, instead of
+    # crash-looping with the bouncer failing closed. See the script's header.
+    entrypoint: ["/bin/bash", "/megoopm-start.sh"]
     depends_on:
       # The single-file mounts below are seeded by data-init; Docker would
       # otherwise create DIRECTORIES at the sources and CrowdSec refuses to
@@ -283,6 +287,7 @@ services:
       # One active ban per IP: see the file's header. A single FILE over the
       # config volume, like the acquis files above.
       - ./infra/crowdsec/profiles.yaml:/etc/crowdsec/profiles.yaml:ro
+      - ./infra/crowdsec/start.sh:/megoopm-start.sh:ro
       # The app-owned config override: LAPI machine auto-registration, plus the
       # community-blocklist block when Security → Updates switches it on. A
       # single FILE out of the shared volume, seeded by data-init.
