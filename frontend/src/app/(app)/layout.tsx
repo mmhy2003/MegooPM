@@ -1,14 +1,19 @@
+import { cookies } from "next/headers";
+
 import { AppSidebar } from "@/components/app-sidebar";
 import { AppTopbar } from "@/components/app-topbar";
 import { AuthGuard } from "@/components/auth-guard";
 import { NginxStatusBanner } from "@/components/nginx-status/nginx-status-banner";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
+import { SIDEBAR_COOKIE_NAME } from "@/lib/sidebar-state";
 
 /** Authenticated application shell: persistent sidebar + top bar. */
-export default function AppLayout({ children }: LayoutProps<"/">) {
+export default async function AppLayout({ children }: LayoutProps<"/">) {
+  // Collapsed or not, as this browser last left it; expanded until it chooses.
+  const open = (await cookies()).get(SIDEBAR_COOKIE_NAME)?.value !== "false";
   return (
     <AuthGuard>
-      <SidebarProvider>
+      <SidebarProvider defaultOpen={open}>
         <AppSidebar />
         <SidebarInset>
           <AppTopbar />
