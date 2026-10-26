@@ -24,7 +24,9 @@ export function AppTopbar() {
 
   return (
     <header className="bg-background/80 supports-[backdrop-filter]:bg-background/60 sticky top-0 z-10 flex h-14 shrink-0 items-center gap-2 border-b px-4 backdrop-blur">
-      <SidebarTrigger className="-ml-1" />
+      {/* Phones only: there the sidebar is a hidden drawer. On desktop the
+          collapse toggle lives in the sidebar, next to the logo. */}
+      <SidebarTrigger className="-ml-1 md:hidden" />
       <h1 className="text-sm font-medium">{currentTitle(pathname)}</h1>
 
       <div className="ml-auto flex items-center gap-1">

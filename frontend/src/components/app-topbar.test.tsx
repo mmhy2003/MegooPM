@@ -25,7 +25,11 @@ vi.mock("@/lib/auth/context", () => ({
 }));
 // The sidebar trigger needs the SidebarProvider context; stub it out here.
 vi.mock("@/components/ui/sidebar", () => ({
-  SidebarTrigger: () => <button type="button">toggle-sidebar</button>,
+  SidebarTrigger: ({ className }: { className?: string }) => (
+    <button type="button" className={className}>
+      toggle-sidebar
+    </button>
+  ),
 }));
 vi.mock("@/components/mode-toggle", () => ({
   ModeToggle: () => <div>mode-toggle</div>,
@@ -33,6 +37,12 @@ vi.mock("@/components/mode-toggle", () => ({
 
 describe("AppTopbar", () => {
   afterEach(() => cleanup());
+
+  it("keeps its sidebar toggle for phones only; desktop toggles from the sidebar", () => {
+    render(<AppTopbar />);
+    // On phones the sidebar is a hidden drawer, so this is the only way to open it.
+    expect(screen.getByRole("button", { name: "toggle-sidebar" })).toHaveClass("md:hidden");
+  });
 
   it("shows the user's initials as a link to the profile page", () => {
     render(<AppTopbar />);
