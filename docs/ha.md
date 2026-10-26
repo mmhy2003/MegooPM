@@ -235,6 +235,14 @@ passthrough, so each nginx terminates TLS with the shared certs) and, if the
 admin surface should be balanced, `:3000`/`:8000` — `infra/ha/haproxy.cfg` is
 a complete example.
 
+Build every node's web UI from the same commit with the same `NEXT_PUBLIC_*`
+values. Each build's ID comes from its source and those values
+(`frontend/src/lib/build-id.ts`): an open tab compares it with the server's to
+offer a reload after a deploy, and Next reloads a page outright when a
+navigation reaches a different build. Two nodes that differ would bounce a
+balanced session between them. During a rolling upgrade that happens briefly,
+and settles once every node runs the new build.
+
 ### Shared mount and uid 1000
 
 The backend/worker run as uid 1000 and nginx reads as root; `data-init`
