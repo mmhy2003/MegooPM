@@ -312,9 +312,26 @@ def run_capi_apply(
                         False,
                         False,
                     )
+            # Before the restart, not only after: LAPI treats a failed CAPI
+            # login at start as fatal, so restarting onto a central API this
+            # server cannot reach is a crash loop with the bouncer failing
+            # closed. cscli reads the config from disk, so it answers for the
+            # next start rather than for the running process.
+            preflight = exec(CMD_STATUS)
         except CrowdSecReloadError as exc:
             _write(path, previous)
-            return CapiApplyResult(False, str(exc), False, False)
+            return CapiApplyResult(False, f"{exc}. CrowdSec was not restarted.", False, False)
+        if not parse_capi_status(preflight):
+            _write(path, previous)
+            tail = preflight.output.strip().splitlines()[-1:] or ["no output"]
+            return CapiApplyResult(
+                False,
+                "CrowdSec's central API does not accept a connection from this server, "
+                "so the community blocklist was not switched on. CrowdSec was not "
+                f"restarted, so protected hosts are unaffected. {tail[0]}",
+                False,
+                False,
+            )
 
     try:
         restart()

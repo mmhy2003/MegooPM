@@ -67,10 +67,20 @@ def test_parse_capi_status_accepts_v1_8_success() -> None:
 
 
 class FakeContainer:
-    def __init__(self, *, has_credentials: bool, register_ok: bool = True, status_ok: bool = True):
+    def __init__(
+        self,
+        *,
+        has_credentials: bool,
+        register_ok: bool = True,
+        status_ok: bool = True,
+        status_after_restart_ok: bool | None = None,
+    ):
         self.has_credentials = has_credentials
         self.register_ok = register_ok
         self.status_ok = status_ok
+        self.status_after_restart_ok = (
+            status_ok if status_after_restart_ok is None else status_after_restart_ok
+        )
         self.ran: list[list[str]] = []
         self.restarts = 0
 
@@ -84,7 +94,7 @@ class FakeContainer:
                 return ExecResult(0, "Central API credentials written")
             return ExecResult(1, 'level=fatal msg="dial tcp: no route to host"')
         if argv == capi.CMD_STATUS:
-            if self.status_ok:
+            if self.status_after_restart_ok if self.restarts else self.status_ok:
                 return ExecResult(0, "You can successfully interact with Central API (CAPI)")
             return ExecResult(1, "nope")
         raise AssertionError(argv)
@@ -156,14 +166,67 @@ def test_unhealthy_after_enable_rolls_back(tmp_path: Path) -> None:
     assert c.restarts == 2
 
 
+def test_enabling_checks_capi_before_restarting(tmp_path: Path) -> None:
+    path = _seed(tmp_path)
+    c = FakeContainer(has_credentials=True)
+    capi.run_capi_apply(
+        enabled=True, path=path, exec=c.exec, restart=c.restart, healthy=lambda: True
+    )
+    # Once before the restart (will the engine start?), once after (did it?).
+    assert c.ran.count(capi.CMD_STATUS) == 2
+
+
+def test_unreachable_capi_refuses_without_a_restart(tmp_path: Path) -> None:
+    """LAPI treats a failed CAPI login at start as fatal.
+
+    Restarting onto a central API this server cannot reach is a crash loop,
+    and the bouncer fails closed while CrowdSec is down. cscli reads the
+    config from disk, so asking it first answers for the next start.
+    """
+    path = _seed(tmp_path)
+    before = path.read_text(encoding="utf-8")
+    c = FakeContainer(has_credentials=True, status_ok=False)
+    result = capi.run_capi_apply(
+        enabled=True, path=path, exec=c.exec, restart=c.restart, healthy=lambda: True
+    )
+    assert not result.ok and not result.restarted and not result.enabled
+    assert c.restarts == 0
+    assert path.read_text(encoding="utf-8") == before
+    assert "not restarted" in (result.error or "")
+    assert "nope" in (result.error or "")
+
+
+def test_preflight_exec_failure_refuses_without_a_restart(tmp_path: Path) -> None:
+    path = _seed(tmp_path)
+    before = path.read_text(encoding="utf-8")
+    restarts: list[None] = []
+
+    def exec_(argv: list[str]) -> ExecResult:
+        if argv == capi.CMD_HAS_CREDENTIALS:
+            return ExecResult(0, "")
+        raise CrowdSecReloadError("cscli capi status timed out")
+
+    result = capi.run_capi_apply(
+        enabled=True,
+        path=path,
+        exec=exec_,
+        restart=lambda: restarts.append(None),
+        healthy=lambda: True,
+    )
+    assert not result.ok and not result.restarted and restarts == []
+    assert "timed out" in (result.error or "")
+    assert path.read_text(encoding="utf-8") == before
+
+
 def test_status_failure_after_enable_rolls_back(tmp_path: Path) -> None:
     path = _seed(tmp_path)
-    c = FakeContainer(has_credentials=True, status_ok=False)
+    c = FakeContainer(has_credentials=True, status_after_restart_ok=False)
     result = capi.run_capi_apply(
         enabled=True, path=path, exec=c.exec, restart=c.restart, healthy=lambda: True
     )
     assert not result.ok and "capi status" in (result.error or "").lower()
     assert "online_client" not in path.read_text(encoding="utf-8")
+    assert c.restarts == 2
 
 
 def test_disabling_writes_and_restarts_without_status_check(tmp_path: Path) -> None:
