@@ -163,6 +163,7 @@ MIRROR_STOCK = """\
 #!/bin/bash
 set -e
 conf_set() { echo "conf_set $1"; }
+conf_get() { echo "${FAKE_CONF_TEMPLATE:-}"; }
 cscli_if_clean() { echo "installed $*"; }
 prepare_hub() {
     cscli_if_clean collections install crowdsecurity/appsec-virtual-patching
@@ -201,6 +202,7 @@ def _hub_run(
     stock_text: str = MIRROR_STOCK,
     wget_log: Path | None = None,
     waf_config: Path | None = None,
+    configured: str = "",
 ):
     env = {
         "PATH": f"{_fake_bin(tmp_path)}{os.pathsep}{os.environ['PATH']}",
@@ -208,6 +210,7 @@ def _hub_run(
         "MEGOOPM_MIRROR_PROBE_URL": MIRROR,
         "FAKE_WGET_UP": up,
         "FAKE_HUB_TEMPLATE": template,
+        "FAKE_CONF_TEMPLATE": configured,
     }
     if wget_log is not None:
         env["FAKE_WGET_LOG"] = str(wget_log)
@@ -240,6 +243,24 @@ def test_the_official_hub_runs_as_before(tmp_path: Path) -> None:
 def test_official_hub_only_clears_our_own_mirror_setting(tmp_path: Path) -> None:
     done = _hub_run(tmp_path, up=OFFICIAL)
     assert CLEAR_MIRROR in done.stdout.splitlines()
+
+
+@needs_bash
+def test_a_blocked_hub_keeps_a_hub_address_set_by_hand(tmp_path: Path) -> None:
+    own = "https://hub.example.com/%s/%s"
+    done = _hub_run(tmp_path, up=MIRROR, template=own, configured=own)
+    assert done.returncode == 0, done.stderr
+    assert "conf_set" not in done.stdout
+    assert "using the GitHub mirror" not in done.stderr
+    assert own in done.stderr
+    assert "ignored the hub mirror setting" not in done.stderr
+    assert "installed collections install" in done.stdout
+
+
+@needs_bash
+def test_a_blocked_hub_replaces_its_own_earlier_mirror_setting(tmp_path: Path) -> None:
+    done = _hub_run(tmp_path, up=MIRROR, template=MIRROR_TEMPLATE, configured=MIRROR_TEMPLATE)
+    assert SET_MIRROR in done.stdout.splitlines()
 
 
 @needs_bash

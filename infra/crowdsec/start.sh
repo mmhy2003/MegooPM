@@ -102,6 +102,14 @@ megoopm_before_hub() {
                 log "could not update the hub URL setting"
             ;;
         mirror)
+            # A hub address set by hand is not cdn-hub, so cdn-hub refusing
+            # us says nothing about it: keep it rather than replace it.
+            local own
+            own=$(conf_get '.cscli.__hub_url_template__ // ""' "$CONFIG_FILE" 2>/dev/null || true)
+            if [ -n "$own" ] && [ "$own" != "$megoopm_mirror_template" ]; then
+                log "official hub unreachable, keeping the hub address set in config.yaml: $own"
+                return 0
+            fi
             log "official hub unreachable, using the GitHub mirror"
             conf_set ".cscli.__hub_url_template__ = \"$megoopm_mirror_template\"" ||
                 log "could not update the hub URL setting"
