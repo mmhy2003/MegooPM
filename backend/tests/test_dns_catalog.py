@@ -34,6 +34,36 @@ def test_dev_only_and_unavailable_providers_are_excluded() -> None:
     assert {"cloudflare", "route53", "digitalocean", "hetzner", "powerdns"} <= ids
 
 
+@pytest.fixture
+def fresh_catalog():
+    catalog.list_providers.cache_clear()
+    yield
+    catalog.list_providers.cache_clear()
+
+
+def test_reads_the_provider_list_of_lexicon_3_26(
+    fresh_catalog: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # 3.26 returns a sorted list of names and reports a provider's missing
+    # extras separately, instead of a {name: available} dict.
+    monkeypatch.setattr(catalog, "find_providers", lambda: ["cloudflare", "localzone", "oci"])
+    monkeypatch.setattr(
+        catalog, "find_missing_extras", lambda p: ["oci"] if p == "oci" else [], raising=False
+    )
+    assert [p.id for p in catalog.list_providers()] == ["cloudflare"]
+
+
+def test_reads_the_provider_dict_of_older_lexicon(
+    fresh_catalog: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(
+        catalog,
+        "find_providers",
+        lambda: {"cloudflare": True, "localzone": True, "oci": False},
+    )
+    assert [p.id for p in catalog.list_providers()] == ["cloudflare"]
+
+
 def test_unknown_provider_raises() -> None:
     with pytest.raises(catalog.UnknownDnsProviderError):
         catalog.get_provider("not-a-provider")

@@ -15,6 +15,11 @@ from functools import lru_cache
 
 from lexicon._private.discovery import find_providers, load_provider_module
 
+try:  # dns-lexicon 3.26+ reports a provider's missing extras separately
+    from lexicon._private.discovery import find_missing_extras
+except ImportError:  # older releases fold availability into find_providers()
+    find_missing_extras = None
+
 EXCLUDED_PROVIDERS = frozenset({"localzone"})
 
 # A field is a secret when its value grants access. lexicon's convention is an
@@ -137,12 +142,26 @@ def _build_info(provider_id: str) -> DnsProviderInfo | None:
     )
 
 
+def _available_provider_ids() -> list[str]:
+    """Providers whose optional dependencies are installed.
+
+    ``find_providers()`` is private: before 3.26 it returned
+    ``{name: available}``, from 3.26 a plain list of names.
+    """
+    found = find_providers()
+    if isinstance(found, dict):
+        return [provider_id for provider_id, available in found.items() if available]
+    if find_missing_extras is None:
+        return list(found)
+    return [provider_id for provider_id in found if not find_missing_extras(provider_id)]
+
+
 @lru_cache(maxsize=1)
 def list_providers() -> tuple[DnsProviderInfo, ...]:
     """Every usable provider, sorted by label."""
     infos: list[DnsProviderInfo] = []
-    for provider_id, available in find_providers().items():
-        if not available or provider_id in EXCLUDED_PROVIDERS:
+    for provider_id in _available_provider_ids():
+        if provider_id in EXCLUDED_PROVIDERS:
             continue
         info = _build_info(provider_id)
         if info is not None:
