@@ -133,6 +133,9 @@ class Settings(BaseSettings):
     # ``{nginx_certs_dir}/_acme-challenge`` (on the shared volume so any node
     # can answer the challenge).
     acme_http_challenge_dir: str | None = None
+    # Read-only mount holding one sub-folder per static site (SITES_PATH on the
+    # host). nginx serves from it and the backend lists it for the folder picker.
+    sites_root: str = "/sites"
     # When true (dev/CI), certificates are self-signed locally instead of being
     # issued over ACME — no network or public DNS needed. Never in production.
     acme_self_signed: bool = False

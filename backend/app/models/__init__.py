@@ -35,6 +35,7 @@ from app.models.passkey import Passkey  # noqa: F401
 from app.models.proxy_host import ProxyHost, ProxyHostLocation  # noqa: F401
 from app.models.recovery_code import RecoveryCode  # noqa: F401
 from app.models.redirection_host import RedirectionHost  # noqa: F401
+from app.models.static_site import StaticSite  # noqa: F401
 from app.models.stream import Stream  # noqa: F401
 from app.models.upstream import Upstream, UpstreamBackend  # noqa: F401
 from app.models.user import User, UserRole  # noqa: F401
@@ -68,6 +69,7 @@ __all__ = [
     "ProxyHostLocation",
     "RecoveryCode",
     "RedirectionHost",
+    "StaticSite",
     "Stream",
     "Upstream",
     "UpstreamBackend",
