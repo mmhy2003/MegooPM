@@ -14,7 +14,7 @@ export interface Culprit {
  * than a guess: sending an operator to the wrong object is worse than none.
  */
 export function culpritOf(output: string): Culprit | null {
-  const match = /megoopm-(proxy|redirect|dead|upstream|stream|default-tls)-(\d+)\.conf/.exec(
+  const match = /megoopm-(proxy|redirect|dead|static|upstream|stream|default-tls)-(\d+)\.conf/.exec(
     output,
   );
   if (!match) return null;
@@ -26,6 +26,8 @@ export function culpritOf(output: string): Culprit | null {
       return { label: `Redirection host #${id}`, href: "/redirection-hosts" };
     case "dead":
       return { label: `404 host #${id}`, href: "/dead-hosts" };
+    case "static":
+      return { label: `Static site #${id}`, href: "/static-sites" };
     case "upstream":
       return { label: `Upstream pool #${id}`, href: "/upstreams" };
     case "stream":

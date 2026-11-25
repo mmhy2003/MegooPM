@@ -18,6 +18,10 @@ describe("culpritOf", () => {
   it("names every kind of object the engine writes", () => {
     expect(culpritOf(failed("megoopm-redirect-3.conf"))?.label).toBe("Redirection host #3");
     expect(culpritOf(failed("megoopm-dead-4.conf"))?.label).toBe("404 host #4");
+    expect(culpritOf(failed("megoopm-static-5.conf:12"))).toEqual({
+      label: "Static site #5",
+      href: "/static-sites",
+    });
     expect(culpritOf(failed("megoopm-upstream-5.conf"))?.label).toBe("Upstream pool #5");
     expect(culpritOf(failed("stream/megoopm-stream-6.conf"))?.label).toBe("Stream #6");
     expect(culpritOf(failed("megoopm-default-tls-7.conf"))).toEqual({

@@ -63,6 +63,7 @@ const OBJECT_TYPES = [
   "instance_settings",
   "proxy_host",
   "redirection_host",
+  "static_site",
   "stream",
   "upstream",
   "user",

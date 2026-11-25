@@ -42,6 +42,7 @@ vi.mock("@/lib/api", () => {
     proxyHosts: { list: async () => done([{ id: 1, domain_names: ["cloud.example.com"] }]) },
     redirectionHosts: { list: async () => done([{ id: 2, domain_names: ["old.example.com"] }]) },
     deadHosts: { list: async () => done([]) },
+    staticSites: { list: async () => done([{ id: 5, domain_names: ["docs.example.com"] }]) },
     streams: { list: async () => done([{ id: 3, incoming_port: 2222 }]) },
   };
 });
@@ -190,6 +191,14 @@ describe("LiveLogsView", () => {
     expect(within(screen.getByTestId("picked")).getByText("cloud.example.com")).toBeInTheDocument();
     await user.click(screen.getByRole("tab", { name: "Security" }));
     expect(hook.calls.at(-1)).toEqual({ hosts: ["p1"], decisions: true });
+  });
+
+  it("offers static sites and watches them by their w key", async () => {
+    const user = userEvent.setup();
+    render(<LiveLogsView />);
+    await openHostPicker(user);
+    await user.click(await screen.findByRole("option", { name: "docs.example.com" }));
+    expect(hook.calls.at(-1)).toEqual({ hosts: ["w5"], decisions: false });
   });
 
   it("finds a host by typing part of its name", async () => {
@@ -448,7 +457,7 @@ describe("LiveLogsView", () => {
     loads.done = 0;
     const { rerender } = await renderWatchingP1();
     // The host labels load once; rows re-render for that, and only that.
-    await waitFor(() => expect(loads.done).toBe(4));
+    await waitFor(() => expect(loads.done).toBe(5));
     await act(async () => {});
 
     rendered.rows = 0;

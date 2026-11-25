@@ -11,7 +11,7 @@ import {
   X,
 } from "lucide-react";
 
-import { deadHosts, proxyHosts, redirectionHosts, streams } from "@/lib/api";
+import { deadHosts, proxyHosts, redirectionHosts, staticSites, streams } from "@/lib/api";
 import {
   CARD_HEIGHT,
   LineDetail,
@@ -93,15 +93,19 @@ function useHostOptions() {
   useEffect(() => {
     let active = true;
     void (async () => {
-      const [proxy, redirect, dead, stream] = await Promise.allSettled([
+      const [proxy, redirect, dead, site, stream] = await Promise.allSettled([
         proxyHosts.list(),
         redirectionHosts.list(),
         deadHosts.list(),
+        staticSites.list(),
         streams.list(),
       ]);
       if (!active) return;
       const out: HostOption[] = [...FIXED_OPTIONS];
-      const names = (prefix: string, result: typeof proxy | typeof redirect | typeof dead) => {
+      const names = (
+        prefix: string,
+        result: typeof proxy | typeof redirect | typeof dead | typeof site,
+      ) => {
         if (result.status !== "fulfilled") return;
         for (const host of result.value) {
           out.push({ key: `${prefix}${host.id}`, label: host.domain_names.join(", ") });
@@ -110,6 +114,7 @@ function useHostOptions() {
       names("p", proxy);
       names("r", redirect);
       names("d", dead);
+      names("w", site);
       if (stream.status === "fulfilled") {
         for (const s of stream.value) {
           out.push({ key: `s${s.id}`, label: `Stream :${s.incoming_port}` });

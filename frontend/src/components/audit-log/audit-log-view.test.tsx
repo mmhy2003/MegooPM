@@ -101,6 +101,21 @@ describe("AuditLogView", () => {
     );
   });
 
+  it("offers static sites as an object type", async () => {
+    const user = userEvent.setup();
+    render(<AuditLogView />);
+    await screen.findByText("admin@example.com");
+
+    await user.click(screen.getByRole("combobox", { name: "Object type" }));
+    await user.click(await screen.findByRole("option", { name: "Static site" }));
+
+    await waitFor(() =>
+      expect(auditLog.list).toHaveBeenLastCalledWith(
+        expect.objectContaining({ objectType: "static_site" }),
+      ),
+    );
+  });
+
   it("searches by actor", async () => {
     const user = userEvent.setup();
     render(<AuditLogView />);
