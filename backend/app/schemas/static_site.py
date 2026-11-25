@@ -124,11 +124,31 @@ class StaticSiteRead(StaticSiteBase):
     )
 
 
+class FolderEntry(BaseModel):
+    """One sub-folder of the sites mount, for the folder picker."""
+
+    path: str = Field(description="Path relative to the sites mount, e.g. clients/acme")
+    has_index: bool = Field(description="Whether the folder holds an index.html")
+    readable: bool = Field(description="Whether the backend could list the folder")
+
+
+class FoldersResult(BaseModel):
+    """The folders a site can serve, or why there are none."""
+
+    available: bool = Field(description="Whether the sites mount holds anything")
+    reason: Literal["not_mounted", "empty"] | None = Field(
+        default=None, description="Why nothing is available, when it is not"
+    )
+    folders: list[FolderEntry] = Field(default_factory=list)
+
+
 __all__ = [
     "FOLDER_MAX_LENGTH",
     "FOLDER_PATTERN",
     "FOLDER_RE",
+    "FolderEntry",
     "FolderStatus",
+    "FoldersResult",
     "StaticSiteBase",
     "StaticSiteCreate",
     "StaticSiteRead",
