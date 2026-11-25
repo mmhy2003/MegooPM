@@ -255,8 +255,8 @@ export function InventoryCard({ inventory }: { inventory: InventoryCounts }) {
         </p>
         <p className="text-muted-foreground text-xs">proxy hosts enabled</p>
         <p className="text-muted-foreground text-xs">
-          {inventory.redirection_hosts} redirects · {inventory.dead_hosts} 404
-          hosts · {inventory.streams} streams
+          {inventory.redirection_hosts} redirects · {inventory.static_sites} static
+          sites · {inventory.dead_hosts} 404 hosts · {inventory.streams} streams
         </p>
       </div>
     </Card>

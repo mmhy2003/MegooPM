@@ -14,6 +14,7 @@ describe("primaryNav", () => {
       "Access Lists",
       "Streams",
       "Redirection Hosts",
+      "Static Sites",
       "404 Hosts",
       "Custom Pages",
       "Security",

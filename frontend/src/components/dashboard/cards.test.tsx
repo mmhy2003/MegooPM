@@ -241,12 +241,14 @@ describe("InventoryCard", () => {
           proxy_hosts_total: 10,
           proxy_hosts_enabled: 8,
           redirection_hosts: 1,
+          static_sites: 4,
           dead_hosts: 2,
           streams: 3,
         }}
       />,
     );
     expect(screen.getByText(/8 of 10/i)).toBeInTheDocument();
+    expect(screen.getByText(/4 static sites/)).toBeInTheDocument();
   });
 });
 

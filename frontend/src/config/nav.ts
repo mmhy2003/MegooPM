@@ -10,6 +10,7 @@ import {
   ArrowRightLeft,
   Ban,
   FileCode2,
+  FolderOpen,
   ShieldAlert,
   Users,
   ScrollText,
@@ -78,6 +79,13 @@ export const primaryNav: NavItem[] = [
     href: "/redirection-hosts",
     icon: ArrowRightLeft,
     description: "Redirect domains to another domain with a chosen status code.",
+    adminOnly: true,
+  },
+  {
+    title: "Static Sites",
+    href: "/static-sites",
+    icon: FolderOpen,
+    description: "Serve plain files from a folder, with no app behind them.",
     adminOnly: true,
   },
   {

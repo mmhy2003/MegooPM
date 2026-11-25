@@ -136,6 +136,16 @@ export type {
   RedirectScheme,
 } from "@/lib/api/resources/redirection-hosts";
 
+export { staticSites } from "@/lib/api/resources/static-sites";
+export type {
+  StaticSite,
+  StaticSiteCreate,
+  StaticSiteUpdate,
+  StaticSiteFolders,
+  StaticSiteFolder,
+  FolderStatus,
+} from "@/lib/api/resources/static-sites";
+
 export { deadHosts } from "@/lib/api/resources/dead-hosts";
 export type { DeadHost, DeadHostCreate, DeadHostUpdate } from "@/lib/api/resources/dead-hosts";
 
