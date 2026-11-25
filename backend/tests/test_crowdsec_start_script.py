@@ -65,19 +65,28 @@ def _image_version() -> str:
     return _compose("docker-compose.yml")["image"].rsplit(":", 1)[1]
 
 
-def _run(stock: Path, tmp_path: Path, *, mode: str, exec_: str | None = None):
+def _run(
+    stock: Path,
+    tmp_path: Path,
+    *,
+    mode: str,
+    exec_: str | None = None,
+    env: dict[str, str] | None = None,
+):
     if not WRAPPER.exists():  # pragma: no cover - partial checkout
         pytest.skip(f"{WRAPPER} not present")
-    env = {
+    full_env = {
         **os.environ,
         "MEGOOPM_STOCK_START": str(stock),
         "MEGOOPM_PATCHED_START": str(tmp_path / "patched.sh"),
+        "MEGOOPM_HOOKS": str(tmp_path / "hooks.sh"),
         "MEGOOPM_HUB_MODE": mode,
+        **(env or {}),
     }
     if exec_ is not None:
-        env["MEGOOPM_START_EXEC"] = exec_
+        full_env["MEGOOPM_START_EXEC"] = exec_
     return subprocess.run(  # noqa: S603 - fixed argv
-        [BASH, str(WRAPPER)], env=env, capture_output=True, text=True, timeout=30, check=False
+        [BASH, str(WRAPPER)], env=full_env, capture_output=True, text=True, timeout=30, check=False
     )
 
 
@@ -132,6 +141,136 @@ def test_a_script_without_hub_steps_runs_unchanged(tmp_path: Path) -> None:
     done = _run(stock, tmp_path, mode="offline")
     assert done.returncode == 0 and "crowdsec started" in done.stdout
     assert "unchanged" in done.stderr
+
+
+# --- the GitHub mirror ------------------------------------------------------------
+
+OFFICIAL = "https://hub.test/official"
+MIRROR = "https://hub.test/mirror"
+MIRROR_TEMPLATE = "https://raw.githubusercontent.com/crowdsecurity/hub/%s/%s"
+SET_MIRROR = f'conf_set .cscli.__hub_url_template__ = "{MIRROR_TEMPLATE}"'
+CLEAR_MIRROR = f'conf_set del(.cscli.__hub_url_template__ | select(. == "{MIRROR_TEMPLATE}"))'
+
+# The real shape: the hub steps live inside prepare_hub, called on its own line.
+MIRROR_STOCK = """\
+#!/bin/bash
+set -e
+conf_set() { echo "conf_set $1"; }
+cscli_if_clean() { echo "installed $*"; }
+prepare_hub() {
+    cscli_if_clean collections install crowdsecurity/appsec-virtual-patching
+}
+prepare_hub
+exec crowdsec $ARGS
+"""
+
+
+def _fake_bin(tmp_path: Path) -> Path:
+    """wget answers for the URLs in $FAKE_WGET_UP; cscli prints $FAKE_HUB_TEMPLATE."""
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir(exist_ok=True)
+    scripts = {
+        "wget": (
+            '#!/bin/bash\nurl="${@: -1}"\n'
+            '[ -n "${FAKE_WGET_LOG:-}" ] && echo "$url" >> "$FAKE_WGET_LOG"\n'
+            'for up in ${FAKE_WGET_UP:-}; do [ "$up" = "$url" ] && exit 0; done\nexit 8\n'
+        ),
+        "cscli": '#!/bin/bash\necho "${FAKE_HUB_TEMPLATE:-}"\n',
+        "crowdsec": '#!/bin/bash\necho "crowdsec running"\n',
+    }
+    for name, text in scripts.items():
+        path = bin_dir / name
+        path.write_text(text, encoding="utf-8", newline="\n")
+        path.chmod(0o755)
+    return bin_dir
+
+
+def _hub_run(
+    tmp_path: Path,
+    *,
+    up: str = "",
+    template: str = "",
+    mode: str = "auto",
+    stock_text: str = MIRROR_STOCK,
+    wget_log: Path | None = None,
+):
+    env = {
+        "PATH": f"{_fake_bin(tmp_path)}{os.pathsep}{os.environ['PATH']}",
+        "MEGOOPM_HUB_PROBE_URL": OFFICIAL,
+        "MEGOOPM_MIRROR_PROBE_URL": MIRROR,
+        "FAKE_WGET_UP": up,
+        "FAKE_HUB_TEMPLATE": template,
+    }
+    if wget_log is not None:
+        env["FAKE_WGET_LOG"] = str(wget_log)
+    return _run(_stock(tmp_path, stock_text), tmp_path, mode=mode, env=env)
+
+
+@needs_bash
+def test_a_blocked_hub_switches_to_the_github_mirror(tmp_path: Path) -> None:
+    done = _hub_run(tmp_path, up=MIRROR, template=MIRROR_TEMPLATE)
+    assert done.returncode == 0, done.stderr
+    assert SET_MIRROR in done.stdout
+    assert done.stdout.index(SET_MIRROR) < done.stdout.index("installed collections install")
+    assert "megoopm: official hub unreachable, using the GitHub mirror" in done.stderr
+    assert done.stdout.rstrip().endswith("crowdsec running")
+
+
+@needs_bash
+def test_the_official_hub_runs_as_before(tmp_path: Path) -> None:
+    log = tmp_path / "wget.log"
+    done = _hub_run(tmp_path, up=OFFICIAL, wget_log=log)
+    assert done.returncode == 0, done.stderr
+    assert "installed collections install" in done.stdout
+    assert "using the GitHub mirror" not in done.stderr
+    assert log.read_text(encoding="utf-8").split() == [OFFICIAL]
+
+
+@needs_bash
+def test_official_hub_only_clears_our_own_mirror_setting(tmp_path: Path) -> None:
+    done = _hub_run(tmp_path, up=OFFICIAL)
+    assert CLEAR_MIRROR in done.stdout.splitlines()
+
+
+@needs_bash
+def test_an_ignored_mirror_setting_is_reported(tmp_path: Path) -> None:
+    done = _hub_run(
+        tmp_path, up=MIRROR, template="https://cdn-hub.crowdsec.net/crowdsecurity/%s/%s"
+    )
+    assert "ignored the hub mirror setting" in done.stderr
+    assert "installed collections install" in done.stdout
+
+
+@needs_bash
+def test_no_hub_skips_the_steps_and_keeps_the_setting(tmp_path: Path) -> None:
+    done = _hub_run(tmp_path)
+    assert "conf_set" not in done.stdout
+    assert "skipped, hub unreachable" in done.stderr
+    assert "installed collections install" not in done.stdout
+
+
+@needs_bash
+def test_online_mode_never_probes(tmp_path: Path) -> None:
+    log = tmp_path / "wget.log"
+    done = _hub_run(tmp_path, mode="online", wget_log=log)
+    assert not log.exists() or log.read_text(encoding="utf-8") == ""
+    assert "installed collections install" in done.stdout
+    assert CLEAR_MIRROR in done.stdout.splitlines()
+
+
+@needs_bash
+def test_offline_mode_leaves_the_setting_alone(tmp_path: Path) -> None:
+    done = _hub_run(tmp_path, mode="offline")
+    assert "conf_set" not in done.stdout
+
+
+@needs_bash
+def test_a_script_without_the_anchors_still_starts(tmp_path: Path) -> None:
+    stock_text = MIRROR_STOCK.replace("\nprepare_hub\n", "\nprepare_hub  # call\n")
+    done = _hub_run(tmp_path, up=OFFICIAL, stock_text=stock_text)
+    assert done.returncode == 0, done.stderr
+    assert "no prepare_hub call found" in done.stderr
+    assert done.stdout.rstrip().endswith("crowdsec running")
 
 
 # --- against the image's real script ---------------------------------------------

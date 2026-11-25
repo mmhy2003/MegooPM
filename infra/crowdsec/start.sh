@@ -23,25 +23,41 @@ set -euo pipefail
 
 stock=${MEGOOPM_STOCK_START:-/docker_start.sh}
 patched=${MEGOOPM_PATCHED_START:-/tmp/megoopm-docker_start.sh}
-probe_url=https://cdn-hub.crowdsec.net/crowdsecurity/master/.index.json
+hooks=${MEGOOPM_HOOKS:-/tmp/megoopm-hooks.sh}
+hub_probe=${MEGOOPM_HUB_PROBE_URL:-https://cdn-hub.crowdsec.net/crowdsecurity/master/.index.json}
+mirror_probe=${MEGOOPM_MIRROR_PROBE_URL:-https://raw.githubusercontent.com/crowdsecurity/hub/master/.index.json}
+# CrowdSec fills in the hub branch and the item path.
+mirror_template='https://raw.githubusercontent.com/crowdsecurity/hub/%s/%s'
 # The stock script's hub steps, where they are called. Their definitions
 # ("name() {") do not match, and neither do the helpers they call.
 steps='cscli_if_clean|run_hub_update_if_from_volume|run_hub_upgrade_if_from_volume'
 
 log() { echo "megoopm: $*" >&2; }
 
-hub_reachable() {
-    case "${MEGOOPM_HUB_MODE:-auto}" in
-        online) return 0 ;;
-        offline) return 1 ;;
-    esac
+probe() {
     if ! command -v wget >/dev/null 2>&1; then
         log "wget is missing, so the hub was not probed; trying it anyway"
         return 0
     fi
     # Headers only: the index is megabytes, and pulling it on every start is
     # the kind of traffic that gets an address blocked.
-    timeout 15 wget -q --spider -T 5 "$probe_url" >/dev/null 2>&1
+    timeout 15 wget -q --spider -T 5 "$1" >/dev/null 2>&1
+}
+
+# official: CrowdSec's own hub; mirror: GitHub's copy of it, for when the
+# official one refuses this address; none: neither answers.
+hub_state() {
+    case "${MEGOOPM_HUB_MODE:-auto}" in
+        online) echo official; return ;;
+        offline) echo offline; return ;;
+    esac
+    if probe "$hub_probe"; then
+        echo official
+    elif probe "$mirror_probe"; then
+        echo mirror
+    else
+        echo none
+    fi
 }
 
 if ! grep -qE "^ *($steps) " "$stock"; then
@@ -49,12 +65,56 @@ if ! grep -qE "^ *($steps) " "$stock"; then
     exec /bin/bash "$stock" "$@"
 fi
 
-if hub_reachable; then
-    replacement='\1\2 \3 || echo "megoopm: hub step failed, starting on installed items: \2" >\&2'
-else
-    log "CrowdSec's hub is unreachable ($probe_url): skipping hub updates and installs, starting on installed items"
-    replacement='\1echo "megoopm: skipped, hub unreachable: \2" >\&2'
+state=$(hub_state)
+case "$state" in
+    official | mirror)
+        replacement='\1\2 \3 || echo "megoopm: hub step failed, starting on installed items: \2" >\&2'
+        ;;
+    *)
+        log "CrowdSec's hub is unreachable ($hub_probe): skipping hub updates and installs, starting on installed items"
+        replacement='\1echo "megoopm: skipped, hub unreachable: \2" >\&2'
+        ;;
+esac
+
+# Sourced by the patched script, where its conf_set and the config file it
+# edits exist: on a fresh volume, config.yaml is only copied in there.
+{
+    printf 'megoopm_hub_state=%q\n' "$state"
+    printf 'megoopm_hub_probe=%q\n' "$hub_probe"
+    printf 'megoopm_mirror_probe=%q\n' "$mirror_probe"
+    printf 'megoopm_mirror_template=%q\n' "$mirror_template"
+    cat <<'HOOKS'
+log() { echo "megoopm: $*" >&2; }
+
+megoopm_before_hub() {
+    case "$megoopm_hub_state" in
+        official)
+            # Only our own value: an address someone set by hand stays.
+            conf_set "del(.cscli.__hub_url_template__ | select(. == \"$megoopm_mirror_template\"))" ||
+                log "could not update the hub URL setting"
+            ;;
+        mirror)
+            log "official hub unreachable, using the GitHub mirror"
+            conf_set ".cscli.__hub_url_template__ = \"$megoopm_mirror_template\"" ||
+                log "could not update the hub URL setting"
+            local applied
+            applied=$(cscli config show --key Config.Cscli.HubURLTemplate 2>/dev/null || true)
+            case "$applied" in
+                *raw.githubusercontent.com*) ;;
+                *) log "CrowdSec ignored the hub mirror setting (has the image changed?); the hub steps will likely fail" ;;
+            esac
+            ;;
+    esac
+}
+HOOKS
+} > "$hooks"
+
+if ! grep -qx 'prepare_hub' "$stock"; then
+    log "no prepare_hub call found in $stock (has the image changed?); the hub mirror is off"
 fi
 
-sed -E "s/^( *)($steps) (.*)\$/$replacement/" "$stock" > "$patched"
+sed -E \
+    -e "s/^( *)($steps) (.*)\$/$replacement/" \
+    -e "s|^prepare_hub\$|. '$hooks'; megoopm_before_hub; prepare_hub|" \
+    "$stock" > "$patched"
 exec "${MEGOOPM_START_EXEC:-/bin/bash}" "$patched" "$@"
