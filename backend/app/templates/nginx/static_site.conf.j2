@@ -85,7 +85,9 @@
 {%- macro serve() %}
 
     root {{ sites_root }}/{{ host.folder }};
-    index index.html;
+    # A folder without an index.html would otherwise answer 403 ("directory
+    # index is forbidden"); the fallback lands on the dot-path rule, a 404.
+    index index.html /.mgm-no-index;
     autoindex off;
     disable_symlinks on;
 

@@ -45,7 +45,7 @@ ok() { echo "ok    $1"; }
 docker volume create "$SITES" >/dev/null
 docker run --rm -v "$SITES:/sites" "$NGINX_IMAGE" sh -c '
   set -e
-  mkdir -p /sites/site/about /sites/site/.git /sites/site/.well-known /sites/bare
+  mkdir -p /sites/site/about /sites/site/images /sites/site/.git /sites/site/.well-known /sites/bare
   echo SITE-INDEX > /sites/site/index.html
   echo SITE-ABOUT > /sites/site/about/index.html
   echo SITE-404 > /sites/site/404.html
@@ -129,6 +129,9 @@ check() { # label host path status [body-grep] [location-suffix]
 check "the index" site.test / 200 SITE-INDEX
 check "a folder without its slash redirects" site.test /about 301 "" /about/
 check "a folder's index" site.test /about/ 200 SITE-ABOUT
+# Without an index.html a folder is a missing page too, not a 403 that tells
+# visitors which folders exist.
+check "a folder without an index.html is a 404" site.test /images/ 404 SITE-404
 check "a missing page shows the site's 404.html" site.test /nope 404 SITE-404
 check "a missing page on a site without one shows the branded 404" bare.test /nope 404 "nothing at this address"
 check "a dot-folder is hidden" site.test /.git/config 404 SITE-404

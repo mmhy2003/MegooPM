@@ -66,7 +66,8 @@ def test_plain_site_serves_folder() -> None:
     assert "listen 443" not in conf
     assert "server_name site.example.com;" in conf
     assert f"root {settings.sites_root}/company;" in conf
-    assert "index index.html;" in conf
+    # A folder with no index.html falls through to the dot-path 404, not a 403.
+    assert "index index.html /.mgm-no-index;" in conf
     assert "autoindex off;" in conf
     assert "disable_symlinks on;" in conf
     assert "try_files $uri $uri/ =404;" in conf
