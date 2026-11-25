@@ -2,7 +2,8 @@
 
    Lines go to the loopback relay on this node, which publishes the watched ones
    to Redis pub/sub; nothing is stored. The host key: p<id> proxy,
-   r<id> redirection, d<id> dead, s<id> stream, u unclaimed.
+   r<id> redirection, d<id> dead, s<id> stream, w<id> static site,
+   u unclaimed.
 
    Access lines go out through ONE access log at the http (stream) level, which
    every block inherits: a syslog target is a socket in each worker, so one per

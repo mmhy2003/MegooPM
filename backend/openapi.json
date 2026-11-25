@@ -3115,6 +3115,71 @@
         "title": "ErrorPageUpdate",
         "type": "object"
       },
+      "FolderEntry": {
+        "description": "One sub-folder of the sites mount, for the folder picker.",
+        "properties": {
+          "has_index": {
+            "description": "Whether the folder holds an index.html",
+            "title": "Has Index",
+            "type": "boolean"
+          },
+          "path": {
+            "description": "Path relative to the sites mount, e.g. clients/acme",
+            "title": "Path",
+            "type": "string"
+          },
+          "readable": {
+            "description": "Whether the backend could list the folder",
+            "title": "Readable",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "path",
+          "has_index",
+          "readable"
+        ],
+        "title": "FolderEntry",
+        "type": "object"
+      },
+      "FoldersResult": {
+        "description": "The folders a site can serve, or why there are none.",
+        "properties": {
+          "available": {
+            "description": "Whether the sites mount holds anything",
+            "title": "Available",
+            "type": "boolean"
+          },
+          "folders": {
+            "items": {
+              "$ref": "#/components/schemas/FolderEntry"
+            },
+            "title": "Folders",
+            "type": "array"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "enum": [
+                  "not_mounted",
+                  "empty"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Why nothing is available, when it is not",
+            "title": "Reason"
+          }
+        },
+        "required": [
+          "available"
+        ],
+        "title": "FoldersResult",
+        "type": "object"
+      },
       "ForgotPasswordRequest": {
         "description": "Body for ``POST /auth/forgot-password``.",
         "properties": {
@@ -3522,6 +3587,10 @@
             "title": "Redirection Hosts",
             "type": "integer"
           },
+          "static_sites": {
+            "title": "Static Sites",
+            "type": "integer"
+          },
           "streams": {
             "title": "Streams",
             "type": "integer"
@@ -3532,6 +3601,7 @@
           "proxy_hosts_enabled",
           "redirection_hosts",
           "dead_hosts",
+          "static_sites",
           "streams"
         ],
         "title": "InventoryCounts",
@@ -4348,7 +4418,8 @@
             "enum": [
               "proxy",
               "redirection",
-              "dead"
+              "dead",
+              "static"
             ],
             "title": "Kind",
             "type": "string"
@@ -5810,6 +5881,374 @@
           "smtp_enabled"
         ],
         "title": "SmtpSettingsUpdate",
+        "type": "object"
+      },
+      "StaticSiteCreate": {
+        "description": "Payload to create a static site.",
+        "properties": {
+          "access_list_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Access list guarding the site; null leaves it public",
+            "title": "Access List Id"
+          },
+          "advanced_config": {
+            "default": "",
+            "description": "Raw nginx directives injected into the server block",
+            "title": "Advanced Config",
+            "type": "string"
+          },
+          "block_exploits": {
+            "default": false,
+            "description": "Block common exploit probes",
+            "title": "Block Exploits",
+            "type": "boolean"
+          },
+          "certificate_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Certificate for TLS termination; null serves plain :80",
+            "title": "Certificate Id"
+          },
+          "crowdsec_enabled": {
+            "default": true,
+            "description": "Refuse IPs CrowdSec has banned (and inspect with AppSec)",
+            "title": "Crowdsec Enabled",
+            "type": "boolean"
+          },
+          "domain_names": {
+            "description": "Domains this site answers for (server_name)",
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1,
+            "title": "Domain Names",
+            "type": "array"
+          },
+          "enabled": {
+            "default": true,
+            "description": "Disabled sites are excluded from config",
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "folder": {
+            "description": "Folder under the sites mount holding the site's files",
+            "title": "Folder",
+            "type": "string"
+          },
+          "hsts_enabled": {
+            "default": false,
+            "description": "Emit a Strict-Transport-Security header",
+            "title": "Hsts Enabled",
+            "type": "boolean"
+          },
+          "hsts_subdomains": {
+            "default": false,
+            "description": "Include subdomains in HSTS",
+            "title": "Hsts Subdomains",
+            "type": "boolean"
+          },
+          "http2_support": {
+            "default": false,
+            "description": "Enable HTTP/2 on the TLS listener",
+            "title": "Http2 Support",
+            "type": "boolean"
+          },
+          "ssl_forced": {
+            "default": false,
+            "description": "Redirect :80 to HTTPS",
+            "title": "Ssl Forced",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "domain_names",
+          "folder"
+        ],
+        "title": "StaticSiteCreate",
+        "type": "object"
+      },
+      "StaticSiteRead": {
+        "description": "Public representation of a static site, with what its folder holds.",
+        "properties": {
+          "access_list_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Access list guarding the site; null leaves it public",
+            "title": "Access List Id"
+          },
+          "advanced_config": {
+            "default": "",
+            "description": "Raw nginx directives injected into the server block",
+            "title": "Advanced Config",
+            "type": "string"
+          },
+          "block_exploits": {
+            "default": false,
+            "description": "Block common exploit probes",
+            "title": "Block Exploits",
+            "type": "boolean"
+          },
+          "certificate_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Certificate for TLS termination; null serves plain :80",
+            "title": "Certificate Id"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "crowdsec_enabled": {
+            "default": true,
+            "description": "Refuse IPs CrowdSec has banned (and inspect with AppSec)",
+            "title": "Crowdsec Enabled",
+            "type": "boolean"
+          },
+          "domain_names": {
+            "description": "Domains this site answers for (server_name)",
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1,
+            "title": "Domain Names",
+            "type": "array"
+          },
+          "enabled": {
+            "default": true,
+            "description": "Disabled sites are excluded from config",
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "folder": {
+            "description": "Folder under the sites mount holding the site's files",
+            "title": "Folder",
+            "type": "string"
+          },
+          "folder_status": {
+            "default": "ok",
+            "description": "What the backend found at the folder (advisory)",
+            "enum": [
+              "ok",
+              "no_index",
+              "missing",
+              "unreadable",
+              "symlink",
+              "unmounted"
+            ],
+            "title": "Folder Status",
+            "type": "string"
+          },
+          "hsts_enabled": {
+            "default": false,
+            "description": "Emit a Strict-Transport-Security header",
+            "title": "Hsts Enabled",
+            "type": "boolean"
+          },
+          "hsts_subdomains": {
+            "default": false,
+            "description": "Include subdomains in HSTS",
+            "title": "Hsts Subdomains",
+            "type": "boolean"
+          },
+          "http2_support": {
+            "default": false,
+            "description": "Enable HTTP/2 on the TLS listener",
+            "title": "Http2 Support",
+            "type": "boolean"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "ssl_forced": {
+            "default": false,
+            "description": "Redirect :80 to HTTPS",
+            "title": "Ssl Forced",
+            "type": "boolean"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "domain_names",
+          "folder",
+          "id",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "StaticSiteRead",
+        "type": "object"
+      },
+      "StaticSiteUpdate": {
+        "description": "Partial update of a static site; every field is optional.",
+        "properties": {
+          "access_list_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Access List Id"
+          },
+          "advanced_config": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Advanced Config"
+          },
+          "block_exploits": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Block Exploits"
+          },
+          "certificate_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Certificate Id"
+          },
+          "crowdsec_enabled": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Crowdsec Enabled"
+          },
+          "domain_names": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "minItems": 1,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Domain Names"
+          },
+          "enabled": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Enabled"
+          },
+          "folder": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Folder"
+          },
+          "hsts_enabled": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hsts Enabled"
+          },
+          "hsts_subdomains": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hsts Subdomains"
+          },
+          "http2_support": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Http2 Support"
+          },
+          "ssl_forced": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ssl Forced"
+          }
+        },
+        "title": "StaticSiteUpdate",
         "type": "object"
       },
       "StreamCreate": {
@@ -11553,6 +11992,252 @@
         "summary": "Send Test Email",
         "tags": [
           "settings"
+        ]
+      }
+    },
+    "/api/v1/static-sites": {
+      "get": {
+        "description": "List all static sites.",
+        "operationId": "list_static_sites_api_v1_static_sites_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/StaticSiteRead"
+                  },
+                  "title": "Response List Static Sites Api V1 Static Sites Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "List Static Sites",
+        "tags": [
+          "static-sites"
+        ]
+      },
+      "post": {
+        "description": "Create a static site, then regenerate and reload nginx.",
+        "operationId": "create_static_site_api_v1_static_sites_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StaticSiteCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StaticSiteRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Create Static Site",
+        "tags": [
+          "static-sites"
+        ]
+      }
+    },
+    "/api/v1/static-sites/folders": {
+      "get": {
+        "description": "The folders under the sites mount a site can serve, two levels down.",
+        "operationId": "list_folders_api_v1_static_sites_folders_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FoldersResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "List Folders",
+        "tags": [
+          "static-sites"
+        ]
+      }
+    },
+    "/api/v1/static-sites/{site_id}": {
+      "delete": {
+        "description": "Delete a static site, then regenerate and reload nginx.",
+        "operationId": "delete_static_site_api_v1_static_sites__site_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "site_id",
+            "required": true,
+            "schema": {
+              "title": "Site Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Delete Static Site",
+        "tags": [
+          "static-sites"
+        ]
+      },
+      "get": {
+        "description": "Return one static site.",
+        "operationId": "get_static_site_api_v1_static_sites__site_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "site_id",
+            "required": true,
+            "schema": {
+              "title": "Site Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StaticSiteRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Get Static Site",
+        "tags": [
+          "static-sites"
+        ]
+      },
+      "patch": {
+        "description": "Partially update a static site, then regenerate and reload nginx.",
+        "operationId": "update_static_site_api_v1_static_sites__site_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "site_id",
+            "required": true,
+            "schema": {
+              "title": "Site Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StaticSiteUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StaticSiteRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Update Static Site",
+        "tags": [
+          "static-sites"
         ]
       }
     },

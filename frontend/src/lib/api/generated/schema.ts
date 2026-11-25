@@ -1284,6 +1284,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/live-logs/ticket": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Issue Live Ticket
+         * @description A 30-second ticket that opens ``/live-logs/ws``. Browser sessions only.
+         */
+        post: operations["issue_live_ticket_api_v1_live_logs_ticket_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/nginx/preview": {
         parameters: {
             query?: never;
@@ -1767,6 +1787,78 @@ export interface paths {
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/api/v1/static-sites": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Static Sites
+         * @description List all static sites.
+         */
+        get: operations["list_static_sites_api_v1_static_sites_get"];
+        put?: never;
+        /**
+         * Create Static Site
+         * @description Create a static site, then regenerate and reload nginx.
+         */
+        post: operations["create_static_site_api_v1_static_sites_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/static-sites/folders": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Folders
+         * @description The folders under the sites mount a site can serve, two levels down.
+         */
+        get: operations["list_folders_api_v1_static_sites_folders_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/static-sites/{site_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Static Site
+         * @description Return one static site.
+         */
+        get: operations["get_static_site_api_v1_static_sites__site_id__get"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete Static Site
+         * @description Delete a static site, then regenerate and reload nginx.
+         */
+        delete: operations["delete_static_site_api_v1_static_sites__site_id__delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Update Static Site
+         * @description Partially update a static site, then regenerate and reload nginx.
+         */
+        patch: operations["update_static_site_api_v1_static_sites__site_id__patch"];
         trace?: never;
     };
     "/api/v1/streams": {
@@ -3851,6 +3943,45 @@ export interface components {
             mode: components["schemas"]["ErrorPageMode"];
         };
         /**
+         * FolderEntry
+         * @description One sub-folder of the sites mount, for the folder picker.
+         */
+        FolderEntry: {
+            /**
+             * Has Index
+             * @description Whether the folder holds an index.html
+             */
+            has_index: boolean;
+            /**
+             * Path
+             * @description Path relative to the sites mount, e.g. clients/acme
+             */
+            path: string;
+            /**
+             * Readable
+             * @description Whether the backend could list the folder
+             */
+            readable: boolean;
+        };
+        /**
+         * FoldersResult
+         * @description The folders a site can serve, or why there are none.
+         */
+        FoldersResult: {
+            /**
+             * Available
+             * @description Whether the sites mount holds anything
+             */
+            available: boolean;
+            /** Folders */
+            folders?: components["schemas"]["FolderEntry"][];
+            /**
+             * Reason
+             * @description Why nothing is available, when it is not
+             */
+            reason?: ("not_mounted" | "empty") | null;
+        };
+        /**
          * ForgotPasswordRequest
          * @description Body for ``POST /auth/forgot-password``.
          */
@@ -3999,6 +4130,8 @@ export interface components {
             proxy_hosts_total: number;
             /** Redirection Hosts */
             redirection_hosts: number;
+            /** Static Sites */
+            static_sites: number;
             /** Streams */
             streams: number;
         };
@@ -4027,6 +4160,19 @@ export interface components {
             domain_names: string[];
             /** Name */
             name: string;
+        };
+        /**
+         * LiveTicket
+         * @description What opens the Live logs WebSocket: pass ``ticket`` as ``?ticket=``.
+         */
+        LiveTicket: {
+            /**
+             * Expires In
+             * @description Seconds the ticket stays valid for.
+             */
+            expires_in: number;
+            /** Ticket */
+            ticket: string;
         };
         /**
          * LlmSettingsUpdate
@@ -4443,7 +4589,7 @@ export interface components {
              * Kind
              * @enum {string}
              */
-            kind: "proxy" | "redirection" | "dead";
+            kind: "proxy" | "redirection" | "dead" | "static";
             /**
              * Name
              * @description The host's first domain name
@@ -5152,6 +5298,203 @@ export interface components {
             smtp_security: components["schemas"]["SmtpSecurity"];
             /** Smtp Username */
             smtp_username?: string | null;
+        };
+        /**
+         * StaticSiteCreate
+         * @description Payload to create a static site.
+         */
+        StaticSiteCreate: {
+            /**
+             * Access List Id
+             * @description Access list guarding the site; null leaves it public
+             */
+            access_list_id?: number | null;
+            /**
+             * Advanced Config
+             * @description Raw nginx directives injected into the server block
+             * @default
+             */
+            advanced_config: string;
+            /**
+             * Block Exploits
+             * @description Block common exploit probes
+             * @default false
+             */
+            block_exploits: boolean;
+            /**
+             * Certificate Id
+             * @description Certificate for TLS termination; null serves plain :80
+             */
+            certificate_id?: number | null;
+            /**
+             * Crowdsec Enabled
+             * @description Refuse IPs CrowdSec has banned (and inspect with AppSec)
+             * @default true
+             */
+            crowdsec_enabled: boolean;
+            /**
+             * Domain Names
+             * @description Domains this site answers for (server_name)
+             */
+            domain_names: string[];
+            /**
+             * Enabled
+             * @description Disabled sites are excluded from config
+             * @default true
+             */
+            enabled: boolean;
+            /**
+             * Folder
+             * @description Folder under the sites mount holding the site's files
+             */
+            folder: string;
+            /**
+             * Hsts Enabled
+             * @description Emit a Strict-Transport-Security header
+             * @default false
+             */
+            hsts_enabled: boolean;
+            /**
+             * Hsts Subdomains
+             * @description Include subdomains in HSTS
+             * @default false
+             */
+            hsts_subdomains: boolean;
+            /**
+             * Http2 Support
+             * @description Enable HTTP/2 on the TLS listener
+             * @default false
+             */
+            http2_support: boolean;
+            /**
+             * Ssl Forced
+             * @description Redirect :80 to HTTPS
+             * @default false
+             */
+            ssl_forced: boolean;
+        };
+        /**
+         * StaticSiteRead
+         * @description Public representation of a static site, with what its folder holds.
+         */
+        StaticSiteRead: {
+            /**
+             * Access List Id
+             * @description Access list guarding the site; null leaves it public
+             */
+            access_list_id?: number | null;
+            /**
+             * Advanced Config
+             * @description Raw nginx directives injected into the server block
+             * @default
+             */
+            advanced_config: string;
+            /**
+             * Block Exploits
+             * @description Block common exploit probes
+             * @default false
+             */
+            block_exploits: boolean;
+            /**
+             * Certificate Id
+             * @description Certificate for TLS termination; null serves plain :80
+             */
+            certificate_id?: number | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Crowdsec Enabled
+             * @description Refuse IPs CrowdSec has banned (and inspect with AppSec)
+             * @default true
+             */
+            crowdsec_enabled: boolean;
+            /**
+             * Domain Names
+             * @description Domains this site answers for (server_name)
+             */
+            domain_names: string[];
+            /**
+             * Enabled
+             * @description Disabled sites are excluded from config
+             * @default true
+             */
+            enabled: boolean;
+            /**
+             * Folder
+             * @description Folder under the sites mount holding the site's files
+             */
+            folder: string;
+            /**
+             * Folder Status
+             * @description What the backend found at the folder (advisory)
+             * @default ok
+             * @enum {string}
+             */
+            folder_status: "ok" | "no_index" | "missing" | "unreadable" | "symlink" | "unmounted";
+            /**
+             * Hsts Enabled
+             * @description Emit a Strict-Transport-Security header
+             * @default false
+             */
+            hsts_enabled: boolean;
+            /**
+             * Hsts Subdomains
+             * @description Include subdomains in HSTS
+             * @default false
+             */
+            hsts_subdomains: boolean;
+            /**
+             * Http2 Support
+             * @description Enable HTTP/2 on the TLS listener
+             * @default false
+             */
+            http2_support: boolean;
+            /** Id */
+            id: number;
+            /**
+             * Ssl Forced
+             * @description Redirect :80 to HTTPS
+             * @default false
+             */
+            ssl_forced: boolean;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /**
+         * StaticSiteUpdate
+         * @description Partial update of a static site; every field is optional.
+         */
+        StaticSiteUpdate: {
+            /** Access List Id */
+            access_list_id?: number | null;
+            /** Advanced Config */
+            advanced_config?: string | null;
+            /** Block Exploits */
+            block_exploits?: boolean | null;
+            /** Certificate Id */
+            certificate_id?: number | null;
+            /** Crowdsec Enabled */
+            crowdsec_enabled?: boolean | null;
+            /** Domain Names */
+            domain_names?: string[] | null;
+            /** Enabled */
+            enabled?: boolean | null;
+            /** Folder */
+            folder?: string | null;
+            /** Hsts Enabled */
+            hsts_enabled?: boolean | null;
+            /** Hsts Subdomains */
+            hsts_subdomains?: boolean | null;
+            /** Http2 Support */
+            http2_support?: boolean | null;
+            /** Ssl Forced */
+            ssl_forced?: boolean | null;
         };
         /**
          * StreamCreate
@@ -8000,6 +8343,26 @@ export interface operations {
             };
         };
     };
+    issue_live_ticket_api_v1_live_logs_ticket_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LiveTicket"];
+                };
+            };
+        };
+    };
     preview_nginx_config_api_v1_nginx_preview_get: {
         parameters: {
             query?: never;
@@ -8779,6 +9142,174 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MailTestResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_static_sites_api_v1_static_sites_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaticSiteRead"][];
+                };
+            };
+        };
+    };
+    create_static_site_api_v1_static_sites_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StaticSiteCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaticSiteRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_folders_api_v1_static_sites_folders_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FoldersResult"];
+                };
+            };
+        };
+    };
+    get_static_site_api_v1_static_sites__site_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                site_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaticSiteRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_static_site_api_v1_static_sites__site_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                site_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_static_site_api_v1_static_sites__site_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                site_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StaticSiteUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaticSiteRead"];
                 };
             };
             /** @description Validation Error */

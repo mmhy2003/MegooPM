@@ -38,11 +38,12 @@ log = logging.getLogger(__name__)
 
 CHANNEL_PREFIX = "megoopm:live:"
 
-# p<id> proxy, r<id> redirection, d<id> dead, s<id> stream, u the default
-# servers, n nginx itself (its own messages, no host), and all: every host's
-# lines plus nginx's own, which the relay also publishes on one channel.
+# p<id> proxy, r<id> redirection, d<id> dead, s<id> stream, w<id> static site,
+# u the default servers, n nginx itself (its own messages, no host), and all:
+# every host's lines plus nginx's own, which the relay also publishes on one
+# channel.
 # Anchored with \Z, not $: `$` also matches before a trailing newline.
-_HOST_KEY = re.compile(r"(?:[prds][1-9]\d*|u|n|all)\Z")
+_HOST_KEY = re.compile(r"(?:[prdsw][1-9]\d*|u|n|all)\Z")
 
 
 def parse_host_key(key: str) -> str:

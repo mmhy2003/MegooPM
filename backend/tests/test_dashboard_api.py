@@ -14,6 +14,7 @@ from app.core.config import settings
 from app.db.base import Base
 from app.db.session import get_session
 from app.main import app
+from app.models.static_site import StaticSite
 from app.models.user import UserRole
 from app.services import user as user_service
 from httpx import ASGITransport, AsyncClient
@@ -91,6 +92,7 @@ async def test_summary_counts_hosts_and_certificates(
 ) -> None:
     body = (await client.get("/api/v1/dashboard/summary", headers=auth)).json()
     assert body["inventory"]["proxy_hosts_total"] == 0
+    assert body["inventory"]["static_sites"] == 0
     assert body["certificates"]["expiring_soon"] == 0
     assert body["certificates"]["total"] == 0
 
@@ -190,3 +192,17 @@ async def test_summary_reports_the_last_config_apply(
 
     assert body["config"]["last_apply_ok"] is False
     assert body["config"]["last_apply_at"].startswith("2026-10-18T12:00:00")
+
+
+async def test_summary_counts_static_sites(
+    pg_conn, client: AsyncClient, auth: dict[str, str]
+) -> None:
+    factory = async_sessionmaker(
+        bind=pg_conn, expire_on_commit=False, join_transaction_mode="create_savepoint"
+    )
+    async with factory() as session:
+        session.add(StaticSite(domain_names=["docs.example.com"], folder="docs"))
+        await session.commit()
+
+    body = (await client.get("/api/v1/dashboard/summary", headers=auth)).json()
+    assert body["inventory"]["static_sites"] == 1

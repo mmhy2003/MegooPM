@@ -79,7 +79,7 @@ nginx                                the relay (stream server, same nginx)      
    carry their real host.
 
 **Host keys.** `p<id>` proxy host, `r<id>` redirection host, `d<id>` 404
-(dead) host, `s<id>` stream host, `u` unclaimed (the default servers), `n`
+(dead) host, `s<id>` stream host, `w<id>` static site, `u` unclaimed (the default servers), `n`
 nginx itself. The channel is `megoopm:live:<key>`, an error line's syslog tag
 `mgm_<key>`, and an access line's `k` the key itself. `all` is a watch key and
 a channel, never a host: the relay drops a line that names it.

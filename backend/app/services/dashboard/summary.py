@@ -20,6 +20,7 @@ from app.models.dead_host import DeadHost
 from app.models.enums import CertificateStatus
 from app.models.proxy_host import ProxyHost
 from app.models.redirection_host import RedirectionHost
+from app.models.static_site import StaticSite
 from app.models.stream import Stream
 from app.schemas.dashboard import (
     CertificateHealth,
@@ -68,6 +69,7 @@ async def _inventory(db: AsyncSession) -> InventoryCounts:
         proxy_hosts_enabled=await _count(db, ProxyHost, ProxyHost.enabled.is_(True)),
         redirection_hosts=await _count(db, RedirectionHost),
         dead_hosts=await _count(db, DeadHost),
+        static_sites=await _count(db, StaticSite),
         streams=await _count(db, Stream),
     )
 

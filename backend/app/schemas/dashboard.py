@@ -28,6 +28,7 @@ class InventoryCounts(BaseModel):
     proxy_hosts_enabled: int
     redirection_hosts: int
     dead_hosts: int
+    static_sites: int
     streams: int
 
 

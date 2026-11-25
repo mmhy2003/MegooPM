@@ -16,6 +16,7 @@ from app.db.base import Base
 from app.models.dead_host import DeadHost
 from app.models.proxy_host import ProxyHost
 from app.models.redirection_host import RedirectionHost
+from app.models.static_site import StaticSite
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.pool import NullPool
 
@@ -71,6 +72,8 @@ async def test_protected_hosts_are_every_crowdsec_host(pg_session: AsyncSession)
                 crowdsec_enabled=True,
             ),
             DeadHost(domain_names=["gone.example.com"], crowdsec_enabled=True),
+            StaticSite(domain_names=["docs.example.com"], folder="docs", crowdsec_enabled=True),
+            StaticSite(domain_names=["raw.example.com"], folder="raw", crowdsec_enabled=False),
         ]
     )
     await pg_session.flush()
@@ -81,4 +84,5 @@ async def test_protected_hosts_are_every_crowdsec_host(pg_session: AsyncSession)
         ("dead", "gone.example.com"),
         ("proxy", "cloud.example.com"),
         ("redirection", "moved.example.com"),
+        ("static", "docs.example.com"),
     ]

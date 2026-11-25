@@ -33,6 +33,7 @@ from app.models.dead_host import DeadHost
 from app.models.enums import AuditAction, CrowdSecJobKind
 from app.models.proxy_host import ProxyHost
 from app.models.redirection_host import RedirectionHost
+from app.models.static_site import StaticSite
 from app.schemas.crowdsec import (
     Alert,
     AlertList,
@@ -546,7 +547,12 @@ async def maintenance(_admin: AdminUser, db: SessionDep) -> CrowdSecMaintenance:
 
 # --- Security → Settings: the WAF body limit --------------------------------------
 
-_HOST_KINDS = (("dead", DeadHost), ("proxy", ProxyHost), ("redirection", RedirectionHost))
+_HOST_KINDS = (
+    ("dead", DeadHost),
+    ("proxy", ProxyHost),
+    ("redirection", RedirectionHost),
+    ("static", StaticSite),
+)
 
 
 async def _protected_hosts(db: SessionDep) -> list[ProtectedHost]:

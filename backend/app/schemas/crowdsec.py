@@ -206,7 +206,7 @@ class CapiCredentialHealth(BaseModel):
 class ProtectedHost(BaseModel):
     """A host whose requests go through CrowdSec, and so through the WAF."""
 
-    kind: Literal["proxy", "redirection", "dead"]
+    kind: Literal["proxy", "redirection", "dead", "static"]
     id: int
     name: str = Field(description="The host's first domain name")
 
