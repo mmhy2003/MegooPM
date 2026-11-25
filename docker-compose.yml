@@ -110,6 +110,7 @@ services:
       - app_data:/data
       # Backups: the backend lists and streams them, the worker writes them.
       - ${BACKUP_PATH:-./backups}:/backups
+      - ${SITES_PATH:-./sites}:/sites:ro
     depends_on:
       db:
         condition: service_healthy
@@ -140,6 +141,7 @@ services:
       - app_data:/data
       # Backups: the backend lists and streams them, the worker writes them.
       - ${BACKUP_PATH:-./backups}:/backups
+      - ${SITES_PATH:-./sites}:/sites:ro
       # Reload path: the worker restarts the CrowdSec container so it
       # re-reads the whitelist parser file. Mounted here and deliberately NOT
       # on `backend` — the socket is root-equivalent on the host and backend is
@@ -214,6 +216,7 @@ services:
       - "${NGINX_HTTPS_PORT:-443}:443"
     volumes:
       - ./infra/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ${SITES_PATH:-./sites}:/sites:ro
       - app_data:/data
     depends_on:
       data-init:

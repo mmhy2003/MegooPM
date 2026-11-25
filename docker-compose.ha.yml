@@ -97,6 +97,7 @@ services:
       - ${SHARED_DATA_PATH:?}:/data
       # Backups: the backend lists and streams them, the worker writes them.
       - ${BACKUP_PATH:?BACKUP_PATH is required (shared path, identical on every node)}:/backups
+      - ${SITES_PATH:?SITES_PATH is required (shared path, identical on every node)}:/sites:ro
     depends_on:
       data-init:
         condition: service_completed_successfully
@@ -123,6 +124,7 @@ services:
       - ${SHARED_DATA_PATH:?}:/data
       # Backups: the backend lists and streams them, the worker writes them.
       - ${BACKUP_PATH:?BACKUP_PATH is required (shared path, identical on every node)}:/backups
+      - ${SITES_PATH:?SITES_PATH is required (shared path, identical on every node)}:/sites:ro
       # Reload path: the worker restarts the CrowdSec container so it
       # re-reads the whitelist parser file. Mounted here and deliberately NOT
       # on `backend` — the socket is root-equivalent on the host and backend is
@@ -165,6 +167,7 @@ services:
       - "${NGINX_HTTPS_PORT:-443}:443"
     volumes:
       - ./infra/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ${SITES_PATH:?SITES_PATH is required (shared path, identical on every node)}:/sites:ro
       - ${SHARED_DATA_PATH:?}:/data
     depends_on:
       data-init:

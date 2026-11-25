@@ -76,6 +76,12 @@ worker on one node. Point every node at one shared directory, or a backup
 exists on disk and the UI shows nothing. Details in
 [`backups.md`](backups.md).
 
+`SITES_PATH` (host, compose only; e.g. `/mnt/megoopm/sites`) is required under
+HA for the same reason: every node's nginx serves a static site from the
+folder it has mounted at `/sites`, so a site copied to one node's disk only
+would load or 404 depending on which node answers. Put it on the shared mount.
+Details in [`static-sites.md`](static-sites.md).
+
 Because certs and the ACME account key live on the shared mount, **any** node can
 issue, renew, and serve TLS. htpasswd sidecars are written into `conf.d` with the
 `megoopm-` prefix, so they ride the same volume and the same atomic-write path.

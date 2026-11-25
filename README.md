@@ -122,6 +122,10 @@ admin API must pass WebSocket upgrades. The socket's URL carries a 30-second
 ticket that proxies' access logs will record. See
 [`docs/live-logs.md`](docs/live-logs.md).
 
+The **Static Sites** page serves plain HTML from a host folder (`SITES_PATH`,
+mounted read-only at `/sites`), one sub-folder per site. See
+[`docs/static-sites.md`](docs/static-sites.md).
+
 ## Attribution
 
 Visitor analytics resolves countries using the

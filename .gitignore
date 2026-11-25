@@ -36,3 +36,7 @@ venv/
 
 # Superpowers execution scratch (ledgers, briefs, review packages).
 .superpowers/
+
+# Static Sites content (SITES_PATH default); the folder itself stays tracked.
+sites/*
+!sites/.gitkeep
