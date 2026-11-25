@@ -180,6 +180,25 @@ class RedirectionHostSpec:
 
 
 @dataclass(frozen=True, slots=True)
+class StaticSiteSpec:
+    """A vhost serving the files of one folder under the sites mount."""
+
+    id: int
+    domain_names: tuple[str, ...]
+    # Relative to ``settings.sites_root``; validated by the schema's rule.
+    folder: str
+    certificate: CertificateSpec | None = None
+    access_list: AccessListSpec | None = None
+    ssl_forced: bool = False
+    http2_support: bool = False
+    hsts_enabled: bool = False
+    hsts_subdomains: bool = False
+    block_exploits: bool = False
+    crowdsec_enabled: bool = True
+    advanced_config: str = ""
+
+
+@dataclass(frozen=True, slots=True)
 class DeadHostSpec:
     """A parked ``server {}`` block that always answers 404."""
 
@@ -306,8 +325,8 @@ class DesiredState:
     render alongside it; the loader guarantees this so no orphan ``upstream``
     blocks are written.
 
-    ``proxy_hosts``, ``redirection_hosts`` and ``dead_hosts`` render into the
-    HTTP ``conf.d`` directory; ``streams`` render into a separate directory that
+    ``proxy_hosts``, ``redirection_hosts``, ``static_sites`` and ``dead_hosts``
+    render into the HTTP ``conf.d`` directory; ``streams`` render into a separate directory that
     the base config includes from the top-level ``stream {}`` context (TCP/UDP
     forwarding cannot live inside ``http {}``).
 
@@ -324,6 +343,7 @@ class DesiredState:
     http_upstreams: tuple[UpstreamSpec, ...] = field(default_factory=tuple)
     stream_upstreams: tuple[UpstreamSpec, ...] = field(default_factory=tuple)
     redirection_hosts: tuple[RedirectionHostSpec, ...] = field(default_factory=tuple)
+    static_sites: tuple[StaticSiteSpec, ...] = field(default_factory=tuple)
     dead_hosts: tuple[DeadHostSpec, ...] = field(default_factory=tuple)
     streams: tuple[StreamSpec, ...] = field(default_factory=tuple)
     default_site: DefaultSiteSpec | None = None
@@ -343,6 +363,7 @@ __all__ = [
     "AccessListSpec",
     "ProxyHostSpec",
     "RedirectionHostSpec",
+    "StaticSiteSpec",
     "DeadHostSpec",
     "StreamSpec",
     "DefaultSiteSpec",

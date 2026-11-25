@@ -1,0 +1,174 @@
+{# Renders the `server {}` block(s) for one MegooPM static site.
+
+   Serves the files of `{{ sites_root }}/<folder>` as they are: no build step,
+   no SPA fallback. nginx never follows a symlink (`disable_symlinks on`), never
+   lists a folder, and answers 404 for any dot-path except `/.well-known/`.
+
+   Error pages: the site's own `<code>.html` at the folder root when it has one,
+   else the branded MegooPM page. The site's `error_page` lines come before the
+   shared include because, for one status, the first `error_page` wins.
+
+   - No certificate      -> a single plain :80 server.
+   - Certificate present -> a :443 TLS server, plus a :80 server that either
+     bounces to HTTPS (ssl_forced) or serves the site too. #}
+{%- from "_live_log.j2" import live_log, crowdsec_server_rewrite -%}
+{%- macro crowdsec(phase="access") -%}
+{%- if host.crowdsec_enabled %}
+{%- if phase == "server_rewrite" %}
+    # CrowdSec bouncer, in the server-rewrite phase: this server only redirects
+    # to HTTPS with `return`, which runs before the access phase.
+{{- crowdsec_server_rewrite("w" ~ host.id) }}
+{%- else %}
+    # CrowdSec bouncer: banned IPs are refused before any file is served.
+    access_by_lua_file /etc/nginx/lua/megoopm_crowdsec.lua;
+{%- endif %}
+{%- endif %}
+{%- endmacro -%}
+{%- macro access_control() -%}
+{%- if host.access_list %}
+    # Access list "{{ host.access_list.name }}".
+{%- if htpasswd_path %}
+    auth_basic "{{ host.access_list.name }}";
+    auth_basic_user_file {{ htpasswd_path }};
+{%- endif %}
+{%- for rule in host.access_list.client_rules %}
+    {{ rule.directive }} {{ rule.address }};
+{%- endfor %}
+{%- if htpasswd_path and host.access_list.client_rules %}
+    # Pass if EITHER gate is satisfied (any) or require BOTH (all).
+    satisfy {{ 'any' if host.access_list.satisfy_any else 'all' }};
+{%- endif %}
+{%- endif %}
+{%- endmacro -%}
+{%- macro open_to_all() -%}
+{%- if host.access_list %}
+        auth_basic off;
+        allow all;
+{%- endif %}
+{%- endmacro -%}
+{%- macro security() -%}
+{%- if host.block_exploits %}
+    # Block common exploit probes.
+    if ($request_uri ~* "(<|%3C).*script.*(>|%3E)") { return 403; }
+    if ($request_uri ~* "(\.\./|\.\.%2f)") { return 403; }
+    if ($query_string ~* "union.*select.*\(") { return 403; }
+{%- endif %}
+{%- endmacro -%}
+{%- macro hsts() -%}
+{%- if host.hsts_enabled %}
+    add_header Strict-Transport-Security "max-age=63072000{% if host.hsts_subdomains %}; includeSubDomains{% endif %}" always;
+{%- endif %}
+{%- endmacro -%}
+{%- macro error_pages(site=true) %}
+{%- if site %}
+    # The site's own error pages first (see the header), then the branded ones.
+{%- for code in codes %}
+    error_page {{ code }} @site_{{ code }};
+{%- endfor %}
+{%- else %}
+    # Branded error pages for the statuses nginx itself produces.
+{%- endif %}
+    include {{ default_dir }}/{{ errors_conf }};
+{%- endmacro -%}
+{%- macro acme_challenge() %}
+
+    # ACME HTTP-01 challenge webroot (Let's Encrypt issuance/renewal).
+    location ^~ /.well-known/acme-challenge/ {
+        default_type "text/plain";
+        alias {{ acme_challenge_root }}/;
+{%- if host.access_list %}
+        # Challenge must stay reachable even when the site is access-controlled.
+{%- endif %}
+{{- open_to_all() }}
+    }
+{%- endmacro -%}
+{%- macro serve() %}
+
+    root {{ sites_root }}/{{ host.folder }};
+    index index.html;
+    autoindex off;
+    disable_symlinks on;
+
+    # Other /.well-known/ files (security.txt, apple-app-site-association, …)
+    # are served; every other dot-path (.git, .env, …) is not.
+    location ^~ /.well-known/ {
+        try_files $uri =404;
+    }
+
+    location ~ /\. {
+        return 404;
+    }
+
+    location / {
+        try_files $uri $uri/ =404;
+    }
+{%- for code in codes %}
+
+    location @site_{{ code }} {
+{{- open_to_all() }}
+        try_files /{{ code }}.html @mgm_{{ code }};
+    }
+
+    location @mgm_{{ code }} {
+        root {{ default_dir }};
+{{- open_to_all() }}
+        try_files /{{ document(code) }} =404;
+    }
+{%- endfor %}
+{%- if host.advanced_config %}
+
+    {{ host.advanced_config | indent(4) }}
+{%- endif %}
+{%- endmacro -%}
+# Managed by MegooPM — do not edit by hand.
+# static site id={{ host.id }}
+{%- if host.certificate %}
+server {
+{{- error_pages(not host.ssl_forced) }}
+    listen 80;
+    server_name {{ server_names }};
+{{- live_log("w" ~ host.id, host.crowdsec_enabled and host.ssl_forced) }}
+{{- crowdsec("server_rewrite" if host.ssl_forced else "access") }}
+{{- acme_challenge() }}
+{%- if host.ssl_forced %}
+
+    location / {
+        return 301 https://$host$request_uri;
+    }
+{%- else %}
+{{- access_control() }}
+{{- security() }}
+{{- serve() }}
+{%- endif %}
+}
+
+server {
+{{- error_pages() }}
+    listen 443 ssl;
+{%- if host.http2_support %}
+    http2 on;
+{%- endif %}
+    server_name {{ server_names }};
+{{- live_log("w" ~ host.id) }}
+{{- crowdsec() }}
+
+    ssl_certificate {{ host.certificate.fullchain_path }};
+    ssl_certificate_key {{ host.certificate.privkey_path }};
+{{- hsts() }}
+{{- access_control() }}
+{{- security() }}
+{{- serve() }}
+}
+{%- else %}
+server {
+{{- error_pages() }}
+    listen 80;
+    server_name {{ server_names }};
+{{- live_log("w" ~ host.id) }}
+{{- crowdsec() }}
+{{- acme_challenge() }}
+{{- access_control() }}
+{{- security() }}
+{{- serve() }}
+}
+{%- endif %}

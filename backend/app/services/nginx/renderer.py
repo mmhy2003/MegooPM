@@ -31,6 +31,7 @@ from app.services.nginx.state import (
     MaintenanceSpec,
     ProxyHostSpec,
     RedirectionHostSpec,
+    StaticSiteSpec,
     StreamSpec,
     UpstreamSpec,
 )
@@ -194,6 +195,29 @@ def _render_redirection_host(host: RedirectionHostSpec) -> str:
     )
 
 
+def _render_static_site(site: StaticSiteSpec) -> str:
+    access_list = site.access_list
+    return (
+        _env()
+        .get_template("static_site.conf.j2")
+        .render(
+            host=site,
+            default_dir=settings.nginx_default_dir,
+            errors_conf=ERRORS_CONF,
+            server_names=" ".join(site.domain_names),
+            acme_challenge_root=settings.acme_http_challenge_dir,
+            sites_root=settings.sites_root,
+            codes=ERROR_CODES,
+            document=error_html,
+            htpasswd_path=(
+                htpasswd_path(access_list.id)
+                if access_list is not None and access_list.auth_users
+                else None
+            ),
+        )
+    )
+
+
 def _render_dead_host(host: DeadHostSpec) -> str:
     return (
         _env()
@@ -237,7 +261,7 @@ def _render_stream(stream: StreamSpec) -> str:
 def render_config(state: DesiredState) -> dict[str, str]:
     """Render the HTTP-context files to a ``{filename: contents}`` mapping.
 
-    Covers upstreams, proxy hosts, redirection hosts and dead hosts — everything
+    Covers upstreams, proxy hosts, redirection hosts, static sites and dead hosts — everything
     that lives inside nginx's ``http {}`` context (the shared ``conf.d`` dir).
     Streams render separately via :func:`render_stream_config` because TCP/UDP
     forwarding must live in the top-level ``stream {}`` context.
@@ -258,6 +282,11 @@ def render_config(state: DesiredState) -> dict[str, str]:
             files[htpasswd_filename(access_list.id)] = _render_htpasswd(access_list)
     for redirect in state.redirection_hosts:
         files[f"megoopm-redirect-{redirect.id}.conf"] = _render_redirection_host(redirect)
+    for site in state.static_sites:
+        access_list = site.access_list
+        if access_list is not None and access_list.auth_users:
+            files[htpasswd_filename(access_list.id)] = _render_htpasswd(access_list)
+        files[f"megoopm-static-{site.id}.conf"] = _render_static_site(site)
     for dead in state.dead_hosts:
         files[f"megoopm-dead-{dead.id}.conf"] = _render_dead_host(dead)
     # One :443 block per certificate, serving the default site for the names

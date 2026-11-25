@@ -40,6 +40,7 @@ from app.models.error_page import ErrorPage
 from app.models.instance_settings import InstanceSettings
 from app.models.proxy_host import ProxyHost, ProxyHostLocation
 from app.models.redirection_host import RedirectionHost
+from app.models.static_site import StaticSite
 from app.models.stream import Stream
 from app.models.upstream import Upstream
 from app.services.nginx.default_tls import claimed_tls_names, plan_default_tls
@@ -58,6 +59,7 @@ from app.services.nginx.state import (
     MaintenanceSpec,
     ProxyHostSpec,
     RedirectionHostSpec,
+    StaticSiteSpec,
     StreamSpec,
     UpstreamSpec,
 )
@@ -242,6 +244,7 @@ async def load_desired_state(
     upstream_specs = tuple(upstreams[i] for i in sorted(referenced))
 
     redirection_specs = await _load_redirection_hosts(session, certs_dir)
+    static_specs = await _load_static_sites(session, certs_dir)
     dead_specs = await _load_dead_hosts(session, certs_dir)
     stream_specs, stream_upstream_specs = await _load_streams(session, certs_dir)
     default_site = await _load_default_site(session)
@@ -253,6 +256,7 @@ async def load_desired_state(
         proxy_hosts=tuple(host_specs),
         http_upstreams=upstream_specs,
         redirection_hosts=redirection_specs,
+        static_sites=static_specs,
         dead_hosts=dead_specs,
         streams=stream_specs,
         stream_upstreams=stream_upstream_specs,
@@ -404,6 +408,39 @@ async def _load_redirection_hosts(
             advanced_config=r.advanced_config,
         )
         for r in rows
+    )
+
+
+async def _load_static_sites(session: AsyncSession, certs_dir: str) -> tuple[StaticSiteSpec, ...]:
+    stmt = (
+        select(StaticSite)
+        .where(StaticSite.enabled.is_(True))
+        .options(
+            selectinload(StaticSite.certificate),
+            selectinload(StaticSite.access_list).selectinload(AccessList.auth_users),
+            selectinload(StaticSite.access_list).selectinload(AccessList.client_rules),
+        )
+        .order_by(StaticSite.id)
+    )
+    rows = (await session.scalars(stmt)).all()
+    return tuple(
+        StaticSiteSpec(
+            id=s.id,
+            domain_names=tuple(s.domain_names),
+            folder=s.folder,
+            certificate=(
+                _certificate_spec(s.certificate, certs_dir) if s.certificate is not None else None
+            ),
+            access_list=(_access_list_spec(s.access_list) if s.access_list is not None else None),
+            ssl_forced=s.ssl_forced,
+            http2_support=s.http2_support,
+            hsts_enabled=s.hsts_enabled,
+            hsts_subdomains=s.hsts_subdomains,
+            block_exploits=s.block_exploits,
+            crowdsec_enabled=s.crowdsec_enabled,
+            advanced_config=s.advanced_config,
+        )
+        for s in rows
     )
 
 

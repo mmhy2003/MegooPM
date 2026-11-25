@@ -30,6 +30,7 @@ from app.services.nginx.state import (
     DesiredState,
     ProxyHostSpec,
     RedirectionHostSpec,
+    StaticSiteSpec,
     StreamSpec,
     UpstreamSpec,
 )
@@ -54,6 +55,7 @@ __all__ = [
     "ProxyHostSpec",
     "RedirectionHostSpec",
     "ShellNginxController",
+    "StaticSiteSpec",
     "StreamSpec",
     "UpstreamSpec",
     "apply_config",

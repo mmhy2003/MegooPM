@@ -77,7 +77,7 @@ def claimed_tls_names(state: DesiredState) -> set[str]:
     host with no certificate is deliberately NOT counted: it has nothing on
     :443 today, which is precisely why HTTPS to it lands on a stranger's site.
     """
-    hosts = (*state.proxy_hosts, *state.redirection_hosts, *state.dead_hosts)
+    hosts = (*state.proxy_hosts, *state.redirection_hosts, *state.static_sites, *state.dead_hosts)
     return {name for host in hosts if host.certificate is not None for name in host.domain_names}
 
 
