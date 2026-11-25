@@ -15,6 +15,7 @@ until they are.
 
 from __future__ import annotations
 
+import asyncio
 from pathlib import Path
 
 from fastapi import APIRouter, HTTPException, Response, status
@@ -37,23 +38,36 @@ router = APIRouter(tags=["static-sites"])
 _NOT_FOUND = "Static site not found"
 
 
-def _read(site: StaticSite) -> StaticSiteRead:
-    out = StaticSiteRead.model_validate(site)
-    out.folder_status = static_site_service.folder_status(Path(settings.sites_root), site.folder)
+def _statuses(folders: list[str]) -> list[str]:
+    root = Path(settings.sites_root)
+    return [static_site_service.folder_status(root, folder) for folder in folders]
+
+
+async def _read_all(sites: list[StaticSite]) -> list[StaticSiteRead]:
+    # The checks stat the sites mount, which under HA is a shared NFS export:
+    # off the event loop, so a stalled mount stalls this request, not the node.
+    statuses = await asyncio.to_thread(_statuses, [s.folder for s in sites])
+    out = [StaticSiteRead.model_validate(s) for s in sites]
+    for read, folder_status in zip(out, statuses, strict=True):
+        read.folder_status = folder_status
     return out
+
+
+async def _read(site: StaticSite) -> StaticSiteRead:
+    return (await _read_all([site]))[0]
 
 
 @router.get("", response_model=list[StaticSiteRead])
 async def list_static_sites(_user: AdminUser, db: SessionDep) -> list[StaticSiteRead]:
     """List all static sites."""
     sites = await static_site_service.list_static_sites(db)
-    return [_read(s) for s in sites]
+    return await _read_all(list(sites))
 
 
 @router.get("/folders", response_model=FoldersResult)
 async def list_folders(_user: AdminUser) -> FoldersResult:
     """The folders under the sites mount a site can serve, two levels down."""
-    return static_site_service.list_folders(Path(settings.sites_root))
+    return await asyncio.to_thread(static_site_service.list_folders, Path(settings.sites_root))
 
 
 @router.post("", response_model=StaticSiteRead, status_code=status.HTTP_201_CREATED)
@@ -79,7 +93,7 @@ async def create_static_site(
         object_id=site.id,
         meta={"domain_names": site.domain_names, "folder": site.folder},
     )
-    return _read(site)
+    return await _read(site)
 
 
 @router.get("/{site_id}", response_model=StaticSiteRead)
@@ -88,7 +102,7 @@ async def get_static_site(site_id: int, _user: AdminUser, db: SessionDep) -> Sta
     site = await static_site_service.get_static_site(db, site_id)
     if site is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=_NOT_FOUND)
-    return _read(site)
+    return await _read(site)
 
 
 @router.patch("/{site_id}", response_model=StaticSiteRead)
@@ -118,7 +132,7 @@ async def update_static_site(
         object_id=site.id,
         meta={"changed": sorted(changes)},
     )
-    return _read(site)
+    return await _read(site)
 
 
 @router.delete("/{site_id}", status_code=status.HTTP_204_NO_CONTENT)

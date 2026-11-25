@@ -7,6 +7,7 @@ sites mount is a tmp_path with one site, ``company``, holding an index.html.
 
 from __future__ import annotations
 
+import threading
 from collections.abc import AsyncIterator
 from pathlib import Path
 
@@ -19,6 +20,7 @@ from app.main import app
 from app.models.audit_log import AuditLog
 from app.models.user import UserRole
 from app.schemas.tasks import TaskEnqueued
+from app.services import static_site as static_site_service
 from app.services import user as user_service
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import select
@@ -211,6 +213,38 @@ async def test_folders_when_nothing_is_mounted(client: AsyncClient, auth, monkey
     assert resp.status_code == 200
     assert resp.json()["available"] is False
     assert resp.json()["reason"] == "not_mounted"
+
+
+async def test_folder_checks_stay_off_the_event_loop(
+    client: AsyncClient, auth, monkeypatch
+) -> None:
+    # Under HA /sites is a shared NFS mount: a stalled stat on the event loop
+    # would freeze every request on the node, health checks included.
+    loop_thread = threading.get_ident()
+    threads: list[int] = []
+    real_status = static_site_service.folder_status
+    real_folders = static_site_service.list_folders
+
+    def folder_status(root, folder):
+        threads.append(threading.get_ident())
+        return real_status(root, folder)
+
+    def list_folders(root):
+        threads.append(threading.get_ident())
+        return real_folders(root)
+
+    monkeypatch.setattr(static_site_service, "folder_status", folder_status)
+    monkeypatch.setattr(static_site_service, "list_folders", list_folders)
+
+    created = await _create(client, auth)
+    site_id = created.json()["id"]
+    await client.get(BASE, headers=auth)
+    await client.get(f"{BASE}/{site_id}", headers=auth)
+    await client.patch(f"{BASE}/{site_id}", json={"enabled": False}, headers=auth)
+    await client.get(f"{BASE}/folders", headers=auth)
+
+    assert len(threads) == 5
+    assert loop_thread not in threads
 
 
 async def test_members_are_forbidden(client: AsyncClient, factory) -> None:
