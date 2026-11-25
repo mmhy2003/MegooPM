@@ -65,8 +65,9 @@ The engine moved from v1.6.4 to v1.8.1. Notes measured on v1.8.1:
   the entrypoint runs `cscli … install` for `COLLECTIONS` under `set -e`, and
   each `cscli` hub command looks the latest release up first. That host is
   not behind the firewall that blocks the hub and the API, but a start with
-  no route to it fails. (Pinning `cscli.hub_branch` would remove the lookup;
-  there is no `v1.8.1` hub branch, so it is not done.)
+  no route to it fails. (Pinning `cscli.hub_branch` would remove the lookup,
+  and GitHub's copy of the hub does have a `v1.8.1` branch. It is not done,
+  so that a CrowdSec upgrade picks its own branch.)
 - `cscli version` now prints `Version:`; `cscli hub list -o json` writes a
   `Loaded: …` summary to stderr before the JSON, which the exec's TTY merges
   into the same stream. Both parsers handle the old and the new shape.
@@ -698,6 +699,19 @@ it. While blocked, avoid restarting CrowdSec (a whitelist change or a hub
 upgrade that changes something both restart it), or turn the community
 blocklist off until the block lifts. A hub update that gets a 403 stops
 before any restart and says so.
+
+**A first start while the hub refuses the address.** A fresh install has no
+rules yet and must download them, including the WAF config
+`crowdsecurity/appsec-default` that CrowdSec cannot start without. When the
+hub answers 403 but GitHub's copy of it
+(`raw.githubusercontent.com/crowdsecurity/hub`) answers, the container's
+start script uses GitHub instead and logs
+`megoopm: official hub unreachable, using the GitHub mirror`. The setting
+(`cscli.__hub_url_template__`) stays in `/etc/crowdsec/config.yaml` until a
+start finds the official hub again, and MegooPM's hub updates use it in the
+meantime. With neither hub reachable, the container stops with a message
+naming both addresses, and Docker retries it. An existing install starts on
+what it already has, as before.
 
 To check by hand, from the host:
 

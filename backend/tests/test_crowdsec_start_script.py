@@ -65,6 +65,12 @@ def _image_version() -> str:
     return _compose("docker-compose.yml")["image"].rsplit(":", 1)[1]
 
 
+def _installed_waf_config(tmp_path: Path) -> Path:
+    path = tmp_path / "appsec-default.yaml"
+    path.write_text("name: crowdsecurity/appsec-default\n", encoding="utf-8")
+    return path
+
+
 def _run(
     stock: Path,
     tmp_path: Path,
@@ -81,6 +87,7 @@ def _run(
         "MEGOOPM_PATCHED_START": str(tmp_path / "patched.sh"),
         "MEGOOPM_HOOKS": str(tmp_path / "hooks.sh"),
         "MEGOOPM_HUB_MODE": mode,
+        "MEGOOPM_APPSEC_DEFAULT": str(_installed_waf_config(tmp_path)),
         **(env or {}),
     }
     if exec_ is not None:
@@ -193,6 +200,7 @@ def _hub_run(
     mode: str = "auto",
     stock_text: str = MIRROR_STOCK,
     wget_log: Path | None = None,
+    waf_config: Path | None = None,
 ):
     env = {
         "PATH": f"{_fake_bin(tmp_path)}{os.pathsep}{os.environ['PATH']}",
@@ -203,6 +211,8 @@ def _hub_run(
     }
     if wget_log is not None:
         env["FAKE_WGET_LOG"] = str(wget_log)
+    if waf_config is not None:
+        env["MEGOOPM_APPSEC_DEFAULT"] = str(waf_config)
     return _run(_stock(tmp_path, stock_text), tmp_path, mode=mode, env=env)
 
 
@@ -262,6 +272,22 @@ def test_online_mode_never_probes(tmp_path: Path) -> None:
 def test_offline_mode_leaves_the_setting_alone(tmp_path: Path) -> None:
     done = _hub_run(tmp_path, mode="offline")
     assert "conf_set" not in done.stdout
+
+
+@needs_bash
+def test_a_fresh_install_with_no_hub_stops_with_a_clear_message(tmp_path: Path) -> None:
+    done = _hub_run(tmp_path, waf_config=tmp_path / "missing.yaml")
+    assert done.returncode == 1
+    assert "crowdsecurity/appsec-default" in done.stderr
+    assert OFFICIAL in done.stderr and MIRROR in done.stderr
+    assert "crowdsec running" not in done.stdout
+
+
+@needs_bash
+def test_an_installed_waf_config_starts_without_any_hub(tmp_path: Path) -> None:
+    done = _hub_run(tmp_path)
+    assert done.returncode == 0, done.stderr
+    assert done.stdout.rstrip().endswith("crowdsec running")
 
 
 @needs_bash
@@ -325,7 +351,20 @@ def test_the_real_script_rewrites_cleanly(tmp_path: Path, mode: str) -> None:
         assert calls and all("|| echo" in c for c in calls)
     # Only the call sites change: definitions and everything else stay.
     assert "cscli_if_clean() {" in patched
-    assert patched.rstrip().endswith("exec crowdsec $ARGS")
+    hooks = tmp_path / "hooks.sh"
+    lines = patched.splitlines()
+    assert f". '{hooks}'; megoopm_before_hub; prepare_hub" in lines
+    assert lines[-1] == f". '{hooks}'; megoopm_before_crowdsec; exec crowdsec $ARGS"
+    hooks_syntax = subprocess.run(  # noqa: S603 - fixed argv
+        [BASH, "-n", str(hooks)], capture_output=True, text=True, timeout=30, check=False
+    )
+    assert hooks_syntax.returncode == 0, hooks_syntax.stderr
+
+
+def test_the_real_script_has_the_anchors_the_wrapper_hooks() -> None:
+    lines = _real_stock().read_text(encoding="utf-8").splitlines()
+    assert lines.count("prepare_hub") == 1
+    assert len([line for line in lines if line.startswith("exec crowdsec ")]) == 1
 
 
 # --- wiring -----------------------------------------------------------------------

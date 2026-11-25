@@ -9,14 +9,20 @@
 # and because the bouncer fails closed, every protected host denies traffic
 # until the hub answers again.
 #
-# The hub steps are rewritten before the script runs:
-#   - hub reachable: they run as before, but a failure is logged, not fatal;
-#   - hub unreachable: they are skipped, since each would only wait out its
-#     own network timeout, and CrowdSec starts on the items already installed.
-# A first start still needs the hub: with nothing installed, CrowdSec cannot
-# load its AppSec config and does not start either way.
+# The hub steps are rewritten before the script runs, by which hub answers:
+#   - official: they run as before, but a failure is logged, not fatal;
+#   - mirror (the official hub refuses us, GitHub's copy of it answers): the
+#     same, from GitHub, through cscli.__hub_url_template__ in config.yaml;
+#   - none: they are skipped, since each would only wait out its own network
+#     timeout, and CrowdSec starts on the items already installed.
+# A first start needs the official hub or GitHub: with nothing installed,
+# CrowdSec cannot load its AppSec config, so it stops with a message saying
+# so, and Docker's restart policy tries again.
 #
-# MEGOOPM_HUB_MODE: auto (default) probes the hub; online / offline force it.
+# MEGOOPM_HUB_MODE: auto (default) probes the hubs; online / offline force it
+# (neither uses the mirror). Seams for tests: MEGOOPM_STOCK_START,
+# MEGOOPM_PATCHED_START, MEGOOPM_HOOKS, MEGOOPM_START_EXEC,
+# MEGOOPM_HUB_PROBE_URL, MEGOOPM_MIRROR_PROBE_URL, MEGOOPM_APPSEC_DEFAULT.
 # backend/tests/test_crowdsec_start_script.py runs this against the stock
 # script of the pinned image.
 set -euo pipefail
@@ -24,6 +30,7 @@ set -euo pipefail
 stock=${MEGOOPM_STOCK_START:-/docker_start.sh}
 patched=${MEGOOPM_PATCHED_START:-/tmp/megoopm-docker_start.sh}
 hooks=${MEGOOPM_HOOKS:-/tmp/megoopm-hooks.sh}
+appsec_default=${MEGOOPM_APPSEC_DEFAULT:-/etc/crowdsec/appsec-configs/appsec-default.yaml}
 hub_probe=${MEGOOPM_HUB_PROBE_URL:-https://cdn-hub.crowdsec.net/crowdsecurity/master/.index.json}
 mirror_probe=${MEGOOPM_MIRROR_PROBE_URL:-https://raw.githubusercontent.com/crowdsecurity/hub/master/.index.json}
 # CrowdSec fills in the hub branch and the item path.
@@ -83,6 +90,7 @@ esac
     printf 'megoopm_hub_probe=%q\n' "$hub_probe"
     printf 'megoopm_mirror_probe=%q\n' "$mirror_probe"
     printf 'megoopm_mirror_template=%q\n' "$mirror_template"
+    printf 'megoopm_appsec_default=%q\n' "$appsec_default"
     cat <<'HOOKS'
 log() { echo "megoopm: $*" >&2; }
 
@@ -106,15 +114,37 @@ megoopm_before_hub() {
             ;;
     esac
 }
+
+# CrowdSec dies on a missing AppSec config with an error that names neither
+# the hub nor the address it was refused from. Say what is wrong instead,
+# and let Docker's restart policy try again.
+megoopm_before_crowdsec() {
+    # -e: a hub symlink whose target never arrived counts as missing.
+    [ -e "$megoopm_appsec_default" ] && return 0
+    local why
+    case "$megoopm_hub_state" in
+        none) why="neither answered from this server; the official hub blocks addresses that send too many requests (403), so check that one of them is reachable" ;;
+        offline) why="the hub is switched off (MEGOOPM_HUB_MODE=offline)" ;;
+        *) why="the hub install failed; see the lines above" ;;
+    esac
+    log "CrowdSec's WAF config crowdsecurity/appsec-default is not installed, and CrowdSec cannot start without it." \
+        "A first start downloads it from the official hub ($megoopm_hub_probe) or GitHub ($megoopm_mirror_probe):" \
+        "$why"
+    exit 1
+}
 HOOKS
 } > "$hooks"
 
 if ! grep -qx 'prepare_hub' "$stock"; then
     log "no prepare_hub call found in $stock (has the image changed?); the hub mirror is off"
 fi
+if ! grep -q '^exec crowdsec ' "$stock"; then
+    log "no exec crowdsec line found in $stock (has the image changed?); the WAF config check is off"
+fi
 
 sed -E \
     -e "s/^( *)($steps) (.*)\$/$replacement/" \
     -e "s|^prepare_hub\$|. '$hooks'; megoopm_before_hub; prepare_hub|" \
+    -e "s|^exec crowdsec |. '$hooks'; megoopm_before_crowdsec; exec crowdsec |" \
     "$stock" > "$patched"
 exec "${MEGOOPM_START_EXEC:-/bin/bash}" "$patched" "$@"
